@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pathfinder — Strategy Canvas</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <style>
+
+    /* ── Reset & base ──────────────────────────────────────── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #040714;
+      --surface-1: rgba(255,255,255,.03);
+      --surface-2: rgba(255,255,255,.06);
+      --border-subtle: rgba(255,255,255,.07);
+      --border: rgba(255,255,255,.1);
+      --border-strong: rgba(255,255,255,.22);
+      --text-primary: #f9f9f9;
+      --text-secondary: #cacaca;
+      --text-muted: rgba(255,255,255,.45);
+      --accent: #0063e5;
+      --font: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --text-xs: 0.75rem; --text-sm: 0.875rem; --text-base: 1rem;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --radius-sm: 6px; --radius: 10px; --radius-lg: 15px;
+      --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --dur-fast: 120ms; --dur: 200ms;
+      /* Block type colors */
+      --c-goal:        #a78bfa;
+      --c-problem:     #f87171;
+      --c-requirement: #fbbf24;
+      --c-risk:        #fb923c;
+      --c-question:    #38bdf8;
+      --c-decision:    #34d399;
+      --c-resource:    #2dd4bf;
+      --c-output:      #818cf8;
+      --c-context:     #64748b;
+      --c-custom:      #c084fc;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      height: 100vh;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ────────────────────────────────────────────── */
+    .header-bar {
+      background: linear-gradient(135deg, #B015B0 0%, #3D0080 45%, #080010 100%);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      padding: 0 16px 0 24px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      z-index: 200;
+    }
+
+    .header-logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    .header-logo-img {
+      height: 36px; width: auto; flex-shrink: 0;
+      filter: brightness(0) invert(1);
+      transition: transform 0.3s var(--ease-snap);
+      display: block;
+    }
+    .header-logo-img:hover { transform: scale(1.14) rotate(-9deg); }
+
+    .header-logo h1 { font-size: 1.2em; font-weight: 600; letter-spacing: .5px; }
+    .header-subtitle { font-size: .82em; color: rgba(255,255,255,.72); font-weight: 500; margin-top: 2px; }
+
+    .header-spacer { flex: 1; }
+
+    .header-btn {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15);
+      color: rgba(255,255,255,.9);
+      font-family: var(--font);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--dur), border-color var(--dur);
+      white-space: nowrap;
+    }
+    .header-btn:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.28); }
+
+    /* Export dropdown */
+    .export-wrapper { position: relative; }
+    .export-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: #14142a;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 6px;
+      min-width: 200px;
+      z-index: 999;
+      display: none;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55);
+    }
+    .export-wrapper.open .export-dropdown { display: block; }
+
+    .export-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      transition: background var(--dur-fast);
+    }
+    .export-item:hover { background: var(--surface-2); color: var(--text-primary); }
+    .export-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .65; }
+
+    .header-home {
+      display: flex; align-items: center;
+      margin-left: 4px;
+      padding: 5px;
+      color: rgba(255,255,255,.9);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      transition: color var(--dur), background var(--dur);
+      flex-shrink: 0;
+    }
+    .header-home:hover { color: #fff; background: rgba(255,255,255,.12); }
+    .header-home svg { width: 34px; height: 34px; display: block; }
+
+    /* ── App body ───────────────────────────────────────────── */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Palette ────────────────────────────────────────────── */
+    .palette {
+      width: 200px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,.012);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .palette-header {
+      padding: 12px 16px 8px;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .palette-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--dur-fast);
+      user-select: none;
+    }
+    .palette-item:hover { background: var(--surface-2); }
+    .palette-item:active { background: rgba(255,255,255,.08); }
+
+    .palette-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    .palette-label { font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500; }
+    .palette-desc  { font-size: 11px; color: var(--text-muted); line-height: 1.3; margin-top: 1px; }
+
+    /* ── Canvas ─────────────────────────────────────────────── */
+    .canvas-viewport {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      cursor: default;
+    }
+
+    .canvas-root {
+      position: relative;
+      width: 1px; height: 1px;
+      transform-origin: 0 0;
+    }
+
+    /* SVG arrows layer — sits under blocks */
+    .arrows-layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1px; height: 1px;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    /* Arrow paths */
+    .arrow-path {
+      fill: none;
+      stroke: rgba(255,255,255,.3);
+      stroke-width: 2;
+      pointer-events: none;
+      transition: stroke var(--dur-fast);
+    }
+    .arrow-path.selected { stroke: rgba(255,255,255,.8); }
+
+    .arrow-hitbox {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 14;
+      cursor: pointer;
+      pointer-events: stroke;
+    }
+
+    .arrow-preview {
+      fill: none;
+      stroke: rgba(255,255,255,.38);
+      stroke-width: 2;
+      stroke-dasharray: 7 4;
+      pointer-events: none;
+    }
+
+    /* Empty canvas hint */
+    .canvas-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: rgba(255,255,255,.15);
+      font-size: var(--text-sm);
+      line-height: 1.9;
+      pointer-events: none;
+      user-select: none;
+    }
+    .canvas-hint svg { width: 40px; height: 40px; opacity: .18; display: block; margin: 0 auto 12px; }
+
+    /* ── Blocks ─────────────────────────────────────────────── */
+    .block {
+      position: absolute;
+      width: 220px;
+      border-radius: var(--radius);
+      border-left: 3px solid transparent;
+      border-top: 1px solid rgba(255,255,255,.08);
+      border-right: 1px solid rgba(255,255,255,.08);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(8, 8, 22, 0.88);
+      padding: 10px 12px 10px;
+      cursor: grab;
+      user-select: none;
+      transition: box-shadow var(--dur);
+    }
+    .block:hover { box-shadow: 0 4px 20px rgba(0,0,0,.45); }
+    .block.selected {
+      outline: 2px solid rgba(255,255,255,.38);
+      outline-offset: 2px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.5);
+    }
+    .block.dragging { cursor: grabbing; box-shadow: 0 10px 36px rgba(0,0,0,.55); z-index: 100; }
+
+    /* Type left-border colors */
+    .block[data-type=goal]        { border-left-color: var(--c-goal); }
+    .block[data-type=problem]     { border-left-color: var(--c-problem); }
+    .block[data-type=requirement] { border-left-color: var(--c-requirement); }
+    .block[data-type=risk]        { border-left-color: var(--c-risk); }
+    .block[data-type=question]    { border-left-color: var(--c-question); }
+    .block[data-type=decision]    { border-left-color: var(--c-decision); }
+    .block[data-type=resource]    { border-left-color: var(--c-resource); }
+    .block[data-type=output]      { border-left-color: var(--c-output); }
+    .block[data-type=context]     { border-left-color: var(--c-context); }
+    .block[data-type=custom]      { border-left-color: var(--c-custom); }
+
+    .block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .block-type-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,.06);
+    }
+    .block[data-type=goal]        .block-type-badge { color: var(--c-goal); }
+    .block[data-type=problem]     .block-type-badge { color: var(--c-problem); }
+    .block[data-type=requirement] .block-type-badge { color: var(--c-requirement); }
+    .block[data-type=risk]        .block-type-badge { color: var(--c-risk); }
+    .block[data-type=question]    .block-type-badge { color: var(--c-question); }
+    .block[data-type=decision]    .block-type-badge { color: var(--c-decision); }
+    .block[data-type=resource]    .block-type-badge { color: var(--c-resource); }
+    .block[data-type=output]      .block-type-badge { color: var(--c-output); }
+    .block[data-type=context]     .block-type-badge { color: var(--c-context); }
+    .block[data-type=custom]      .block-type-badge { color: var(--c-custom); }
+
+    .block-gap-icons { display: flex; gap: 3px; }
+    .gap-icon { font-size: 11px; line-height: 1; }
+
+    .block-title {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.35;
+      word-break: break-word;
+      outline: none;
+      min-height: 1.2em;
+    }
+    .block-title[contenteditable=true] {
+      background: rgba(255,255,255,.06);
+      border-radius: 3px;
+      padding: 2px 4px;
+      cursor: text;
+    }
+
+    .block-desc {
+      font-size: 11px;
+      color: rgba(255,255,255,.38);
+      line-height: 1.4;
+      margin-top: 4px;
+      word-break: break-word;
+    }
+
+    .block-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 6px;
+    }
+
+    .action-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    .action-badge.resolve   { background: rgba(248,113,113,.18); color: #f87171; }
+    .action-badge.prepare   { background: rgba(251,191,36,.18);  color: #fbbf24; }
+    .action-badge.recollect { background: rgba(56,189,248,.18);  color: #38bdf8; }
+    .action-badge.reinforce { background: rgba(52,211,153,.18);  color: #34d399; }
+
+    /* ── Ports ──────────────────────────────────────────────── */
+    .port {
+      position: absolute;
+      width: 10px; height: 10px;
+      background: rgba(255,255,255,.55);
+      border: 2px solid rgba(0,0,0,.25);
+      border-radius: 50%;
+      cursor: crosshair;
+      opacity: 0;
+      transition: opacity var(--dur-fast), background var(--dur-fast);
+      z-index: 20;
+    }
+    .block:hover .port { opacity: 1; }
+    .port:hover { background: #fff; transform: scale(1.3); }
+    .port-left   { top: 50%; left: -5px;  transform: translateY(-50%); }
+    .port-right  { top: 50%; right: -5px; transform: translateY(-50%); }
+    .port-top    { top: -5px;    left: 50%; transform: translateX(-50%); }
+    .port-bottom { bottom: -5px; left: 50%; transform: translateX(-50%); }
+    .port-left:hover   { transform: translateY(-50%) scale(1.3); }
+    .port-right:hover  { transform: translateY(-50%) scale(1.3); }
+    .port-top:hover    { transform: translateX(-50%) scale(1.3); }
+    .port-bottom:hover { transform: translateX(-50%) scale(1.3); }
+
+    /* ── Gap glows ──────────────────────────────────────────── */
+    @keyframes pulseRed {
+      0%,100% { box-shadow: 0 0 0   0 rgba(248,113,113,0); }
+      50%      { box-shadow: 0 0 18px 4px rgba(248,113,113,.35); }
+    }
+    @keyframes glowAmber {
+      0%,100% { box-shadow: 0 0 8px  2px rgba(251,191,36,.22); }
+      50%      { box-shadow: 0 0 20px 5px rgba(251,191,36,.45); }
+    }
+    @keyframes glowYellow {
+      0%,100% { box-shadow: 0 0 6px  2px rgba(250,204,21,.18); }
+      50%      { box-shadow: 0 0 16px 4px rgba(250,204,21,.4); }
+    }
+
+    .block.gap-isolated {
+      border-style: dashed;
+      border-left-style: solid;
+      border-color: rgba(255,255,255,.18);
+    }
+    .block[data-type=goal].gap-isolated        { border-left-color: var(--c-goal); }
+    .block[data-type=problem].gap-isolated     { border-left-color: var(--c-problem); }
+    .block[data-type=requirement].gap-isolated { border-left-color: var(--c-requirement); }
+    .block[data-type=risk].gap-isolated        { border-left-color: var(--c-risk); }
+    .block[data-type=question].gap-isolated    { border-left-color: var(--c-question); }
+    .block[data-type=decision].gap-isolated    { border-left-color: var(--c-decision); }
+    .block[data-type=resource].gap-isolated    { border-left-color: var(--c-resource); }
+    .block[data-type=output].gap-isolated      { border-left-color: var(--c-output); }
+    .block[data-type=context].gap-isolated     { border-left-color: var(--c-context); }
+    .block[data-type=custom].gap-isolated      { border-left-color: var(--c-custom); }
+
+    .block.gap-assumption  { animation: glowAmber  2s ease-in-out infinite; }
+    .block.gap-no-req      { animation: glowYellow 2.5s ease-in-out infinite; }
+    .block.gap-unaddressed { animation: pulseRed   1.8s ease-in-out infinite; }
+
+    /* ── Right panel ────────────────────────────────────────── */
+    .right-panel {
+      width: 320px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      background: rgba(255,255,255,.01);
+      overflow: hidden;
+    }
+
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .panel-tab {
+      flex: 1;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      font-family: var(--font);
+      transition: color var(--dur), border-color var(--dur);
+    }
+    .panel-tab.active      { color: var(--text-primary); border-bottom-color: rgba(255,255,255,.38); }
+    .panel-tab:hover:not(.active) { color: var(--text-secondary); }
+
+    .panel-content { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+    .tab-pane         { display: none; padding: 16px; }
+    .tab-pane.active  { display: block; }
+
+    /* Inspector */
+    .inspector-empty {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      text-align: center;
+      padding: 36px 16px;
+      line-height: 1.7;
+    }
+    .inspector-empty svg { width: 34px; height: 34px; opacity: .2; display: block; margin: 0 auto 12px; }
+
+    .insp-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    .insp-section { margin-bottom: 16px; }
+
+    .insp-type-picker { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    .type-pill {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      opacity: .45;
+      transition: opacity var(--dur-fast), border-color var(--dur-fast);
+    }
+    .type-pill.active  { opacity: 1; border-color: currentColor; }
+    .type-pill:hover   { opacity: .8; }
+
+    .insp-input {
+      width: 100%;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      outline: none;
+      transition: border-color var(--dur);
+    }
+    .insp-input:focus { border-color: rgba(255,255,255,.3); }
+
+    .insp-textarea {
+      width: 100%;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      color: var(--text-secondary);
+      font-family: var(--font);
+      font-size: var(--text-sm);
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      min-height: 68px;
+      transition: border-color var(--dur);
+    }
+    .insp-textarea:focus { border-color: rgba(255,255,255,.3); }
+
+    .actions-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .action-toggle {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      opacity: .45;
+      font-family: var(--font);
+      transition: opacity var(--dur-fast), background var(--dur-fast);
+    }
+    .action-toggle.active { opacity: 1; }
+    .action-toggle[data-action=resolve]   { color: #f87171; border-color: rgba(248,113,113,.28); background: rgba(248,113,113,.08); }
+    .action-toggle[data-action=prepare]   { color: #fbbf24; border-color: rgba(251,191,36,.28);  background: rgba(251,191,36,.08); }
+    .action-toggle[data-action=recollect] { color: #38bdf8; border-color: rgba(56,189,248,.28);  background: rgba(56,189,248,.08); }
+    .action-toggle[data-action=reinforce] { color: #34d399; border-color: rgba(52,211,153,.28);  background: rgba(52,211,153,.08); }
+    .action-toggle.active[data-action=resolve]   { background: rgba(248,113,113,.2); }
+    .action-toggle.active[data-action=prepare]   { background: rgba(251,191,36,.2);  }
+    .action-toggle.active[data-action=recollect] { background: rgba(56,189,248,.2);  }
+    .action-toggle.active[data-action=reinforce] { background: rgba(52,211,153,.2);  }
+
+    .questions-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 7px; }
+
+    .question-item { display: flex; align-items: center; gap: 6px; }
+    .question-item input {
+      flex: 1;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 5px 8px;
+      color: var(--text-secondary);
+      font-family: var(--font);
+      font-size: var(--text-xs);
+      outline: none;
+    }
+    .question-item input:focus { border-color: rgba(255,255,255,.28); }
+
+    .q-del {
+      background: none; border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 17px; line-height: 1;
+      padding: 2px 4px;
+      transition: color var(--dur-fast);
+      flex-shrink: 0;
+    }
+    .q-del:hover { color: #f87171; }
+
+    .add-btn {
+      background: none;
+      border: 1px dashed var(--border);
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: var(--text-xs);
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color var(--dur-fast), color var(--dur-fast);
+    }
+    .add-btn:hover { border-color: rgba(255,255,255,.3); color: var(--text-secondary); }
+
+    .insp-dupe-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-family: var(--font);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--dur-fast);
+    }
+    .insp-dupe-btn:hover { background: rgba(255,255,255,.12); }
+
+    .insp-delete-btn {
+      width: 100%;
+      margin-top: 18px;
+      padding: 8px;
+      background: rgba(248,113,113,.08);
+      border: 1px solid rgba(248,113,113,.22);
+      border-radius: var(--radius-sm);
+      color: #f87171;
+      font-family: var(--font);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--dur-fast);
+    }
+    .insp-delete-btn:hover { background: rgba(248,113,113,.2); }
+
+    /* Prompt panel */
+    .prompt-summary {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .prompt-summary strong { color: var(--text-primary); }
+    .gap-badge {
+      display: inline-block;
+      background: rgba(251,191,36,.14);
+      color: #fbbf24;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-weight: 700;
+    }
+
+    .dev-options {
+      margin-bottom: 14px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .dev-options-header {
+      padding: 8px 12px;
+      background: var(--surface-1);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .dev-options-header:hover { background: var(--surface-2); }
+    .dev-options-header svg { width: 14px; height: 14px; transition: transform var(--dur); }
+    .dev-options.open .dev-options-header svg { transform: rotate(180deg); }
+    .dev-options-body { display: none; padding: 12px; border-top: 1px solid var(--border-subtle); }
+    .dev-options.open .dev-options-body { display: block; }
+
+    .dev-row { margin-bottom: 10px; }
+    .dev-row:last-child { margin-bottom: 0; }
+
+    .dev-radio-group, .dev-check-group { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    .radio-opt, .check-opt {
+      font-size: var(--text-xs);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      background: none;
+      font-family: var(--font);
+      transition: all var(--dur-fast);
+    }
+    .radio-opt.active, .check-opt.active {
+      border-color: rgba(255,255,255,.35);
+      color: var(--text-primary);
+      background: rgba(255,255,255,.07);
+    }
+    .radio-opt:hover, .check-opt:hover { color: var(--text-secondary); border-color: var(--border-strong); }
+
+    .prompt-output {
+      width: 100%;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: var(--text-secondary);
+      font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.55;
+      resize: none;
+      outline: none;
+      min-height: 190px;
+      margin-bottom: 10px;
+    }
+
+    .copy-btn {
+      width: 100%;
+      padding: 9px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--dur-fast);
+    }
+    .copy-btn:hover { background: rgba(255,255,255,.15); }
+    .copy-btn.copied { background: rgba(52,211,153,.14); border-color: rgba(52,211,153,.32); color: #34d399; }
+
+    /* ── Scrollbars ─────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<div class="header-bar">
+  <div class="header-logo">
+    <a href="https://ehq.cl/" target="_blank" rel="noopener noreferrer">
+      <img src="energon-classic-logo.png" class="header-logo-img" alt="Logo">
+    </a>
+    <div>
+      <h1>Pathfinder</h1>
+      <div class="header-subtitle">Strategy canvas</div>
+    </div>
+  </div>
+
+  <div class="header-spacer"></div>
+
+  <div class="export-wrapper" id="exportWrapper">
+    <button class="header-btn" id="exportBtn">Export ▾</button>
+    <div class="export-dropdown">
+      <div class="export-item" id="exportCopyPrompt">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        Copy Prompt
+      </div>
+      <div class="export-item" id="exportJSON">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+        Download JSON
+      </div>
+      <div class="export-item" id="exportMarkdown">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12C21.35 6 22 6.63 22 7.41v9.18c0 .78-.65 1.41-1.44 1.41zM6.81 15.19v-3.33l1.56 1.88 1.56-1.88v3.33h1.61V8.81H9.94L8.38 10.7 6.81 8.81H5.2v6.38h1.61zm7.26-3.81h-1.61V8.81h-1.61v2.57H9.24l2.9 3.64 2.9-3.64z"/></svg>
+        Download Markdown
+      </div>
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
+      <div class="export-item" id="importJSON">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+        Import JSON
+      </div>
+    </div>
+  </div>
+  <input type="file" id="importFile" accept=".json" style="display:none">
+
+  <button class="header-btn" id="clearBtn">Clear</button>
+  <button class="header-btn" id="fitBtn">Fit</button>
+
+  <a class="header-home" href="https://neorgon.com/" title="neorgon.com" target="_blank" rel="noopener noreferrer">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+  </a>
+</div>
+
+<!-- ── App body ─────────────────────────────────────────────── -->
+<div class="app-body">
+
+  <!-- Palette -->
+  <aside class="palette" id="palette">
+    <div class="palette-header">Blocks</div>
+
+    <div class="palette-item" data-type="goal">
+      <div class="palette-dot" style="background:var(--c-goal)"></div>
+      <div><div class="palette-label">Goal</div><div class="palette-desc">What you want to achieve</div></div>
+    </div>
+    <div class="palette-item" data-type="problem">
+      <div class="palette-dot" style="background:var(--c-problem)"></div>
+      <div><div class="palette-label">Problem</div><div class="palette-desc">Blocker or issue</div></div>
+    </div>
+    <div class="palette-item" data-type="requirement">
+      <div class="palette-dot" style="background:var(--c-requirement)"></div>
+      <div><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
+    </div>
+    <div class="palette-item" data-type="risk">
+      <div class="palette-dot" style="background:var(--c-risk)"></div>
+      <div><div class="palette-label">Risk</div><div class="palette-desc">What might go wrong</div></div>
+    </div>
+    <div class="palette-item" data-type="question">
+      <div class="palette-dot" style="background:var(--c-question)"></div>
+      <div><div class="palette-label">Question</div><div class="palette-desc">Unknown / assumption</div></div>
+    </div>
+    <div class="palette-item" data-type="decision">
+      <div class="palette-dot" style="background:var(--c-decision)"></div>
+      <div><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
+    </div>
+    <div class="palette-item" data-type="resource">
+      <div class="palette-dot" style="background:var(--c-resource)"></div>
+      <div><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
+    </div>
+    <div class="palette-item" data-type="output">
+      <div class="palette-dot" style="background:var(--c-output)"></div>
+      <div><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
+    </div>
+    <div class="palette-item" data-type="context">
+      <div class="palette-dot" style="background:var(--c-context)"></div>
+      <div><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
+    </div>
+    <div class="palette-item" data-type="custom">
+      <div class="palette-dot" style="background:var(--c-custom)"></div>
+      <div><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
+    </div>
+  </aside>
+
+  <!-- Canvas viewport -->
+  <div class="canvas-viewport" id="canvasViewport">
+
+    <!-- Empty state hint -->
+    <div class="canvas-hint" id="canvasHint">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      Click a block type in the palette to add it<br>
+      Drag from a port ● to connect blocks<br>
+      Double-click a block to edit its title
+    </div>
+
+    <!-- Transformed canvas root -->
+    <div class="canvas-root" id="canvasRoot">
+
+      <!-- SVG arrows layer (rendered under blocks) -->
+      <svg class="arrows-layer" id="arrowsLayer">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.45)"/>
+          </marker>
+          <marker id="arrowhead-sel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.85)"/>
+          </marker>
+          <marker id="arrowhead-pre" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.38)"/>
+          </marker>
+        </defs>
+        <g id="arrowsGroup"></g>
+        <path id="arrowPreview" class="arrow-preview" d="" marker-end="url(#arrowhead-pre)"/>
+      </svg>
+
+      <!-- .block elements injected here by JS -->
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <aside class="right-panel" id="rightPanel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-tab="inspector">Inspector</button>
+      <button class="panel-tab"        data-tab="prompt">Prompt</button>
+    </div>
+
+    <div class="panel-content">
+
+      <!-- Inspector pane -->
+      <div class="tab-pane active" id="inspectorPane">
+        <div class="inspector-empty" id="inspectorEmpty">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          Select a block to<br>inspect its properties
+        </div>
+
+        <div id="inspectorContent" style="display:none">
+          <div class="insp-section">
+            <div class="insp-label">Type</div>
+            <div class="insp-type-picker" id="typePicker"></div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Title</div>
+            <input class="insp-input" id="inspTitle" type="text" placeholder="Block title…">
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Description</div>
+            <textarea class="insp-textarea" id="inspDesc" placeholder="Describe this block…" rows="3"></textarea>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Actions</div>
+            <div class="actions-toggles">
+              <button class="action-toggle" data-action="resolve">Resolve</button>
+              <button class="action-toggle" data-action="prepare">Prepare</button>
+              <button class="action-toggle" data-action="recollect">Recollect</button>
+              <button class="action-toggle" data-action="reinforce">Reinforce</button>
+            </div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Open Questions</div>
+            <div class="questions-list" id="questionsList"></div>
+            <button class="add-btn" id="addQuestionBtn">+ Add question</button>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Notes</div>
+            <textarea class="insp-textarea" id="inspNotes" placeholder="Freeform notes…" rows="3"></textarea>
+          </div>
+          <button class="insp-dupe-btn"   id="dupeBlockBtn">Duplicate Block  ⌘D</button>
+          <button class="insp-delete-btn" id="deleteBlockBtn">Delete Block</button>
+        </div>
+      </div>
+
+      <!-- Prompt pane -->
+      <div class="tab-pane" id="promptPane">
+        <div class="prompt-summary" id="promptSummary">No blocks yet.</div>
+
+        <div class="dev-options" id="devOptions">
+          <div class="dev-options-header" id="devOptionsHeader">
+            Dev Options
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+          <div class="dev-options-body">
+            <div class="dev-row">
+              <div class="insp-label" style="margin-bottom:6px">Tone</div>
+              <div class="dev-radio-group" id="toneGroup">
+                <button class="radio-opt active" data-value="auto">Auto</button>
+                <button class="radio-opt" data-value="formal">Formal</button>
+                <button class="radio-opt" data-value="casual">Casual</button>
+                <button class="radio-opt" data-value="technical">Technical</button>
+              </div>
+            </div>
+            <div class="dev-row">
+              <div class="insp-label" style="margin-bottom:6px">Detail level</div>
+              <div class="dev-radio-group" id="detailGroup">
+                <button class="radio-opt" data-value="brief">Brief</button>
+                <button class="radio-opt active" data-value="standard">Standard</button>
+                <button class="radio-opt" data-value="detailed">Detailed</button>
+              </div>
+            </div>
+            <div class="dev-row">
+              <div class="insp-label" style="margin-bottom:6px">Include in prompt</div>
+              <div class="dev-check-group" id="prePromptGroup">
+                <button class="check-opt" data-value="tasks">Tasks + acceptance criteria</button>
+                <button class="check-opt" data-value="edge">Edge case handling</button>
+                <button class="check-opt" data-value="errors">Error handling</button>
+                <button class="check-opt" data-value="docs">Document key functions</button>
+                <button class="check-opt" data-value="security">Security implications</button>
+                <button class="check-opt" data-value="typescript">TypeScript types</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="insp-label" style="margin-bottom:6px">Generated Prompt</div>
+        <textarea class="prompt-output" id="promptOutput" readonly></textarea>
+        <button class="copy-btn" id="copyPromptBtn">Copy Prompt</button>
+      </div>
+
+    </div><!-- /panel-content -->
+  </aside>
+
+</div><!-- /app-body -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  PATHFINDER — Strategy Canvas
+// ════════════════════════════════════════════════════════════
+
+// ── Constants ────────────────────────────────────────────────
+const TYPES = {
+  goal:        { label: 'Goal',        color: '#a78bfa' },
+  problem:     { label: 'Problem',     color: '#f87171' },
+  requirement: { label: 'Requirement', color: '#fbbf24' },
+  risk:        { label: 'Risk',        color: '#fb923c' },
+  question:    { label: 'Question',    color: '#38bdf8' },
+  decision:    { label: 'Decision',    color: '#34d399' },
+  resource:    { label: 'Resource',    color: '#2dd4bf' },
+  output:      { label: 'Output',      color: '#818cf8' },
+  context:     { label: 'Context',     color: '#64748b' },
+  custom:      { label: 'Custom',      color: '#c084fc' }
+}
+const STORAGE_KEY    = 'pathfinder-v1'
+const DEFAULT_WIDTH  = 220
+const MIN_ZOOM       = 0.18
+const MAX_ZOOM       = 2.6
+
+// ── App state ────────────────────────────────────────────────
+let state = { blocks: {}, arrows: [] }
+let view  = { panX: 0, panY: 0, zoom: 1 }
+
+let selectedBlockId = null
+let selectedArrowId = null
+let activeTab       = 'inspector'
+let promptDirty     = true
+
+// dev-options
+const devOpts = { tone: 'auto', detail: 'standard', prePrompts: new Set() }
+
+// Pointer interaction state
+let ix = null   // { type:'pan'|'block'|'arrow', ...fields }
+
+// ── DOM refs ─────────────────────────────────────────────────
+const canvasViewport   = document.getElementById('canvasViewport')
+const canvasRoot       = document.getElementById('canvasRoot')
+const arrowsGroup      = document.getElementById('arrowsGroup')
+const arrowsLayer      = document.getElementById('arrowsLayer')
+const arrowPreview     = document.getElementById('arrowPreview')
+const canvasHint       = document.getElementById('canvasHint')
+const inspectorEmpty   = document.getElementById('inspectorEmpty')
+const inspectorContent = document.getElementById('inspectorContent')
+const inspTitle        = document.getElementById('inspTitle')
+const inspDesc         = document.getElementById('inspDesc')
+const inspNotes        = document.getElementById('inspNotes')
+const questionsList    = document.getElementById('questionsList')
+const promptOutput     = document.getElementById('promptOutput')
+const promptSummary    = document.getElementById('promptSummary')
+
+// ── Utilities ────────────────────────────────────────────────
+let _sid = 0
+function genId() { return (Date.now().toString(36) + (++_sid).toString(36)) }
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
+
+function toWorld(vx, vy) {
+  return { x: (vx - view.panX) / view.zoom, y: (vy - view.panY) / view.zoom }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function debounce(fn, ms) {
+  let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) }
+}
+
+function getBlockEl(id)   { return document.getElementById('b-' + id) }
+function getBlockDims(id) {
+  const el = getBlockEl(id)
+  return el ? { w: el.offsetWidth, h: el.offsetHeight } : { w: DEFAULT_WIDTH, h: 100 }
+}
+
+// ── Canvas transform + dot grid ──────────────────────────────
+function applyTransform() {
+  canvasRoot.style.transform = `translate(${view.panX}px,${view.panY}px) scale(${view.zoom})`
+  // Move dot grid with canvas
+  const sz = 28 * view.zoom
+  canvasViewport.style.backgroundImage =
+    'radial-gradient(circle, rgba(255,255,255,.12) 1px, transparent 1px)'
+  canvasViewport.style.backgroundSize = `${sz}px ${sz}px`
+  canvasViewport.style.backgroundPosition =
+    `${view.panX % sz}px ${view.panY % sz}px`
+}
+
+applyTransform()   // initial grid
+
+// ── Persistence ──────────────────────────────────────────────
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ blocks: state.blocks, arrows: state.arrows })) }
+  catch(_) {}
+}
+const debouncedSave = debounce(saveState, 300)
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) { const d = JSON.parse(raw); state.blocks = d.blocks||{}; state.arrows = d.arrows||[] }
+  } catch(_) {}
+}
+
+// ── Block rendering ──────────────────────────────────────────
+function renderBlock(id) {
+  const b  = state.blocks[id]; if (!b) return
+  let el   = getBlockEl(id)
+  const isNew = !el
+  if (isNew) { el = document.createElement('div'); el.id = 'b-' + id; canvasRoot.appendChild(el) }
+
+  // Don't clobber live inline editing
+  const focused = document.activeElement
+  if (!isNew && el.contains(focused) && focused.contentEditable === 'true') {
+    el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; return
+  }
+
+  el.className = 'block' + (selectedBlockId === id ? ' selected' : '')
+  el.dataset.id   = id
+  el.dataset.type = b.type
+  el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${DEFAULT_WIDTH}px`
+
+  const actHtml = b.actions.map(a => `<span class="action-badge ${a}">${a}</span>`).join('')
+  const descHtml = b.description
+    ? `<div class="block-desc">${escHtml(b.description)}</div>` : ''
+
+  el.innerHTML = `
+    <div class="block-header">
+      <span class="block-type-badge">${TYPES[b.type]?.label || b.type}</span>
+      <div class="block-gap-icons" id="gi-${id}"></div>
+    </div>
+    <div class="block-title" id="bt-${id}">${escHtml(b.title) || '<span style="opacity:.35">Untitled</span>'}</div>
+    ${descHtml}
+    ${actHtml ? `<div class="block-actions">${actHtml}</div>` : ''}
+    <div class="port port-left"   data-port="left"   data-bid="${id}"></div>
+    <div class="port port-right"  data-port="right"  data-bid="${id}"></div>
+    <div class="port port-top"    data-port="top"    data-bid="${id}"></div>
+    <div class="port port-bottom" data-port="bottom" data-bid="${id}"></div>`
+}
+
+function renderAllBlocks() {
+  canvasRoot.querySelectorAll('.block').forEach(el => { if (!state.blocks[el.dataset.id]) el.remove() })
+  Object.keys(state.blocks).forEach(id => renderBlock(id))
+}
+
+// ── Arrow routing ────────────────────────────────────────────
+function portPos(id, port) {
+  const b = state.blocks[id]; if (!b) return null
+  const { w, h } = getBlockDims(id)
+  const map = {
+    left:   { x: b.x,       y: b.y + h/2, dir: 'left'   },
+    right:  { x: b.x + w,   y: b.y + h/2, dir: 'right'  },
+    top:    { x: b.x + w/2, y: b.y,        dir: 'top'    },
+    bottom: { x: b.x + w/2, y: b.y + h,    dir: 'bottom' }
+  }
+  return map[port] || null
+}
+
+function bestPorts(fromId, toId) {
+  const f = state.blocks[fromId], t = state.blocks[toId]; if (!f || !t) return null
+  const { w: fw, h: fh } = getBlockDims(fromId)
+  const { w: tw, h: th } = getBlockDims(toId)
+  const dx = (t.x + tw/2) - (f.x + fw/2)
+  const dy = (t.y + th/2) - (f.y + fh/2)
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { x1: f.x+fw, y1: f.y+fh/2, d1:'right', x2: t.x,    y2: t.y+th/2, d2:'left'   }
+      : { x1: f.x,    y1: f.y+fh/2, d1:'left',  x2: t.x+tw, y2: t.y+th/2, d2:'right'  }
+  } else {
+    return dy >= 0
+      ? { x1: f.x+fw/2, y1: f.y+fh, d1:'bottom', x2: t.x+tw/2, y2: t.y,    d2:'top'    }
+      : { x1: f.x+fw/2, y1: f.y,    d1:'top',    x2: t.x+tw/2, y2: t.y+th, d2:'bottom' }
+  }
+}
+
+function cpOffset(x, y, dir, off) {
+  return dir === 'right'  ? { x: x+off, y }
+       : dir === 'left'   ? { x: x-off, y }
+       : dir === 'bottom' ? { x, y: y+off }
+       :                    { x, y: y-off }
+}
+
+function buildPath(x1, y1, d1, x2, y2, d2) {
+  const off = clamp(Math.max(Math.abs(x2-x1), Math.abs(y2-y1)) * 0.38, 55, 130)
+  const c1 = cpOffset(x1, y1, d1, off), c2 = cpOffset(x2, y2, d2, off)
+  return `M ${x1} ${y1} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${x2} ${y2}`
+}
+
+function renderArrows() {
+  const live = new Set(state.arrows.map(a => a.id))
+  arrowsGroup.querySelectorAll('[data-aid]').forEach(g => { if (!live.has(g.dataset.aid)) g.remove() })
+
+  state.arrows.forEach(a => {
+    const pts = bestPorts(a.from, a.to); if (!pts) return
+    const d   = buildPath(pts.x1, pts.y1, pts.d1, pts.x2, pts.y2, pts.d2)
+    const sel = selectedArrowId === a.id
+
+    let g = arrowsGroup.querySelector(`[data-aid="${a.id}"]`)
+    if (!g) {
+      g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      g.dataset.aid = a.id
+
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      hit.classList.add('arrow-hitbox')
+      g.appendChild(hit)
+
+      const vis = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      vis.classList.add('arrow-path')
+      vis.setAttribute('marker-end', 'url(#arrowhead)')
+      g.appendChild(vis)
+
+      arrowsGroup.appendChild(g)
+    }
+
+    const [hit, vis] = g.children
+    hit.setAttribute('d', d)
+    vis.setAttribute('d', d)
+    vis.classList.toggle('selected', sel)
+    vis.setAttribute('marker-end', sel ? 'url(#arrowhead-sel)' : 'url(#arrowhead)')
+  })
+}
+
+// ── Gap detection ────────────────────────────────────────────
+function runGapDetection() {
+  const GAP = ['gap-isolated','gap-assumption','gap-no-req','gap-unaddressed']
+  let count = 0
+  for (const id in state.blocks) {
+    const b   = state.blocks[id]
+    const el  = getBlockEl(id); if (!el) continue
+    GAP.forEach(c => el.classList.remove(c))
+
+    const inc = state.arrows.filter(a => a.to   === id)
+    const out = state.arrows.filter(a => a.from === id)
+
+    let gap = false
+
+    if (inc.length === 0 && out.length === 0) {
+      el.classList.add('gap-isolated'); gap = true
+    }
+    if (b.type === 'question') {
+      const linked = [...inc.map(a => state.blocks[a.from]), ...out.map(a => state.blocks[a.to])].filter(Boolean)
+      if (!linked.some(x => x.type === 'goal' || x.type === 'requirement')) {
+        el.classList.add('gap-assumption'); gap = true
+      }
+    }
+    if (b.type === 'goal') {
+      const linked = [...inc.map(a => state.blocks[a.from]), ...out.map(a => state.blocks[a.to])].filter(Boolean)
+      if (!linked.some(x => x.type === 'requirement')) {
+        el.classList.add('gap-no-req'); gap = true
+      }
+    }
+    if (b.type === 'problem' && !b.actions.includes('resolve') && out.length === 0) {
+      el.classList.add('gap-unaddressed'); gap = true
+    }
+
+    const gi = document.getElementById('gi-' + id)
+    if (gi) {
+      const icons = []
+      if (el.classList.contains('gap-assumption'))  icons.push('⚠')
+      if (el.classList.contains('gap-no-req'))      icons.push('📋')
+      if (el.classList.contains('gap-unaddressed')) icons.push('🔴')
+      gi.innerHTML = icons.map(i => `<span class="gap-icon">${i}</span>`).join('')
+    }
+    if (gap) count++
+  }
+  return count
+}
+
+// ── Empty-canvas hint ────────────────────────────────────────
+function updateHint() {
+  canvasHint.style.display = Object.keys(state.blocks).length ? 'none' : ''
+}
+
+// ── Selection ────────────────────────────────────────────────
+function selectBlock(id) {
+  if (selectedBlockId) getBlockEl(selectedBlockId)?.classList.remove('selected')
+  if (selectedArrowId) { selectedArrowId = null; renderArrows() }
+  selectedBlockId = id
+  if (id) getBlockEl(id)?.classList.add('selected')
+  renderInspector()
+}
+
+function selectArrow(id) {
+  if (selectedBlockId) { getBlockEl(selectedBlockId)?.classList.remove('selected'); selectedBlockId = null }
+  selectedArrowId = id
+  renderArrows()
+  renderInspector()
+}
+
+function deselectAll() {
+  if (selectedBlockId) getBlockEl(selectedBlockId)?.classList.remove('selected')
+  selectedBlockId = null
+  if (selectedArrowId) { selectedArrowId = null; renderArrows() }
+  renderInspector()
+}
+
+// ── Block / arrow mutations ───────────────────────────────────
+function mutateBlock(id, changes) {
+  if (!state.blocks[id]) return
+  Object.assign(state.blocks[id], changes)
+  renderBlock(id)
+  renderArrows()
+  runGapDetection()
+  debouncedSave()
+  promptDirty = true
+  if (activeTab === 'prompt') refreshPrompt()
+}
+
+function createBlock(type, wx, wy) {
+  const id = genId()
+  const count = Object.keys(state.blocks).length
+  state.blocks[id] = {
+    id, type,
+    title: TYPES[type]?.label || type,
+    description: '', notes: '',
+    x: wx - DEFAULT_WIDTH/2 + (count % 5) * 12,
+    y: wy - 50            + (count % 5) * 10,
+    actions: [], questions: []
+  }
+  renderBlock(id)
+  updateHint()
+  runGapDetection()
+  debouncedSave()
+  promptDirty = true
+  if (activeTab === 'prompt') refreshPrompt()
+  return id
+}
+
+function deleteBlock(id) {
+  if (!state.blocks[id]) return
+  delete state.blocks[id]
+  getBlockEl(id)?.remove()
+  state.arrows = state.arrows.filter(a => a.from !== id && a.to !== id)
+  renderArrows()
+  if (selectedBlockId === id) { selectedBlockId = null; renderInspector() }
+  updateHint()
+  runGapDetection()
+  debouncedSave()
+  promptDirty = true
+  if (activeTab === 'prompt') refreshPrompt()
+}
+
+function addArrow(fromId, toId) {
+  if (fromId === toId) return
+  if (state.arrows.some(a => a.from === fromId && a.to === toId)) return
+  state.arrows.push({ id: genId(), from: fromId, to: toId })
+  renderArrows()
+  runGapDetection()
+  debouncedSave()
+  promptDirty = true
+  if (activeTab === 'prompt') refreshPrompt()
+}
+
+function deleteArrow(id) {
+  state.arrows = state.arrows.filter(a => a.id !== id)
+  arrowsGroup.querySelector(`[data-aid="${id}"]`)?.remove()
+  if (selectedArrowId === id) selectedArrowId = null
+  runGapDetection()
+  debouncedSave()
+  promptDirty = true
+  if (activeTab === 'prompt') refreshPrompt()
+}
+
+// ── Duplicate block ───────────────────────────────────────────
+function duplicateBlock(id) {
+  const b = state.blocks[id]; if (!b) return null
+  const newId = genId()
+  state.blocks[newId] = { ...JSON.parse(JSON.stringify(b)), id: newId, x: b.x + 32, y: b.y + 32 }
+  renderBlock(newId)
+  updateHint()
+  runGapDetection()
+  debouncedSave()
+  promptDirty = true
+  if (activeTab === 'prompt') refreshPrompt()
+  return newId
+}
+
+// ── Import JSON ───────────────────────────────────────────────
+function applyImport(data, mode) {
+  // mode: 'replace' | 'merge'
+  const inBlocks = data.blocks || (Array.isArray(data.blocks) ? data.blocks : Object.values(data.blocks || {}))
+  const inArrows = data.arrows || []
+
+  if (mode === 'replace') {
+    state.blocks = {}; state.arrows = []
+    canvasRoot.querySelectorAll('.block').forEach(el => el.remove())
+    arrowsGroup.innerHTML = ''
+    selectedBlockId = null; selectedArrowId = null
+  }
+
+  // Build ID remap (merge needs fresh IDs to avoid collisions)
+  const idMap = {}
+  const blocksArr = Array.isArray(inBlocks) ? inBlocks : Object.values(inBlocks)
+  blocksArr.forEach(b => {
+    const newId = (mode === 'replace') ? b.id : genId()
+    idMap[b.id] = newId
+    state.blocks[newId] = { ...b, id: newId }
+    renderBlock(newId)
+  })
+  inArrows.forEach(a => {
+    const fId = idMap[a.from] || a.from
+    const tId = idMap[a.to]   || a.to
+    if (state.blocks[fId] && state.blocks[tId] && fId !== tId)
+      state.arrows.push({ id: genId(), from: fId, to: tId })
+  })
+
+  updateHint()
+  requestAnimationFrame(() => {
+    renderArrows(); runGapDetection()
+    if (Object.keys(state.blocks).length) fitView()
+    renderInspector()
+    promptDirty = true; if (activeTab === 'prompt') refreshPrompt()
+  })
+  saveState()
+}
+
+// ── Block-at-point ────────────────────────────────────────────
+function blockAtWorld(wx, wy) {
+  for (const id in state.blocks) {
+    const b = state.blocks[id], { w, h } = getBlockDims(id)
+    if (wx >= b.x && wx <= b.x+w && wy >= b.y && wy <= b.y+h) return id
+  }
+  return null
+}
+
+// ── Fit view ──────────────────────────────────────────────────
+function fitView() {
+  const ids = Object.keys(state.blocks)
+  if (!ids.length) { view.panX = 0; view.panY = 0; view.zoom = 1; applyTransform(); return }
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity
+  ids.forEach(id => {
+    const b = state.blocks[id], { w, h } = getBlockDims(id)
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x+w); maxY = Math.max(maxY, b.y+h)
+  })
+  const pad = 80, vpW = canvasViewport.offsetWidth, vpH = canvasViewport.offsetHeight
+  const z = clamp(Math.min(vpW/(maxX-minX+pad*2), vpH/(maxY-minY+pad*2)), MIN_ZOOM, MAX_ZOOM)
+  view.zoom = z
+  view.panX = (vpW - (maxX-minX)*z)/2 - minX*z
+  view.panY = (vpH - (maxY-minY)*z)/2 - minY*z
+  applyTransform()
+}
+
+// ── Canvas pointer events ─────────────────────────────────────
+
+// Arrow clicks bubble from hitbox paths through arrowsLayer
+arrowsLayer.addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-aid]'); if (!g) return
+  selectArrow(g.dataset.aid)
+  e.stopPropagation()
+})
+
+canvasViewport.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return
+  canvasViewport.setPointerCapture(e.pointerId)
+
+  const port  = e.target.closest('.port')
+  const block = e.target.closest('.block')
+
+  if (port) {
+    e.stopPropagation()
+    const bid  = port.dataset.bid
+    const pp   = portPos(bid, port.dataset.port); if (!pp) return
+    ix = { type: 'arrow', fromId: bid, x1: pp.x, y1: pp.y, d1: pp.dir }
+    arrowPreview.setAttribute('d', '')
+
+  } else if (block) {
+    const id = block.dataset.id
+    ix = { type: 'block', id, startX: e.clientX, startY: e.clientY,
+           startBX: state.blocks[id]?.x||0, startBY: state.blocks[id]?.y||0, moved: false }
+    selectBlock(id)
+
+  } else {
+    deselectAll()
+    ix = { type: 'pan', startX: e.clientX, startY: e.clientY, startPX: view.panX, startPY: view.panY }
+    canvasViewport.style.cursor = 'grabbing'
+  }
+})
+
+canvasViewport.addEventListener('pointermove', e => {
+  if (!ix) return
+  if (ix.type === 'pan') {
+    view.panX = ix.startPX + (e.clientX - ix.startX)
+    view.panY = ix.startPY + (e.clientY - ix.startY)
+    applyTransform()
+
+  } else if (ix.type === 'block') {
+    const dx = e.clientX - ix.startX, dy = e.clientY - ix.startY
+    if (!ix.moved && (Math.abs(dx)>3||Math.abs(dy)>3)) {
+      ix.moved = true; getBlockEl(ix.id)?.classList.add('dragging')
+    }
+    if (ix.moved) {
+      const b = state.blocks[ix.id]; if (!b) return
+      b.x = ix.startBX + dx/view.zoom
+      b.y = ix.startBY + dy/view.zoom
+      const el = getBlockEl(ix.id)
+      if (el) { el.style.left = b.x+'px'; el.style.top = b.y+'px' }
+      requestAnimationFrame(renderArrows)
+    }
+
+  } else if (ix.type === 'arrow') {
+    const r = canvasViewport.getBoundingClientRect()
+    const w = toWorld(e.clientX - r.left, e.clientY - r.top)
+    const c1 = cpOffset(ix.x1, ix.y1, ix.d1, 80)
+    arrowPreview.setAttribute('d',
+      `M ${ix.x1} ${ix.y1} C ${c1.x} ${c1.y}, ${w.x-50} ${w.y}, ${w.x} ${w.y}`)
+  }
+})
+
+canvasViewport.addEventListener('pointerup', e => {
+  if (!ix) return
+  if (ix.type === 'pan') {
+    canvasViewport.style.cursor = 'default'
+
+  } else if (ix.type === 'block') {
+    getBlockEl(ix.id)?.classList.remove('dragging')
+    if (ix.moved) { debouncedSave(); runGapDetection() }
+
+  } else if (ix.type === 'arrow') {
+    arrowPreview.setAttribute('d', '')
+    const r = canvasViewport.getBoundingClientRect()
+    const w = toWorld(e.clientX - r.left, e.clientY - r.top)
+    const tid = blockAtWorld(w.x, w.y)
+    if (tid && tid !== ix.fromId) addArrow(ix.fromId, tid)
+  }
+  ix = null
+})
+
+canvasViewport.addEventListener('pointercancel', () => {
+  if (ix?.type === 'arrow') arrowPreview.setAttribute('d', '')
+  if (ix?.type === 'pan') canvasViewport.style.cursor = 'default'
+  if (ix?.type === 'block') getBlockEl(ix.id)?.classList.remove('dragging')
+  ix = null
+})
+
+// Wheel zoom
+canvasViewport.addEventListener('wheel', e => {
+  e.preventDefault()
+  const r  = canvasViewport.getBoundingClientRect()
+  const vx = e.clientX - r.left, vy = e.clientY - r.top
+  const wx = (vx - view.panX)/view.zoom, wy = (vy - view.panY)/view.zoom
+  view.zoom = clamp(view.zoom * (e.deltaY < 0 ? 1.1 : 0.9), MIN_ZOOM, MAX_ZOOM)
+  view.panX = vx - wx*view.zoom
+  view.panY = vy - wy*view.zoom
+  applyTransform()
+}, { passive: false })
+
+// Double-click: edit title or fit view
+canvasViewport.addEventListener('dblclick', e => {
+  const block = e.target.closest('.block')
+  if (block) {
+    const bt = block.querySelector('.block-title'); if (!bt) return
+    bt.contentEditable = 'true'; bt.focus()
+    const r = document.createRange(); r.selectNodeContents(bt)
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r)
+    e.preventDefault()
+  } else {
+    fitView()
+  }
+})
+
+// Commit inline title edit on blur
+canvasRoot.addEventListener('blur', e => {
+  const bt = e.target
+  if (!bt.classList.contains('block-title') || bt.contentEditable !== 'true') return
+  bt.contentEditable = 'false'
+  const id = bt.closest('.block')?.dataset.id; if (!id) return
+  const title = bt.textContent.trim()
+  if (state.blocks[id]) {
+    state.blocks[id].title = title
+    if (selectedBlockId === id) inspTitle.value = title
+    debouncedSave(); promptDirty = true
+  }
+}, true)
+
+canvasRoot.addEventListener('keydown', e => {
+  if (e.target.classList.contains('block-title') && e.target.contentEditable === 'true') {
+    if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
+    e.stopPropagation()
+  }
+})
+
+// Delete key + Cmd/Ctrl+D duplicate
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.contentEditable === 'true') return
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if      (selectedBlockId) deleteBlock(selectedBlockId)
+    else if (selectedArrowId) deleteArrow(selectedArrowId)
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedBlockId) {
+    e.preventDefault()
+    const newId = duplicateBlock(selectedBlockId)
+    if (newId) selectBlock(newId)
+  }
+})
+
+// ── Palette ───────────────────────────────────────────────────
+document.getElementById('palette').addEventListener('click', e => {
+  const item = e.target.closest('.palette-item'); if (!item) return
+  const r  = canvasViewport.getBoundingClientRect()
+  const w  = toWorld(r.width/2, r.height/2)
+  const id = createBlock(item.dataset.type, w.x, w.y)
+  selectBlock(id)
+})
+
+// ── Inspector ─────────────────────────────────────────────────
+function renderInspector() {
+  if (!selectedBlockId) {
+    inspectorEmpty.style.display = ''
+    inspectorContent.style.display = 'none'
+    return
+  }
+  const b = state.blocks[selectedBlockId]
+  if (!b) { inspectorEmpty.style.display = ''; inspectorContent.style.display = 'none'; return }
+
+  inspectorEmpty.style.display = 'none'
+  inspectorContent.style.display = ''
+
+  // type picker
+  document.getElementById('typePicker').innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
+    `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}">${cfg.label}</span>`
+  ).join('')
+
+  inspTitle.value = b.title
+  inspDesc.value  = b.description
+  inspNotes.value = b.notes || ''
+
+  document.querySelectorAll('.action-toggle').forEach(btn =>
+    btn.classList.toggle('active', b.actions.includes(btn.dataset.action))
+  )
+
+  renderQuestions(b)
+}
+
+function renderQuestions(b) {
+  questionsList.innerHTML = (b.questions||[]).map((q, i) => `
+    <div class="question-item">
+      <input type="text" value="${escHtml(q)}" placeholder="Enter question…" data-qi="${i}">
+      <button class="q-del" data-qi="${i}" title="Delete">×</button>
+    </div>`).join('')
+
+  questionsList.querySelectorAll('input').forEach(inp =>
+    inp.addEventListener('input', () => {
+      const b2 = state.blocks[selectedBlockId]; if (!b2) return
+      b2.questions[+inp.dataset.qi] = inp.value
+      debouncedSave(); promptDirty = true
+    })
+  )
+  questionsList.querySelectorAll('.q-del').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const b2 = state.blocks[selectedBlockId]; if (!b2) return
+      b2.questions.splice(+btn.dataset.qi, 1)
+      renderQuestions(b2); debouncedSave(); promptDirty = true
+    })
+  )
+}
+
+// Type picker
+document.getElementById('typePicker').addEventListener('click', e => {
+  const pill = e.target.closest('.type-pill'); if (!pill || !selectedBlockId) return
+  mutateBlock(selectedBlockId, { type: pill.dataset.type })
+  renderInspector()
+})
+
+inspTitle.addEventListener('input', () => {
+  if (selectedBlockId) mutateBlock(selectedBlockId, { title: inspTitle.value })
+})
+inspDesc.addEventListener('input', () => {
+  if (selectedBlockId) mutateBlock(selectedBlockId, { description: inspDesc.value })
+})
+inspNotes.addEventListener('input', () => {
+  if (selectedBlockId) mutateBlock(selectedBlockId, { notes: inspNotes.value })
+})
+
+document.querySelectorAll('.action-toggle').forEach(btn =>
+  btn.addEventListener('click', () => {
+    if (!selectedBlockId) return
+    const b = state.blocks[selectedBlockId]; if (!b) return
+    const a = btn.dataset.action, i = b.actions.indexOf(a)
+    if (i >= 0) b.actions.splice(i,1); else b.actions.push(a)
+    btn.classList.toggle('active', b.actions.includes(a))
+    renderBlock(selectedBlockId); runGapDetection(); debouncedSave()
+    promptDirty = true
+  })
+)
+
+document.getElementById('addQuestionBtn').addEventListener('click', () => {
+  const b = state.blocks[selectedBlockId]; if (!b) return
+  b.questions.push(''); renderQuestions(b); debouncedSave(); promptDirty = true
+  setTimeout(() => { const ins = questionsList.querySelectorAll('input'); ins[ins.length-1]?.focus() }, 30)
+})
+
+document.getElementById('dupeBlockBtn').addEventListener('click', () => {
+  if (!selectedBlockId) return
+  const newId = duplicateBlock(selectedBlockId)
+  if (newId) selectBlock(newId)
+})
+
+document.getElementById('deleteBlockBtn').addEventListener('click', () => {
+  if (selectedBlockId) deleteBlock(selectedBlockId)
+})
+
+// ── Panel tabs ────────────────────────────────────────────────
+function showTab(tab) {
+  activeTab = tab
+  document.querySelectorAll('.panel-tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab))
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id===tab+'Pane'))
+  if (tab === 'prompt') { promptDirty = true; refreshPrompt() }
+}
+document.querySelectorAll('.panel-tab').forEach(btn =>
+  btn.addEventListener('click', () => showTab(btn.dataset.tab))
+)
+
+// ── Prompt ───────────────────────────────────────────────────
+function generatePrompt() {
+  const byType = {}
+  Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
+
+  const fmt = b => {
+    let s = `• ${b.title || '(untitled)'}`
+    if (b.description) s += `\n  ${b.description}`
+    if ((b.questions||[]).length) {
+      s += '\n  Open questions:'
+      b.questions.forEach(q => { s += `\n    - ${q}` })
+    }
+    if ((b.actions||[]).length) s += `\n  Actions: ${b.actions.join(', ')}`
+    if (b.notes) s += `\n  Notes: ${b.notes}`
+    const el = getBlockEl(b.id)
+    if (el?.classList.contains('gap-assumption')) s += '\n  ⚠ ASSUMPTION GAP — not linked to goal or requirement'
+    return s
+  }
+
+  const sec = (heading, type) => {
+    const items = byType[type]; if (!items?.length) return ''
+    return `## ${heading}\n${items.map(fmt).join('\n')}\n`
+  }
+
+  let prompt = [
+    sec('Context / Background',                       'context'),
+    sec('Project Context — Goals',                    'goal'),
+    sec('Problems / Blockers',                        'problem'),
+    sec('Requirements',                               'requirement'),
+    sec('Risks',                                      'risk'),
+    sec('Open Questions — Review These Before Assuming','question'),
+    sec('Decisions',                                  'decision'),
+    sec('Resources Available',                        'resource'),
+    sec('Expected Outputs',                           'output'),
+    sec('Custom / Other',                             'custom')
+  ].filter(Boolean).join('\n')
+
+  if (!prompt.trim()) return '(No blocks yet — add blocks to generate a prompt.)'
+
+  prompt = '# Project Canvas\n\n' + prompt
+
+  if (state.arrows.length) {
+    prompt += '\n## Connections\n'
+    state.arrows.forEach(a => {
+      const f = state.blocks[a.from], t = state.blocks[a.to]
+      if (f && t) prompt += `• ${f.title} → ${t.title}\n`
+    })
+  }
+
+  const gaps = runGapDetection()
+  if (gaps) prompt += `\n⚠ Gap Analysis: ${gaps} potential gap(s) detected.\n`
+
+  prompt += '\n---\n'
+
+  const preMap = {
+    tasks:      'Define all tasks with clear acceptance criteria.',
+    edge:       'Include handling for edge cases.',
+    errors:     'Add proper error handling throughout.',
+    docs:       'Document all key functions with inline comments.',
+    security:   'Consider security implications for each component.',
+    typescript: 'Use TypeScript types and interfaces where applicable.'
+  }
+  devOpts.prePrompts.forEach(k => { if (preMap[k]) prompt += `\n${preMap[k]}` })
+
+  const toneMap = { formal:'Please respond in a formal, professional tone.', casual:'Keep the tone conversational and accessible.', technical:'Use precise technical language and focus on implementation details.' }
+  if (devOpts.tone !== 'auto' && toneMap[devOpts.tone]) prompt += `\n${toneMap[devOpts.tone]}`
+
+  const detailMap = { brief:'Keep responses concise and high-level.', detailed:'Provide comprehensive, detailed explanations.' }
+  if (devOpts.detail !== 'standard' && detailMap[devOpts.detail]) prompt += `\n${detailMap[devOpts.detail]}`
+
+  return prompt.trim()
+}
+
+function refreshPrompt() {
+  if (!promptDirty) return
+  promptOutput.value = generatePrompt()
+  const bCount = Object.keys(state.blocks).length
+  const aCount = state.arrows.length
+  const gCount = runGapDetection()
+  promptSummary.innerHTML = bCount === 0
+    ? 'No blocks yet.'
+    : `<strong>${bCount}</strong> block${bCount!==1?'s':''} · <strong>${aCount}</strong> connection${aCount!==1?'s':''}`
+      + (gCount ? ` · <span class="gap-badge">⚠ ${gCount} gap${gCount!==1?'s':''}</span>` : '')
+  promptDirty = false
+}
+
+// ── Dev options ───────────────────────────────────────────────
+document.getElementById('devOptionsHeader').addEventListener('click', () =>
+  document.getElementById('devOptions').classList.toggle('open')
+)
+document.getElementById('toneGroup').addEventListener('click', e => {
+  const btn = e.target.closest('.radio-opt'); if (!btn) return
+  document.querySelectorAll('#toneGroup .radio-opt').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active'); devOpts.tone = btn.dataset.value
+  promptDirty = true; if (activeTab==='prompt') refreshPrompt()
+})
+document.getElementById('detailGroup').addEventListener('click', e => {
+  const btn = e.target.closest('.radio-opt'); if (!btn) return
+  document.querySelectorAll('#detailGroup .radio-opt').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active'); devOpts.detail = btn.dataset.value
+  promptDirty = true; if (activeTab==='prompt') refreshPrompt()
+})
+document.getElementById('prePromptGroup').addEventListener('click', e => {
+  const btn = e.target.closest('.check-opt'); if (!btn) return
+  btn.classList.toggle('active')
+  btn.classList.contains('active') ? devOpts.prePrompts.add(btn.dataset.value)
+                                   : devOpts.prePrompts.delete(btn.dataset.value)
+  promptDirty = true; if (activeTab==='prompt') refreshPrompt()
+})
+
+// ── Copy prompt ───────────────────────────────────────────────
+document.getElementById('copyPromptBtn').addEventListener('click', () => {
+  if (!promptOutput.value) return
+  navigator.clipboard.writeText(promptOutput.value).then(() => {
+    const btn = document.getElementById('copyPromptBtn')
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied')
+    setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied') }, 2000)
+  })
+})
+
+// ── Export dropdown ───────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click', e => {
+  document.getElementById('exportWrapper').classList.toggle('open'); e.stopPropagation()
+})
+document.addEventListener('click', () => document.getElementById('exportWrapper').classList.remove('open'))
+
+document.getElementById('exportCopyPrompt').addEventListener('click', () => {
+  navigator.clipboard.writeText(generatePrompt())
+})
+
+document.getElementById('exportJSON').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ blocks: Object.values(state.blocks), arrows: state.arrows, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+  a.download = 'pathfinder.json'; a.click(); URL.revokeObjectURL(a.href)
+})
+
+document.getElementById('exportMarkdown').addEventListener('click', () => {
+  const order   = ['goal','problem','requirement','risk','question','decision','resource','output']
+  const headings = { goal:'Goals', problem:'Problems / Blockers', requirement:'Requirements',
+    risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs' }
+  const byType = {}
+  Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
+  let md = `# Pathfinder Canvas\n_${new Date().toLocaleDateString()}_\n\n`
+  order.forEach(t => {
+    const items = byType[t]; if (!items?.length) return
+    md += `## ${headings[t]}\n\n`
+    items.forEach(b => {
+      md += `### ${b.title}\n`
+      if (b.description) md += `${b.description}\n\n`
+      if (b.actions?.length) md += `**Actions:** ${b.actions.join(', ')}\n\n`
+      if (b.questions?.length) { md += `**Open questions:**\n`; b.questions.forEach(q => { md += `- ${q}\n` }); md += '\n' }
+      if (b.notes) md += `**Notes:** ${b.notes}\n\n`
+    })
+  })
+  if (state.arrows.length) {
+    md += '## Connections\n\n'
+    state.arrows.forEach(a => {
+      const f = state.blocks[a.from], t = state.blocks[a.to]
+      if (f && t) md += `- **${f.title}** → **${t.title}**\n`
+    })
+  }
+  const blob = new Blob([md], { type: 'text/markdown' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+  a.download = 'pathfinder.md'; a.click(); URL.revokeObjectURL(a.href)
+})
+
+document.getElementById('importJSON').addEventListener('click', () => {
+  document.getElementById('exportWrapper').classList.remove('open')
+  document.getElementById('importFile').value = ''
+  document.getElementById('importFile').click()
+})
+
+document.getElementById('importFile').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return
+  const reader = new FileReader()
+  reader.onload = ev => {
+    let data
+    try { data = JSON.parse(ev.target.result) }
+    catch(_) { alert('Invalid JSON file.'); return }
+
+    const hasContent = Object.keys(state.blocks).length > 0
+    if (!hasContent) { applyImport(data, 'replace'); return }
+
+    const choice = confirm(
+      'Import canvas?\n\n' +
+      'OK  → Replace current canvas\n' +
+      'Cancel → Merge (add to existing canvas)'
+    )
+    applyImport(data, choice ? 'replace' : 'merge')
+  }
+  reader.readAsText(file)
+})
+
+// ── Header buttons ────────────────────────────────────────────
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!confirm('Clear the entire canvas? This cannot be undone.')) return
+  state.blocks = {}; state.arrows = []
+  canvasRoot.querySelectorAll('.block').forEach(el => el.remove())
+  arrowsGroup.innerHTML = ''
+  selectedBlockId = null; selectedArrowId = null
+  renderInspector(); updateHint(); saveState()
+  promptDirty = true; if (activeTab==='prompt') refreshPrompt()
+})
+
+document.getElementById('fitBtn').addEventListener('click', fitView)
+
+// ── Init ──────────────────────────────────────────────────────
+function init() {
+  loadState()
+  renderAllBlocks()
+  updateHint()
+  requestAnimationFrame(() => {
+    renderArrows()
+    runGapDetection()
+    if (Object.keys(state.blocks).length) fitView()
+    renderInspector()
+    refreshPrompt()
+  })
+}
+
+init()
+</script>
+</body>
+</html>
