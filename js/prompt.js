@@ -2,8 +2,8 @@
 //  prompt.js — AI prompt export generation
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, devOpts } from './state.js'
-import { $, TYPES, getBlockEl } from './utils.js'
+import { state, ui, devOpts, promptState } from './state.js'
+import { $, TYPES, escHtml, getBlockEl } from './utils.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Prompt generation ────────────────────────────────────────
@@ -122,10 +122,75 @@ export function generatePrompt() {
   return prompt.trim()
 }
 
+// ── Canvas health score ───────────────────────────────────────
+export function computeHealthScore() {
+  const blocks = Object.values(state.blocks)
+  const n = blocks.length
+  if (n === 0) return null
+
+  let score = 100
+  const { count: gapCount } = runGapDetection()
+
+  // Gap penalty
+  score -= Math.min(gapCount * 8, 40)
+
+  // Blocks without descriptions (only significant if canvas has substance)
+  if (n > 3) {
+    const noDesc = blocks.filter(b => !b.description?.trim()).length
+    score -= Math.min(noDesc * 1.5, 15)
+  }
+
+  // No goal block when canvas has content
+  const hasGoal = blocks.some(b => b.type === 'goal')
+  if (!hasGoal && n >= 3) score -= 12
+
+  // Goals without requirements
+  const goals = blocks.filter(b => b.type === 'goal')
+  const reqs  = blocks.filter(b => b.type === 'requirement')
+  if (goals.length > 0 && reqs.length === 0) score -= 8
+
+  // Connection bonus: reward well-connected canvases
+  if (n > 1) {
+    const connected = new Set([...state.arrows.flatMap(a => [a.from, a.to])])
+    score += Math.round((connected.size / n) * 10)
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+// ── Prompt diff ───────────────────────────────────────────────
+export function markExported() {
+  promptState.lastSnapshot = JSON.stringify({
+    blocks: Object.fromEntries(Object.entries(state.blocks).map(([id, b]) => [id, { title: b.title, type: b.type, description: b.description }])),
+    arrowPairs: state.arrows.map(a => `${a.from}→${a.to}`)
+  })
+}
+
+function getPromptDiff() {
+  if (!promptState.lastSnapshot) return null
+  const prev = JSON.parse(promptState.lastSnapshot)
+  const prevBlocks = prev.blocks || {}
+  const currBlocks = state.blocks
+  const prevPairs  = new Set(prev.arrowPairs || [])
+  const currPairs  = new Set(state.arrows.map(a => `${a.from}→${a.to}`))
+
+  const added    = Object.keys(currBlocks).filter(id => !prevBlocks[id]).map(id => currBlocks[id].title || '(untitled)')
+  const removed  = Object.keys(prevBlocks).filter(id => !currBlocks[id]).map(id => prevBlocks[id].title || '(untitled)')
+  const modified = Object.keys(currBlocks).filter(id =>
+    prevBlocks[id] && (currBlocks[id].title !== prevBlocks[id].title || currBlocks[id].description !== prevBlocks[id].description || currBlocks[id].type !== prevBlocks[id].type)
+  ).map(id => currBlocks[id].title || '(untitled)')
+  const addedArrows   = [...currPairs].filter(p => !prevPairs.has(p)).length
+  const removedArrows = [...prevPairs].filter(p => !currPairs.has(p)).length
+
+  if (!added.length && !removed.length && !modified.length && !addedArrows && !removedArrows) return null
+  return { added, removed, modified, addedArrows, removedArrows }
+}
+
 // ── Refresh prompt panel ─────────────────────────────────────
 export function refreshPrompt() {
   if (!ui.promptDirty) return
   $.promptOutput().value = generatePrompt()
+
   const bCount = Object.keys(state.blocks).length
   const aCount = state.arrows.length
   const { count: gCount } = runGapDetection()
@@ -133,5 +198,46 @@ export function refreshPrompt() {
     ? 'No blocks yet.'
     : `<strong>${bCount}</strong> block${bCount!==1?'s':''} \u00B7 <strong>${aCount}</strong> connection${aCount!==1?'s':''}`
       + (gCount ? ` \u00B7 <span class="gap-badge">\u26A0 ${gCount} gap${gCount!==1?'s':''}</span>` : '')
+
+  // Health score
+  const healthBar = document.getElementById('healthBar')
+  if (healthBar) {
+    const score = computeHealthScore()
+    if (score === null) {
+      healthBar.style.display = 'none'
+    } else {
+      const grade = score >= 80 ? 'a' : score >= 50 ? 'b' : 'c'
+      const label = score >= 80 ? 'Healthy' : score >= 50 ? 'Needs attention' : 'Critical gaps'
+      const tips  = []
+      if (gCount)                                                      tips.push(`${gCount} gap${gCount>1?'s':''}`)
+      if (!Object.values(state.blocks).some(b => b.type === 'goal') && bCount >= 3) tips.push('no goal defined')
+      if (Object.values(state.blocks).filter(b => !b.description?.trim()).length > 2) tips.push('blocks missing descriptions')
+      healthBar.style.display = ''
+      healthBar.innerHTML =
+        `<div class="health-score grade-${grade}">${score}</div>` +
+        `<div class="health-details"><strong>${label}</strong>` +
+        (tips.length ? `<br>${tips.join(' \u00B7 ')}` : '') +
+        `</div>`
+    }
+  }
+
+  // Prompt diff
+  const diffEl = document.getElementById('promptDiff')
+  if (diffEl) {
+    const diff = getPromptDiff()
+    if (!diff) {
+      diffEl.style.display = 'none'
+    } else {
+      const parts = []
+      if (diff.added.length)    parts.push(`<span class="diff-added">+${diff.added.length} block${diff.added.length>1?'s':''}</span>`)
+      if (diff.removed.length)  parts.push(`<span class="diff-removed">\u2212${diff.removed.length} removed</span>`)
+      if (diff.modified.length) parts.push(`<span class="diff-changed">~${diff.modified.length} modified</span>`)
+      if (diff.addedArrows)     parts.push(`<span class="diff-added">+${diff.addedArrows} connection${diff.addedArrows>1?'s':''}</span>`)
+      if (diff.removedArrows)   parts.push(`<span class="diff-removed">\u2212${diff.removedArrows} connection${diff.removedArrows>1?'s':''} removed</span>`)
+      diffEl.style.display = ''
+      diffEl.innerHTML = `<div class="prompt-diff-title">Changes since last export</div>${parts.join(' \u00B7 ')}`
+    }
+  }
+
   ui.promptDirty = false
 }

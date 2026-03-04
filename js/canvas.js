@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, view, selection } from './state.js'
-import { $, clamp, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, clamp, escHtml, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 
 // ── Canvas transform + dot grid ──────────────────────────────
 export function applyTransform() {
@@ -57,13 +57,28 @@ export function cpOffset(x, y, dir, off) {
        :                    { x, y: y-off }
 }
 
-export function buildPath(x1, y1, d1, x2, y2, d2) {
+export function buildPath(x1, y1, d1, x2, y2, d2, style = 'curved') {
+  if (style === 'straight') {
+    return `M ${x1} ${y1} L ${x2} ${y2}`
+  }
+  if (style === 'elbow') {
+    if (d1 === 'right' || d1 === 'left') {
+      const mx = (x1 + x2) / 2
+      return `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`
+    } else {
+      const my = (y1 + y2) / 2
+      return `M ${x1} ${y1} V ${my} H ${x2} V ${y2}`
+    }
+  }
   const off = clamp(Math.max(Math.abs(x2-x1), Math.abs(y2-y1)) * 0.38, 55, 130)
   const c1 = cpOffset(x1, y1, d1, off), c2 = cpOffset(x2, y2, d2, off)
   return `M ${x1} ${y1} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${x2} ${y2}`
 }
 
-function arrowMidpoint(pts) {
+function arrowMidpoint(pts, style = 'curved') {
+  if (style === 'straight' || style === 'elbow') {
+    return { x: (pts.x1 + pts.x2) / 2, y: (pts.y1 + pts.y2) / 2 }
+  }
   const off = clamp(Math.max(Math.abs(pts.x2-pts.x1), Math.abs(pts.y2-pts.y1)) * 0.38, 55, 130)
   const c1 = cpOffset(pts.x1, pts.y1, pts.d1, off)
   const c2 = cpOffset(pts.x2, pts.y2, pts.d2, off)
@@ -80,9 +95,10 @@ export function renderArrows() {
   arrowsGroup.querySelectorAll('[data-aid]').forEach(g => { if (!live.has(g.dataset.aid)) g.remove() })
 
   state.arrows.forEach(a => {
-    const pts = bestPorts(a.from, a.to); if (!pts) return
-    const d   = buildPath(pts.x1, pts.y1, pts.d1, pts.x2, pts.y2, pts.d2)
-    const sel = selection.arrowId === a.id
+    const pts   = bestPorts(a.from, a.to); if (!pts) return
+    const style = a.style || 'curved'
+    const d     = buildPath(pts.x1, pts.y1, pts.d1, pts.x2, pts.y2, pts.d2, style)
+    const sel   = selection.arrowId === a.id
 
     let g = arrowsGroup.querySelector(`[data-aid="${a.id}"]`)
     if (!g) {
@@ -95,7 +111,6 @@ export function renderArrows() {
 
       const vis = document.createElementNS('http://www.w3.org/2000/svg', 'path')
       vis.classList.add('arrow-path')
-      vis.setAttribute('marker-end', 'url(#arrowhead)')
       g.appendChild(vis)
 
       const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text')
@@ -110,9 +125,15 @@ export function renderArrows() {
     vis.setAttribute('d', d)
     vis.classList.toggle('selected', sel)
     vis.setAttribute('marker-end', sel ? 'url(#arrowhead-sel)' : 'url(#arrowhead)')
+    vis.setAttribute('marker-start',
+      a.bidirectional ? (sel ? 'url(#arrowhead-back-sel)' : 'url(#arrowhead-back)') : '')
+
+    // Color and weight via CSS custom properties (allow .related and hover to override via !important)
+    g.style.setProperty('--ac', sel ? 'rgba(255,255,255,.8)' : (a.color || 'rgba(255,255,255,.3)'))
+    g.style.setProperty('--aw', (a.weight || 2) + 'px')
 
     const lbl = g.children[2]
-    const mid = arrowMidpoint(pts)
+    const mid = arrowMidpoint(pts, style)
     lbl.setAttribute('x', mid.x)
     lbl.setAttribute('y', mid.y)
     lbl.textContent = a.label || ''
@@ -152,6 +173,42 @@ export function blockAtWorld(wx, wy) {
     if (wx >= b.x && wx <= b.x+w && wy >= b.y && wy <= b.y+h) return id
   }
   return null
+}
+
+// ── Frames (group visual containers) ─────────────────────────
+const FRAME_PAD = 28
+
+export function renderFrames() {
+  const layer = $.framesLayer(); if (!layer) return
+  // Remove frames for deleted groups
+  layer.querySelectorAll('.frame').forEach(el => {
+    if (!state.groups[el.dataset.gid]) el.remove()
+  })
+  Object.values(state.groups).forEach(g => {
+    const members = Object.values(state.blocks).filter(b => b.groupId === g.id)
+    if (!members.length) { layer.querySelector(`[data-gid="${g.id}"]`)?.remove(); return }
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity
+    members.forEach(b => {
+      const { w, h } = getBlockDims(b.id)
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+      maxX = Math.max(maxX, b.x + w); maxY = Math.max(maxY, b.y + h)
+    })
+    let el = layer.querySelector(`[data-gid="${g.id}"]`)
+    if (!el) {
+      el = document.createElement('div')
+      el.className = 'frame'; el.dataset.gid = g.id
+      el.innerHTML = `<div class="frame-label" data-gid="${g.id}">${escHtml(g.label)}</div>`
+      layer.appendChild(el)
+    } else {
+      const lbl = el.querySelector('.frame-label')
+      if (lbl && lbl.contentEditable !== 'true') lbl.textContent = g.label
+    }
+    el.style.left   = (minX - FRAME_PAD) + 'px'
+    el.style.top    = (minY - FRAME_PAD - 30) + 'px'
+    el.style.width  = (maxX - minX + FRAME_PAD * 2) + 'px'
+    el.style.height = (maxY - minY + FRAME_PAD * 2 + 30) + 'px'
+    el.classList.toggle('selected', selection.groupId === g.id)
+  })
 }
 
 // ── Blocks in rect (for rubber-band selection) ───────────────

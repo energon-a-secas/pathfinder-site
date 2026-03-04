@@ -21,6 +21,12 @@ export const DEFAULT_WIDTH  = 220
 export const MIN_ZOOM       = 0.18
 export const MAX_ZOOM       = 2.6
 
+export const SWATCH_COLORS = [
+  '#a78bfa', '#f87171', '#fbbf24', '#fb923c',
+  '#38bdf8', '#34d399', '#2dd4bf', '#818cf8',
+  '#f472b6', '#c084fc', '#94a3b8', '#ffffff',
+]
+
 // ── ID generator ─────────────────────────────────────────────
 let _sid = 0
 export function genId() { return (Date.now().toString(36) + (++_sid).toString(36)) }
@@ -39,6 +45,8 @@ export function debounce(fn, ms) {
 export function showToast(msg) {
   const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg
   document.body.appendChild(el); setTimeout(() => el.remove(), 2500)
+  const live = document.getElementById('toastLive')
+  if (live) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = msg }) }
 }
 
 // ── DOM element cache ────────────────────────────────────────
@@ -68,6 +76,12 @@ export const $ = {
   typePicker:       () => document.getElementById('typePicker'),
   shortcutOverlay:  () => document.getElementById('shortcutOverlay'),
   shortcutGrid:     () => document.getElementById('shortcutGrid'),
+  framesLayer:      () => document.getElementById('framesLayer'),
+  colorSwatches:    () => document.getElementById('colorSwatches'),
+  inspectorFrame:   () => document.getElementById('inspectorFrame'),
+  frameLabelInput:  () => document.getElementById('frameLabelInput'),
+  templatesList:      () => document.getElementById('templatesList'),
+  arrowColorSwatches: () => document.getElementById('arrowColorSwatches'),
 }
 
 // ── Block element helpers ────────────────────────────────────

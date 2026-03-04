@@ -4,12 +4,14 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, view, canvasMeta, devOpts,
-         saveState, buildShareUrl } from './state.js'
+         saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
 import { $, TYPES, clamp, escHtml, showToast, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
-import { applyTransform, renderArrows, fitView, updateHint } from './canvas.js'
-import { renderInspector, selectBlock } from './render.js'
-import { refreshPrompt } from './prompt.js'
+import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
+import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
+import { TEMPLATES, applyTemplate } from './templates.js'
+import { refreshPrompt, markExported } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt } from './export.js'
+import { runGapDetection } from './gaps.js'
 
 // ── Search ───────────────────────────────────────────────────
 function searchBlocks(query) {
@@ -119,6 +121,9 @@ const SHORTCUTS = [
   ['Double-click block', 'Edit title inline'],
   ['Double-click canvas','Fit all blocks in view'],
   ['Drag port \u25CF',        'Draw connection arrow'],
+  ['Tab / Shift+Tab',    'Navigate between blocks'],
+  ['Enter / Space',      'Select focused block'],
+  ['Alt + H',            'Toggle high-contrast mode'],
   ['Escape',             'Deselect / close overlay'],
   ['?',                  'Show this help'],
 ]
@@ -194,6 +199,8 @@ export function setupCopyPrompt() {
     const promptOutput = $.promptOutput()
     if (!promptOutput.value) return
     navigator.clipboard.writeText(promptOutput.value).then(() => {
+      markExported()
+      ui.promptDirty = true; refreshPrompt()
       const btn = document.getElementById('copyPromptBtn')
       btn.textContent = '\u2713 Copied!'; btn.classList.add('copied')
       setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied') }, 2000)
@@ -202,17 +209,26 @@ export function setupCopyPrompt() {
 }
 
 // ── Export dropdown ──────────────────────────────────────────
+function setDropdownOpen(wrapperId, open) {
+  const el = document.getElementById(wrapperId)
+  el.classList.toggle('open', open)
+  el.querySelector('.header-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false')
+}
+
 export function setupExportDropdown() {
   document.getElementById('exportBtn').addEventListener('click', e => {
-    document.getElementById('exportWrapper').classList.toggle('open'); e.stopPropagation()
+    const isOpen = document.getElementById('exportWrapper').classList.contains('open')
+    setDropdownOpen('exportWrapper', !isOpen); e.stopPropagation()
   })
   document.addEventListener('click', () => {
-    document.getElementById('exportWrapper').classList.remove('open')
-    document.getElementById('shareWrapper').classList.remove('open')
+    setDropdownOpen('exportWrapper', false)
+    setDropdownOpen('shareWrapper', false)
   })
 
   document.getElementById('exportCopyPrompt').addEventListener('click', () => {
     exportCopyPrompt()
+    markExported()
+    ui.promptDirty = true; refreshPrompt()
   })
 
   document.getElementById('exportJSON').addEventListener('click', () => {
@@ -224,7 +240,7 @@ export function setupExportDropdown() {
   })
 
   document.getElementById('importJSON').addEventListener('click', () => {
-    document.getElementById('exportWrapper').classList.remove('open')
+    setDropdownOpen('exportWrapper', false)
     document.getElementById('importFile').value = ''
     document.getElementById('importFile').click()
   })
@@ -233,15 +249,22 @@ export function setupExportDropdown() {
 // ── Share dropdown ───────────────────────────────────────────
 export function setupShareDropdown() {
   document.getElementById('shareBtn').addEventListener('click', e => {
-    document.getElementById('shareWrapper').classList.toggle('open'); e.stopPropagation()
+    const isOpen = document.getElementById('shareWrapper').classList.contains('open')
+    setDropdownOpen('shareWrapper', !isOpen); e.stopPropagation()
   })
   document.getElementById('shareCopyLink').addEventListener('click', () => {
     navigator.clipboard.writeText(buildShareUrl(false)).then(() => showToast('Link copied!'))
-    document.getElementById('shareWrapper').classList.remove('open')
+    setDropdownOpen('shareWrapper', false)
   })
   document.getElementById('shareCopyReadOnly').addEventListener('click', () => {
     navigator.clipboard.writeText(buildShareUrl(true)).then(() => showToast('View-only link copied!'))
-    document.getElementById('shareWrapper').classList.remove('open')
+    setDropdownOpen('shareWrapper', false)
+  })
+  document.getElementById('shareCopyEmbed').addEventListener('click', () => {
+    const src = buildEmbedUrl()
+    const snippet = `<iframe src="${src}" width="800" height="500" style="border:none;border-radius:12px" allowfullscreen></iframe>`
+    navigator.clipboard.writeText(snippet).then(() => showToast('Embed code copied!'))
+    setDropdownOpen('shareWrapper', false)
   })
 }
 
@@ -289,6 +312,32 @@ export function setupHeaderButtons() {
   })
 }
 
+// ── Templates ────────────────────────────────────────────────
+export function setupTemplates() {
+  const list = $.templatesList(); if (!list) return
+  list.innerHTML = TEMPLATES.map((tpl, i) => `
+    <div class="template-item" data-tpl="${i}">
+      <div class="template-icon">${tpl.emoji}</div>
+      <div>
+        <div class="template-label">${escHtml(tpl.name)}</div>
+        <div class="template-desc">${escHtml(tpl.desc)}</div>
+      </div>
+    </div>`).join('')
+  list.addEventListener('click', e => {
+    const item = e.target.closest('.template-item'); if (!item) return
+    const tpl = TEMPLATES[+item.dataset.tpl]; if (!tpl) return
+    snapshot()
+    applyTemplate(tpl)
+    renderAllBlocks()
+    renderArrows()
+    renderFrames()
+    runGapDetection()
+    updateHint()
+    debouncedSave()
+    ui.promptDirty = true
+  })
+}
+
 // ── Share URL loader ─────────────────────────────────────────
 export function checkShareUrl() {
   const hash = location.hash
@@ -296,9 +345,10 @@ export function checkShareUrl() {
   try {
     const data = JSON.parse(decodeURIComponent(atob(hash.slice(3))))
     if (!data.blocks) return
-    history.replaceState(null, '', location.pathname + (ui.readOnly ? '?readonly' : ''))
+    const qsParts = []; if (ui.embed) qsParts.push('embed'); if (ui.readOnly) qsParts.push('readonly')
+    history.replaceState(null, '', location.pathname + (qsParts.length ? '?' + qsParts.join('&') : ''))
     const isEmpty = Object.keys(state.blocks).length === 0
-    const mode = isEmpty ? 'replace'
+    const mode = (isEmpty || ui.embed) ? 'replace'
       : (confirm('Load shared canvas?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
     applyImport(data, mode)
     if (data.meta?.title) { canvasMeta.title = data.meta.title }

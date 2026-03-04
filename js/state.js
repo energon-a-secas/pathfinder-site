@@ -5,19 +5,21 @@
 import { STORAGE_KEY, debounce } from './utils.js'
 
 // ── App state (mutable, shared by all modules) ──────────────
-export const state = { blocks: {}, arrows: [] }
+export const state = { blocks: {}, arrows: [], groups: {} }
 export const view  = { panX: 0, panY: 0, zoom: 1 }
 
 export const selection = {
   blockId:  null,
   arrowId:  null,
   ids:      new Set(),
+  groupId:  null,
 }
 
 export const ui = {
   activeTab:      'inspector',
   promptDirty:    true,
   readOnly:       false,
+  embed:          false,
   searchOpen:     false,
   searchFocusIdx: -1,
   snapToGrid:     false,
@@ -29,6 +31,9 @@ export const canvasMeta = { title: '' }
 // dev-options
 export const devOpts = { tone: 'auto', detail: 'standard', prePrompts: new Set(), mode: 'plan' }
 
+// Prompt diff tracking — snapshot at last export, not persisted
+export const promptState = { lastSnapshot: null }
+
 // Pointer interaction state
 export const pointer = { ix: null }
 
@@ -38,7 +43,7 @@ const redoFuture    = []
 const MAX_HISTORY   = 50
 
 export function snapshot() {
-  undoHistory.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows }))
+  undoHistory.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
   if (undoHistory.length > MAX_HISTORY) undoHistory.shift()
   redoFuture.length = 0
 }
@@ -48,7 +53,7 @@ export function getRedoFuture()  { return redoFuture }
 
 // ── Persistence ──────────────────────────────────────────────
 export function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ blocks: state.blocks, arrows: state.arrows, meta: canvasMeta })) }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta: canvasMeta })) }
   catch(_) {}
 }
 export const debouncedSave = debounce(saveState, 300)
@@ -56,17 +61,27 @@ export const debouncedSave = debounce(saveState, 300)
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) { const d = JSON.parse(raw); state.blocks = d.blocks||{}; state.arrows = d.arrows||[]; Object.assign(canvasMeta, d.meta || { title: '' }) }
+    if (raw) {
+      const d = JSON.parse(raw)
+      state.blocks = d.blocks || {}
+      state.arrows = d.arrows || []
+      state.groups = d.groups || {}
+      Object.assign(canvasMeta, d.meta || { title: '' })
+    }
   } catch(_) {}
 }
 
 // ── Share URL encoding ───────────────────────────────────────
 export function encodeCanvas() {
-  return btoa(encodeURIComponent(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, meta: canvasMeta })))
+  return btoa(encodeURIComponent(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta: canvasMeta })))
 }
 
 export function buildShareUrl(viewOnly = false) {
   return location.origin + location.pathname + (viewOnly ? '?readonly' : '') + '#s=' + encodeCanvas()
+}
+
+export function buildEmbedUrl() {
+  return location.origin + location.pathname + '?embed&readonly#s=' + encodeCanvas()
 }
 
 // ── Snap helper ──────────────────────────────────────────────

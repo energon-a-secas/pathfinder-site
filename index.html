@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pathfinder | Strategy Canvas</title>
   <meta name="description" content="Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt">
+  <meta property="og:title" content="Pathfinder — Strategy Canvas">
+  <meta property="og:description" content="Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pathfinder.neorgon.com/">
+  <meta property="og:site_name" content="Neorgon">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -28,8 +37,8 @@
 
   <div class="readonly-badge" id="readonlyBadge" style="display:none">View only</div>
 
-  <div class="export-wrapper" id="exportWrapper">
-    <button class="header-btn" id="exportBtn">Export ▾</button>
+  <div class="export-wrapper" id="exportWrapper" aria-haspopup="true">
+    <button class="header-btn" id="exportBtn" aria-expanded="false" aria-label="Export canvas">Export ▾</button>
     <div class="export-dropdown">
       <div class="export-item" id="exportCopyPrompt">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
@@ -52,8 +61,8 @@
   </div>
   <input type="file" id="importFile" accept=".json" style="display:none">
 
-  <div class="export-wrapper" id="shareWrapper">
-    <button class="header-btn" id="shareBtn">Share</button>
+  <div class="export-wrapper" id="shareWrapper" aria-haspopup="true">
+    <button class="header-btn" id="shareBtn" aria-expanded="false" aria-label="Share canvas">Share</button>
     <div class="export-dropdown">
       <div class="export-item" id="shareCopyLink">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
@@ -63,12 +72,16 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
         Copy view-only link
       </div>
+      <div class="export-item" id="shareCopyEmbed">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+        Copy embed code
+      </div>
     </div>
   </div>
 
-  <button class="header-btn" id="snapBtn" title="Snap to grid">Grid</button>
-  <button class="header-btn" id="clearBtn">Clear</button>
-  <button class="header-btn" id="fitBtn">Fit</button>
+  <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
+  <button class="header-btn" id="clearBtn" aria-label="Clear canvas">Clear</button>
+  <button class="header-btn" id="fitBtn" aria-label="Fit all blocks in view">Fit</button>
 
   <a class="header-home" href="https://neorgon.com/" title="neorgon.com" aria-label="Neorgon home" target="_blank" rel="noopener noreferrer">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -82,50 +95,56 @@
   <aside class="palette" id="palette">
     <div class="palette-header">Blocks</div>
 
-    <div class="palette-item" data-type="goal">
+    <div class="palette-item" data-type="goal" role="button" tabindex="0" aria-label="Add Goal block">
       <div class="palette-dot" style="background:var(--c-goal)"></div>
       <div><div class="palette-label">Goal</div><div class="palette-desc">What you want to achieve</div></div>
     </div>
-    <div class="palette-item" data-type="problem">
+    <div class="palette-item" data-type="problem" role="button" tabindex="0" aria-label="Add Problem block">
       <div class="palette-dot" style="background:var(--c-problem)"></div>
       <div><div class="palette-label">Problem</div><div class="palette-desc">Blocker or issue</div></div>
     </div>
-    <div class="palette-item" data-type="requirement">
+    <div class="palette-item" data-type="requirement" role="button" tabindex="0" aria-label="Add Requirement block">
       <div class="palette-dot" style="background:var(--c-requirement)"></div>
       <div><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
     </div>
-    <div class="palette-item" data-type="risk">
+    <div class="palette-item" data-type="risk" role="button" tabindex="0" aria-label="Add Risk block">
       <div class="palette-dot" style="background:var(--c-risk)"></div>
       <div><div class="palette-label">Risk</div><div class="palette-desc">What might go wrong</div></div>
     </div>
-    <div class="palette-item" data-type="question">
+    <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Question block">
       <div class="palette-dot" style="background:var(--c-question)"></div>
       <div><div class="palette-label">Question</div><div class="palette-desc">Unknown / assumption</div></div>
     </div>
-    <div class="palette-item" data-type="decision">
+    <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block">
       <div class="palette-dot" style="background:var(--c-decision)"></div>
       <div><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
     </div>
-    <div class="palette-item" data-type="resource">
+    <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block">
       <div class="palette-dot" style="background:var(--c-resource)"></div>
       <div><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
     </div>
-    <div class="palette-item" data-type="output">
+    <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block">
       <div class="palette-dot" style="background:var(--c-output)"></div>
       <div><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
     </div>
-    <div class="palette-item" data-type="context">
+    <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
       <div class="palette-dot" style="background:var(--c-context)"></div>
       <div><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
     </div>
-    <div class="palette-item" data-type="custom">
+    <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block">
       <div class="palette-dot" style="background:var(--c-custom)"></div>
       <div><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
     </div>
+
+    <div class="palette-section-header">Templates</div>
+    <div id="templatesList"></div>
   </aside>
 
   <!-- Canvas viewport -->
-  <div class="canvas-viewport" id="canvasViewport">
+  <div class="canvas-viewport" id="canvasViewport"
+       role="application"
+       aria-label="Strategy canvas. Tab to navigate blocks, Enter to select, arrow keys to pan."
+       tabindex="0">
 
     <!-- Empty state hint -->
     <div class="canvas-hint" id="canvasHint">
@@ -151,6 +170,9 @@
     <!-- Transformed canvas root -->
     <div class="canvas-root" id="canvasRoot">
 
+      <!-- Frames layer (rendered behind arrows and blocks) -->
+      <div id="framesLayer" class="frames-layer"></div>
+
       <!-- SVG arrows layer (rendered under blocks) -->
       <svg class="arrows-layer" id="arrowsLayer">
         <defs>
@@ -162,6 +184,12 @@
           </marker>
           <marker id="arrowhead-pre" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.38)"/>
+          </marker>
+          <marker id="arrowhead-back" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(255,255,255,.45)"/>
+          </marker>
+          <marker id="arrowhead-back-sel" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(255,255,255,.85)"/>
           </marker>
         </defs>
         <g id="arrowsGroup"></g>
@@ -193,6 +221,10 @@
             <div class="insp-label">Type</div>
             <div class="insp-type-picker" id="typePicker"></div>
           </div>
+          <div class="insp-section" id="colorSection">
+            <div class="insp-label">Accent Color</div>
+            <div class="color-swatches" id="colorSwatches"></div>
+          </div>
           <div class="insp-section">
             <div class="insp-label">Title</div>
             <input class="insp-input" id="inspTitle" type="text" placeholder="Block title…">
@@ -219,13 +251,22 @@
             <div class="insp-label">Notes</div>
             <textarea class="insp-textarea" id="inspNotes" placeholder="Freeform notes…" rows="3"></textarea>
           </div>
+          <div id="gapFixes" class="gap-fixes-section" style="display:none"></div>
           <button class="insp-dupe-btn"   id="dupeBlockBtn">Duplicate Block  ⌘D</button>
           <button class="insp-delete-btn" id="deleteBlockBtn">Delete Block</button>
         </div>
 
         <div class="inspector-multi" id="inspectorMulti" style="display:none">
           <div class="inspector-multi-count" id="multiCount"></div>
-          <button class="insp-delete-btn" id="deleteMultiBtn">Delete Selected</button>
+          <button class="insp-dupe-btn" id="groupBlocksBtn">Group selected</button>
+          <div id="frameSection" style="display:none">
+            <div class="insp-section" style="margin-top:10px">
+              <div class="insp-label">Group Label</div>
+              <input class="insp-input" id="frameLabelInput" type="text" placeholder="Group name…" maxlength="40">
+            </div>
+            <button class="insp-delete-btn" id="ungroupBtn" style="margin-top:4px">Ungroup</button>
+          </div>
+          <button class="insp-delete-btn" id="deleteMultiBtn" style="margin-top:8px">Delete Selected</button>
         </div>
 
         <div class="inspector-arrow" id="inspectorArrow" style="display:none">
@@ -238,6 +279,31 @@
             <input class="insp-input" id="arrowLabelInput" type="text"
                    placeholder="e.g. depends on, enables, blocks…" maxlength="40">
           </div>
+          <div class="insp-section">
+            <div class="insp-label">Style</div>
+            <div class="dev-radio-group">
+              <button class="radio-opt" data-arrow-style="curved">Curved</button>
+              <button class="radio-opt" data-arrow-style="straight">Straight</button>
+              <button class="radio-opt" data-arrow-style="elbow">Elbow</button>
+            </div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Direction</div>
+            <button class="radio-opt" id="arrowBidir" style="width:100%">&#8644; Bidirectional</button>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Color</div>
+            <div class="color-swatches" id="arrowColorSwatches"></div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Weight</div>
+            <div class="dev-radio-group">
+              <button class="radio-opt" data-arrow-weight="1">Thin</button>
+              <button class="radio-opt" data-arrow-weight="2">Normal</button>
+              <button class="radio-opt" data-arrow-weight="3.5">Thick</button>
+              <button class="radio-opt" data-arrow-weight="5">Bold</button>
+            </div>
+          </div>
           <button class="insp-delete-btn" id="deleteArrowBtn">Delete Connection</button>
         </div>
       </div>
@@ -245,6 +311,8 @@
       <!-- Prompt pane -->
       <div class="tab-pane" id="promptPane">
         <div class="prompt-summary" id="promptSummary">No blocks yet.</div>
+        <div id="healthBar" class="health-bar" style="display:none"></div>
+        <div id="promptDiff" class="prompt-diff" style="display:none"></div>
 
         <div class="prompt-mode-row">
           <div class="insp-label" style="margin-bottom:6px">Mode</div>
@@ -313,6 +381,9 @@
     <div class="shortcut-grid" id="shortcutGrid"></div>
   </div>
 </div>
+
+<!-- Screen-reader live region for toasts and status messages -->
+<div id="toastLive" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>

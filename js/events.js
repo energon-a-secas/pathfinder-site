@@ -5,13 +5,13 @@
 
 import { state, selection, ui, view, canvasMeta, pointer,
          debouncedSave, snapshot, snap, toWorld } from './state.js'
-import { $, clamp, getBlockEl, MIN_ZOOM, MAX_ZOOM } from './utils.js'
-import { applyTransform, portPos, cpOffset, renderArrows, fitView,
+import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
          blockAtWorld, blocksInRect } from './canvas.js'
-import { renderBlock, renderInspector, renderQuestions,
+import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
          selectBlock, addToSelection, setSelection, selectArrow, deselectAll,
          mutateBlock, createBlock, deleteBlock, addArrow, deleteArrow,
-         duplicateBlock, deleteBlocksBatch, undo, redo } from './render.js'
+         duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup, undo, redo } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { openSearch, closeSearch, openShortcuts, closeShortcuts } from './ui-panels.js'
 
@@ -50,6 +50,9 @@ export function setupArrowEvents() {
 }
 
 // ── Canvas pointer events ────────────────────────────────────
+const activePointers = new Map()
+let   pinchState     = null  // { startDist, startZoom, startPanX, startPanY, cx, cy }
+
 export function setupCanvasPointerEvents() {
   const canvasViewport = $.canvasViewport()
   const canvasRoot     = $.canvasRoot()
@@ -60,11 +63,39 @@ export function setupCanvasPointerEvents() {
   canvasViewport.addEventListener('pointerdown', e => {
     if (e.button !== 0) return
     canvasViewport.setPointerCapture(e.pointerId)
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
-    const port  = e.target.closest('.port')
-    const block = e.target.closest('.block')
+    // Two-finger pinch — cancel any single-pointer interaction and switch to pinch
+    if (activePointers.size === 2) {
+      selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging'))
+      arrowPreview.setAttribute('d', ''); canvasViewport.style.cursor = 'default'
+      selectBox.style.display = 'none'; pointer.ix = null
+      const pts = [...activePointers.values()]
+      pinchState = {
+        startDist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y),
+        startZoom: view.zoom, startPanX: view.panX, startPanY: view.panY,
+        cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2,
+      }
+      return
+    }
 
-    if (port) {
+    const resizeHandle = e.target.closest('.block-resize-handle')
+    const collapseBtn  = e.target.closest('.block-collapse-btn')
+    const port         = e.target.closest('.port')
+    const block        = e.target.closest('.block')
+    const frame        = !block && e.target.closest('.frame')
+
+    if (resizeHandle) {
+      if (ui.readOnly) return
+      e.stopPropagation()
+      const id = resizeHandle.dataset.bid; const b = state.blocks[id]; if (!b) return
+      pointer.ix = { type: 'resize', id, startX: e.clientX, startW: b.width || DEFAULT_WIDTH }
+
+    } else if (collapseBtn) {
+      // handled by click event below — just prevent drag
+      pointer.ix = null
+
+    } else if (port) {
       if (ui.readOnly) return
       e.stopPropagation()
       const bid  = port.dataset.bid
@@ -84,6 +115,15 @@ export function setupCanvasPointerEvents() {
              startBX: state.blocks[id]?.x||0, startBY: state.blocks[id]?.y||0,
              startPositions, moved: false, snapshotted: false, willDeselect: alreadyInMulti }
 
+    } else if (frame) {
+      if (ui.readOnly) return
+      const gid = frame.dataset.gid
+      const members = Object.values(state.blocks).filter(b => b.groupId === gid)
+      const startPositions = {}
+      members.forEach(b => { startPositions[b.id] = { x: b.x, y: b.y } })
+      pointer.ix = { type: 'frame', groupId: gid, startX: e.clientX, startY: e.clientY,
+                     startPositions, moved: false, snapshotted: false }
+
     } else {
       deselectAll()
       if (e.shiftKey) {
@@ -98,6 +138,22 @@ export function setupCanvasPointerEvents() {
   })
 
   canvasViewport.addEventListener('pointermove', e => {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    // Pinch-zoom
+    if (pinchState && activePointers.size >= 2) {
+      const pts  = [...activePointers.values()]
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+      const r    = canvasViewport.getBoundingClientRect()
+      const vx   = pinchState.cx - r.left, vy = pinchState.cy - r.top
+      const wx   = (vx - pinchState.startPanX) / pinchState.startZoom
+      const wy   = (vy - pinchState.startPanY) / pinchState.startZoom
+      view.zoom  = clamp(pinchState.startZoom * (dist / pinchState.startDist), MIN_ZOOM, MAX_ZOOM)
+      view.panX  = vx - wx * view.zoom
+      view.panY  = vy - wy * view.zoom
+      applyTransform(); return
+    }
+
     const ix = pointer.ix
     if (!ix) return
     if (ix.type === 'pan') {
@@ -137,6 +193,31 @@ export function setupCanvasPointerEvents() {
         requestAnimationFrame(renderArrows)
       }
 
+    } else if (ix.type === 'resize') {
+      const dx = e.clientX - ix.startX
+      const b  = state.blocks[ix.id]; if (!b) return
+      const newW = clamp(ix.startW + dx / view.zoom, 140, 500)
+      b.width = newW
+      const el = getBlockEl(ix.id)
+      if (el) el.style.width = newW + 'px'
+      requestAnimationFrame(renderArrows)
+
+    } else if (ix.type === 'frame') {
+      const dx = e.clientX - ix.startX, dy = e.clientY - ix.startY
+      if (!ix.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+        ix.moved = true
+        ix.snapshotted || (snapshot(), ix.snapshotted = true)
+      }
+      if (ix.moved) {
+        Object.entries(ix.startPositions).forEach(([id, sp]) => {
+          const b = state.blocks[id]; if (!b) return
+          b.x = snap(sp.x + dx / view.zoom); b.y = snap(sp.y + dy / view.zoom)
+          const el = getBlockEl(id)
+          if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px' }
+        })
+        requestAnimationFrame(() => { renderArrows(); renderFrames() })
+      }
+
     } else if (ix.type === 'arrow') {
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
@@ -147,6 +228,9 @@ export function setupCanvasPointerEvents() {
   })
 
   canvasViewport.addEventListener('pointerup', e => {
+    activePointers.delete(e.pointerId)
+    if (pinchState) { if (activePointers.size < 2) { pinchState = null; pointer.ix = null } return }
+
     const ix = pointer.ix
     if (!ix) return
     if (ix.type === 'pan') {
@@ -162,7 +246,22 @@ export function setupCanvasPointerEvents() {
     } else if (ix.type === 'block') {
       selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging'))
       if (!ix.moved && ix.willDeselect) selectBlock(ix.id)
-      if (ix.moved) { debouncedSave(); runGapDetection(); ui.promptDirty = true }
+      if (ix.moved) { renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true }
+
+    } else if (ix.type === 'resize') {
+      debouncedSave(); renderArrows(); ui.promptDirty = true
+
+    } else if (ix.type === 'frame') {
+      if (!ix.moved) {
+        // Frame click → select all members
+        const members = Object.values(state.blocks).filter(b => b.groupId === ix.groupId).map(b => b.id)
+        setSelection(members)
+        selection.groupId = ix.groupId
+        renderFrames()
+        renderInspector()
+      } else {
+        renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true
+      }
 
     } else if (ix.type === 'arrow') {
       arrowPreview.setAttribute('d', '')
@@ -174,7 +273,9 @@ export function setupCanvasPointerEvents() {
     pointer.ix = null
   })
 
-  canvasViewport.addEventListener('pointercancel', () => {
+  canvasViewport.addEventListener('pointercancel', e => {
+    activePointers.delete(e.pointerId)
+    if (activePointers.size < 2) pinchState = null
     const ix = pointer.ix
     if (ix?.type === 'arrow') arrowPreview.setAttribute('d', '')
     if (ix?.type === 'pan') canvasViewport.style.cursor = 'default'
@@ -231,6 +332,14 @@ export function setupCanvasPointerEvents() {
     }
   })
 
+  // Block collapse toggle
+  canvasRoot.addEventListener('click', e => {
+    const btn = e.target.closest('.block-collapse-btn'); if (!btn) return
+    const id = btn.dataset.bid; const b = state.blocks[id]; if (!b) return
+    mutateBlock(id, { collapsed: !b.collapsed })
+    e.stopPropagation()
+  })
+
   // Hover highlighting
   canvasRoot.addEventListener('pointerover', e => {
     const block = e.target.closest('.block')
@@ -264,6 +373,7 @@ export function setupKeyboardShortcuts() {
       e.preventDefault(); ui.searchOpen ? $.searchInput().focus() : openSearch(); return
     }
     if (e.key === '?') { e.preventDefault(); openShortcuts(); return }
+    if (e.altKey && e.key === 'h') { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
     if (ui.readOnly) return
     const tag = document.activeElement?.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.contentEditable === 'true') return
@@ -288,15 +398,122 @@ export function setupKeyboardShortcuts() {
   })
 }
 
+// ── Paste auto-categorization ────────────────────────────────
+const PASTE_PATTERNS = [
+  { re: /^(goal|objective|aim|target|vision)[:.]\s*/i,           type: 'goal' },
+  { re: /^(problem|issue|blocker|bug|pain|challenge)[:.]\s*/i,   type: 'problem' },
+  { re: /^(risk|concern|danger|threat)[:.]\s*/i,                 type: 'risk' },
+  { re: /^(need|req(uirement)?|must|should|shall)[:.]\s*/i,      type: 'requirement' },
+  { re: /^(decision|decided|chose|choice)[:.]\s*/i,              type: 'decision' },
+  { re: /^(resource|team|tool|asset|budget)[:.]\s*/i,            type: 'resource' },
+  { re: /^(output|deliverable|result|outcome)[:.]\s*/i,          type: 'output' },
+  { re: /^(context|background|note|info|status)[:.]\s*/i,        type: 'context' },
+  { re: /^(question|why|how|what|when|who)[:.]\s*|^\?\s+/i,      type: 'question' },
+]
+
+function categorizeLine(raw) {
+  const line = raw.replace(/^\s*[-*•]\s+/, '').replace(/^\s*\d+\.\s+/, '').trim()
+  for (const { re, type } of PASTE_PATTERNS) {
+    const m = line.match(re)
+    if (m) return { type, title: line.slice(m[0].length).trim() || line }
+  }
+  if (line.endsWith('?')) return { type: 'question', title: line }
+  return { type: 'custom', title: line }
+}
+
+export function setupPasteHandler() {
+  document.addEventListener('paste', e => {
+    const tag = document.activeElement?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.contentEditable === 'true') return
+    if (ui.readOnly) return
+    const text = e.clipboardData?.getData('text/plain')
+    if (!text?.trim()) return
+    e.preventDefault()
+
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    if (!lines.length) return
+
+    const vp = $.canvasViewport()
+    const r  = vp.getBoundingClientRect()
+    const cx = (r.width  / 2 - view.panX) / view.zoom - DEFAULT_WIDTH / 2
+    const cy = (r.height / 2 - view.panY) / view.zoom - (lines.length * 90) / 2
+
+    snapshot()
+    lines.forEach((line, i) => {
+      const { type, title } = categorizeLine(line)
+      const id = genId()
+      state.blocks[id] = {
+        id, type, title, description: '', notes: '',
+        x: cx, y: cy + i * 90,
+        actions: [], questions: [],
+        width: null, color: null, collapsed: false, groupId: null,
+      }
+    })
+    renderAllBlocks()
+    renderArrows()
+    runGapDetection()
+    updateHint()
+    debouncedSave()
+    ui.promptDirty = true
+    showToast(`Created ${lines.length} block${lines.length > 1 ? 's' : ''} from paste`)
+  })
+}
+
+// ── Tab keyboard navigation ───────────────────────────────────
+export function setupTabNavigation() {
+  // Tab / Shift+Tab cycles through blocks in visual order
+  $.canvasViewport().addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return
+    const ids = Object.keys(state.blocks); if (!ids.length) return
+    const sorted = [...ids].sort((a, b) => {
+      const ba = state.blocks[a], bb = state.blocks[b]
+      return ba.y !== bb.y ? ba.y - bb.y : ba.x - bb.x
+    })
+    const cur  = sorted.findIndex(id => getBlockEl(id) === document.activeElement)
+    const next = e.shiftKey
+      ? (cur <= 0 ? sorted.length - 1 : cur - 1)
+      : (cur < 0 || cur >= sorted.length - 1 ? 0 : cur + 1)
+    e.preventDefault()
+    getBlockEl(sorted[next])?.focus()
+  })
+
+  // Enter / Space on focused block → select it
+  $.canvasRoot().addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    const block = e.target.closest('.block'); if (!block) return
+    e.preventDefault(); selectBlock(block.dataset.id)
+  })
+
+  // Auto-pan canvas when a focused block is off-screen
+  $.canvasRoot().addEventListener('focusin', e => {
+    const block = e.target.closest('.block'); if (!block) return
+    const id = block.dataset.id; const b = state.blocks[id]; if (!b) return
+    const { w, h } = getBlockDims(id)
+    const vp  = $.canvasViewport(), pad = 60
+    const bX1 = b.x * view.zoom + view.panX, bY1 = b.y * view.zoom + view.panY
+    const bX2 = bX1 + w * view.zoom,          bY2 = bY1 + h * view.zoom
+    if (bX1 >= pad && bY1 >= pad && bX2 <= vp.offsetWidth - pad && bY2 <= vp.offsetHeight - pad) return
+    view.panX = vp.offsetWidth  / 2 - (b.x + w / 2) * view.zoom
+    view.panY = vp.offsetHeight / 2 - (b.y + h / 2) * view.zoom
+    applyTransform()
+  })
+}
+
 // ── Palette ──────────────────────────────────────────────────
 export function setupPalette() {
-  document.getElementById('palette').addEventListener('click', e => {
-    const item = e.target.closest('.palette-item'); if (!item) return
-    const canvasViewport = $.canvasViewport()
-    const r  = canvasViewport.getBoundingClientRect()
-    const w  = toWorld(r.width/2, r.height/2)
-    const id = createBlock(item.dataset.type, w.x, w.y)
-    selectBlock(id)
+  const palette = document.getElementById('palette')
+
+  function addBlock(item) {
+    const r = $.canvasViewport().getBoundingClientRect()
+    const w = toWorld(r.width / 2, r.height / 2)
+    selectBlock(createBlock(item.dataset.type, w.x, w.y))
+  }
+
+  palette.addEventListener('click',   e => { const i = e.target.closest('.palette-item'); if (i) addBlock(i) })
+  palette.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    const i = e.target.closest('.palette-item'); if (!i) return
+    e.preventDefault(); addBlock(i)
   })
 }
 
@@ -363,5 +580,83 @@ export function setupInspectorEvents() {
 
   document.getElementById('deleteArrowBtn').addEventListener('click', () => {
     if (selection.arrowId) deleteArrow(selection.arrowId)
+  })
+
+  // Arrow style
+  document.querySelectorAll('[data-arrow-style]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+      a.style = btn.dataset.arrowStyle
+      renderArrows(); renderInspector(); debouncedSave()
+    })
+  )
+
+  // Arrow bidirectional
+  document.getElementById('arrowBidir').addEventListener('click', () => {
+    const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+    a.bidirectional = !a.bidirectional
+    renderArrows(); renderInspector(); debouncedSave()
+  })
+
+  // Arrow color
+  document.getElementById('arrowColorSwatches').addEventListener('click', e => {
+    const sw = e.target.closest('.color-swatch'); if (!sw) return
+    const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+    a.color = sw.dataset.color === 'reset' ? null : sw.dataset.color
+    renderArrows(); renderInspector(); debouncedSave()
+  })
+
+  // Arrow weight
+  document.querySelectorAll('[data-arrow-weight]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+      a.weight = +btn.dataset.arrowWeight
+      renderArrows(); renderInspector(); debouncedSave()
+    })
+  )
+
+  // Color swatches
+  document.getElementById('colorSwatches').addEventListener('click', e => {
+    const sw = e.target.closest('.color-swatch'); if (!sw || !selection.blockId) return
+    const color = sw.dataset.color === 'reset' ? null : sw.dataset.color
+    mutateBlock(selection.blockId, { color })
+    renderInspector()
+  })
+
+  // Group / ungroup buttons
+  document.getElementById('groupBlocksBtn').addEventListener('click', () => {
+    if (selection.ids.size < 2) return
+    createGroup([...selection.ids])
+  })
+  document.getElementById('ungroupBtn').addEventListener('click', () => {
+    if (selection.groupId) deleteGroup(selection.groupId)
+  })
+  document.getElementById('frameLabelInput').addEventListener('input', e => {
+    if (!selection.groupId || !state.groups[selection.groupId]) return
+    state.groups[selection.groupId].label = e.target.value
+    renderFrames()
+    debouncedSave()
+  })
+
+  // Gap fix suggestions
+  document.getElementById('gapFixes').addEventListener('click', e => {
+    const btn = e.target.closest('.gap-fix-btn'); if (!btn) return
+    const blockId = btn.dataset.bid; const b = state.blocks[blockId]; if (!b) return
+    const { w, h } = getBlockDims(blockId)
+    const nx = b.x + w + 70 + DEFAULT_WIDTH / 2
+    const ny = b.y + h / 2 + 50
+
+    if (btn.dataset.fix === 'resolve') {
+      if (!b.actions.includes('resolve')) mutateBlock(blockId, { actions: [...b.actions, 'resolve'] })
+    } else if (btn.dataset.fix === 'add-goal') {
+      const id = createBlock('goal', nx, ny); addArrow(blockId, id); selectBlock(id)
+      showToast('Goal created and linked')
+    } else if (btn.dataset.fix === 'add-req') {
+      const id = createBlock('requirement', nx, ny); addArrow(id, blockId); selectBlock(id)
+      showToast('Requirement created and linked')
+    } else if (btn.dataset.fix === 'add-decision') {
+      const id = createBlock('decision', nx, ny); addArrow(blockId, id); selectBlock(id)
+      showToast('Decision created and linked')
+    }
   })
 }

@@ -5,9 +5,9 @@
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture } from './state.js'
-import { $, TYPES, DEFAULT_WIDTH, escHtml, genId, getBlockEl } from './utils.js'
-import { renderArrows, updateHint } from './canvas.js'
-import { runGapDetection } from './gaps.js'
+import { $, TYPES, SWATCH_COLORS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims } from './utils.js'
+import { renderArrows, renderFrames, updateHint } from './canvas.js'
+import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 
 function afterMutation() {
@@ -28,19 +28,28 @@ export function renderBlock(id) {
     el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; return
   }
 
-  el.className = 'block' + (selection.ids.has(id) ? ' selected' : '')
+  el.className = 'block' + (selection.ids.has(id) ? ' selected' : '') + (b.collapsed ? ' collapsed' : '')
   el.dataset.id   = id
   el.dataset.type = b.type
-  el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${DEFAULT_WIDTH}px`
+  const w = b.width || DEFAULT_WIDTH
+  el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${w}px`
+  if (b.color) el.style.borderLeftColor = b.color
 
   const actHtml = b.actions.map(a => `<span class="action-badge ${a}">${a}</span>`).join('')
   const descHtml = b.description
     ? `<div class="block-desc">${escHtml(b.description)}</div>` : ''
+  const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
+
+  el.tabIndex = 0
+  el.setAttribute('role', 'article')
+  el.setAttribute('aria-label', `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}`)
+  el.setAttribute('aria-selected', selection.ids.has(id) ? 'true' : 'false')
 
   el.innerHTML = `
     <div class="block-header">
-      <span class="block-type-badge">${TYPES[b.type]?.label || b.type}</span>
+      <span class="block-type-badge"${badgeStyle}>${TYPES[b.type]?.label || b.type}</span>
       <div class="block-gap-icons" id="gi-${id}"></div>
+      <button class="block-collapse-btn" data-bid="${id}" title="${b.collapsed ? 'Expand' : 'Collapse'}" aria-label="${b.collapsed ? 'Expand block' : 'Collapse block'}">${b.collapsed ? '&#9654;' : '&#9660;'}</button>
     </div>
     <div class="block-title" id="bt-${id}">${escHtml(b.title) || '<span style="opacity:.35">Untitled</span>'}</div>
     ${descHtml}
@@ -48,7 +57,8 @@ export function renderBlock(id) {
     <div class="port port-left"   data-port="left"   data-bid="${id}"></div>
     <div class="port port-right"  data-port="right"  data-bid="${id}"></div>
     <div class="port port-top"    data-port="top"    data-bid="${id}"></div>
-    <div class="port port-bottom" data-port="bottom" data-bid="${id}"></div>`
+    <div class="port port-bottom" data-port="bottom" data-bid="${id}"></div>
+    <div class="block-resize-handle" data-bid="${id}"></div>`
 }
 
 export function renderAllBlocks() {
@@ -72,6 +82,18 @@ export function renderInspector() {
     inspectorMulti.style.display = ''
     inspectorArrow.style.display = 'none'
     document.getElementById('multiCount').textContent = `${selection.ids.size} blocks selected`
+    const frameSection = document.getElementById('frameSection')
+    const ungroupBtn = document.getElementById('ungroupBtn')
+    const groupBlocksBtn = document.getElementById('groupBlocksBtn')
+    if (frameSection && ungroupBtn && groupBlocksBtn) {
+      const hasGroup = selection.groupId && state.groups[selection.groupId]
+      frameSection.style.display = hasGroup ? '' : 'none'
+      groupBlocksBtn.style.display = hasGroup ? 'none' : ''
+      if (hasGroup) {
+        const lbl = document.getElementById('frameLabelInput')
+        if (lbl) lbl.value = state.groups[selection.groupId].label
+      }
+    }
     return
   }
   inspectorMulti.style.display = 'none'
@@ -85,6 +107,23 @@ export function renderInspector() {
       document.getElementById('arrowInfo').textContent =
         `${TYPES[f?.type]?.label||'?'} "${f?.title||'?'}" \u2192 ${TYPES[t?.type]?.label||'?'} "${t?.title||'?'}"`
       document.getElementById('arrowLabelInput').value = a.label || ''
+      // Style buttons
+      document.querySelectorAll('[data-arrow-style]').forEach(btn =>
+        btn.classList.toggle('active', (a.style || 'curved') === btn.dataset.arrowStyle))
+      // Bidirectional toggle
+      document.getElementById('arrowBidir').classList.toggle('active', !!a.bidirectional)
+      // Color swatches
+      const arrowSwatches = $.arrowColorSwatches()
+      if (arrowSwatches) {
+        arrowSwatches.innerHTML =
+          `<div class="color-swatch swatch-reset${!a.color ? ' active' : ''}" data-color="reset" title="Default"></div>` +
+          SWATCH_COLORS.map(c =>
+            `<div class="color-swatch${a.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" title="${c}"></div>`
+          ).join('')
+      }
+      // Weight buttons
+      document.querySelectorAll('[data-arrow-weight]').forEach(btn =>
+        btn.classList.toggle('active', (a.weight || 2) === +btn.dataset.arrowWeight))
     }
     return
   }
@@ -113,7 +152,36 @@ export function renderInspector() {
     btn.classList.toggle('active', b.actions.includes(btn.dataset.action))
   )
 
+  // Color swatches
+  const swatchesEl = $.colorSwatches()
+  if (swatchesEl) {
+    swatchesEl.innerHTML =
+      `<div class="color-swatch swatch-reset${!b.color ? ' active' : ''}" data-color="reset" title="Reset to type color"></div>` +
+      SWATCH_COLORS.map(c =>
+        `<div class="color-swatch${b.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" title="${c}"></div>`
+      ).join('')
+  }
+
   renderQuestions(b)
+
+  // Gap fix suggestions
+  const gapFixesEl = document.getElementById('gapFixes')
+  if (gapFixesEl) {
+    const fixes = getGapFixes(b)
+    if (fixes.length) {
+      gapFixesEl.style.display = ''
+      gapFixesEl.innerHTML =
+        '<div class="insp-label" style="margin-bottom:8px">Suggestions</div>' +
+        fixes.map(f => `
+          <div class="gap-fix-item">
+            <span class="gap-fix-icon">${f.icon}</span>
+            <div class="gap-fix-text">${escHtml(f.text)}</div>
+            ${f.action ? `<button class="gap-fix-btn" data-fix="${f.id}" data-bid="${b.id}">${escHtml(f.action)}</button>` : ''}
+          </div>`).join('')
+    } else {
+      gapFixesEl.style.display = 'none'
+    }
+  }
 }
 
 export function renderQuestions(b) {
@@ -144,12 +212,13 @@ export function renderQuestions(b) {
 export function selectBlock(id) {
   selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('selected'))
   selection.ids.clear()
-  selection.blockId = null
+  selection.blockId = null; selection.groupId = null
   if (selection.arrowId) { selection.arrowId = null; renderArrows() }
   if (id) {
     selection.ids.add(id); selection.blockId = id
     getBlockEl(id)?.classList.add('selected')
   }
+  renderFrames()
   renderInspector()
 }
 
@@ -185,8 +254,9 @@ export function selectArrow(id) {
 
 export function deselectAll() {
   selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('selected'))
-  selection.ids.clear(); selection.blockId = null
+  selection.ids.clear(); selection.blockId = null; selection.groupId = null
   if (selection.arrowId) { selection.arrowId = null; renderArrows() }
+  renderFrames()
   renderInspector()
 }
 
@@ -196,6 +266,7 @@ export function mutateBlock(id, changes) {
   Object.assign(state.blocks[id], changes)
   renderBlock(id)
   renderArrows()
+  renderFrames()
   runGapDetection()
   debouncedSave()
   afterMutation()
@@ -211,7 +282,8 @@ export function createBlock(type, wx, wy) {
     description: '', notes: '',
     x: wx - DEFAULT_WIDTH/2 + (count % 5) * 12,
     y: wy - 50            + (count % 5) * 10,
-    actions: [], questions: []
+    actions: [], questions: [],
+    width: null, color: null, collapsed: false, groupId: null,
   }
   renderBlock(id)
   updateHint()
@@ -228,8 +300,9 @@ export function deleteBlock(id) {
   getBlockEl(id)?.remove()
   state.arrows = state.arrows.filter(a => a.from !== id && a.to !== id)
   renderArrows()
+  renderFrames()
   if (selection.blockId === id) {
-    selection.ids.delete(id); selection.blockId = null; renderInspector()
+    selection.ids.delete(id); selection.blockId = null; selection.groupId = null; renderInspector()
   }
   updateHint()
   runGapDetection()
@@ -241,7 +314,8 @@ export function addArrow(fromId, toId) {
   if (fromId === toId) return
   if (state.arrows.some(a => a.from === fromId && a.to === toId)) return
   snapshot()
-  state.arrows.push({ id: genId(), from: fromId, to: toId })
+  state.arrows.push({ id: genId(), from: fromId, to: toId,
+    style: 'curved', bidirectional: false, color: null, weight: 2 })
   renderArrows()
   runGapDetection()
   debouncedSave()
@@ -279,8 +353,8 @@ export function deleteBlocksBatch(ids) {
     delete state.blocks[id]; getBlockEl(id)?.remove()
     state.arrows = state.arrows.filter(a => a.from !== id && a.to !== id)
   })
-  selection.ids.clear(); selection.blockId = null
-  renderArrows(); updateHint(); runGapDetection(); renderInspector()
+  selection.ids.clear(); selection.blockId = null; selection.groupId = null
+  renderArrows(); renderFrames(); updateHint(); runGapDetection(); renderInspector()
   debouncedSave()
   afterMutation()
 }
@@ -290,10 +364,10 @@ export function undo() {
   const history = getUndoHistory()
   if (!history.length) return
   const future = getRedoFuture()
-  future.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows }))
+  future.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
   const d = JSON.parse(history.pop())
-  state.blocks = d.blocks; state.arrows = d.arrows
-  renderAllBlocks(); renderArrows(); runGapDetection(); renderInspector()
+  state.blocks = d.blocks; state.arrows = d.arrows; state.groups = d.groups || {}
+  renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
   deselectAll(); debouncedSave()
 }
 
@@ -301,11 +375,38 @@ export function redo() {
   const future = getRedoFuture()
   if (!future.length) return
   const history = getUndoHistory()
-  history.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows }))
+  history.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
   const d = JSON.parse(future.pop())
-  state.blocks = d.blocks; state.arrows = d.arrows
-  renderAllBlocks(); renderArrows(); runGapDetection(); renderInspector()
+  state.blocks = d.blocks; state.arrows = d.arrows; state.groups = d.groups || {}
+  renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
   deselectAll(); debouncedSave()
+}
+
+// ── Groups ───────────────────────────────────────────────────
+export function createGroup(ids, label = 'Group') {
+  if (ids.length < 2) return null
+  snapshot()
+  const gid = genId()
+  state.groups[gid] = { id: gid, label }
+  ids.forEach(id => { if (state.blocks[id]) state.blocks[id].groupId = gid })
+  selection.groupId = gid
+  renderFrames()
+  renderInspector()
+  debouncedSave()
+  afterMutation()
+  return gid
+}
+
+export function deleteGroup(gid) {
+  if (!state.groups[gid]) return
+  snapshot()
+  Object.values(state.blocks).forEach(b => { if (b.groupId === gid) b.groupId = null })
+  delete state.groups[gid]
+  $.framesLayer()?.querySelector(`[data-gid="${gid}"]`)?.remove()
+  selection.groupId = null
+  renderInspector()
+  debouncedSave()
+  afterMutation()
 }
 
 // ── Canvas title ─────────────────────────────────────────────

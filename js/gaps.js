@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state } from './state.js'
-import { getBlockEl } from './utils.js'
+import { getBlockEl, DEFAULT_WIDTH } from './utils.js'
 
 // ── Gap detection ────────────────────────────────────────────
 export function runGapDetection() {
@@ -56,4 +56,24 @@ export function runGapDetection() {
     }
   }
   return { count: details.length, details }
+}
+
+// ── Gap auto-fix suggestions ──────────────────────────────────
+export function getGapFixes(b) {
+  const el = getBlockEl(b.id); if (!el) return []
+  const fixes = []
+  if (el.classList.contains('gap-isolated')) {
+    fixes.push({ id: 'connect', icon: '🔗', text: 'Not connected to anything — drag from a port to link it' })
+  }
+  if (el.classList.contains('gap-assumption')) {
+    fixes.push({ id: 'add-goal', icon: '🎯', text: 'Question not linked to a Goal or Requirement', action: 'Create Goal' })
+  }
+  if (el.classList.contains('gap-no-req')) {
+    fixes.push({ id: 'add-req', icon: '📋', text: 'Goal has no linked Requirement', action: 'Add Requirement' })
+  }
+  if (el.classList.contains('gap-unaddressed')) {
+    fixes.push({ id: 'resolve', icon: '✅', text: 'Problem has no resolve action or outgoing connections', action: 'Mark Resolved' })
+    fixes.push({ id: 'add-decision', icon: '⚖️', text: '', action: 'Create Decision' })
+  }
+  return fixes
 }

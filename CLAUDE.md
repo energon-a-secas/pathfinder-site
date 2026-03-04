@@ -9,9 +9,25 @@ Visual strategy canvas for planning, gap detection, and AI prompt export.
 
 ## Architecture
 
-Single-file app: `index.html` (~1910 lines, inline CSS + JS). No build step, no dependencies.
+Multi-file layout. No build step, no dependencies. Uses native ES modules (`<script type="module">`).
 
-**Required assets:** `index.html` · `favicon.ico` · `energon-classic-logo.png` · `CNAME`
+| File | Lines | Role |
+|------|-------|------|
+| `index.html` | ~328 | HTML shell + OG meta |
+| `css/style.css` | ~941 | All CSS, variables, animations |
+| `js/app.js` | ~65 | Entry point — imports all modules, calls `init()` |
+| `js/state.js` | ~78 | State shape, `loadState()`, `saveState()`, `mutateBlock()` |
+| `js/utils.js` | ~78 | `genId()`, `escHtml()`, `clamp()`, `debounce()` |
+| `js/canvas.js` | ~165 | Pan/zoom, `applyTransform()`, `fitView()`, `toWorld()`, port/path logic |
+| `js/gaps.js` | ~59 | `runGapDetection()` — appends gap CSS classes |
+| `js/prompt.js` | ~137 | `generatePrompt()`, `refreshPrompt()` |
+| `js/render.js` | ~317 | `renderBlock()`, `renderAllBlocks()`, `renderInspector()` |
+| `js/events.js` | ~367 | Canvas pointer, keyboard shortcuts, palette, inspector events |
+| `js/ui-panels.js` | ~306 | Export, share, search, panel tabs, dev options, header buttons |
+
+**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js`
+
+**Required assets:** `index.html` · `css/style.css` · `js/*.js` · `favicon.ico` · `energon-classic-logo.png` · `og-preview.jpg` · `CNAME`
 
 ---
 
@@ -123,21 +139,17 @@ Accessed via "Export ▾" dropdown in the header:
 
 ## Key Functions Reference
 
-**State:**
-- `genId()` · `saveState()` · `loadState()`
-- `mutateBlock(id, changes)` — update + re-render
-- `createBlock(type, wx, wy)` · `deleteBlock(id)` · `duplicateBlock(id)`
+**`js/state.js`:** `genId()` · `saveState()` · `loadState()` · `mutateBlock(id, changes)` · `createBlock(type, wx, wy)` · `deleteBlock(id)` · `duplicateBlock(id)`
 
-**Rendering:**
-- `renderBlock(id)` · `renderAllBlocks()` · `renderArrows()`
-- `renderInspector()` · `runGapDetection()` · `updateHint()`
+**`js/canvas.js`:** `applyTransform()` · `fitView()` · `toWorld(vx, vy)` · `portPos(id, port)` · `bestPorts(fromId, toId)` · `buildPath(...)` · `renderArrows()` · `updateHint()`
 
-**Selection:**
-- `selectBlock(id)` · `selectArrow(id)` · `deselectAll()`
+**`js/render.js`:** `renderBlock(id)` · `renderAllBlocks()` · `renderInspector()` · `updateCanvasTitle()` · `selectBlock(id)` · `selectArrow(id)` · `deselectAll()`
 
-**Utilities:**
-- `escHtml(s)` · `clamp(v, lo, hi)` · `debounce(fn, ms)`
-- `getBlockEl(id)` · `getBlockDims(id)`
+**`js/gaps.js`:** `runGapDetection()`
+
+**`js/prompt.js`:** `generatePrompt()` · `refreshPrompt()`
+
+**`js/utils.js`:** `escHtml(s)` · `clamp(v, lo, hi)` · `debounce(fn, ms)` · `getBlockEl(id)` · `getBlockDims(id)`
 
 ---
 
