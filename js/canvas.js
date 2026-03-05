@@ -129,7 +129,7 @@ export function renderArrows() {
       a.bidirectional ? (sel ? 'url(#arrowhead-back-sel)' : 'url(#arrowhead-back)') : '')
 
     // Color and weight via CSS custom properties (allow .related and hover to override via !important)
-    g.style.setProperty('--ac', sel ? 'rgba(255,255,255,.8)' : (a.color || 'rgba(255,255,255,.3)'))
+    g.style.setProperty('--ac', sel ? (a.color || 'rgba(255,255,255,.8)') : (a.color || 'rgba(255,255,255,.3)'))
     g.style.setProperty('--aw', (a.weight || 2) + 'px')
 
     const lbl = g.children[2]

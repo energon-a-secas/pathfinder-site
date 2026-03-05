@@ -79,6 +79,7 @@
     </div>
   </div>
 
+  <button class="header-btn" id="tintBtn" title="Color tint on blocks" aria-label="Toggle block color tint">Tint</button>
   <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
   <button class="header-btn" id="clearBtn" aria-label="Clear canvas">Clear</button>
   <button class="header-btn" id="fitBtn" aria-label="Fit all blocks in view">Fit</button>
@@ -289,7 +290,10 @@
           </div>
           <div class="insp-section">
             <div class="insp-label">Direction</div>
-            <button class="radio-opt" id="arrowBidir" style="width:100%">&#8644; Bidirectional</button>
+            <div class="dev-radio-group">
+              <button class="radio-opt" id="arrowReverse" style="flex:1">&#8634; Reverse</button>
+              <button class="radio-opt" id="arrowBidir" style="flex:1">&#8644; Bidirectional</button>
+            </div>
           </div>
           <div class="insp-section">
             <div class="insp-label">Color</div>

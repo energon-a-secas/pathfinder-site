@@ -591,6 +591,14 @@ export function setupInspectorEvents() {
     })
   )
 
+  // Arrow reverse direction
+  document.getElementById('arrowReverse').addEventListener('click', () => {
+    const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+    snapshot();
+    [a.from, a.to] = [a.to, a.from]
+    renderArrows(); renderInspector(); debouncedSave()
+  })
+
   // Arrow bidirectional
   document.getElementById('arrowBidir').addEventListener('click', () => {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return

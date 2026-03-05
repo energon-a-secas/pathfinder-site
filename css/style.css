@@ -265,10 +265,10 @@
       position: absolute;
       width: 220px;
       border-radius: var(--radius);
-      border-left: 3px solid transparent;
-      border-top: 1px solid rgba(255,255,255,.08);
-      border-right: 1px solid rgba(255,255,255,.08);
-      border-bottom: 1px solid rgba(255,255,255,.08);
+      border-left: 3px solid var(--bc, rgba(255,255,255,.12));
+      border-top: 1px solid color-mix(in srgb, var(--bc, white) 20%, transparent);
+      border-right: 1px solid color-mix(in srgb, var(--bc, white) 20%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--bc, white) 20%, transparent);
       background: rgba(8, 8, 22, 0.88);
       padding: 10px 12px 10px;
       cursor: grab;
@@ -364,19 +364,31 @@
     .block.dragging { cursor: grabbing; box-shadow: 0 10px 36px rgba(0,0,0,.55); z-index: 100; }
     .canvas-root.has-hover .arrow-path:not(.related) { stroke: rgba(255,255,255,.08) !important; }
     .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: 0.4; transition: opacity 120ms; }
-    .arrow-path.related { stroke: rgba(255,255,255,.7) !important; stroke-width: 2.5px !important; }
 
-    /* Type left-border colors */
-    .block[data-type=goal]        { border-left-color: var(--c-goal); }
-    .block[data-type=problem]     { border-left-color: var(--c-problem); }
-    .block[data-type=requirement] { border-left-color: var(--c-requirement); }
-    .block[data-type=risk]        { border-left-color: var(--c-risk); }
-    .block[data-type=question]    { border-left-color: var(--c-question); }
-    .block[data-type=decision]    { border-left-color: var(--c-decision); }
-    .block[data-type=resource]    { border-left-color: var(--c-resource); }
-    .block[data-type=output]      { border-left-color: var(--c-output); }
-    .block[data-type=context]     { border-left-color: var(--c-context); }
-    .block[data-type=custom]      { border-left-color: var(--c-custom); }
+    @keyframes arrowFlow { to { stroke-dashoffset: -24; } }
+    .arrow-path.related {
+      stroke: rgba(255,255,255,.7) !important;
+      stroke-width: 2.5px !important;
+      stroke-dasharray: 12 8;
+      animation: arrowFlow 0.6s linear infinite;
+    }
+
+    /* Block type accent — drives left border, faint side borders, and background tint */
+    .block[data-type=goal]        { --bc: var(--c-goal); }
+    .block[data-type=problem]     { --bc: var(--c-problem); }
+    .block[data-type=requirement] { --bc: var(--c-requirement); }
+    .block[data-type=risk]        { --bc: var(--c-risk); }
+    .block[data-type=question]    { --bc: var(--c-question); }
+    .block[data-type=decision]    { --bc: var(--c-decision); }
+    .block[data-type=resource]    { --bc: var(--c-resource); }
+    .block[data-type=output]      { --bc: var(--c-output); }
+    .block[data-type=context]     { --bc: var(--c-context); }
+    .block[data-type=custom]      { --bc: var(--c-custom); }
+
+    /* Opt-in colored background tint (toggled via header button) */
+    body.tinted-blocks .block {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 0%, rgba(8,8,22,.92) 60%);
+    }
 
     .block-header {
       display: flex;
@@ -394,16 +406,7 @@
       border-radius: 3px;
       background: rgba(255,255,255,.06);
     }
-    .block[data-type=goal]        .block-type-badge { color: var(--c-goal); }
-    .block[data-type=problem]     .block-type-badge { color: var(--c-problem); }
-    .block[data-type=requirement] .block-type-badge { color: var(--c-requirement); }
-    .block[data-type=risk]        .block-type-badge { color: var(--c-risk); }
-    .block[data-type=question]    .block-type-badge { color: var(--c-question); }
-    .block[data-type=decision]    .block-type-badge { color: var(--c-decision); }
-    .block[data-type=resource]    .block-type-badge { color: var(--c-resource); }
-    .block[data-type=output]      .block-type-badge { color: var(--c-output); }
-    .block[data-type=context]     .block-type-badge { color: var(--c-context); }
-    .block[data-type=custom]      .block-type-badge { color: var(--c-custom); }
+    .block .block-type-badge { color: var(--bc, var(--text-muted)); }
 
     .block-gap-icons { display: flex; gap: 3px; }
     .gap-icon { font-size: 11px; line-height: 1; }
@@ -492,18 +495,10 @@
     .block.gap-isolated {
       border-style: dashed;
       border-left-style: solid;
-      border-color: rgba(255,255,255,.18);
+      border-top-color: rgba(255,255,255,.12);
+      border-right-color: rgba(255,255,255,.12);
+      border-bottom-color: rgba(255,255,255,.12);
     }
-    .block[data-type=goal].gap-isolated        { border-left-color: var(--c-goal); }
-    .block[data-type=problem].gap-isolated     { border-left-color: var(--c-problem); }
-    .block[data-type=requirement].gap-isolated { border-left-color: var(--c-requirement); }
-    .block[data-type=risk].gap-isolated        { border-left-color: var(--c-risk); }
-    .block[data-type=question].gap-isolated    { border-left-color: var(--c-question); }
-    .block[data-type=decision].gap-isolated    { border-left-color: var(--c-decision); }
-    .block[data-type=resource].gap-isolated    { border-left-color: var(--c-resource); }
-    .block[data-type=output].gap-isolated      { border-left-color: var(--c-output); }
-    .block[data-type=context].gap-isolated     { border-left-color: var(--c-context); }
-    .block[data-type=custom].gap-isolated      { border-left-color: var(--c-custom); }
 
     .block.gap-assumption  { animation: glowAmber  2s ease-in-out infinite; }
     .block.gap-no-req      { animation: glowYellow 2.5s ease-in-out infinite; }

@@ -29,6 +29,13 @@ function init() {
   loadState()
   checkShareUrl()
   updateCanvasTitle()
+
+  // Restore tint preference
+  try { ui.tintedBlocks = !!localStorage.getItem('pathfinder-tint') } catch(_) {}
+  if (ui.tintedBlocks) {
+    document.body.classList.add('tinted-blocks')
+    document.getElementById('tintBtn')?.classList.add('active')
+  }
   applyTransform()
 
   // Wire up all event handlers

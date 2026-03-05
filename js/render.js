@@ -33,7 +33,7 @@ export function renderBlock(id) {
   el.dataset.type = b.type
   const w = b.width || DEFAULT_WIDTH
   el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${w}px`
-  if (b.color) el.style.borderLeftColor = b.color
+  if (b.color) el.style.setProperty('--bc', b.color)
 
   const actHtml = b.actions.map(a => `<span class="action-badge ${a}">${a}</span>`).join('')
   const descHtml = b.description

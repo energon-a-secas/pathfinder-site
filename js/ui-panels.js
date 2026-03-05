@@ -306,6 +306,13 @@ export function setupHeaderButtons() {
 
   document.getElementById('fitBtn').addEventListener('click', fitView)
 
+  document.getElementById('tintBtn').addEventListener('click', () => {
+    ui.tintedBlocks = !ui.tintedBlocks
+    document.body.classList.toggle('tinted-blocks', ui.tintedBlocks)
+    document.getElementById('tintBtn').classList.toggle('active', ui.tintedBlocks)
+    try { localStorage.setItem('pathfinder-tint', ui.tintedBlocks ? '1' : '') } catch(_) {}
+  })
+
   document.getElementById('snapBtn').addEventListener('click', () => {
     ui.snapToGrid = !ui.snapToGrid
     document.getElementById('snapBtn').classList.toggle('active', ui.snapToGrid)
