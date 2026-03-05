@@ -206,13 +206,16 @@
       pointer-events: none;
     }
 
-    /* Arrow paths — color/weight driven by JS-set CSS custom props --ac / --aw */
+    /* Arrow paths — color/weight driven by JS-set CSS custom props --ac / --aw / --ac-hi */
     .arrow-path {
       fill: none;
       stroke: var(--ac, rgba(255,255,255,.3));
       stroke-width: var(--aw, 2px);
       pointer-events: none;
       transition: stroke var(--dur-fast);
+      stroke-dasharray: 0;
+      stroke-dashoffset: 0;
+      animation: arrowFlow 0.6s linear infinite;
     }
 
     .arrow-label {
@@ -266,9 +269,9 @@
       width: 220px;
       border-radius: var(--radius);
       border-left: 3px solid var(--bc, rgba(255,255,255,.12));
-      border-top: 1px solid color-mix(in srgb, var(--bc, white) 20%, transparent);
-      border-right: 1px solid color-mix(in srgb, var(--bc, white) 20%, transparent);
-      border-bottom: 1px solid color-mix(in srgb, var(--bc, white) 20%, transparent);
+      border-top: 1px solid color-mix(in srgb, var(--bc, white) 28%, transparent);
+      border-right: 1px solid color-mix(in srgb, var(--bc, white) 28%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--bc, white) 28%, transparent);
       background: rgba(8, 8, 22, 0.88);
       padding: 10px 12px 10px;
       cursor: grab;
@@ -367,10 +370,9 @@
 
     @keyframes arrowFlow { to { stroke-dashoffset: -24; } }
     .arrow-path.related {
-      stroke: rgba(255,255,255,.7) !important;
+      stroke: var(--ac-hi, rgba(255,255,255,.7)) !important;
       stroke-width: 2.5px !important;
       stroke-dasharray: 12 8;
-      animation: arrowFlow 0.6s linear infinite;
     }
 
     /* Block type accent — drives left border, faint side borders, and background tint */

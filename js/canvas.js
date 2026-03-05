@@ -130,6 +130,7 @@ export function renderArrows() {
 
     // Color and weight via CSS custom properties (allow .related and hover to override via !important)
     g.style.setProperty('--ac', sel ? (a.color || 'rgba(255,255,255,.8)') : (a.color || 'rgba(255,255,255,.3)'))
+    g.style.setProperty('--ac-hi', a.color || 'rgba(255,255,255,.7)')
     g.style.setProperty('--aw', (a.weight || 2) + 'px')
 
     const lbl = g.children[2]
