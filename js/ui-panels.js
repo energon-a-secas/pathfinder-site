@@ -306,6 +306,12 @@ export function setupHeaderButtons() {
 
   document.getElementById('fitBtn').addEventListener('click', fitView)
 
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    ui.lightMode = !ui.lightMode
+    applyTheme()
+    try { localStorage.setItem('pathfinder-theme', ui.lightMode ? 'light' : '') } catch(_) {}
+  })
+
   document.getElementById('tintBtn').addEventListener('click', () => {
     ui.tintedBlocks = !ui.tintedBlocks
     document.body.classList.toggle('tinted-blocks', ui.tintedBlocks)
@@ -317,6 +323,16 @@ export function setupHeaderButtons() {
     ui.snapToGrid = !ui.snapToGrid
     document.getElementById('snapBtn').classList.toggle('active', ui.snapToGrid)
   })
+}
+
+export function applyTheme() {
+  document.body.classList.toggle('light-mode', ui.lightMode)
+  const btn = document.getElementById('themeBtn')
+  btn.textContent = ui.lightMode ? '☾' : '☀'
+  btn.classList.toggle('active', ui.lightMode)
+  // Re-render arrows to swap marker refs and color defaults
+  applyTransform()
+  renderArrows()
 }
 
 // ── Templates ────────────────────────────────────────────────

@@ -2,8 +2,23 @@
 //  canvas.js — Canvas connections/lines drawing (SVG), drag behavior
 // ════════════════════════════════════════════════════════════
 
-import { state, view, selection } from './state.js'
+import { state, view, selection, ui } from './state.js'
 import { $, clamp, escHtml, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+
+// ── Theme-aware helpers ─────────────────────────────────────
+export function isLight() { return ui.lightMode }
+
+const LIGHT_MARKERS = {
+  'arrowhead': 'arrowhead-light',
+  'arrowhead-sel': 'arrowhead-light-sel',
+  'arrowhead-pre': 'arrowhead-light-pre',
+  'arrowhead-back': 'arrowhead-light-back',
+  'arrowhead-back-sel': 'arrowhead-light-back-sel',
+}
+
+function markerRef(base) {
+  return isLight() ? `url(#${LIGHT_MARKERS[base] || base})` : `url(#${base})`
+}
 
 // ── Canvas transform + dot grid ──────────────────────────────
 export function applyTransform() {
@@ -12,8 +27,9 @@ export function applyTransform() {
   canvasRoot.style.transform = `translate(${view.panX}px,${view.panY}px) scale(${view.zoom})`
   // Move dot grid with canvas
   const sz = 28 * view.zoom
+  const dotColor = isLight() ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.12)'
   canvasViewport.style.backgroundImage =
-    'radial-gradient(circle, rgba(255,255,255,.12) 1px, transparent 1px)'
+    `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`
   canvasViewport.style.backgroundSize = `${sz}px ${sz}px`
   canvasViewport.style.backgroundPosition =
     `${view.panX % sz}px ${view.panY % sz}px`
@@ -124,13 +140,17 @@ export function renderArrows() {
     hit.setAttribute('d', d)
     vis.setAttribute('d', d)
     vis.classList.toggle('selected', sel)
-    vis.setAttribute('marker-end', sel ? 'url(#arrowhead-sel)' : 'url(#arrowhead)')
+    vis.setAttribute('marker-end', sel ? markerRef('arrowhead-sel') : markerRef('arrowhead'))
     vis.setAttribute('marker-start',
-      a.bidirectional ? (sel ? 'url(#arrowhead-back-sel)' : 'url(#arrowhead-back)') : '')
+      a.bidirectional ? (sel ? markerRef('arrowhead-back-sel') : markerRef('arrowhead-back')) : '')
 
     // Color and weight via CSS custom properties (allow .related and hover to override via !important)
-    g.style.setProperty('--ac', sel ? (a.color || 'rgba(255,255,255,.8)') : (a.color || 'rgba(255,255,255,.3)'))
-    g.style.setProperty('--ac-hi', a.color || 'rgba(255,255,255,.7)')
+    const light = isLight()
+    const defColor    = light ? 'rgba(0,0,0,.22)' : 'rgba(255,255,255,.3)'
+    const selColor    = light ? 'rgba(0,0,0,.65)' : 'rgba(255,255,255,.8)'
+    const brightColor = light ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.7)'
+    g.style.setProperty('--ac', sel ? (a.color || selColor) : (a.color || defColor))
+    g.style.setProperty('--ac-hi', a.color || brightColor)
     g.style.setProperty('--aw', (a.weight || 2) + 'px')
 
     const lbl = g.children[2]

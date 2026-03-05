@@ -15,7 +15,7 @@ import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
-  setupHeaderButtons, setupTemplates, checkShareUrl
+  setupHeaderButtons, setupTemplates, checkShareUrl, applyTheme
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -29,6 +29,14 @@ function init() {
   loadState()
   checkShareUrl()
   updateCanvasTitle()
+
+  // Restore theme preference (light/dark)
+  try {
+    const saved = localStorage.getItem('pathfinder-theme')
+    if (saved === 'light') ui.lightMode = true
+    else if (saved === null && window.matchMedia('(prefers-color-scheme: light)').matches) ui.lightMode = true
+  } catch(_) {}
+  if (ui.lightMode) applyTheme()
 
   // Restore tint preference
   try { ui.tintedBlocks = !!localStorage.getItem('pathfinder-tint') } catch(_) {}

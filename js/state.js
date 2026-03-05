@@ -24,6 +24,7 @@ export const ui = {
   searchFocusIdx: -1,
   snapToGrid:     false,
   tintedBlocks:   false,
+  lightMode:      false,
   hoveredBlockId: null,
 }
 

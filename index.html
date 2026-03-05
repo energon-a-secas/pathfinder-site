@@ -79,6 +79,7 @@
     </div>
   </div>
 
+  <button class="header-btn" id="themeBtn" title="Toggle light/dark mode" aria-label="Toggle light or dark mode">☀</button>
   <button class="header-btn" id="tintBtn" title="Color tint on blocks" aria-label="Toggle block color tint">Tint</button>
   <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
   <button class="header-btn" id="clearBtn" aria-label="Clear canvas">Clear</button>
@@ -191,6 +192,22 @@
           </marker>
           <marker id="arrowhead-back-sel" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
             <polygon points="10 0, 0 3.5, 10 7" fill="rgba(255,255,255,.85)"/>
+          </marker>
+          <!-- Light-mode markers -->
+          <marker id="arrowhead-light" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(0,0,0,.35)"/>
+          </marker>
+          <marker id="arrowhead-light-sel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(0,0,0,.7)"/>
+          </marker>
+          <marker id="arrowhead-light-pre" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(0,0,0,.3)"/>
+          </marker>
+          <marker id="arrowhead-light-back" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(0,0,0,.35)"/>
+          </marker>
+          <marker id="arrowhead-light-back-sel" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(0,0,0,.7)"/>
           </marker>
         </defs>
         <g id="arrowsGroup"></g>

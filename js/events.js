@@ -7,7 +7,7 @@ import { state, selection, ui, view, canvasMeta, pointer,
          debouncedSave, snapshot, snap, toWorld } from './state.js'
 import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
-         blockAtWorld, blocksInRect } from './canvas.js'
+         blockAtWorld, blocksInRect, isLight } from './canvas.js'
 import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
          selectBlock, addToSelection, setSelection, selectArrow, deselectAll,
          mutateBlock, createBlock, deleteBlock, addArrow, deleteArrow,
@@ -102,6 +102,7 @@ export function setupCanvasPointerEvents() {
       const pp   = portPos(bid, port.dataset.port); if (!pp) return
       pointer.ix = { type: 'arrow', fromId: bid, x1: pp.x, y1: pp.y, d1: pp.dir }
       arrowPreview.setAttribute('d', '')
+      arrowPreview.setAttribute('marker-end', isLight() ? 'url(#arrowhead-light-pre)' : 'url(#arrowhead-pre)')
 
     } else if (block) {
       const id = block.dataset.id
