@@ -212,10 +212,10 @@
       stroke: var(--ac, rgba(255,255,255,.3));
       stroke-width: var(--aw, 2px);
       pointer-events: none;
-      transition: stroke var(--dur-fast);
+      transition: stroke var(--dur-fast), stroke-dasharray 0.4s ease, stroke-width 0.2s ease;
       stroke-dasharray: 0;
       stroke-dashoffset: 0;
-      animation: arrowFlow 0.6s linear infinite;
+      animation: arrowFlow 1.8s linear infinite;
     }
 
     .arrow-label {
@@ -368,11 +368,11 @@
     .canvas-root.has-hover .arrow-path:not(.related) { stroke: rgba(255,255,255,.08) !important; }
     .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: 0.4; transition: opacity 120ms; }
 
-    @keyframes arrowFlow { to { stroke-dashoffset: -24; } }
+    @keyframes arrowFlow { to { stroke-dashoffset: -20; } }
     .arrow-path.related {
       stroke: var(--ac-hi, rgba(255,255,255,.7)) !important;
       stroke-width: 2.5px !important;
-      stroke-dasharray: 12 8;
+      stroke-dasharray: 8 12;
     }
 
     /* Block type accent — drives left border, faint side borders, and background tint */
