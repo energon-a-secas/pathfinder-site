@@ -1,0 +1,17 @@
+# -- macOS -----------------------------------------------------------------------
+.DS_Store
+
+# -- Playwright MCP (Claude Code browser automation) ----------------------------
+.playwright-mcp/
+
+# -- Node (local tooling only) --------------------------------------------------
+node_modules/
+npm-debug.log*
+
+# -- Secrets -- never commit ----------------------------------------------------
+.env
+.env.*
+
+# -- Prevent deployment of dev files -------------------------------------------
+CLAUDE.md
+.claudeignore
