@@ -8,7 +8,7 @@ import { state, selection, ui, view, canvasMeta, devOpts,
 import { $, TYPES, clamp, escHtml, showToast, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
-import { TEMPLATES, applyTemplate } from './templates.js'
+import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
 import { refreshPrompt, markExported } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt } from './export.js'
 import { runGapDetection } from './gaps.js'
@@ -335,12 +335,34 @@ export function applyTheme() {
   renderArrows()
 }
 
+// ── Palette sections & collapse ──────────────────────────────
+export function setupPaletteSections() {
+  // Section toggles (Templates, Blocks)
+  document.querySelectorAll('.palette-section-toggle').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const section = toggle.closest('.palette-section')
+      section.classList.toggle('collapsed')
+      toggle.setAttribute('aria-expanded', !section.classList.contains('collapsed'))
+    })
+  })
+
+  // Palette collapse button
+  const collapseBtn = document.getElementById('paletteCollapseBtn')
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', () => {
+      const palette = document.getElementById('palette')
+      palette.classList.toggle('collapsed')
+      collapseBtn.title = palette.classList.contains('collapsed') ? 'Expand palette' : 'Collapse palette'
+    })
+  }
+}
+
 // ── Templates ────────────────────────────────────────────────
 export function setupTemplates() {
   const list = $.templatesList(); if (!list) return
   list.innerHTML = TEMPLATES.map((tpl, i) => `
-    <div class="template-item" data-tpl="${i}">
-      <div class="template-icon">${tpl.emoji}</div>
+    <div class="template-item" data-tpl="${i}" title="${escHtml(tpl.name)}">
+      <div class="template-icon">${TICONS[tpl.icon] || ''}</div>
       <div>
         <div class="template-label">${escHtml(tpl.name)}</div>
         <div class="template-desc">${escHtml(tpl.desc)}</div>

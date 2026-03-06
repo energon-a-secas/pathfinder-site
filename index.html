@@ -95,51 +95,70 @@
 
   <!-- Palette -->
   <aside class="palette" id="palette">
-    <div class="palette-header">Blocks</div>
 
-    <div class="palette-item" data-type="goal" role="button" tabindex="0" aria-label="Add Goal block">
-      <div class="palette-dot" style="background:var(--c-goal)"></div>
-      <div><div class="palette-label">Goal</div><div class="palette-desc">What you want to achieve</div></div>
-    </div>
-    <div class="palette-item" data-type="problem" role="button" tabindex="0" aria-label="Add Problem block">
-      <div class="palette-dot" style="background:var(--c-problem)"></div>
-      <div><div class="palette-label">Problem</div><div class="palette-desc">Blocker or issue</div></div>
-    </div>
-    <div class="palette-item" data-type="requirement" role="button" tabindex="0" aria-label="Add Requirement block">
-      <div class="palette-dot" style="background:var(--c-requirement)"></div>
-      <div><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
-    </div>
-    <div class="palette-item" data-type="risk" role="button" tabindex="0" aria-label="Add Risk block">
-      <div class="palette-dot" style="background:var(--c-risk)"></div>
-      <div><div class="palette-label">Risk</div><div class="palette-desc">What might go wrong</div></div>
-    </div>
-    <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Question block">
-      <div class="palette-dot" style="background:var(--c-question)"></div>
-      <div><div class="palette-label">Question</div><div class="palette-desc">Unknown / assumption</div></div>
-    </div>
-    <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block">
-      <div class="palette-dot" style="background:var(--c-decision)"></div>
-      <div><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
-    </div>
-    <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block">
-      <div class="palette-dot" style="background:var(--c-resource)"></div>
-      <div><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
-    </div>
-    <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block">
-      <div class="palette-dot" style="background:var(--c-output)"></div>
-      <div><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
-    </div>
-    <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
-      <div class="palette-dot" style="background:var(--c-context)"></div>
-      <div><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
-    </div>
-    <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block">
-      <div class="palette-dot" style="background:var(--c-custom)"></div>
-      <div><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
+    <!-- Templates (collapsible, on top) -->
+    <div class="palette-section" id="templatesSection">
+      <div class="palette-section-toggle" id="templatesToggle" role="button" tabindex="0" aria-expanded="true">
+        <span>Templates</span>
+        <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </div>
+      <div class="palette-section-body" id="templatesList"></div>
     </div>
 
-    <div class="palette-section-header">Templates</div>
-    <div id="templatesList"></div>
+    <!-- Blocks -->
+    <div class="palette-section" id="blocksSection">
+      <div class="palette-section-toggle" id="blocksToggle" role="button" tabindex="0" aria-expanded="true">
+        <span>Blocks</span>
+        <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </div>
+      <div class="palette-section-body" id="blocksList">
+        <div class="palette-item" data-type="goal" role="button" tabindex="0" aria-label="Add Goal block" title="Goal">
+          <div class="palette-dot" style="background:var(--c-goal)"></div>
+          <div class="palette-item-text"><div class="palette-label">Goal</div><div class="palette-desc">What you want to achieve</div></div>
+        </div>
+        <div class="palette-item" data-type="problem" role="button" tabindex="0" aria-label="Add Problem block" title="Problem">
+          <div class="palette-dot" style="background:var(--c-problem)"></div>
+          <div class="palette-item-text"><div class="palette-label">Problem</div><div class="palette-desc">Blocker or issue</div></div>
+        </div>
+        <div class="palette-item" data-type="requirement" role="button" tabindex="0" aria-label="Add Requirement block" title="Requirement">
+          <div class="palette-dot" style="background:var(--c-requirement)"></div>
+          <div class="palette-item-text"><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
+        </div>
+        <div class="palette-item" data-type="risk" role="button" tabindex="0" aria-label="Add Risk block" title="Risk">
+          <div class="palette-dot" style="background:var(--c-risk)"></div>
+          <div class="palette-item-text"><div class="palette-label">Risk</div><div class="palette-desc">What might go wrong</div></div>
+        </div>
+        <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Question block" title="Question">
+          <div class="palette-dot" style="background:var(--c-question)"></div>
+          <div class="palette-item-text"><div class="palette-label">Question</div><div class="palette-desc">Unknown / assumption</div></div>
+        </div>
+        <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block" title="Decision">
+          <div class="palette-dot" style="background:var(--c-decision)"></div>
+          <div class="palette-item-text"><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
+        </div>
+        <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block" title="Resource">
+          <div class="palette-dot" style="background:var(--c-resource)"></div>
+          <div class="palette-item-text"><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
+        </div>
+        <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block" title="Output">
+          <div class="palette-dot" style="background:var(--c-output)"></div>
+          <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
+        </div>
+        <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block" title="Context">
+          <div class="palette-dot" style="background:var(--c-context)"></div>
+          <div class="palette-item-text"><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
+        </div>
+        <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block" title="Custom">
+          <div class="palette-dot" style="background:var(--c-custom)"></div>
+          <div class="palette-item-text"><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapse toggle -->
+    <button class="palette-collapse-btn" id="paletteCollapseBtn" title="Collapse palette" aria-label="Toggle palette width">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
   </aside>
 
   <!-- Canvas viewport -->

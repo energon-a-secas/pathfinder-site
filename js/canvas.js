@@ -27,7 +27,7 @@ export function applyTransform() {
   canvasRoot.style.transform = `translate(${view.panX}px,${view.panY}px) scale(${view.zoom})`
   // Move dot grid with canvas
   const sz = 28 * view.zoom
-  const dotColor = isLight() ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.12)'
+  const dotColor = isLight() ? 'rgba(0,0,0,.12)' : 'rgba(255,255,255,.12)'
   canvasViewport.style.backgroundImage =
     `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`
   canvasViewport.style.backgroundSize = `${sz}px ${sz}px`

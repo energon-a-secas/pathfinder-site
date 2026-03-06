@@ -15,7 +15,7 @@ import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
-  setupHeaderButtons, setupTemplates, checkShareUrl, applyTheme
+  setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -65,6 +65,7 @@ function init() {
   setupShareDropdown()
   setupImportHandler()
   setupHeaderButtons()
+  setupPaletteSections()
   setupTemplates()
 
   renderAllBlocks()
