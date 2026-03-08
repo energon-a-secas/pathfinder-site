@@ -98,12 +98,11 @@
     }
     .header-btn-danger:hover { background: rgba(248,113,113,.25); border-color: rgba(248,113,113,.4); }
 
-    .header-btn-help {
-      font-weight: 700; font-size: 15px;
-      width: 32px; height: 32px;
-      padding: 0; border-radius: 50%;
+    .header-btn-icon {
+      padding: 8px;
       display: flex; align-items: center; justify-content: center;
     }
+    .header-btn-icon svg { width: 16px; height: 16px; display: block; }
 
     .header-btn-group {
       display: flex;
@@ -485,7 +484,7 @@
 
     /* Opt-in colored background tint (toggled via header button) */
     body.tinted-blocks .block {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 0%, rgba(8,8,22,.92) 60%);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #080816) 14%, rgba(8,8,22,.92)) 0%, rgba(8,8,22,.92) 70%);
     }
 
     .block-header {
@@ -1473,7 +1472,7 @@
     body.light-mode ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.22); }
 
     body.light-mode.tinted-blocks .block {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #888) 10%, #fff) 0%, #fff 60%);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #888) 18%, #fff) 0%, #fff 70%);
     }
 
     /* Adjusted block type colors for light background contrast */

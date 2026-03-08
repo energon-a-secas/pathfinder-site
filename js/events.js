@@ -558,7 +558,8 @@ export function setupPalette() {
     vp.classList.toggle('drop-target', over)
   })
 
-  palette.addEventListener('pointerup', e => {
+  // Listen on document so pointerup is caught even when pointer leaves palette
+  document.addEventListener('pointerup', e => {
     if (!paletteDrag) return
     const { type, item, ghost, committed } = paletteDrag
     paletteDrag = null
@@ -577,7 +578,7 @@ export function setupPalette() {
     }
   })
 
-  palette.addEventListener('pointercancel', () => {
+  document.addEventListener('pointercancel', () => {
     if (!paletteDrag) return
     paletteDrag.item.classList.remove('dragging')
     if (paletteDrag.ghost) paletteDrag.ghost.remove()
