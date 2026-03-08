@@ -186,12 +186,25 @@ The JSON export preserves everything: block positions, connections, actions, que
 
 ---
 
-## File structure
+## Architecture
+
+![Architecture](docs/architecture.svg)
 
 ```
 pathfinder-site/
-├── index.html              # Single-file app: markup, styles, and logic inline (~1800 lines)
-├── energon-classic-logo.png
+├── index.html              # App shell
+├── css/
+│   └── style.css           # All styles, variables, animations
+├── js/
+│   ├── app.js              # Entry point
+│   ├── state.js            # State, localStorage, block mutations
+│   ├── canvas.js           # Pan/zoom, ports, Bézier arrows
+│   ├── render.js           # Block + inspector DOM rendering
+│   ├── events.js           # Canvas pointer, keyboard shortcuts
+│   ├── gaps.js             # Automatic gap detection
+│   ├── prompt.js           # AI prompt builder
+│   ├── ui-panels.js        # Export, search, dev options
+│   └── utils.js            # Helpers
 ├── favicon.ico
 └── CNAME                   # pathfinder.neorgon.com
 ```

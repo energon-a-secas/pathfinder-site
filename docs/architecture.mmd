@@ -1,0 +1,38 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#0f172a"
+    primaryTextColor: "#e2e8f0"
+    primaryBorderColor: "#0063e5"
+    lineColor: "#38bdf8"
+    secondaryColor: "#1e293b"
+    tertiaryColor: "#1e293b"
+    clusterBkg: "#f0f7ff"
+    clusterBorder: "#bfdbfe"
+    edgeLabelBackground: "#e8f0ff"
+    mainBkg: "#0f172a"
+    nodeBorder: "#0063e5"
+    titleColor: "#1e1b4b"
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif"
+    fontSize: "13px"
+---
+
+flowchart TB
+    User([User]) --> HTML["index.html\nApp shell"]
+
+    subgraph App["ES Modules"]
+        HTML --> app["app.js\nEntry point"]
+        app --> state["state.js\nBlocks + arrows"]
+        app --> canvas["canvas.js\nPan / zoom / ports / arrows"]
+        app --> render["render.js\nBlock + inspector DOM"]
+        app --> events["events.js\nCanvas + keyboard shortcuts"]
+        app --> gaps["gaps.js\nGap detection"]
+        app --> prompt["prompt.js\nAI prompt builder"]
+        app --> panels["ui-panels.js\nExport + search + dev options"]
+        app --> utils["utils.js\nHelpers"]
+    end
+
+    state <-->|"pathfinder-v1"| Storage[("localStorage")]
+    panels -->|"structured markdown"| Clipboard["Clipboard API"]
+    panels --> FileExport["File downloads\nJSON / Markdown"]
