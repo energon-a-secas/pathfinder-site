@@ -484,7 +484,7 @@
 
     /* Opt-in colored background tint (toggled via header button) */
     body.tinted-blocks .block {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #080816) 14%, rgba(8,8,22,.92)) 0%, rgba(8,8,22,.92) 70%);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #080816) 14%, rgba(8,8,22,.92)) 0%, color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 100%);
     }
 
     .block-header {
@@ -1472,7 +1472,7 @@
     body.light-mode ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.22); }
 
     body.light-mode.tinted-blocks .block {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #888) 18%, #fff) 0%, #fff 70%);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #888) 18%, #fff) 0%, color-mix(in srgb, var(--bc, #888) 8%, #fff) 100%);
     }
 
     /* Adjusted block type colors for light background contrast */
