@@ -21,11 +21,23 @@ export const DEFAULT_WIDTH  = 220
 export const MIN_ZOOM       = 0.18
 export const MAX_ZOOM       = 2.6
 
+export const ACTION_DEFS = {
+  resolve:   'Take action to fix or close this item',
+  prepare:   'Gather resources or context before proceeding',
+  recollect: 'Review past decisions or context relevant here',
+  reinforce: 'Strengthen or validate the current approach',
+}
+
 export const SWATCH_COLORS = [
   '#a78bfa', '#f87171', '#fbbf24', '#fb923c',
   '#38bdf8', '#34d399', '#2dd4bf', '#818cf8',
   '#f472b6', '#c084fc', '#94a3b8', '#ffffff',
 ]
+export const SWATCH_NAMES = {
+  '#a78bfa': 'Violet', '#f87171': 'Red', '#fbbf24': 'Amber', '#fb923c': 'Orange',
+  '#38bdf8': 'Sky', '#34d399': 'Emerald', '#2dd4bf': 'Teal', '#818cf8': 'Indigo',
+  '#f472b6': 'Pink', '#c084fc': 'Purple', '#94a3b8': 'Slate', '#ffffff': 'White',
+}
 
 // ── ID generator ─────────────────────────────────────────────
 let _sid = 0

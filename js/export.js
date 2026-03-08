@@ -38,7 +38,12 @@ export function applyImport(data, mode) {
     const fId = idMap[a.from] || a.from
     const tId = idMap[a.to]   || a.to
     if (state.blocks[fId] && state.blocks[tId] && fId !== tId)
-      state.arrows.push({ id: genId(), from: fId, to: tId, ...(a.label ? { label: a.label } : {}) })
+      const extra = {}
+      if (a.label) extra.label = a.label
+      if (a.style) extra.style = a.style
+      if (a.weight) extra.weight = a.weight
+      if (a.bidirectional) extra.bidirectional = a.bidirectional
+      state.arrows.push({ id: genId(), from: fId, to: tId, ...extra })
   })
 
   // Import groups, remap IDs on merge

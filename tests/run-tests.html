@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pathfinder Test Suite</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+    #report { padding: 20px; }
+    .loading {
+      text-align: center;
+      padding: 80px 20px;
+      color: #94a3b8;
+      font-size: 1.1em;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Minimal DOM stubs required by source modules that reference elements via $() -->
+<div id="canvasViewport" style="display:none">
+  <div id="canvasRoot"></div>
+</div>
+<svg id="arrowsLayer" style="display:none">
+  <g id="arrowsGroup"></g>
+  <path id="arrowPreview"></path>
+</svg>
+<div id="framesLayer" style="display:none"></div>
+<div id="canvasHint" style="display:none"></div>
+<div id="inspectorEmpty" style="display:none"></div>
+<div id="inspectorContent" style="display:none"></div>
+<div id="inspectorMulti" style="display:none"></div>
+<div id="inspectorArrow" style="display:none"></div>
+<input id="inspTitle" style="display:none">
+<textarea id="inspDesc" style="display:none"></textarea>
+<textarea id="inspNotes" style="display:none"></textarea>
+<div id="questionsList" style="display:none"></div>
+<textarea id="promptOutput" style="display:none"></textarea>
+<div id="promptSummary" style="display:none"></div>
+<div id="selectBox" style="display:none"></div>
+<div id="searchOverlay" style="display:none"></div>
+<input id="searchInput" style="display:none">
+<div id="searchResults" style="display:none"></div>
+<div id="zoomIndicator" style="display:none"></div>
+<div id="canvasTitle" style="display:none"></div>
+<div id="typePicker" style="display:none"></div>
+<div id="shortcutOverlay" style="display:none"></div>
+<div id="shortcutGrid" style="display:none"></div>
+<div id="colorSwatches" style="display:none"></div>
+<div id="inspectorFrame" style="display:none"></div>
+<input id="frameLabelInput" style="display:none">
+<div id="templatesList" style="display:none"></div>
+<div id="arrowColorSwatches" style="display:none"></div>
+<div id="healthBar" style="display:none"></div>
+<div id="promptDiff" style="display:none"></div>
+
+<div id="report">
+  <div class="loading">Running tests...</div>
+</div>
+
+<script type="module">
+  import { runAll, renderReport } from './test-utils.js'
+
+  // Import all test modules (this registers their describe/it calls)
+  await import('./utils.test.js')
+  await import('./state.test.js')
+  await import('./gaps.test.js')
+  await import('./prompt.test.js')
+  await import('./canvas.test.js')
+
+  // Run everything and render results
+  const results = await runAll()
+  renderReport(document.getElementById('report'), results)
+
+  // Also log summary to console
+  const { totalPassed, totalFailed } = results
+  const style = totalFailed ? 'color:#f87171' : 'color:#34d399'
+  console.log(`%c${totalPassed}/${totalPassed + totalFailed} tests passed`, style + ';font-weight:bold')
+  if (totalFailed) {
+    results.suites.forEach(s => s.errors.forEach(e =>
+      console.error(`FAIL [${s.name}] ${e.test}: ${e.error}`)
+    ))
+  }
+</script>
+
+</body>
+</html>

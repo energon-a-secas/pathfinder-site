@@ -5,7 +5,7 @@
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture } from './state.js'
-import { $, TYPES, SWATCH_COLORS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims } from './utils.js'
+import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
@@ -35,7 +35,7 @@ export function renderBlock(id) {
   el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${w}px`
   if (b.color) el.style.setProperty('--bc', b.color)
 
-  const actHtml = b.actions.map(a => `<span class="action-badge ${a}">${a}</span>`).join('')
+  const actHtml = b.actions.map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
   const descHtml = b.description
     ? `<div class="block-desc">${escHtml(b.description)}</div>` : ''
   const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
@@ -116,9 +116,9 @@ export function renderInspector() {
       const arrowSwatches = $.arrowColorSwatches()
       if (arrowSwatches) {
         arrowSwatches.innerHTML =
-          `<div class="color-swatch swatch-reset${!a.color ? ' active' : ''}" data-color="reset" title="Default"></div>` +
+          `<div class="color-swatch swatch-reset${!a.color ? ' active' : ''}" data-color="reset" role="button" aria-label="Default color" title="Default"></div>` +
           SWATCH_COLORS.map(c =>
-            `<div class="color-swatch${a.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" title="${c}"></div>`
+            `<div class="color-swatch${a.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" role="button" aria-label="${SWATCH_NAMES[c] || c}" title="${SWATCH_NAMES[c] || c}"></div>`
           ).join('')
       }
       // Weight buttons
@@ -140,25 +140,32 @@ export function renderInspector() {
   inspectorContent.style.display = ''
 
   // type picker
+  const TYPE_TIPS = {
+    goal: 'What you want to achieve', problem: 'Blocker or issue', requirement: 'Needed to proceed',
+    risk: 'What might go wrong', question: 'Unknown / assumption', decision: 'A choice already made',
+    resource: 'Available asset', output: 'Expected result', context: 'Background information', custom: 'Free-form block',
+  }
   $.typePicker().innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
-    `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}">${cfg.label}</span>`
+    `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}" title="${TYPE_TIPS[t] || t}">${cfg.label}</span>`
   ).join('')
 
   inspTitle.value = b.title
   inspDesc.value  = b.description
   inspNotes.value = b.notes || ''
 
-  document.querySelectorAll('.action-toggle').forEach(btn =>
-    btn.classList.toggle('active', b.actions.includes(btn.dataset.action))
-  )
+  document.querySelectorAll('.action-toggle').forEach(btn => {
+    const isActive = b.actions.includes(btn.dataset.action)
+    btn.classList.toggle('active', isActive)
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
+  })
 
   // Color swatches
   const swatchesEl = $.colorSwatches()
   if (swatchesEl) {
     swatchesEl.innerHTML =
-      `<div class="color-swatch swatch-reset${!b.color ? ' active' : ''}" data-color="reset" title="Reset to type color"></div>` +
+      `<div class="color-swatch swatch-reset${!b.color ? ' active' : ''}" data-color="reset" role="button" aria-label="Reset to type color" title="Reset to type color"></div>` +
       SWATCH_COLORS.map(c =>
-        `<div class="color-swatch${b.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" title="${c}"></div>`
+        `<div class="color-swatch${b.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" role="button" aria-label="${SWATCH_NAMES[c] || c}" title="${SWATCH_NAMES[c] || c}"></div>`
       ).join('')
   }
 

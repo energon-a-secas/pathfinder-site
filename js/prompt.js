@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, devOpts, promptState } from './state.js'
-import { $, TYPES, escHtml, getBlockEl } from './utils.js'
+import { $, TYPES, ACTION_DEFS, escHtml, getBlockEl } from './utils.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Prompt generation ────────────────────────────────────────
@@ -102,7 +102,29 @@ export function generatePrompt() {
     })
   }
 
-  // 5. Gap details
+  // 5. Groups — named clusters of blocks
+  const groups = Object.values(state.groups || {})
+  if (groups.length) {
+    prompt += '\n## Groups\n'
+    groups.forEach(g => {
+      const members = Object.values(state.blocks).filter(b => b.groupId === g.id)
+      if (members.length) {
+        prompt += `\u2022 **${g.label || '(unnamed group)'}**: ${members.map(b => `"${b.title || '(untitled)'}"`).join(', ')}\n`
+      }
+    })
+  }
+
+  // 6. Action legend — explain action badges if any block uses them
+  const usedActions = new Set()
+  Object.values(state.blocks).forEach(b => (b.actions||[]).forEach(a => usedActions.add(a)))
+  if (usedActions.size) {
+    prompt += '\n## Action Labels\nBlocks may carry action labels indicating their status:\n'
+    usedActions.forEach(a => {
+      prompt += `\u2022 **${a}**: ${ACTION_DEFS[a] || a}\n`
+    })
+  }
+
+  // 6. Gap details
   const { count: gapCount, details: gapDetails } = runGapDetection()
   if (gapCount) {
     const gapLabels = {

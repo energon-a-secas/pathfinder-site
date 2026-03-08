@@ -78,6 +78,11 @@ function renderSearchResults(results) {
 }
 
 export function setupSearchEvents() {
+  const overlay = $.searchOverlay()
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.addEventListener('keydown', e => trapFocus(overlay, e))
+
   const searchInput = $.searchInput()
   searchInput.addEventListener('input', () =>
     renderSearchResults(searchBlocks(searchInput.value))
@@ -137,13 +142,33 @@ export function buildShortcutGrid() {
   })
 }
 
-export function openShortcuts() { $.shortcutOverlay().style.display = '' }
+export function openShortcuts() {
+  const overlay = $.shortcutOverlay()
+  overlay.style.display = ''
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  requestAnimationFrame(() => document.getElementById('shortcutClose')?.focus())
+}
 export function closeShortcuts() { $.shortcutOverlay().style.display = 'none' }
+
+// Generic focus trap: keeps Tab within a container
+function trapFocus(container, e) {
+  if (e.key !== 'Tab') return
+  const focusable = container.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')
+  if (!focusable.length) return
+  const first = focusable[0], last = focusable[focusable.length - 1]
+  if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus() } }
+  else { if (document.activeElement === last) { e.preventDefault(); first.focus() } }
+}
 
 export function setupShortcutOverlay() {
   document.getElementById('shortcutClose').addEventListener('click', closeShortcuts)
   $.shortcutOverlay().addEventListener('click', e => {
     if (e.target === $.shortcutOverlay()) closeShortcuts()
+  })
+  $.shortcutOverlay().addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeShortcuts(); return }
+    trapFocus($.shortcutOverlay().querySelector('.shortcut-modal'), e)
   })
 }
 
@@ -161,7 +186,16 @@ export function setupPanelTabs() {
 }
 
 // ── Dev options ──────────────────────────────────────────────
+function syncRadioAria(groupEl) {
+  groupEl.querySelectorAll('.radio-opt').forEach(b =>
+    b.setAttribute('aria-pressed', b.classList.contains('active') ? 'true' : 'false')
+  )
+}
+
 export function setupDevOptions() {
+  // Set initial aria-pressed on all radio groups
+  document.querySelectorAll('.dev-radio-group').forEach(g => syncRadioAria(g))
+
   document.getElementById('devOptionsHeader').addEventListener('click', () =>
     document.getElementById('devOptions').classList.toggle('open')
   )
@@ -169,12 +203,14 @@ export function setupDevOptions() {
     const btn = e.target.closest('.radio-opt'); if (!btn) return
     document.querySelectorAll('#toneGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active'); devOpts.tone = btn.dataset.value
+    syncRadioAria(document.getElementById('toneGroup'))
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
   document.getElementById('detailGroup').addEventListener('click', e => {
     const btn = e.target.closest('.radio-opt'); if (!btn) return
     document.querySelectorAll('#detailGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active'); devOpts.detail = btn.dataset.value
+    syncRadioAria(document.getElementById('detailGroup'))
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
   document.getElementById('modeGroup').addEventListener('click', e => {
@@ -182,6 +218,7 @@ export function setupDevOptions() {
     document.querySelectorAll('#modeGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active')
     devOpts.mode = btn.dataset.value
+    syncRadioAria(document.getElementById('modeGroup'))
     ui.promptDirty = true; refreshPrompt()
   })
   document.getElementById('prePromptGroup').addEventListener('click', e => {
@@ -213,9 +250,41 @@ function setDropdownOpen(wrapperId, open) {
   const el = document.getElementById(wrapperId)
   el.classList.toggle('open', open)
   el.querySelector('.header-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false')
+  if (open) {
+    const first = el.querySelector('.export-item')
+    if (first) requestAnimationFrame(() => first.focus())
+  }
+}
+
+function setupDropdownKeyboard(wrapperId) {
+  const wrapper = document.getElementById(wrapperId)
+  const dropdown = wrapper.querySelector('.export-dropdown')
+  if (!dropdown) return
+  dropdown.setAttribute('role', 'menu')
+  dropdown.querySelectorAll('.export-item').forEach(item => {
+    item.setAttribute('role', 'menuitem')
+    item.setAttribute('tabindex', '-1')
+  })
+  dropdown.addEventListener('keydown', e => {
+    const items = [...dropdown.querySelectorAll('.export-item')]
+    const idx = items.indexOf(document.activeElement)
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length
+      items[next]?.focus()
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      document.activeElement?.click()
+    } else if (e.key === 'Escape') {
+      setDropdownOpen(wrapperId, false)
+      wrapper.querySelector('.header-btn')?.focus()
+    }
+  })
 }
 
 export function setupExportDropdown() {
+  setupDropdownKeyboard('exportWrapper')
+  setupDropdownKeyboard('shareWrapper')
   document.getElementById('exportBtn').addEventListener('click', e => {
     const isOpen = document.getElementById('exportWrapper').classList.contains('open')
     setDropdownOpen('exportWrapper', !isOpen); e.stopPropagation()
@@ -296,8 +365,10 @@ export function setupImportHandler() {
 export function setupHeaderButtons() {
   document.getElementById('clearBtn').addEventListener('click', () => {
     if (!confirm('Clear the entire canvas? All blocks and connections will be lost.')) return
-    state.blocks = {}; state.arrows = []
+    snapshot()
+    state.blocks = {}; state.arrows = []; state.groups = {}
     $.canvasRoot().querySelectorAll('.block').forEach(el => el.remove())
+    $.canvasRoot().querySelectorAll('.group-frame').forEach(el => el.remove())
     $.arrowsGroup().innerHTML = ''
     selection.ids.clear(); selection.blockId = null; selection.arrowId = null
     renderInspector(); updateHint(); saveState()
@@ -305,6 +376,8 @@ export function setupHeaderButtons() {
   })
 
   document.getElementById('fitBtn').addEventListener('click', fitView)
+
+  document.getElementById('helpBtn')?.addEventListener('click', openShortcuts)
 
   document.getElementById('themeBtn').addEventListener('click', () => {
     ui.lightMode = !ui.lightMode

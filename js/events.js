@@ -5,7 +5,7 @@
 
 import { state, selection, ui, view, canvasMeta, pointer,
          debouncedSave, snapshot, snap, toWorld } from './state.js'
-import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
          blockAtWorld, blocksInRect, isLight } from './canvas.js'
 import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
@@ -504,17 +504,85 @@ export function setupTabNavigation() {
 export function setupPalette() {
   const palette = document.getElementById('palette')
 
-  function addBlock(item) {
+  function addBlockAtCenter(item) {
     const r = $.canvasViewport().getBoundingClientRect()
     const w = toWorld(r.width / 2, r.height / 2)
     selectBlock(createBlock(item.dataset.type, w.x, w.y))
   }
 
-  palette.addEventListener('click',   e => { const i = e.target.closest('.palette-item'); if (i) addBlock(i) })
+  palette.addEventListener('click',   e => { const i = e.target.closest('.palette-item'); if (i) addBlockAtCenter(i) })
   palette.addEventListener('keydown', e => {
     if (e.key !== 'Enter' && e.key !== ' ') return
     const i = e.target.closest('.palette-item'); if (!i) return
-    e.preventDefault(); addBlock(i)
+    e.preventDefault(); addBlockAtCenter(i)
+  })
+
+  // Pointer-event-based drag from palette to canvas (works on touch + mouse)
+  // Uses an 8px threshold before committing to drag so mobile scroll isn't hijacked
+  const DRAG_THRESHOLD = 8
+  let paletteDrag = null
+
+  palette.addEventListener('pointerdown', e => {
+    const item = e.target.closest('.palette-item'); if (!item) return
+    if (ui.readOnly) return
+    const type = item.dataset.type
+    if (!type || !TYPES[type]) return
+    paletteDrag = { type, item, ghost: null, startX: e.clientX, startY: e.clientY, committed: false }
+    item.setPointerCapture(e.pointerId)
+  })
+
+  palette.addEventListener('pointermove', e => {
+    if (!paletteDrag) return
+    const dx = e.clientX - paletteDrag.startX
+    const dy = e.clientY - paletteDrag.startY
+
+    if (!paletteDrag.committed) {
+      if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return
+      // Commit to drag — create ghost
+      paletteDrag.committed = true
+      paletteDrag.item.classList.add('dragging')
+      const ghost = document.createElement('div')
+      ghost.className = 'palette-drag-ghost'
+      ghost.textContent = TYPES[paletteDrag.type]?.label || paletteDrag.type
+      ghost.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;pointer-events:none;z-index:1000`
+      document.body.appendChild(ghost)
+      paletteDrag.ghost = ghost
+    }
+
+    paletteDrag.ghost.style.left = e.clientX + 'px'
+    paletteDrag.ghost.style.top = e.clientY + 'px'
+
+    const vp = $.canvasViewport()
+    const r = vp.getBoundingClientRect()
+    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+    vp.classList.toggle('drop-target', over)
+  })
+
+  palette.addEventListener('pointerup', e => {
+    if (!paletteDrag) return
+    const { type, item, ghost, committed } = paletteDrag
+    paletteDrag = null
+    item.classList.remove('dragging')
+    if (ghost) ghost.remove()
+
+    const vp = $.canvasViewport()
+    vp.classList.remove('drop-target')
+
+    if (!committed) return // click handled by click listener
+
+    const r = vp.getBoundingClientRect()
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+      const w = toWorld(e.clientX - r.left, e.clientY - r.top)
+      selectBlock(createBlock(type, w.x, w.y))
+    }
+  })
+
+  palette.addEventListener('pointercancel', () => {
+    if (!paletteDrag) return
+    paletteDrag.item.classList.remove('dragging')
+    if (paletteDrag.ghost) paletteDrag.ghost.remove()
+    paletteDrag = null
+    $.canvasViewport().classList.remove('drop-target')
   })
 }
 
@@ -547,7 +615,9 @@ export function setupInspectorEvents() {
       const b = state.blocks[selection.blockId]; if (!b) return
       const a = btn.dataset.action, i = b.actions.indexOf(a)
       if (i >= 0) b.actions.splice(i,1); else b.actions.push(a)
-      btn.classList.toggle('active', b.actions.includes(a))
+      const isActive = b.actions.includes(a)
+      btn.classList.toggle('active', isActive)
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
       renderBlock(selection.blockId); runGapDetection(); debouncedSave()
       ui.promptDirty = true
     })
