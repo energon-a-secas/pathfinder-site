@@ -1001,7 +1001,10 @@
     .readonly-mode .insp-delete-btn,
     .readonly-mode #deleteMultiBtn,
     .readonly-mode #deleteArrowBtn,
-    .readonly-mode #arrowLabelInput { pointer-events: none; opacity: 0.5; }
+    .readonly-mode #arrowLabelInput,
+    .readonly-mode .status-opt,
+    .readonly-mode .priority-opt,
+    .readonly-mode .arrow-preset-chip { pointer-events: none; opacity: 0.5; }
 
     :focus-visible {
       outline: 2px solid var(--accent-bright, #0080ff);
@@ -1600,6 +1603,169 @@
       .header-logo h1 { font-size: 0.9em; }
       .right-panel { height: 200px; }
     }
+
+    /* ── Phase 1: Status & Priority badges on blocks ──────────── */
+    .block-meta {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px;
+    }
+    .status-badge {
+      font-size: 9px; font-weight: 600; letter-spacing: .03em;
+      padding: 2px 6px; border-radius: 3px;
+      background: rgba(255,255,255,.08); color: var(--text-secondary);
+    }
+    .status-badge.status-in-progress { background: rgba(56,189,248,.15); color: #38bdf8; }
+    .status-badge.status-done        { background: rgba(52,211,153,.15); color: #34d399; }
+    .status-badge.status-blocked     { background: rgba(248,113,113,.15); color: #f87171; }
+
+    .priority-badge {
+      font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+      padding: 2px 6px; border-radius: 3px;
+    }
+    .priority-badge.priority-high   { background: rgba(248,113,113,.18); color: #f87171; }
+    .priority-badge.priority-medium { background: rgba(251,191,36,.18);  color: #fbbf24; }
+    .priority-badge.priority-low    { background: rgba(148,163,184,.18); color: #94a3b8; }
+
+    .block.collapsed .block-meta { display: none; }
+
+    /* ── Phase 1: Status & Priority pickers in inspector ────── */
+    .status-picker, .priority-picker {
+      display: flex; flex-wrap: wrap; gap: 4px;
+    }
+    .status-opt, .priority-opt {
+      font-size: 11px; font-weight: 500; padding: 4px 8px;
+      border: 1px solid var(--border); border-radius: 5px;
+      background: transparent; color: var(--text-secondary);
+      cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast);
+    }
+    .status-opt:hover, .priority-opt:hover {
+      background: var(--surface-2); border-color: var(--border-strong);
+    }
+    .status-opt.active, .priority-opt.active {
+      background: rgba(255,255,255,.1); border-color: var(--text-secondary); color: var(--text-primary);
+    }
+    .priority-opt[data-priority="high"]   { color: #f87171; border-color: rgba(248,113,113,.3); }
+    .priority-opt[data-priority="medium"] { color: #fbbf24; border-color: rgba(251,191,36,.3); }
+    .priority-opt[data-priority="low"]    { color: #94a3b8; border-color: rgba(148,163,184,.3); }
+    .priority-opt.active[data-priority="high"]   { background: rgba(248,113,113,.15); }
+    .priority-opt.active[data-priority="medium"] { background: rgba(251,191,36,.15); }
+    .priority-opt.active[data-priority="low"]    { background: rgba(148,163,184,.15); }
+
+    /* ── Phase 1: Actions info panel ───────────────────────── */
+    .actions-info-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); font-size: 10px; font-weight: 700;
+      cursor: pointer; vertical-align: middle; margin-left: 4px;
+      transition: background var(--dur-fast), color var(--dur-fast);
+    }
+    .actions-info-btn:hover { background: var(--surface-2); color: var(--text-secondary); }
+
+    .actions-info-panel {
+      background: var(--surface-1); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px;
+      margin-bottom: 8px; font-size: 12px; line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .actions-info-panel p { margin-bottom: 8px; }
+    .actions-info-panel dt {
+      font-weight: 600; color: var(--text-primary); margin-top: 4px;
+    }
+    .actions-info-panel dd {
+      margin-left: 0; color: var(--text-muted); margin-bottom: 2px;
+    }
+
+    /* ── Phase 1: Arrow label presets ──────────────────────── */
+    .arrow-label-presets {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
+    }
+    .arrow-preset-chip {
+      font-size: 10px; padding: 3px 7px; border-radius: 4px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); cursor: pointer;
+      transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+    }
+    .arrow-preset-chip:hover {
+      background: var(--surface-2); color: var(--text-secondary); border-color: var(--border-strong);
+    }
+    .arrow-preset-chip.active {
+      background: rgba(255,255,255,.1); color: var(--text-primary); border-color: var(--text-secondary);
+    }
+
+    /* ── Phase 1: Palette hover tooltips ──────────────────── */
+    .palette-item { position: relative; }
+    .palette-tooltip {
+      display: none; position: absolute;
+      left: 100%; top: 50%; transform: translateY(-50%);
+      margin-left: 8px; z-index: 200;
+      width: 260px; padding: 10px 12px;
+      background: #1a1a2e; border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      font-size: 12px; line-height: 1.5; color: var(--text-secondary);
+      pointer-events: none;
+    }
+    .palette-tooltip::before {
+      content: ''; position: absolute;
+      right: 100%; top: 50%; transform: translateY(-50%);
+      border: 6px solid transparent; border-right-color: var(--border-strong);
+    }
+    .palette-tooltip-example {
+      color: var(--text-muted); font-style: italic;
+    }
+    .palette-tooltip-tip {
+      color: var(--accent); font-weight: 500;
+    }
+    .palette-item:hover .palette-tooltip { display: block; }
+    .palette.collapsed .palette-tooltip { display: none !important; }
+
+    /* Hide tooltips on touch devices (no persistent hover) */
+    @media (pointer: coarse) {
+      .palette-tooltip { display: none !important; }
+    }
+
+    /* ── Phase 1: Light-mode overrides for new elements ────── */
+    body.light-mode .status-badge { background: rgba(0,0,0,.06); color: #475569; }
+    body.light-mode .status-badge.status-in-progress { background: rgba(56,189,248,.12); color: #0284c7; }
+    body.light-mode .status-badge.status-done        { background: rgba(52,211,153,.12); color: #059669; }
+    body.light-mode .status-badge.status-blocked     { background: rgba(248,113,113,.12); color: #dc2626; }
+
+    body.light-mode .priority-badge.priority-high   { background: rgba(248,113,113,.12); color: #dc2626; }
+    body.light-mode .priority-badge.priority-medium { background: rgba(251,191,36,.12);  color: #d97706; }
+    body.light-mode .priority-badge.priority-low    { background: rgba(148,163,184,.12); color: #64748b; }
+
+    body.light-mode .status-opt, body.light-mode .priority-opt {
+      border-color: rgba(0,0,0,.12); color: #475569;
+    }
+    body.light-mode .status-opt:hover, body.light-mode .priority-opt:hover {
+      background: rgba(0,0,0,.04);
+    }
+    body.light-mode .status-opt.active, body.light-mode .priority-opt.active {
+      background: rgba(0,0,0,.06); border-color: #475569; color: #0f172a;
+    }
+
+    body.light-mode .actions-info-panel {
+      background: rgba(0,0,0,.03); border-color: rgba(0,0,0,.1);
+    }
+    body.light-mode .actions-info-btn { border-color: rgba(0,0,0,.15); color: #64748b; }
+
+    body.light-mode .arrow-preset-chip {
+      border-color: rgba(0,0,0,.12); color: #64748b;
+    }
+    body.light-mode .arrow-preset-chip:hover {
+      background: rgba(0,0,0,.04); color: #334155;
+    }
+    body.light-mode .arrow-preset-chip.active {
+      background: rgba(0,0,0,.08); color: #0f172a; border-color: #475569;
+    }
+
+    body.light-mode .palette-tooltip {
+      background: #fff; border-color: rgba(0,0,0,.12);
+      color: #334155; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    }
+    body.light-mode .palette-tooltip::before { border-right-color: rgba(0,0,0,.12); }
+    body.light-mode .palette-tooltip-example { color: #64748b; }
+    body.light-mode .palette-tooltip-tip { color: #0063e5; }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

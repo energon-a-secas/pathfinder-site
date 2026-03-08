@@ -7,7 +7,7 @@ import { state, selection, ui, view, canvasMeta, pointer,
          debouncedSave, snapshot, snap, toWorld } from './state.js'
 import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
-         blockAtWorld, blocksInRect, isLight } from './canvas.js'
+         blockAtWorld, blocksInRect, isLight, updateHint } from './canvas.js'
 import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
          selectBlock, addToSelection, setSelection, selectArrow, deselectAll,
          mutateBlock, createBlock, deleteBlock, addArrow, deleteArrow,
@@ -448,6 +448,7 @@ export function setupPasteHandler() {
         x: cx, y: cy + i * 90,
         actions: [], questions: [],
         width: null, color: null, collapsed: false, groupId: null,
+        status: null, priority: null,
       }
     })
     renderAllBlocks()
@@ -624,6 +625,26 @@ export function setupInspectorEvents() {
     })
   )
 
+  // Status picker
+  document.getElementById('statusPicker').addEventListener('click', e => {
+    const btn = e.target.closest('.status-opt'); if (!btn || !selection.blockId) return
+    mutateBlock(selection.blockId, { status: btn.dataset.status || null })
+    renderInspector()
+  })
+
+  // Priority picker
+  document.getElementById('priorityPicker').addEventListener('click', e => {
+    const btn = e.target.closest('.priority-opt'); if (!btn || !selection.blockId) return
+    mutateBlock(selection.blockId, { priority: btn.dataset.priority || null })
+    renderInspector()
+  })
+
+  // Actions info toggle
+  document.getElementById('actionsInfoBtn').addEventListener('click', () => {
+    const panel = document.getElementById('actionsInfoPanel')
+    panel.style.display = panel.style.display === 'none' ? '' : 'none'
+  })
+
   document.getElementById('addQuestionBtn').addEventListener('click', () => {
     const b = state.blocks[selection.blockId]; if (!b) return
     b.questions.push(''); renderQuestions(b); debouncedSave(); ui.promptDirty = true
@@ -648,6 +669,16 @@ export function setupInspectorEvents() {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
     a.label = document.getElementById('arrowLabelInput').value.trim()
     renderArrows(); debouncedSave(); ui.promptDirty = true
+  })
+
+  // Arrow label presets
+  document.getElementById('arrowLabelPresets').addEventListener('click', e => {
+    const chip = e.target.closest('.arrow-preset-chip'); if (!chip) return
+    const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+    const preset = chip.dataset.preset
+    a.label = a.label === preset ? '' : preset
+    document.getElementById('arrowLabelInput').value = a.label
+    renderArrows(); renderInspector(); debouncedSave(); ui.promptDirty = true
   })
 
   document.getElementById('deleteArrowBtn').addEventListener('click', () => {

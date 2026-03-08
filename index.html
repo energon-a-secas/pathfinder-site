@@ -144,45 +144,55 @@
         <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
       </div>
       <div class="palette-section-body" id="blocksList">
-        <div class="palette-item" data-type="goal" role="button" tabindex="0" aria-label="Add Goal block" title="Goal">
+        <div class="palette-item" data-type="goal" role="button" tabindex="0" aria-label="Add Goal block">
           <div class="palette-dot" style="background:var(--c-goal)"></div>
           <div class="palette-item-text"><div class="palette-label">Goal</div><div class="palette-desc">What you want to achieve</div></div>
+          <div class="palette-tooltip">A strategic objective you want to achieve.<br><span class="palette-tooltip-example">e.g. "Increase conversion by 15%", "Launch MVP by Q3"</span><br><span class="palette-tooltip-tip">Connect to Requirements that must be met.</span></div>
         </div>
-        <div class="palette-item" data-type="problem" role="button" tabindex="0" aria-label="Add Problem block" title="Problem">
+        <div class="palette-item" data-type="problem" role="button" tabindex="0" aria-label="Add Problem block">
           <div class="palette-dot" style="background:var(--c-problem)"></div>
           <div class="palette-item-text"><div class="palette-label">Problem</div><div class="palette-desc">Blocker or issue</div></div>
+          <div class="palette-tooltip">A blocker, issue, or pain point needing resolution.<br><span class="palette-tooltip-example">e.g. "API latency exceeds SLA", "No CI/CD pipeline"</span><br><span class="palette-tooltip-tip">Mark "Resolve" when actioned.</span></div>
         </div>
-        <div class="palette-item" data-type="requirement" role="button" tabindex="0" aria-label="Add Requirement block" title="Requirement">
+        <div class="palette-item" data-type="requirement" role="button" tabindex="0" aria-label="Add Requirement block">
           <div class="palette-dot" style="background:var(--c-requirement)"></div>
           <div class="palette-item-text"><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
+          <div class="palette-tooltip">A hard constraint that must be satisfied.<br><span class="palette-tooltip-example">e.g. "GDPR compliance", "Response under 200ms"</span><br><span class="palette-tooltip-tip">Link to the Goal it serves.</span></div>
         </div>
-        <div class="palette-item" data-type="risk" role="button" tabindex="0" aria-label="Add Risk block" title="Risk">
+        <div class="palette-item" data-type="risk" role="button" tabindex="0" aria-label="Add Risk block">
           <div class="palette-dot" style="background:var(--c-risk)"></div>
           <div class="palette-item-text"><div class="palette-label">Risk</div><div class="palette-desc">What might go wrong</div></div>
+          <div class="palette-tooltip">Something that could go wrong and derail the plan.<br><span class="palette-tooltip-example">e.g. "Key engineer leaving", "Vendor contract expires"</span><br><span class="palette-tooltip-tip">Connect to a Decision that mitigates it.</span></div>
         </div>
-        <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Question block" title="Question">
+        <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Question block">
           <div class="palette-dot" style="background:var(--c-question)"></div>
           <div class="palette-item-text"><div class="palette-label">Question</div><div class="palette-desc">Unknown / assumption</div></div>
+          <div class="palette-tooltip">An unknown or assumption needing validation.<br><span class="palette-tooltip-example">e.g. "Will users accept SSO-only?", "Is budget approved?"</span><br><span class="palette-tooltip-tip">Link to the Goal or Requirement it affects.</span></div>
         </div>
-        <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block" title="Decision">
+        <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block">
           <div class="palette-dot" style="background:var(--c-decision)"></div>
           <div class="palette-item-text"><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
+          <div class="palette-tooltip">A choice that has been or needs to be made.<br><span class="palette-tooltip-example">e.g. "Use PostgreSQL over MongoDB", "Ship without feature X"</span><br><span class="palette-tooltip-tip">Document the rationale in Notes.</span></div>
         </div>
-        <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block" title="Resource">
+        <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block">
           <div class="palette-dot" style="background:var(--c-resource)"></div>
           <div class="palette-item-text"><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
+          <div class="palette-tooltip">An available asset, tool, team, or budget.<br><span class="palette-tooltip-example">e.g. "Design team (3 people)", "AWS credits ($10K)"</span><br><span class="palette-tooltip-tip">Connect to what it enables.</span></div>
         </div>
-        <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block" title="Output">
+        <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block">
           <div class="palette-dot" style="background:var(--c-output)"></div>
           <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
+          <div class="palette-tooltip">An expected deliverable or measurable result.<br><span class="palette-tooltip-example">e.g. "API documentation", "Staging environment"</span><br><span class="palette-tooltip-tip">Connect from Resources and Requirements that produce it.</span></div>
         </div>
-        <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block" title="Context">
+        <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
           <div class="palette-dot" style="background:var(--c-context)"></div>
           <div class="palette-item-text"><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
+          <div class="palette-tooltip">Background info that frames the project.<br><span class="palette-tooltip-example">e.g. "Migrating to cloud", "Competitor launched similar feature"</span><br><span class="palette-tooltip-tip">Helps AI understand constraints.</span></div>
         </div>
-        <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block" title="Custom">
+        <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block">
           <div class="palette-dot" style="background:var(--c-custom)"></div>
           <div class="palette-item-text"><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
+          <div class="palette-tooltip">A free-form block for anything else.<br><span class="palette-tooltip-tip">Use sparingly -- structured types produce better AI prompts.</span></div>
         </div>
       </div>
     </div>
@@ -303,7 +313,24 @@
             <textarea class="insp-textarea" id="inspDesc" placeholder="Describe this block…" rows="3"></textarea>
           </div>
           <div class="insp-section">
-            <div class="insp-label">Actions</div>
+            <div class="insp-label">Status</div>
+            <div class="status-picker" id="statusPicker"></div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Priority</div>
+            <div class="priority-picker" id="priorityPicker"></div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Actions <button class="actions-info-btn" id="actionsInfoBtn" type="button" aria-label="What are actions?" title="What are actions?">(i)</button></div>
+            <div class="actions-info-panel" id="actionsInfoPanel" style="display:none">
+              <p><strong>Actions</strong> mark the current intent for a block. They appear as badges and are included in the AI prompt to guide recommendations.</p>
+              <dl>
+                <dt>Resolve</dt><dd>Take action to fix or close this item</dd>
+                <dt>Prepare</dt><dd>Gather resources or context before proceeding</dd>
+                <dt>Recollect</dt><dd>Review past decisions or context relevant here</dd>
+                <dt>Reinforce</dt><dd>Strengthen or validate the current approach</dd>
+              </dl>
+            </div>
             <div class="actions-toggles">
               <button class="action-toggle" data-action="resolve" title="Take action to fix or close this item" aria-pressed="false">Resolve</button>
               <button class="action-toggle" data-action="prepare" title="Gather resources or context before proceeding" aria-pressed="false">Prepare</button>
@@ -347,6 +374,7 @@
             <div class="insp-label">Label</div>
             <input class="insp-input" id="arrowLabelInput" type="text"
                    placeholder="e.g. depends on, enables, blocks…" maxlength="40">
+            <div class="arrow-label-presets" id="arrowLabelPresets"></div>
           </div>
           <div class="insp-section">
             <div class="insp-label">Style</div>
@@ -354,6 +382,8 @@
               <button class="radio-opt" data-arrow-style="curved">Curved</button>
               <button class="radio-opt" data-arrow-style="straight">Straight</button>
               <button class="radio-opt" data-arrow-style="elbow">Elbow</button>
+              <button class="radio-opt" data-arrow-style="dashed">Dashed</button>
+              <button class="radio-opt" data-arrow-style="dotted">Dotted</button>
             </div>
           </div>
           <div class="insp-section">

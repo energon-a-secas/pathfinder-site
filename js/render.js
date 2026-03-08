@@ -5,7 +5,8 @@
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture } from './state.js'
-import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims } from './utils.js'
+import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
+         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
@@ -36,6 +37,10 @@ export function renderBlock(id) {
   if (b.color) el.style.setProperty('--bc', b.color)
 
   const actHtml = b.actions.map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
+  const statusHtml = b.status && b.status !== 'not-started'
+    ? `<span class="status-badge status-${b.status}" title="${STATUS_DEFS[b.status]?.label || b.status}">${STATUS_DEFS[b.status]?.icon || ''} ${STATUS_DEFS[b.status]?.label || b.status}</span>` : ''
+  const priorityHtml = b.priority
+    ? `<span class="priority-badge priority-${b.priority}" title="${PRIORITY_DEFS[b.priority]?.label || b.priority} priority">${PRIORITY_DEFS[b.priority]?.label || b.priority}</span>` : ''
   const descHtml = b.description
     ? `<div class="block-desc">${escHtml(b.description)}</div>` : ''
   const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
@@ -53,6 +58,7 @@ export function renderBlock(id) {
     </div>
     <div class="block-title" id="bt-${id}">${escHtml(b.title) || '<span style="opacity:.35">Untitled</span>'}</div>
     ${descHtml}
+    ${(statusHtml || priorityHtml) ? `<div class="block-meta">${priorityHtml}${statusHtml}</div>` : ''}
     ${actHtml ? `<div class="block-actions">${actHtml}</div>` : ''}
     <div class="port port-left"   data-port="left"   data-bid="${id}"></div>
     <div class="port port-right"  data-port="right"  data-bid="${id}"></div>
@@ -107,6 +113,13 @@ export function renderInspector() {
       document.getElementById('arrowInfo').textContent =
         `${TYPES[f?.type]?.label||'?'} "${f?.title||'?'}" \u2192 ${TYPES[t?.type]?.label||'?'} "${t?.title||'?'}"`
       document.getElementById('arrowLabelInput').value = a.label || ''
+      // Label presets
+      const presetsEl = document.getElementById('arrowLabelPresets')
+      if (presetsEl) {
+        presetsEl.innerHTML = ARROW_LABEL_PRESETS.map(p =>
+          `<button class="arrow-preset-chip${a.label === p ? ' active' : ''}" data-preset="${p}">${p}</button>`
+        ).join('')
+      }
       // Style buttons
       document.querySelectorAll('[data-arrow-style]').forEach(btn =>
         btn.classList.toggle('active', (a.style || 'curved') === btn.dataset.arrowStyle))
@@ -148,6 +161,24 @@ export function renderInspector() {
   $.typePicker().innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
     `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}" title="${TYPE_TIPS[t] || t}">${cfg.label}</span>`
   ).join('')
+
+  // Status picker
+  const statusPicker = document.getElementById('statusPicker')
+  if (statusPicker) {
+    statusPicker.innerHTML = `<button class="status-opt${!b.status || b.status === 'not-started' ? ' active' : ''}" data-status="">None</button>` +
+      Object.entries(STATUS_DEFS).filter(([k]) => k !== 'not-started').map(([k, v]) =>
+        `<button class="status-opt${b.status === k ? ' active' : ''}" data-status="${k}">${v.icon} ${v.label}</button>`
+      ).join('')
+  }
+
+  // Priority picker
+  const priorityPicker = document.getElementById('priorityPicker')
+  if (priorityPicker) {
+    priorityPicker.innerHTML = `<button class="priority-opt${!b.priority ? ' active' : ''}" data-priority="">None</button>` +
+      Object.entries(PRIORITY_DEFS).map(([k, v]) =>
+        `<button class="priority-opt${b.priority === k ? ' active' : ''}" data-priority="${k}" style="--pc:${v.color}">${v.label}</button>`
+      ).join('')
+  }
 
   inspTitle.value = b.title
   inspDesc.value  = b.description
@@ -291,6 +322,7 @@ export function createBlock(type, wx, wy) {
     y: wy - 50            + (count % 5) * 10,
     actions: [], questions: [],
     width: null, color: null, collapsed: false, groupId: null,
+    status: null, priority: null,
   }
   renderBlock(id)
   updateHint()

@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, devOpts, promptState } from './state.js'
-import { $, TYPES, ACTION_DEFS, escHtml, getBlockEl } from './utils.js'
+import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, escHtml, getBlockEl } from './utils.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Prompt generation ────────────────────────────────────────
@@ -12,7 +12,11 @@ export function generatePrompt() {
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
 
   const fmt = b => {
-    let s = `\u2022 ${b.title || '(untitled)'}`
+    const tags = []
+    if (b.priority) tags.push(PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority)
+    if (b.status && b.status !== 'not-started') tags.push(STATUS_DEFS[b.status]?.label?.toUpperCase() || b.status)
+    const tagStr = tags.length ? ` [${tags.join('] [')}]` : ''
+    let s = `\u2022${tagStr} ${b.title || '(untitled)'}`
     if (b.description) s += `\n  ${b.description}`
     if ((b.questions||[]).length) {
       s += '\n  Open questions:'
@@ -87,10 +91,32 @@ export function generatePrompt() {
 
   if (preLines.length) prompt += preLines.join('\n') + '\n\n'
 
-  // 3. Canvas content
+  // 3. Block type legend (makes prompt self-contained for AI)
+  const usedTypes = new Set(Object.values(state.blocks).map(b => b.type))
+  if (usedTypes.size) {
+    prompt += '## Block Type Legend\n'
+    const typeDefs = {
+      goal: 'Strategic objective to achieve',
+      problem: 'Blocker or issue requiring resolution',
+      requirement: 'Hard constraint that must be satisfied',
+      risk: 'Potential failure point requiring mitigation',
+      question: 'Unknown or assumption needing validation',
+      decision: 'Choice already made (rationale should be documented)',
+      resource: 'Available asset, tool, or capability',
+      output: 'Expected deliverable or result',
+      context: 'Background information for framing',
+      custom: 'Free-form block',
+    }
+    usedTypes.forEach(t => {
+      prompt += `\u2022 **${TYPES[t]?.label || t}**: ${typeDefs[t] || t}\n`
+    })
+    prompt += '\n'
+  }
+
+  // 4. Canvas content
   prompt += '---\n\n# Project Canvas\n\n' + content
 
-  // 4. Connections (typed)
+  // 5. Connections (typed)
   if (state.arrows.length) {
     prompt += '\n## Connections\n'
     state.arrows.forEach(a => {
@@ -102,7 +128,7 @@ export function generatePrompt() {
     })
   }
 
-  // 5. Groups — named clusters of blocks
+  // 6. Groups — named clusters of blocks
   const groups = Object.values(state.groups || {})
   if (groups.length) {
     prompt += '\n## Groups\n'
@@ -114,7 +140,7 @@ export function generatePrompt() {
     })
   }
 
-  // 6. Action legend — explain action badges if any block uses them
+  // 7. Action legend — explain action badges if any block uses them
   const usedActions = new Set()
   Object.values(state.blocks).forEach(b => (b.actions||[]).forEach(a => usedActions.add(a)))
   if (usedActions.size) {
@@ -124,7 +150,7 @@ export function generatePrompt() {
     })
   }
 
-  // 6. Gap details
+  // 8. Gap details
   const { count: gapCount, details: gapDetails } = runGapDetection()
   if (gapCount) {
     const gapLabels = {

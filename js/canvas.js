@@ -140,6 +140,9 @@ export function renderArrows() {
     hit.setAttribute('d', d)
     vis.setAttribute('d', d)
     vis.classList.toggle('selected', sel)
+    vis.removeAttribute('stroke-dasharray')
+    if (style === 'dashed') vis.setAttribute('stroke-dasharray', '10 6')
+    else if (style === 'dotted') vis.setAttribute('stroke-dasharray', '3 5')
     vis.setAttribute('marker-end', sel ? markerRef('arrowhead-sel') : markerRef('arrowhead'))
     vis.setAttribute('marker-start',
       a.bidirectional ? (sel ? markerRef('arrowhead-back-sel') : markerRef('arrowhead-back')) : '')

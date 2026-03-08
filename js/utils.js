@@ -28,6 +28,37 @@ export const ACTION_DEFS = {
   reinforce: 'Strengthen or validate the current approach',
 }
 
+export const STATUS_DEFS = {
+  'not-started': { label: 'Not Started', icon: '\u25CB' },
+  'in-progress': { label: 'In Progress', icon: '\u25D4' },
+  'done':        { label: 'Done',        icon: '\u25CF' },
+  'blocked':     { label: 'Blocked',     icon: '\u25A0' },
+}
+
+export const PRIORITY_DEFS = {
+  high:   { label: 'High',   color: '#f87171' },
+  medium: { label: 'Medium', color: '#fbbf24' },
+  low:    { label: 'Low',    color: '#94a3b8' },
+}
+
+export const ARROW_LABEL_PRESETS = [
+  'depends on', 'blocks', 'enables', 'mitigates',
+  'validates', 'conflicts with', 'informs', 'requires',
+]
+
+export const TYPE_EXPLANATIONS = {
+  goal:        'A strategic objective you want to achieve. Examples: "Increase conversion by 15%", "Launch MVP by Q3". Connect to Requirements that must be met.',
+  problem:     'A blocker, issue, or pain point that needs resolution. Examples: "API latency exceeds SLA", "No CI/CD pipeline". Mark "Resolve" when actioned.',
+  requirement: 'A hard constraint that must be satisfied for a Goal to succeed. Examples: "GDPR compliance", "Response time under 200ms". Link to the Goal it serves.',
+  risk:        'Something that could go wrong and derail the plan. Examples: "Key engineer leaving", "Vendor contract expires". Connect to a Decision that mitigates it.',
+  question:    'An unknown or assumption that needs validation before proceeding. Examples: "Will users accept SSO-only auth?", "Is the budget approved?". Link to the Goal or Requirement it affects.',
+  decision:    'A choice that has already been made or needs to be made. Examples: "Use PostgreSQL over MongoDB", "Ship without feature X". Document the rationale in Notes.',
+  resource:    'An available asset, tool, team, or budget. Examples: "Design team (3 people)", "AWS credits ($10K)", "Existing auth library". Connect to what it enables.',
+  output:      'An expected deliverable or measurable result. Examples: "API documentation", "Staging environment", "User research report". Connect from the Resources and Requirements that produce it.',
+  context:     'Background information that frames the project. Examples: "Company is migrating to cloud", "Competitor launched similar feature last month". Helps AI understand constraints.',
+  custom:      'A free-form block for anything that doesn\'t fit the other types. Use sparingly — the structured types produce better AI prompts.',
+}
+
 export const SWATCH_COLORS = [
   '#a78bfa', '#f87171', '#fbbf24', '#fb923c',
   '#38bdf8', '#34d399', '#2dd4bf', '#818cf8',

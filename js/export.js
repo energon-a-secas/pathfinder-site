@@ -91,7 +91,10 @@ export function exportMarkdown() {
     const items = byType[t]; if (!items?.length) return
     md += `## ${headings[t]}\n\n`
     items.forEach(b => {
-      md += `### ${b.title}\n`
+      const tags = []
+      if (b.priority) tags.push(b.priority.toUpperCase())
+      if (b.status && b.status !== 'not-started') tags.push(b.status)
+      md += `### ${b.title}${tags.length ? ' [' + tags.join(', ') + ']' : ''}\n`
       if (b.description) md += `${b.description}\n\n`
       if (b.actions?.length) md += `**Actions:** ${b.actions.join(', ')}\n\n`
       if (b.questions?.length) { md += `**Open questions:**\n`; b.questions.forEach(q => { md += `- ${q}\n` }); md += '\n' }

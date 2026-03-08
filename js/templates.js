@@ -80,6 +80,7 @@ export function applyTemplate(tpl) {
       x: cx + bd.dx, y: cy + bd.dy,
       actions: [], questions: [],
       width: null, color: null, collapsed: false, groupId: null,
+      status: null, priority: null,
     }
     return id
   })
