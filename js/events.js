@@ -553,7 +553,11 @@ export function setupPalette() {
     selectBlock(createBlock(item.dataset.type, w.x, w.y))
   }
 
-  palette.addEventListener('click',   e => { const i = e.target.closest('.palette-item'); if (i) addBlockAtCenter(i) })
+  let lastDragTime = 0
+  palette.addEventListener('click',   e => {
+    if (Date.now() - lastDragTime < 300) return // skip click after drag
+    const i = e.target.closest('.palette-item'); if (i) addBlockAtCenter(i)
+  })
   palette.addEventListener('keydown', e => {
     if (e.key !== 'Enter' && e.key !== ' ') return
     const i = e.target.closest('.palette-item'); if (!i) return
@@ -614,6 +618,7 @@ export function setupPalette() {
 
     if (!committed) return // click handled by click listener
 
+    lastDragTime = Date.now()
     const r = vp.getBoundingClientRect()
     if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)

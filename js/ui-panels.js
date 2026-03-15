@@ -5,7 +5,7 @@
 
 import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
-import { $, TYPES, clamp, escHtml, showToast, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, TYPES, clamp, escHtml, showToast, getBlockDims, getSmallIcon, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
