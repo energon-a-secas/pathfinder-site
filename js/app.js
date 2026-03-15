@@ -13,7 +13,7 @@ import {
 } from './events.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
-  setupPanelTabs, setupDevOptions, setupCopyPrompt,
+  setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
   setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme
 } from './ui-panels.js'
@@ -61,6 +61,7 @@ function init() {
   setupPanelTabs()
   setupDevOptions()
   setupCopyPrompt()
+  setupTimer()
   setupExportDropdown()
   setupShareDropdown()
   setupImportHandler()

@@ -6,7 +6,7 @@
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
-         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims } from './utils.js'
+         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims, getBlockVotes } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
@@ -45,6 +45,11 @@ export function renderBlock(id) {
     ? `<div class="block-desc">${escHtml(b.description)}</div>` : ''
   const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
 
+  // Voting indicator - show vote count if any votes exist
+  const voteCount = getBlockVotes(id).reduce((sum, v) => sum + v.dots, 0)
+  const voteClass = voteCount > 0 ? ' block-vote-indicator has-votes' : ' block-vote-indicator'
+  const voteHtml = voteCount > 0 ? `\n      <span class="${voteClass}" title="${voteCount} votes">${getSmallIcon('vote')} ${voteCount}</span>` : ''
+
   el.tabIndex = 0
   el.setAttribute('role', 'article')
   el.setAttribute('aria-label', `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}`)
@@ -52,7 +57,7 @@ export function renderBlock(id) {
 
   el.innerHTML = `
     <div class="block-header">
-      <span class="block-type-badge"${badgeStyle}>${TYPES[b.type]?.label || b.type}</span>
+      <span class="block-type-badge"${badgeStyle}>${TYPES[b.type]?.label || b.type}</span>${voteHtml}
       <div class="block-gap-icons" id="gi-${id}"></div>
       <button class="block-collapse-btn" data-bid="${id}" title="${b.collapsed ? 'Expand' : 'Collapse'}" aria-label="${b.collapsed ? 'Expand block' : 'Collapse block'}">${b.collapsed ? '&#9654;' : '&#9660;'}</button>
     </div>

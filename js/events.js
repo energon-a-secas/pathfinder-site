@@ -5,7 +5,7 @@
 
 import { state, selection, ui, view, canvasMeta, pointer,
          debouncedSave, snapshot, snap, toWorld } from './state.js'
-import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, addVotesToBlock, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
          blockAtWorld, blocksInRect, isLight, updateHint } from './canvas.js'
 import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
@@ -246,6 +246,11 @@ export function setupCanvasPointerEvents() {
 
     } else if (ix.type === 'block') {
       selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging'))
+      // Track that these blocks were just dragged (prevents voting on click-after-drag)
+      selection.ids.forEach(sid => {
+        const blockEl = getBlockEl(sid)
+        if (blockEl) recentlyDragged.set(blockEl, Date.now())
+      })
       if (!ix.moved && ix.willDeselect) selectBlock(ix.id)
       if (ix.moved) { renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true }
 
@@ -333,12 +338,49 @@ export function setupCanvasPointerEvents() {
     }
   })
 
+  // Track recently dragged blocks (prevents voting on drag-end)
+  const recentlyDragged = new WeakMap()
+  const DRAG_VOTE_THRESHOLD = 200 // ms
+
   // Block collapse toggle
   canvasRoot.addEventListener('click', e => {
     const btn = e.target.closest('.block-collapse-btn'); if (!btn) return
     const id = btn.dataset.bid; const b = state.blocks[id]; if (!b) return
     mutateBlock(id, { collapsed: !b.collapsed })
     e.stopPropagation()
+  })
+
+  // Voting on blocks (click block background/add area, not ports or buttons)
+  canvasRoot.addEventListener('click', e => {
+    // Only handle clicks on block (not ports, buttons, editable areas)
+    const block = e.target.closest('.block')
+    if (!block) return
+
+    // CRITICAL: Don't vote if block was just dragged (within 200ms)
+    const lastDragged = recentlyDragged.get(block)
+    if (lastDragged && (Date.now() - lastDragged < DRAG_VOTE_THRESHOLD)) {
+      return // Just finished dragging, don't vote
+    }
+
+    // Don't vote if clicked on interactive elements
+    if (e.target.closest('.port') ||
+        e.target.closest('.block-collapse-btn') ||
+        e.target.closest('.block-resize-handle') ||
+        e.target.tagName === 'BUTTON' ||
+        e.target.classList.contains('block-title')) {
+      return
+    }
+
+    const blockId = block.dataset.id
+    if (!blockId || ui.readOnly) return
+
+    const votesAdded = addVotesToBlock(blockId, 1)
+    if (votesAdded) {
+      renderBlock(blockId)
+      ui.promptDirty = true
+      // Show subtle toast
+      showToast(`Added vote to "${state.blocks[blockId].title || 'Block'}"`, 'info', 1500)
+    }
   })
 
   // Hover highlighting

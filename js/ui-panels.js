@@ -10,7 +10,7 @@ import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from 
 import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
 import { refreshPrompt, markExported } from './prompt.js'
-import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt } from './export.js'
+import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt, exportMeetingSummary } from './export.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Search ───────────────────────────────────────────────────
@@ -308,6 +308,17 @@ export function setupExportDropdown() {
     exportMarkdown()
   })
 
+  document.getElementById('exportMeetingSummary').addEventListener('click', () => {
+    exportMeetingSummary()
+    const btn = document.getElementById('exportBtn')
+    setDropdownOpen('exportWrapper', false)
+    const originalText = btn.textContent
+    btn.textContent = 'Exported!'
+    setTimeout(() => {
+      btn.textContent = originalText
+    }, 1500)
+  })
+
   document.getElementById('importJSON').addEventListener('click', () => {
     setDropdownOpen('exportWrapper', false)
     document.getElementById('importFile').value = ''
@@ -428,6 +439,136 @@ export function setupPaletteSections() {
       collapseBtn.title = palette.classList.contains('collapsed') ? 'Expand palette' : 'Collapse palette'
     })
   }
+}
+
+// ── Timer Widget ─────────────────────────────────────────────
+export function setupTimer() {
+  const display = document.getElementById('timerDisplay')
+  const toggleBtn = document.getElementById('timerToggleBtn')
+  const controls = document.getElementById('timerControls')
+  const minutesInput = document.getElementById('timerMinutes')
+  const startBtn = document.getElementById('timerStartBtn')
+  const pauseBtn = document.getElementById('timerPauseBtn')
+  const resetBtn = document.getElementById('timerResetBtn')
+  const widget = document.getElementById('timerWidget')
+
+  let interval = null
+  let timeRemaining = 0
+  let isPaused = false
+  let originalTime = 0
+
+  const beepEmbed = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmFgU7k9n1unEiBC13yO/eizEIHWq+8+OWTAkZYLTo6aZVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmFgU7k9n1unEiBC13yO/eizEIHWq+8+OWTQ=='
+
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  function updateWarningClass() {
+    const minsLeft = timeRemaining / 60
+    display.classList.remove('warning', 'critical')
+    widget.classList.remove('active')
+
+    if (timeRemaining > 0) {
+      widget.classList.add('active')
+      if (minsLeft <= 1) {
+        display.classList.add('critical')
+      } else if (minsLeft <= 3) {
+        display.classList.add('warning')
+      }
+    }
+  }
+
+  function updateDisplay() {
+    display.textContent = formatTime(Math.max(0, timeRemaining))
+    updateWarningClass()
+
+    if (timeRemaining === 0 && interval) {
+      clearInterval(interval)
+      interval = null
+      isPaused = false
+      startBtn.style.display = ''
+      pauseBtn.style.display = 'none'
+
+      // Play beep sound
+      try {
+        const audio = new Audio(beepEmbed)
+        audio.play().catch(() => {})
+      } catch (e) {}
+
+      // Reset display after a moment
+      setTimeout(() => {
+        display.textContent = formatTime(originalTime)
+        timeRemaining = originalTime
+        updateWarningClass()
+      }, 3000)
+    }
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const isVisible = controls.style.display === 'flex'
+    controls.style.display = isVisible ? 'none' : 'flex'
+    toggleBtn.classList.toggle('active', !isVisible)
+    // Update icon based on state
+    toggleBtn.innerHTML = isVisible ? getSmallIcon('clock') : getSmallIcon('timer')
+  })
+
+  // Initialize with clock icon
+  toggleBtn.innerHTML = getSmallIcon('clock')
+
+  startBtn.addEventListener('click', () => {
+    if (timeRemaining === 0) {
+      const mins = parseInt(minutesInput.value, 10) || 10
+      timeRemaining = mins * 60
+      originalTime = timeRemaining
+    }
+
+    isPaused = false
+    startBtn.style.display = 'none'
+    pauseBtn.style.display = ''
+
+    interval = setInterval(() => {
+      if (!isPaused && timeRemaining > 0) {
+        timeRemaining--
+        updateDisplay()
+      }
+    }, 1000)
+  })
+
+  pauseBtn.addEventListener('click', () => {
+    isPaused = true
+    startBtn.style.display = ''
+    pauseBtn.style.display = 'none'
+    startBtn.textContent = 'Resume'
+  })
+
+  resetBtn.addEventListener('click', () => {
+    if (interval) {
+      clearInterval(interval)
+      interval = null
+    }
+    isPaused = false
+    const mins = parseInt(minutesInput.value, 10) || 10
+    timeRemaining = mins * 60
+    originalTime = timeRemaining
+    startBtn.style.display = ''
+    pauseBtn.style.display = 'none'
+    startBtn.textContent = 'Start'
+    updateDisplay()
+  })
+
+  minutesInput.addEventListener('input', () => {
+    if (!interval || isPaused) {
+      const mins = parseInt(minutesInput.value, 10) || 10
+      timeRemaining = mins * 60
+      originalTime = timeRemaining
+      updateDisplay()
+    }
+  })
+
+  // Initialize
+  resetBtn.click()
 }
 
 // ── Templates ────────────────────────────────────────────────
