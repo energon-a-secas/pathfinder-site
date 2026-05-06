@@ -1,17 +1,19 @@
-# -- macOS -----------------------------------------------------------------------
+# ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
 
-# -- Playwright MCP (Claude Code browser automation) ----------------------------
+# ── Playwright MCP (Claude Code browser automation — screenshots, logs) ───────
 .playwright-mcp/
 
-# -- Node (local tooling only) --------------------------------------------------
+# ── Playwright test artifacts ─────────────────────────────────────────────────
+test-results/
+playwright-report/
+blob-report/
+
+# ── Node ──────────────────────────────────────────────────────────────────────
 node_modules/
 npm-debug.log*
+package-lock.json
 
-# -- Secrets -- never commit ----------------------------------------------------
+# ── Secrets — never commit ────────────────────────────────────────────────────
 .env
 .env.*
-
-# -- Prevent deployment of dev files -------------------------------------------
-CLAUDE.md
-.claudeignore
