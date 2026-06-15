@@ -31,6 +31,13 @@ function focusBlock(id) {
   const targetPanX = vpW/2 - (b.x + w/2) * targetZoom
   const targetPanY = vpH/2 - (b.y + h/2) * targetZoom
   const startPanX = view.panX, startPanY = view.panY, startZoom = view.zoom
+  // Honor reduced-motion: snap to target instead of animating the pan/zoom
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    view.panX = targetPanX; view.panY = targetPanY; view.zoom = targetZoom
+    applyTransform()
+    selectBlock(id)
+    return
+  }
   const start = performance.now()
   ;(function step(now) {
     const t = Math.min((now - start) / 280, 1)
