@@ -78,7 +78,7 @@ export function genId() { return (Date.now().toString(36) + (++_sid).toString(36
 export function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
 export function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
 export function debounce(fn, ms) {
@@ -306,7 +306,7 @@ function getOrCreateUserId() {
   }
 }
 
-// Simple toast notification
+// Toast notification + screen-reader announcement
 let toastTimeout
 export function showToast(message, type = 'info', duration = 3000) {
   const existing = document.querySelector('.toast-notification')
@@ -316,6 +316,9 @@ export function showToast(message, type = 'info', duration = 3000) {
   toast.className = `toast-notification toast-${type}`
   toast.textContent = message
   document.body.appendChild(toast)
+
+  const live = document.getElementById('toastLive')
+  if (live) live.textContent = message
 
   if (toastTimeout) clearTimeout(toastTimeout)
   toastTimeout = setTimeout(() => {

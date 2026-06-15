@@ -4,18 +4,21 @@
 
 import { state, selection, ui, canvasMeta, saveState } from './state.js'
 import { $, TYPES, genId, getAllVotes, SVG_ICONS } from './utils.js'
+import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { generatePrompt, refreshPrompt } from './prompt.js'
 
 // ── Import JSON ───────────────────────────────────────────────
+/**
+ * Apply an imported/shared canvas payload after sanitizing it.
+ * mode: 'replace' | 'merge'. Returns { imported, dropped } so the
+ * caller can report how many items were added vs skipped.
+ */
 export function applyImport(data, mode) {
-  // mode: 'replace' | 'merge'
-  const inBlocks = data.blocks || (Array.isArray(data.blocks) ? data.blocks : Object.values(data.blocks || {}))
-  const inArrows = data.arrows || []
-
-  const inGroups = (data.groups && !Array.isArray(data.groups)) ? data.groups : {}
+  const clean = normalizeCanvas(data)
+  const cleanBlocks = Object.values(clean.blocks)
 
   if (mode === 'replace') {
     state.blocks = {}; state.arrows = []; state.groups = {}
@@ -27,40 +30,43 @@ export function applyImport(data, mode) {
 
   // Build ID remap (merge needs fresh IDs to avoid collisions)
   const idMap = {}
-  const blocksArr = Array.isArray(inBlocks) ? inBlocks : Object.values(inBlocks)
-  blocksArr.forEach(b => {
+  cleanBlocks.forEach(b => {
     const newId = (mode === 'replace') ? b.id : genId()
     idMap[b.id] = newId
     state.blocks[newId] = { ...b, id: newId }
     renderBlock(newId)
   })
-  inArrows.forEach(a => {
-    const fId = idMap[a.from] || a.from
-    const tId = idMap[a.to]   || a.to
-    if (state.blocks[fId] && state.blocks[tId] && fId !== tId) {
-      const extra = {}
-      if (a.label) extra.label = a.label
-      if (a.style) extra.style = a.style
-      if (a.weight) extra.weight = a.weight
-      if (a.bidirectional) extra.bidirectional = a.bidirectional
-      state.arrows.push({ id: genId(), from: fId, to: tId, ...extra })
-    }
-  })
 
-  // Import groups, remap IDs on merge
+  // Import groups first, remapping IDs on merge, so block groupIds resolve
   const groupIdMap = {}
-  Object.values(inGroups).forEach(g => {
+  Object.values(clean.groups).forEach(g => {
     const newGid = (mode === 'replace') ? g.id : genId()
     groupIdMap[g.id] = newGid
     state.groups[newGid] = { ...g, id: newGid }
   })
-  // Update block groupIds to remapped group IDs
-  blocksArr.forEach(b => {
+  cleanBlocks.forEach(b => {
     const newId = idMap[b.id]
     if (b.groupId && state.blocks[newId]) {
-      state.blocks[newId].groupId = groupIdMap[b.groupId] || b.groupId
+      state.blocks[newId].groupId = groupIdMap[b.groupId] || null
     }
   })
+
+  clean.arrows.forEach(a => {
+    const fId = idMap[a.from] || a.from
+    const tId = idMap[a.to]   || a.to
+    if (state.blocks[fId] && state.blocks[tId] && fId !== tId &&
+        !state.arrows.some(x => x.from === fId && x.to === tId)) {
+      const extra = {}
+      if (a.label) extra.label = a.label
+      if (a.style && a.style !== 'curved') extra.style = a.style
+      if (a.weight && a.weight !== 2) extra.weight = a.weight
+      if (a.bidirectional) extra.bidirectional = a.bidirectional
+      if (a.color) extra.color = a.color
+      state.arrows.push({ id: genId(), from: fId, to: tId, ...extra })
+    }
+  })
+
+  if (mode === 'replace' && clean.meta.title) canvasMeta.title = clean.meta.title
 
   updateHint()
   requestAnimationFrame(() => {
@@ -70,6 +76,8 @@ export function applyImport(data, mode) {
     ui.promptDirty = true; if (ui.activeTab === 'prompt') refreshPrompt()
   })
   saveState()
+
+  return { imported: cleanBlocks.length, dropped: clean.dropped }
 }
 
 // ── Export JSON ───────────────────────────────────────────────
@@ -116,6 +124,28 @@ export function exportMarkdown() {
 // ── Export copy prompt ───────────────────────────────────────
 export function exportCopyPrompt() {
   navigator.clipboard.writeText(generatePrompt())
+}
+
+// ── Export to Presentation Sage ──────────────────────────────
+export function exportToPresentationSage() {
+  const order = ['goal','problem','requirement','risk','question','decision','resource','output']
+  const headings = { goal:'Goals', problem:'Problems', requirement:'Requirements',
+    risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs' }
+  const byType = {}
+  Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
+
+  let yaml = `presentation:\n  title: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n  subtitle: "Exported from Pathfinder"\n  author: "Neorgon"\n  slides:\n    - type: title\n      title: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n      subtitle: "${Object.values(state.blocks).length} blocks, ${state.arrows.length} connections"\n`
+
+  order.forEach(t => {
+    const items = byType[t]; if (!items?.length) return
+    yaml += `    - type: bullets\n      title: "${headings[t]}"\n      bullets:\n`
+    items.forEach(b => {
+      yaml += `        - "${b.title.replace(/"/g, '\\"')}"\n`
+    })
+  })
+
+  const url = 'https://slides.neorgon.com/?yaml=' + encodeURIComponent(yaml)
+  window.open(url, '_blank')
 }
 
 // ── Export Meeting Summary ───────────────────────────────────
