@@ -36,7 +36,7 @@ export function renderBlock(id) {
   el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${w}px`
   if (b.color) el.style.setProperty('--bc', b.color)
 
-  const actHtml = b.actions.map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
+  const actHtml = (b.actions || []).map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
   const statusHtml = b.status && b.status !== 'not-started'
     ? `<span class="status-badge status-${b.status}" title="${STATUS_DEFS[b.status]?.label || b.status}">${STATUS_DEFS[b.status]?.icon || ''} ${STATUS_DEFS[b.status]?.label || b.status}</span>` : ''
   const priorityHtml = b.priority

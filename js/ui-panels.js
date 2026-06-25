@@ -7,10 +7,10 @@ import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
 import { $, TYPES, clamp, escHtml, showToast, getBlockDims, getSmallIcon, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
-import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
+import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
 import { refreshPrompt, markExported } from './prompt.js'
-import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt, exportMeetingSummary } from './export.js'
+import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Search ───────────────────────────────────────────────────
@@ -31,6 +31,13 @@ function focusBlock(id) {
   const targetPanX = vpW/2 - (b.x + w/2) * targetZoom
   const targetPanY = vpH/2 - (b.y + h/2) * targetZoom
   const startPanX = view.panX, startPanY = view.panY, startZoom = view.zoom
+  // Honor reduced-motion: snap to target instead of animating the pan/zoom
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    view.panX = targetPanX; view.panY = targetPanY; view.zoom = targetZoom
+    applyTransform()
+    selectBlock(id)
+    return
+  }
   const start = performance.now()
   ;(function step(now) {
     const t = Math.min((now - start) / 280, 1)
@@ -319,6 +326,11 @@ export function setupExportDropdown() {
     }, 1500)
   })
 
+  document.getElementById('exportToPresentationSage').addEventListener('click', () => {
+    exportToPresentationSage()
+    setDropdownOpen('exportWrapper', false)
+  })
+
   document.getElementById('importJSON').addEventListener('click', () => {
     setDropdownOpen('exportWrapper', false)
     document.getElementById('importFile').value = ''
@@ -348,6 +360,21 @@ export function setupShareDropdown() {
   })
 }
 
+// ── Import result toast ──────────────────────────────────────
+function reportImport(imported, dropped) {
+  const skipped = dropped.blocks + dropped.arrows + dropped.groups
+  if (!imported && !skipped) { showToast('Nothing to import', 'warning'); return }
+  let msg = `Imported ${imported} block${imported === 1 ? '' : 's'}`
+  if (skipped) {
+    const parts = []
+    if (dropped.blocks) parts.push(`${dropped.blocks} block${dropped.blocks === 1 ? '' : 's'}`)
+    if (dropped.arrows) parts.push(`${dropped.arrows} connection${dropped.arrows === 1 ? '' : 's'}`)
+    if (dropped.groups) parts.push(`${dropped.groups} group${dropped.groups === 1 ? '' : 's'}`)
+    msg += `, skipped ${parts.join(', ')}`
+  }
+  showToast(msg, skipped ? 'warning' : 'success')
+}
+
 // ── Import file handler ──────────────────────────────────────
 export function setupImportHandler() {
   document.getElementById('importFile').addEventListener('change', e => {
@@ -356,18 +383,21 @@ export function setupImportHandler() {
     reader.onload = ev => {
       let data
       try { data = JSON.parse(ev.target.result) }
-      catch(_) { alert('Invalid JSON file.'); return }
+      catch(_) { showToast('Could not read file: invalid JSON', 'error'); return }
 
       const hasContent = Object.keys(state.blocks).length > 0
-      if (!hasContent) { applyImport(data, 'replace'); return }
+      const mode = !hasContent
+        ? 'replace'
+        : (confirm(
+            'Import canvas?\n\n' +
+            'OK  \u2192 Replace current canvas\n' +
+            'Cancel \u2192 Merge (add to existing canvas)'
+          ) ? 'replace' : 'merge')
 
-      const choice = confirm(
-        'Import canvas?\n\n' +
-        'OK  \u2192 Replace current canvas\n' +
-        'Cancel \u2192 Merge (add to existing canvas)'
-      )
-      applyImport(data, choice ? 'replace' : 'merge')
+      const { imported, dropped } = applyImport(data, mode)
+      reportImport(imported, dropped)
     }
+    reader.onerror = () => showToast('Could not read file', 'error')
     reader.readAsText(file)
   })
 }
@@ -609,7 +639,9 @@ export function checkShareUrl() {
     const isEmpty = Object.keys(state.blocks).length === 0
     const mode = (isEmpty || ui.embed) ? 'replace'
       : (confirm('Load shared canvas?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
-    applyImport(data, mode)
-    if (data.meta?.title) { canvasMeta.title = data.meta.title }
+    const { dropped } = applyImport(data, mode)
+    updateCanvasTitle()
+    const skipped = dropped.blocks + dropped.arrows + dropped.groups
+    if (skipped) showToast(`Loaded shared canvas, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`, 'warning')
   } catch(_) { /* malformed hash -- silently ignore */ }
 }

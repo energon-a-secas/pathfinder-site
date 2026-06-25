@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <title>Pathfinder Test Suite</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -73,6 +75,7 @@
   await import('./gaps.test.js')
   await import('./prompt.test.js')
   await import('./canvas.test.js')
+  await import('./normalize.test.js')
 
   // Run everything and render results
   const results = await runAll()

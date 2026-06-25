@@ -3,6 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { STORAGE_KEY, debounce } from './utils.js'
+import { normalizeCanvas } from './normalize.js'
 
 // ── App state (mutable, shared by all modules) ──────────────
 export const state = { blocks: {}, arrows: [], groups: {} }
@@ -63,13 +64,15 @@ export const debouncedSave = debounce(saveState, 300)
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const d = JSON.parse(raw)
-      state.blocks = d.blocks || {}
-      state.arrows = d.arrows || []
-      state.groups = d.groups || {}
-      Object.assign(canvasMeta, d.meta || { title: '' })
-    }
+    if (!raw) return
+    // Normalize shape only. Arrows with missing endpoints are left in place;
+    // render, gap detection, and prompt export already skip them safely, and
+    // dropping them here would silently mutate a saved canvas on every load.
+    const clean = normalizeCanvas(JSON.parse(raw))
+    state.blocks = clean.blocks
+    state.arrows = clean.arrows
+    state.groups = clean.groups
+    Object.assign(canvasMeta, clean.meta)
   } catch(_) {}
 }
 
