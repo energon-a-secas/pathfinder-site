@@ -39,13 +39,7 @@ export function runGapDetection() {
     }
 
     const gi = document.getElementById('gi-' + id)
-    if (gi) {
-      const icons = []
-      if (el.classList.contains('gap-assumption'))  icons.push('\u26A0')
-      if (el.classList.contains('gap-no-req'))      icons.push('\uD83D\uDCCB')
-      if (el.classList.contains('gap-unaddressed')) icons.push('\uD83D\uDD34')
-      gi.innerHTML = icons.map(i => `<span class="gap-icon">${i}</span>`).join('')
-    }
+    if (gi) gi.innerHTML = ''
     if (gap) {
       const blockGaps = []
       if (el.classList.contains('gap-isolated'))    blockGaps.push('gap-isolated')

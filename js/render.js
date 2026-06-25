@@ -315,13 +315,21 @@ export function mutateBlock(id, changes) {
   afterMutation()
 }
 
+function nextUntitledTitle() {
+  const used = Object.values(state.blocks)
+    .map(b => /^Untitled (\d+)$/.exec(b.title))
+    .filter(Boolean)
+    .map(m => +m[1])
+  return `Untitled ${(used.length ? Math.max(...used) : 0) + 1}`
+}
+
 export function createBlock(type, wx, wy) {
   snapshot()
   const id = genId()
   const count = Object.keys(state.blocks).length
   state.blocks[id] = {
     id, type,
-    title: TYPES[type]?.label || type,
+    title: nextUntitledTitle(),
     description: '', notes: '',
     x: wx - DEFAULT_WIDTH/2 + (count % 5) * 12,
     y: wy - 50            + (count % 5) * 10,
