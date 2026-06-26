@@ -69,48 +69,62 @@ describe('Gap: isolated (no connections)', () => {
 })
 
 // ── gap-assumption ───────────────────────────────────────────
+// gap-assumption now fires on a *connected* assumption-type block that is not
+// anchored to a goal/requirement and isn't flagged to validate. An isolated
+// assumption reports gap-isolated only (mutual exclusivity).
 
-describe('Gap: assumption (question not linked to goal/requirement)', () => {
-  it('flags a question block with no connections at all', () => {
+describe('Gap: assumption (assumption not anchored to goal/requirement)', () => {
+  it('flags a connected assumption linked only to a problem', () => {
     setupCanvas(
-      [{ id: 'q1', type: 'question', title: 'Why?' }],
+      [{ id: 'a1', type: 'assumption', title: 'Users will pay' }, { id: 'p1', type: 'problem', title: 'Bug' }],
+      [{ from: 'a1', to: 'p1' }]
+    )
+    runGapDetection()
+    assert.includes(getGapClasses('a1'), 'gap-assumption')
+  })
+
+  it('reports an isolated assumption as gap-isolated only (not gap-assumption)', () => {
+    setupCanvas(
+      [{ id: 'a1', type: 'assumption', title: 'Users will pay' }],
       []
     )
     runGapDetection()
-    assert.includes(getGapClasses('q1'), 'gap-assumption')
+    const gaps = getGapClasses('a1')
+    assert.includes(gaps, 'gap-isolated')
+    assert.ok(!gaps.includes('gap-assumption'))
   })
 
-  it('flags a question linked only to a problem (not goal/requirement)', () => {
+  it('does not flag an assumption linked to a goal', () => {
+    setupCanvas(
+      [{ id: 'a1', type: 'assumption', title: 'Users will pay' }, { id: 'g1', type: 'goal', title: 'Ship it' }],
+      [{ from: 'a1', to: 'g1' }]
+    )
+    runGapDetection()
+    assert.ok(!getGapClasses('a1').includes('gap-assumption'))
+  })
+
+  it('does not flag an assumption that carries a validate action', () => {
+    setupCanvas(
+      [{ id: 'a1', type: 'assumption', title: 'Users will pay', actions: ['validate'] }, { id: 'p1', type: 'problem', title: 'Bug' }],
+      [{ from: 'a1', to: 'p1' }]
+    )
+    runGapDetection()
+    assert.ok(!getGapClasses('a1').includes('gap-assumption'))
+  })
+
+  it('does not flag a question (questions are genuine unknowns, not assumptions)', () => {
     setupCanvas(
       [{ id: 'q1', type: 'question', title: 'Why?' }, { id: 'p1', type: 'problem', title: 'Bug' }],
       [{ from: 'q1', to: 'p1' }]
     )
     runGapDetection()
-    assert.includes(getGapClasses('q1'), 'gap-assumption')
-  })
-
-  it('does not flag a question linked to a goal', () => {
-    setupCanvas(
-      [{ id: 'q1', type: 'question', title: 'Why?' }, { id: 'g1', type: 'goal', title: 'Ship it' }],
-      [{ from: 'q1', to: 'g1' }]
-    )
-    runGapDetection()
     assert.ok(!getGapClasses('q1').includes('gap-assumption'))
   })
 
-  it('does not flag a question linked to a requirement', () => {
+  it('does not flag non-assumption types', () => {
     setupCanvas(
-      [{ id: 'q1', type: 'question', title: 'How?' }, { id: 'r1', type: 'requirement', title: 'Must do X' }],
-      [{ from: 'r1', to: 'q1' }]  // incoming from requirement
-    )
-    runGapDetection()
-    assert.ok(!getGapClasses('q1').includes('gap-assumption'))
-  })
-
-  it('does not flag non-question types', () => {
-    setupCanvas(
-      [{ id: 'p1', type: 'problem', title: 'Issue' }],
-      []
+      [{ id: 'p1', type: 'problem', title: 'Issue' }, { id: 'g1', type: 'goal', title: 'G' }],
+      [{ from: 'g1', to: 'p1' }]
     )
     runGapDetection()
     assert.ok(!getGapClasses('p1').includes('gap-assumption'))
@@ -120,13 +134,15 @@ describe('Gap: assumption (question not linked to goal/requirement)', () => {
 // ── gap-no-req ───────────────────────────────────────────────
 
 describe('Gap: no-req (goal without linked requirement)', () => {
-  it('flags a goal with no connections', () => {
+  it('reports an isolated goal as gap-isolated only (not gap-no-req)', () => {
     setupCanvas(
       [{ id: 'g1', type: 'goal', title: 'Win' }],
       []
     )
     runGapDetection()
-    assert.includes(getGapClasses('g1'), 'gap-no-req')
+    const gaps = getGapClasses('g1')
+    assert.includes(gaps, 'gap-isolated')
+    assert.ok(!gaps.includes('gap-no-req'))
   })
 
   it('flags a goal linked only to a problem (not a requirement)', () => {
@@ -169,19 +185,30 @@ describe('Gap: no-req (goal without linked requirement)', () => {
 // ── gap-unaddressed ──────────────────────────────────────────
 
 describe('Gap: unaddressed (problem without resolve and no outgoing)', () => {
-  it('flags a problem with no actions and no outgoing arrows', () => {
+  it('flags a problem with only an incoming arrow, no actions, no outgoing', () => {
     setupCanvas(
-      [{ id: 'p1', type: 'problem', title: 'Bug', actions: [] }],
-      []
+      [{ id: 'p1', type: 'problem', title: 'Bug', actions: [] }, { id: 'c1', type: 'context', title: 'BG' }],
+      [{ from: 'c1', to: 'p1' }]  // connected (incoming) so not gap-isolated
     )
     runGapDetection()
     assert.includes(getGapClasses('p1'), 'gap-unaddressed')
   })
 
-  it('does not flag a problem that has the resolve action', () => {
+  it('reports an isolated problem as gap-isolated only (not gap-unaddressed)', () => {
     setupCanvas(
-      [{ id: 'p1', type: 'problem', title: 'Bug', actions: ['resolve'] }],
+      [{ id: 'p1', type: 'problem', title: 'Bug', actions: [] }],
       []
+    )
+    runGapDetection()
+    const gaps = getGapClasses('p1')
+    assert.includes(gaps, 'gap-isolated')
+    assert.ok(!gaps.includes('gap-unaddressed'))
+  })
+
+  it('does not flag a problem that has the resolve action (with a connection)', () => {
+    setupCanvas(
+      [{ id: 'p1', type: 'problem', title: 'Bug', actions: ['resolve'] }, { id: 'c1', type: 'context', title: 'BG' }],
+      [{ from: 'c1', to: 'p1' }]
     )
     runGapDetection()
     assert.ok(!getGapClasses('p1').includes('gap-unaddressed'))
@@ -217,8 +244,8 @@ describe('Gap: unaddressed (problem without resolve and no outgoing)', () => {
 
 // ── Multiple gaps on single block ────────────────────────────
 
-describe('Multiple gaps on a single block', () => {
-  it('question block can have both gap-isolated and gap-assumption', () => {
+describe('Mutual exclusivity of gaps on a single block', () => {
+  it('an isolated block reports exactly ONE gap (gap-isolated wins)', () => {
     setupCanvas(
       [{ id: 'q1', type: 'question', title: 'Why?' }],
       []
@@ -226,16 +253,14 @@ describe('Multiple gaps on a single block', () => {
     const result = runGapDetection()
     const gaps = getGapClasses('q1')
     assert.includes(gaps, 'gap-isolated')
-    assert.includes(gaps, 'gap-assumption')
+    assert.eq(gaps.length, 1, 'Isolated block should carry only gap-isolated')
     assert.eq(result.count, 1, 'Should count as 1 block with gaps')
-    // But the details should list both gap types
     const detail = result.details.find(d => d.title === 'Why?')
     assert.ok(detail)
-    assert.includes(detail.gaps, 'gap-isolated')
-    assert.includes(detail.gaps, 'gap-assumption')
+    assert.deepEq(detail.gaps, ['gap-isolated'])
   })
 
-  it('goal block can have both gap-isolated and gap-no-req', () => {
+  it('an isolated goal reports gap-isolated only (not gap-no-req on top)', () => {
     setupCanvas(
       [{ id: 'g1', type: 'goal', title: 'Win' }],
       []
@@ -243,7 +268,8 @@ describe('Multiple gaps on a single block', () => {
     runGapDetection()
     const gaps = getGapClasses('g1')
     assert.includes(gaps, 'gap-isolated')
-    assert.includes(gaps, 'gap-no-req')
+    assert.ok(!gaps.includes('gap-no-req'))
+    assert.eq(gaps.length, 1)
   })
 })
 

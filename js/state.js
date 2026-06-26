@@ -29,7 +29,7 @@ export const ui = {
   hoveredBlockId: null,
 }
 
-export const canvasMeta = { title: '' }
+export const canvasMeta = { title: '', contextBrief: '' }
 
 // dev-options
 export const devOpts = { tone: 'auto', detail: 'standard', prePrompts: new Set(), mode: 'plan' }

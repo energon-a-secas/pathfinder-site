@@ -298,12 +298,20 @@ describe('generatePrompt() -- gap details', () => {
     assert.includes(prompt, '## Planning Gaps Detected')
   })
 
-  it('describes gap type in gap details', () => {
+  it('describes the isolated gap type in gap details', () => {
     resetPromptState()
     addBlock('g1', 'goal', 'Lonely Goal')
-    // goal with no connections -> gap-isolated + gap-no-req
+    // goal with no connections -> gap-isolated only (mutual exclusivity)
     const prompt = generatePrompt()
     assert.includes(prompt, 'no connections')
+  })
+
+  it('describes a no-requirement gap for a connected goal', () => {
+    resetPromptState()
+    addBlock('g1', 'goal', 'Goal')
+    addBlock('p1', 'problem', 'Blocker')
+    addArrow('g1', 'p1') // connected, but to a problem (not a requirement)
+    const prompt = generatePrompt()
     assert.includes(prompt, 'no requirement')
   })
 

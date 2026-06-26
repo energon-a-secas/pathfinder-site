@@ -68,3 +68,23 @@
 - ✅ Touch pan / pinch-zoom on mobile
 - ✅ High-contrast mode
 - ✅ Screen-reader labels on all interactive elements
+
+## Batch 9: Canvas→AI Engagement ✅ (2026-06-26)
+
+Driven by a 17-agent persona→design→dev→re-validation workflow. See `docs/2026-06-26-engagement-iteration-spec.md`.
+
+- ✅ Canvas title injected as prompt H1 + optional `## Engagement Context` framing (round-trips through save/import/share)
+- ✅ First-class **Assumption** block type (gold, `validate` action, dedicated pressure-test prompt section); palette re-tiered to Core 6 + Advanced expander; "Question" → "Open Question"; one-click "Promote to Assumption"
+- ✅ Gap engine de-duped (mutually exclusive — one gap per block) and `gap-assumption` repointed onto assumption-type blocks; coaching copy
+- ✅ Prompt modes genuinely reshape the body (Clarify drops impl modules; Build emits `- [ ]` task checklists with `[NEEDS INPUT]` acceptance criteria; Explore front-loads gaps/assumptions)
+- ✅ Always-visible "Copy AI-ready prompt" pill + honest readiness verdict; health score rebalanced so hollow/title-only canvases no longer read "Healthy" (built-in templates now land amber)
+- ✅ Brain Dump empty state + sentence-level scoring classifier + post-import type-correction chips (fast on-ramp from messy prose → typed blocks)
+
+### Next batch (committed)
+
+- Acceptance-criteria[] sub-field on requirement/goal/output + decision rationale (replaces Build `[NEEDS INPUT]`)
+- Persisted devOpts + one-click presets (Cursor/TS, Claude Code, PM Clarify); promote mode selector to a segmented control
+- Round-trip "Paste AI response" importer (AI markdown → linked Question/Assumption/task blocks, with preview-confirm)
+- Save-current-canvas-as-template (localStorage) + template JSON export/import
+- Content-bearing, audience-shaped templates (Validate an Idea, Build an MVP, Client Discovery)
+- On-canvas coaching gap-callout bubbles with one-click fixes

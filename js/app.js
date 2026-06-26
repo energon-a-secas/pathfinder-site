@@ -9,13 +9,15 @@ import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import {
   setupCanvasTitle, setupArrowEvents, setupCanvasPointerEvents,
-  setupKeyboardShortcuts, setupTabNavigation, setupPalette, setupInspectorEvents, setupPasteHandler
+  setupKeyboardShortcuts, setupTabNavigation, setupPalette, setupInspectorEvents, setupPasteHandler,
+  setupTypeChips, setupBrainDump
 } from './events.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
-  setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme
+  setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme,
+  setupContextBrief, setupCopyPill, refreshReadinessVerdict
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -55,6 +57,8 @@ function init() {
   setupPalette()
   setupInspectorEvents()
   setupPasteHandler()
+  setupTypeChips()
+  setupBrainDump()
   setupSearchEvents()
   buildShortcutGrid()
   setupShortcutOverlay()
@@ -68,6 +72,8 @@ function init() {
   setupHeaderButtons()
   setupPaletteSections()
   setupTemplates()
+  setupContextBrief()
+  setupCopyPill()
 
   renderAllBlocks()
   updateHint()
@@ -78,6 +84,7 @@ function init() {
     if (Object.keys(state.blocks).length) fitView()
     renderInspector()
     refreshPrompt()
+    refreshReadinessVerdict()
   })
 }
 

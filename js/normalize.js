@@ -102,7 +102,7 @@ function normalizeGroup(raw) {
  */
 export function normalizeCanvas(data) {
   const dropped = { blocks: 0, arrows: 0, groups: 0 }
-  const result = { blocks: {}, arrows: [], groups: {}, meta: { title: '' } }
+  const result = { blocks: {}, arrows: [], groups: {}, meta: { title: '', contextBrief: '' } }
   if (!data || typeof data !== 'object') return { ...result, dropped }
 
   const rawBlocks = Array.isArray(data.blocks)
@@ -136,7 +136,7 @@ export function normalizeCanvas(data) {
   })
 
   if (data.meta && typeof data.meta === 'object') {
-    result.meta = { title: toStr(data.meta.title) }
+    result.meta = { title: toStr(data.meta.title), contextBrief: toStr(data.meta.contextBrief) }
   }
 
   return { ...result, dropped }

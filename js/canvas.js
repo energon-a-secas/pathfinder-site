@@ -149,9 +149,9 @@ export function renderArrows() {
 
     // Color and weight via CSS custom properties (allow .related and hover to override via !important)
     const light = isLight()
-    const defColor    = light ? 'rgba(0,0,0,.22)' : 'rgba(255,255,255,.3)'
-    const selColor    = light ? 'rgba(0,0,0,.65)' : 'rgba(255,255,255,.8)'
-    const brightColor = light ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.7)'
+    const defColor    = light ? 'rgba(0,0,0,.4)'  : 'rgba(255,255,255,.5)'
+    const selColor    = light ? 'rgba(0,0,0,.72)' : 'rgba(255,255,255,.85)'
+    const brightColor = light ? 'rgba(0,0,0,.6)'  : 'rgba(255,255,255,.75)'
     g.style.setProperty('--ac', sel ? (a.color || selColor) : (a.color || defColor))
     g.style.setProperty('--ac-hi', a.color || brightColor)
     g.style.setProperty('--aw', (a.weight || 2) + 'px')
@@ -168,7 +168,13 @@ export function renderArrows() {
 
 // ── Empty-canvas hint ────────────────────────────────────────
 export function updateHint() {
-  $.canvasHint().style.display = Object.keys(state.blocks).length ? 'none' : ''
+  const empty = Object.keys(state.blocks).length === 0
+  // Brain Dump is the primary empty state (read-only/embed views fall back to
+  // the plain text hint, since there's nothing to type into).
+  const brainDump = document.getElementById('brainDump')
+  const useBrainDump = empty && brainDump && !ui.readOnly && !ui.embed
+  if (brainDump) brainDump.style.display = useBrainDump ? '' : 'none'
+  $.canvasHint().style.display = (empty && !useBrainDump) ? '' : 'none'
 }
 
 // ── Fit view ─────────────────────────────────────────────────

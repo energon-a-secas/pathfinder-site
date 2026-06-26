@@ -61,7 +61,11 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:neorgon.com)",
       "WebFetch(domain:rubygems.org)",
-      "mcp__plugin_playwright_playwright__*"
+      "mcp__plugin_playwright_playwright__*",
+      "Read(//Users/lucianoadonisvillarroel/Documents/Projects/Personal/**)",
+      "Bash(chmod +x scripts/unmerged-branches.sh)",
+      "Bash(./scripts/unmerged-branches.sh -r -d pathfinder-site)",
+      "Bash(./scripts/unmerged-branches.sh -r)"
     ],
     "deny": []
   },
@@ -74,8 +78,8 @@
     "type": "command",
     "command": "bun x ccusage statusline"
   },
-  "alwaysThinkingEnabled": true,
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true
-  }
+  },
+  "alwaysThinkingEnabled": true
 }

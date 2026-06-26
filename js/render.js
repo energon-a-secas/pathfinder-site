@@ -14,6 +14,9 @@ import { refreshPrompt } from './prompt.js'
 function afterMutation() {
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
+  // The readiness pill is always visible, so refresh it on every change
+  // regardless of the active tab. Decoupled via event to avoid a cycle.
+  window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
 }
 
 // ── Block rendering ──────────────────────────────────────────
@@ -160,12 +163,25 @@ export function renderInspector() {
   // type picker
   const TYPE_TIPS = {
     goal: 'What you want to achieve', problem: 'Blocker or issue', requirement: 'Needed to proceed',
-    risk: 'What might go wrong', question: 'Unknown / assumption', decision: 'A choice already made',
+    assumption: 'A belief you’re treating as true', risk: 'What might go wrong',
+    question: 'A genuine unknown', decision: 'A choice already made',
     resource: 'Available asset', output: 'Expected result', context: 'Background information', custom: 'Free-form block',
   }
   $.typePicker().innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
     `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}" title="${TYPE_TIPS[t] || t}">${cfg.label}</span>`
   ).join('')
+
+  // Contextual nudge: a question stated as a belief should become an Assumption
+  // so the AI is told to pressure-test it rather than just answer it.
+  const promoteEl = document.getElementById('promoteAssumption')
+  if (promoteEl) {
+    if (b.type === 'question') {
+      promoteEl.style.display = ''
+      promoteEl.dataset.bid = b.id
+    } else {
+      promoteEl.style.display = 'none'
+    }
+  }
 
   // Status picker
   const statusPicker = document.getElementById('statusPicker')

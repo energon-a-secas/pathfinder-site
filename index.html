@@ -172,40 +172,55 @@
           <div class="palette-item-text"><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
           <div class="palette-tooltip">A hard constraint that must be satisfied.<br><span class="palette-tooltip-example">e.g. "GDPR compliance", "Response under 200ms"</span><br><span class="palette-tooltip-tip">Link to the Goal it serves.</span></div>
         </div>
+        <div class="palette-item" data-type="assumption" role="button" tabindex="0" aria-label="Add Assumption block">
+          <div class="palette-dot" style="background:var(--c-assumption)"></div>
+          <div class="palette-item-text"><div class="palette-label">Assumption</div><div class="palette-desc">A belief you’re treating as true</div></div>
+          <div class="palette-tooltip">A belief you’re treating as true without validating it.<br><span class="palette-tooltip-example">e.g. "Users will pay for this", "The API can handle our load"</span><br><span class="palette-tooltip-tip">The AI pressure-tests each one. Link it to the Goal or Requirement it underpins.</span></div>
+        </div>
         <div class="palette-item" data-type="risk" role="button" tabindex="0" aria-label="Add Risk block">
           <div class="palette-dot" style="background:var(--c-risk)"></div>
           <div class="palette-item-text"><div class="palette-label">Risk</div><div class="palette-desc">What might go wrong</div></div>
           <div class="palette-tooltip">Something that could go wrong and derail the plan.<br><span class="palette-tooltip-example">e.g. "Key engineer leaving", "Vendor contract expires"</span><br><span class="palette-tooltip-tip">Connect to a Decision that mitigates it.</span></div>
-        </div>
-        <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Question block">
-          <div class="palette-dot" style="background:var(--c-question)"></div>
-          <div class="palette-item-text"><div class="palette-label">Question</div><div class="palette-desc">Unknown / assumption</div></div>
-          <div class="palette-tooltip">An unknown or assumption needing validation.<br><span class="palette-tooltip-example">e.g. "Will users accept SSO-only?", "Is budget approved?"</span><br><span class="palette-tooltip-tip">Link to the Goal or Requirement it affects.</span></div>
         </div>
         <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block">
           <div class="palette-dot" style="background:var(--c-decision)"></div>
           <div class="palette-item-text"><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
           <div class="palette-tooltip">A choice that has been or needs to be made.<br><span class="palette-tooltip-example">e.g. "Use PostgreSQL over MongoDB", "Ship without feature X"</span><br><span class="palette-tooltip-tip">Document the rationale in Notes.</span></div>
         </div>
-        <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block">
-          <div class="palette-dot" style="background:var(--c-resource)"></div>
-          <div class="palette-item-text"><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
-          <div class="palette-tooltip">An available asset, tool, team, or budget.<br><span class="palette-tooltip-example">e.g. "Design team (3 people)", "AWS credits ($10K)"</span><br><span class="palette-tooltip-tip">Connect to what it enables.</span></div>
-        </div>
-        <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block">
-          <div class="palette-dot" style="background:var(--c-output)"></div>
-          <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
-          <div class="palette-tooltip">An expected deliverable or measurable result.<br><span class="palette-tooltip-example">e.g. "API documentation", "Staging environment"</span><br><span class="palette-tooltip-tip">Connect from Resources and Requirements that produce it.</span></div>
-        </div>
-        <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
-          <div class="palette-dot" style="background:var(--c-context)"></div>
-          <div class="palette-item-text"><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
-          <div class="palette-tooltip">Background info that frames the project.<br><span class="palette-tooltip-example">e.g. "Migrating to cloud", "Competitor launched similar feature"</span><br><span class="palette-tooltip-tip">Helps AI understand constraints.</span></div>
-        </div>
-        <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block">
-          <div class="palette-dot" style="background:var(--c-custom)"></div>
-          <div class="palette-item-text"><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
-          <div class="palette-tooltip">A free-form block for anything else.<br><span class="palette-tooltip-tip">Use sparingly -- structured types produce better AI prompts.</span></div>
+
+        <!-- Advanced types (collapsible) -->
+        <div class="palette-subsection collapsed" id="advancedBlocks">
+          <div class="palette-subsection-toggle" id="advancedBlocksToggle" role="button" tabindex="0" aria-expanded="false">
+            <span>Advanced types</span>
+            <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+          <div class="palette-subsection-body">
+            <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Open Question block">
+              <div class="palette-dot" style="background:var(--c-question)"></div>
+              <div class="palette-item-text"><div class="palette-label">Open Question</div><div class="palette-desc">A genuine unknown</div></div>
+              <div class="palette-tooltip">A genuine unknown needing an answer.<br><span class="palette-tooltip-example">e.g. "Will users accept SSO-only?", "Is budget approved?"</span><br><span class="palette-tooltip-tip">For a belief you’re assuming true, use an Assumption instead.</span></div>
+            </div>
+            <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block">
+              <div class="palette-dot" style="background:var(--c-resource)"></div>
+              <div class="palette-item-text"><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
+              <div class="palette-tooltip">An available asset, tool, team, or budget.<br><span class="palette-tooltip-example">e.g. "Design team (3 people)", "AWS credits ($10K)"</span><br><span class="palette-tooltip-tip">Connect to what it enables.</span></div>
+            </div>
+            <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block">
+              <div class="palette-dot" style="background:var(--c-output)"></div>
+              <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
+              <div class="palette-tooltip">An expected deliverable or measurable result.<br><span class="palette-tooltip-example">e.g. "API documentation", "Staging environment"</span><br><span class="palette-tooltip-tip">Connect from Resources and Requirements that produce it.</span></div>
+            </div>
+            <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
+              <div class="palette-dot" style="background:var(--c-context)"></div>
+              <div class="palette-item-text"><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
+              <div class="palette-tooltip">Background info that frames the project.<br><span class="palette-tooltip-example">e.g. "Migrating to cloud", "Competitor launched similar feature"</span><br><span class="palette-tooltip-tip">Helps AI understand constraints.</span></div>
+            </div>
+            <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block">
+              <div class="palette-dot" style="background:var(--c-custom)"></div>
+              <div class="palette-item-text"><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
+              <div class="palette-tooltip">A free-form block for anything else.<br><span class="palette-tooltip-tip">Use sparingly -- structured types produce better AI prompts.</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -230,6 +245,20 @@
       Double-click a block to edit its title
     </div>
 
+    <!-- Brain Dump empty state — fastest on-ramp from messy text to a canvas -->
+    <div class="brain-dump" id="brainDump">
+      <div class="brain-dump-card">
+        <h2>Start with a brain dump</h2>
+        <p>Paste or type your messy thoughts — one idea per line. We’ll turn them into typed, AI-ready blocks. Fix any mislabels with one click after.</p>
+        <textarea id="brainDumpInput" rows="6" spellcheck="false"
+          placeholder="Ship the onboarding flow before the seed demo&#10;Users will pay for the pro tier&#10;API latency is over our SLA&#10;Will SSO-only auth be acceptable?&#10;We need GDPR compliance"></textarea>
+        <div class="brain-dump-actions">
+          <button class="brain-dump-btn" id="brainDumpBtn">Turn into blocks</button>
+          <span class="brain-dump-hint">or just start dragging blocks from the left</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Rubber-band select -->
     <div class="select-box" id="selectBox"></div>
 
@@ -242,6 +271,15 @@
 
     <!-- Zoom indicator -->
     <div class="zoom-indicator" id="zoomIndicator">100%</div>
+
+    <!-- Always-visible AI-ready prompt pill + readiness verdict -->
+    <div class="copy-pill-wrap" id="copyPillWrap">
+      <div class="copy-pill-verdict" id="copyPillVerdict"></div>
+      <button class="copy-pill" id="copyPromptPill" aria-label="Copy AI-ready prompt">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 2H9c-1.1 0-2 .9-2 2v2H3c-.55 0-1 .45-1 1s.45 1 1 1h4v6H3c-.55 0-1 .45-1 1s.45 1 1 1h4v4c0 1.1.9 2 2 2h2v1c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-1h2c1.1 0 2-.9 2-2v-4h4c.55 0 1-.45 1-1s-.45-1-1-1h-4V8h4c.55 0 1-.45 1-1s-.45-1-1-1h-4V4c0-1.1-.9-2-2-2h-2V1h-2v1h-2z"/></svg>
+        <span id="copyPillLabel">Copy AI-ready prompt</span>
+      </button>
+    </div>
 
     <!-- Transformed canvas root -->
     <div class="canvas-root" id="canvasRoot">
@@ -330,6 +368,7 @@
           <div class="insp-section">
             <div class="insp-label">Type</div>
             <div class="insp-type-picker" id="typePicker"></div>
+            <button class="promote-assumption-btn" id="promoteAssumption" type="button" style="display:none" title="Treating this as true rather than asking it? Make it an Assumption so the AI pressure-tests it.">↳ Treating this as true? Make it an Assumption</button>
           </div>
           <div class="insp-section" id="colorSection">
             <div class="insp-label">Accent Color</div>
@@ -446,6 +485,12 @@
         <div class="prompt-summary" id="promptSummary">No blocks yet.</div>
         <div id="healthBar" class="health-bar" style="display:none"></div>
         <div id="promptDiff" class="prompt-diff" style="display:none"></div>
+
+        <div class="insp-section">
+          <div class="insp-label">Engagement Context <span class="insp-label-hint">— framing the AI sees first</span></div>
+          <textarea class="insp-textarea" id="contextBrief" rows="2"
+            placeholder="One or two lines of framing: who this is for, the stack, constraints, the ask…"></textarea>
+        </div>
 
         <div class="prompt-mode-row">
           <div class="insp-label" style="margin-bottom:6px">Mode</div>

@@ -66,7 +66,10 @@ export function applyImport(data, mode) {
     }
   })
 
-  if (mode === 'replace' && clean.meta.title) canvasMeta.title = clean.meta.title
+  if (mode === 'replace') {
+    if (clean.meta.title) canvasMeta.title = clean.meta.title
+    canvasMeta.contextBrief = clean.meta.contextBrief || ''
+  }
 
   updateHint()
   requestAnimationFrame(() => {

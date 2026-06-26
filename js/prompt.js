@@ -2,14 +2,17 @@
 //  prompt.js — AI prompt export generation
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, devOpts, promptState } from './state.js'
-import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, escHtml, getBlockEl } from './utils.js'
+import { state, ui, devOpts, promptState, canvasMeta } from './state.js'
+import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, escHtml } from './utils.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Prompt generation ────────────────────────────────────────
 export function generatePrompt() {
+  const mode = devOpts.mode || 'plan'
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
+
+  const incomingCount = id => state.arrows.filter(a => a.to === id).length
 
   const fmt = b => {
     const tags = []
@@ -24,8 +27,6 @@ export function generatePrompt() {
     }
     if ((b.actions||[]).length) s += `\n  Actions: ${b.actions.join(', ')}`
     if (b.notes) s += `\n  Notes: ${b.notes}`
-    const el = getBlockEl(b.id)
-    if (el?.classList.contains('gap-assumption')) s += '\n  \u26A0 ASSUMPTION GAP: not linked to goal or requirement'
     return s
   }
 
@@ -34,18 +35,53 @@ export function generatePrompt() {
     return `## ${heading}\n${items.map(fmt).join('\n')}\n`
   }
 
-  const content = [
-    sec('Context / Background',                       'context'),
-    sec('Project Goals',                    'goal'),
-    sec('Problems / Blockers',                        'problem'),
-    sec('Requirements',                               'requirement'),
-    sec('Risks',                                      'risk'),
-    sec('Open Questions (Review Before Assuming)','question'),
-    sec('Decisions',                                  'decision'),
-    sec('Resources Available',                        'resource'),
-    sec('Expected Outputs',                           'output'),
-    sec('Custom / Other',                             'custom')
-  ].filter(Boolean).join('\n')
+  // Build mode renders requirements + outputs as an actionable task checklist,
+  // ordered by priority then by how many things depend on them.
+  const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
+  const taskSection = (heading, type) => {
+    const items = byType[type]; if (!items?.length) return ''
+    const ordered = [...items].sort((a, b) => {
+      const pr = (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3)
+      if (pr !== 0) return pr
+      return incomingCount(b.id) - incomingCount(a.id)
+    })
+    let out = `## ${heading}\n`
+    ordered.forEach(b => {
+      const pri = b.priority ? ` [${PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority}]` : ''
+      out += `- [ ]${pri} ${b.title || '(untitled)'}\n`
+      if (b.description) out += `      ${b.description}\n`
+      out += `      Acceptance criteria: [NEEDS INPUT: acceptance criteria]\n`
+    })
+    return out
+  }
+
+  // Section builders keyed by intent, so each mode can choose order + form.
+  const S = {
+    context:      () => sec('Context / Background', 'context'),
+    goals:        () => sec('Project Goals', 'goal'),
+    problems:     () => sec('Problems / Blockers', 'problem'),
+    requirements: () => sec('Requirements', 'requirement'),
+    reqTasks:     () => taskSection('Requirements (as tasks)', 'requirement'),
+    assumptions:  () => sec('Assumptions (validate before building)', 'assumption'),
+    risks:        () => sec('Risks', 'risk'),
+    questions:    () => sec('Open Questions (Review Before Assuming)', 'question'),
+    decisions:    () => sec('Decisions', 'decision'),
+    resources:    () => sec('Resources Available', 'resource'),
+    outputs:      () => sec('Expected Outputs', 'output'),
+    outputTasks:  () => taskSection('Expected Outputs (as deliverables)', 'output'),
+    custom:       () => sec('Custom / Other', 'custom'),
+  }
+
+  // Per-mode section order. Explore/Clarify front-load the unknowns; Build
+  // turns requirements/outputs into checklists and drops framing-only types.
+  const ORDERS = {
+    plan:    ['context','goals','problems','requirements','assumptions','risks','questions','decisions','resources','outputs','custom'],
+    explore: ['assumptions','questions','goals','problems','requirements','risks','context','decisions','resources','outputs','custom'],
+    build:   ['goals','reqTasks','assumptions','problems','risks','decisions','outputTasks'],
+    clarify: ['questions','assumptions','goals','problems','requirements','risks','decisions','context'],
+  }
+  const order = ORDERS[mode] || ORDERS.plan
+  const content = order.map(k => S[k] && S[k]()).filter(Boolean).join('\n')
 
   if (!content.trim()) return '(No blocks yet. Add blocks to generate a prompt.)'
 
@@ -53,13 +89,15 @@ export function generatePrompt() {
   const modeDirectives = {
     explore:
       '## Task\nReview this strategy canvas and surface gaps, assumptions, and missing connections. ' +
-      'Ask clarifying questions rather than proposing solutions. Highlight what is unclear or contradictory.\n',
+      'Ask clarifying questions rather than proposing solutions. Highlight what is unclear or contradictory. ' +
+      'Start from the Assumptions and Open Questions below \u2014 they are where this plan is weakest.\n',
     plan:
       '## Task\nReview this strategy canvas and produce a phased implementation plan. ' +
       'Break work into concrete phases with clear outputs for each. Flag any assumptions you are making.\n',
     build:
       '## Task\nImplement the plan described in this canvas. Produce working code. ' +
-      'For each requirement, include acceptance criteria. Use the dependency connections to order your work.\n',
+      'Work through the Requirements checklist below in order. For each requirement, include acceptance criteria \u2014 ' +
+      'where they are marked [NEEDS INPUT], do NOT invent them; ask first. Use the dependency connections to order your work.\n',
     clarify:
       '## Task\nDo NOT implement or plan yet. Identify what is ambiguous, missing, or contradictory ' +
       'and return a prioritized list of clarifying questions.\n\n' +
@@ -69,27 +107,34 @@ export function generatePrompt() {
       'Return no more than 15 questions, prioritized by blocking status.\n' +
       'Close with a one-paragraph Readiness Assessment.\n'
   }
-  let prompt = (modeDirectives[devOpts.mode] || modeDirectives.plan) + '\n'
+  let prompt = (modeDirectives[mode] || modeDirectives.plan) + '\n'
 
-  // 2. Dev option instructions
-  const preMap = {
-    tasks:      'Define all tasks with clear acceptance criteria.',
-    edge:       'Include handling for edge cases.',
-    errors:     'Add proper error handling throughout.',
-    docs:       'Document all key functions with inline comments.',
-    security:   'Consider security implications for each component.',
-    typescript: 'Use TypeScript types and interfaces.'
+  // Standing directive: assumptions are bets, not facts.
+  if (byType.assumption?.length) {
+    prompt += 'Treat each Assumption below as believed-true-until-disproven; explicitly confirm or challenge each one before relying on it.\n\n'
   }
-  const preLines = []
-  devOpts.prePrompts.forEach(k => { if (preMap[k]) preLines.push(preMap[k]) })
 
-  const toneMap = { formal:'Please respond in a formal, professional tone.', casual:'Keep the tone conversational and accessible.', technical:'Use precise technical language and focus on implementation details.' }
-  if (devOpts.tone !== 'auto' && toneMap[devOpts.tone]) preLines.push(toneMap[devOpts.tone])
+  // 2. Dev option instructions \u2014 suppressed in Clarify (no implementation yet)
+  if (mode !== 'clarify') {
+    const preMap = {
+      tasks:      'Define all tasks with clear acceptance criteria.',
+      edge:       'Include handling for edge cases.',
+      errors:     'Add proper error handling throughout.',
+      docs:       'Document all key functions with inline comments.',
+      security:   'Consider security implications for each component.',
+      typescript: 'Use TypeScript types and interfaces.'
+    }
+    const preLines = []
+    devOpts.prePrompts.forEach(k => { if (preMap[k]) preLines.push(preMap[k]) })
 
-  const detailMap = { brief:'Keep responses concise and high-level.', detailed:'Provide comprehensive, detailed explanations.' }
-  if (devOpts.detail !== 'standard' && detailMap[devOpts.detail]) preLines.push(detailMap[devOpts.detail])
+    const toneMap = { formal:'Please respond in a formal, professional tone.', casual:'Keep the tone conversational and accessible.', technical:'Use precise technical language and focus on implementation details.' }
+    if (devOpts.tone !== 'auto' && toneMap[devOpts.tone]) preLines.push(toneMap[devOpts.tone])
 
-  if (preLines.length) prompt += preLines.join('\n') + '\n\n'
+    const detailMap = { brief:'Keep responses concise and high-level.', detailed:'Provide comprehensive, detailed explanations.' }
+    if (devOpts.detail !== 'standard' && detailMap[devOpts.detail]) preLines.push(detailMap[devOpts.detail])
+
+    if (preLines.length) prompt += preLines.join('\n') + '\n\n'
+  }
 
   // 3. Block type legend (makes prompt self-contained for AI)
   const usedTypes = new Set(Object.values(state.blocks).map(b => b.type))
@@ -99,8 +144,9 @@ export function generatePrompt() {
       goal: 'Strategic objective to achieve',
       problem: 'Blocker or issue requiring resolution',
       requirement: 'Hard constraint that must be satisfied',
+      assumption: 'A belief being treated as true without validation \u2014 pressure-test it',
       risk: 'Potential failure point requiring mitigation',
-      question: 'Unknown or assumption needing validation',
+      question: 'A genuine unknown needing an answer',
       decision: 'Choice already made (rationale should be documented)',
       resource: 'Available asset, tool, or capability',
       output: 'Expected deliverable or result',
@@ -113,8 +159,12 @@ export function generatePrompt() {
     prompt += '\n'
   }
 
-  // 4. Canvas content
-  prompt += '---\n\n# Project Canvas\n\n' + content
+  // 4. Canvas content \u2014 titled by the canvas, with the engagement framing first
+  const title = (canvasMeta.title || '').trim() || 'Project Canvas'
+  prompt += `---\n\n# ${title}\n\n`
+  const brief = (canvasMeta.contextBrief || '').trim()
+  if (brief) prompt += `## Engagement Context\n${brief}\n\n`
+  prompt += content
 
   // 5. Connections (typed)
   if (state.arrows.length) {
@@ -155,7 +205,7 @@ export function generatePrompt() {
   if (gapCount) {
     const gapLabels = {
       'gap-isolated':     'no connections: not linked to anything on the canvas',
-      'gap-assumption':   'assumption gap: question not linked to a Goal or Requirement',
+      'gap-assumption':   'unvalidated assumption: not linked to a Goal or Requirement and not flagged to validate',
       'gap-no-req':       'no requirement: goal has no linked requirement',
       'gap-unaddressed':  'unaddressed: problem with no resolve action and no outgoing links'
     }
@@ -182,11 +232,14 @@ export function computeHealthScore() {
   // Gap penalty
   score -= Math.min(gapCount * 8, 40)
 
-  // Blocks without descriptions (only significant if canvas has substance)
-  if (n > 3) {
-    const noDesc = blocks.filter(b => !b.description?.trim()).length
-    score -= Math.min(noDesc * 1.5, 15)
-  }
+  // Empty descriptions are the honest signal of a hollow canvas: a block with
+  // only a title gives the AI almost nothing. Penalize every empty block (no
+  // size gate), weighting the load-bearing types the AI most needs filled in.
+  const HEAVY = new Set(['goal', 'requirement', 'output'])
+  const noDescPenalty = blocks
+    .filter(b => !b.description?.trim())
+    .reduce((sum, b) => sum + (HEAVY.has(b.type) ? 6 : 3), 0)
+  score -= Math.min(noDescPenalty, 45)
 
   // No goal block when canvas has content
   const hasGoal = blocks.some(b => b.type === 'goal')
@@ -197,10 +250,15 @@ export function computeHealthScore() {
   const reqs  = blocks.filter(b => b.type === 'requirement')
   if (goals.length > 0 && reqs.length === 0) score -= 8
 
-  // Connection bonus: reward well-connected canvases
+  // Connection bonus: reward canvases that are both connected AND described.
+  // Title-only blocks don't earn the bonus even when wired together, so a
+  // skeleton can't coast to a green score on structure alone.
   if (n > 1) {
-    const connected = new Set([...state.arrows.flatMap(a => [a.from, a.to])])
-    score += Math.round((connected.size / n) * 10)
+    const described = new Set(blocks.filter(b => b.description?.trim()).map(b => b.id))
+    const connectedAndDescribed = new Set(
+      state.arrows.flatMap(a => [a.from, a.to]).filter(id => described.has(id))
+    )
+    score += Math.round((connectedAndDescribed.size / n) * 10)
   }
 
   return Math.max(0, Math.min(100, Math.round(score)))

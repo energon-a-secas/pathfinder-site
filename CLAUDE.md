@@ -57,20 +57,23 @@ Auto-saved via `debouncedSave()` (300ms) on every change.
 
 ## Block Types
 
-10 types defined in the `TYPES` constant. Each has a unique left-border color:
+11 types defined in the `TYPES` constant. Each has a unique left-border color. The palette surfaces a **Core 6** by default; the rest live behind an "Advanced types" expander (`#advancedBlocks`) — but all 11 are fully usable and no type is ever removed (deleting a type would drop existing blocks via `normalize.js`).
 
-| Type | Color | CSS Var |
-|------|-------|---------|
-| goal | #a78bfa (violet) | --c-goal |
-| problem | #f87171 (red) | --c-problem |
-| requirement | #fbbf24 (amber) | --c-requirement |
-| risk | #fb923c (orange) | --c-risk |
-| question | #38bdf8 (sky) | --c-question |
-| decision | #34d399 (emerald) | --c-decision |
-| resource | #2dd4bf (teal) | --c-resource |
-| output | #818cf8 (indigo) | --c-output |
-| context | #64748b (slate) | --c-context |
-| custom | #c084fc (fuchsia) | --c-custom |
+| Type | Color | CSS Var | Palette |
+|------|-------|---------|---------|
+| goal | #a78bfa (violet) | --c-goal | Core |
+| problem | #f87171 (red) | --c-problem | Core |
+| requirement | #fbbf24 (amber) | --c-requirement | Core |
+| assumption | #eab308 (gold) | --c-assumption | Core |
+| risk | #fb923c (orange) | --c-risk | Core |
+| decision | #34d399 (emerald) | --c-decision | Core |
+| question ("Open Question") | #38bdf8 (sky) | --c-question | Advanced |
+| resource | #2dd4bf (teal) | --c-resource | Advanced |
+| output | #818cf8 (indigo) | --c-output | Advanced |
+| context | #64748b (slate) | --c-context | Advanced |
+| custom | #c084fc (fuchsia) | --c-custom | Advanced |
+
+**assumption vs question:** an Assumption is a belief treated as true without validation (default `validate` action; feeds an "Assumptions (validate before building)" prompt section the AI is told to pressure-test). A Question is a genuine unknown. A question's inspector shows a "Promote to Assumption" button.
 
 ---
 
@@ -94,14 +97,14 @@ Auto-saved via `debouncedSave()` (300ms) on every change.
 
 ## Gap Detection
 
-`runGapDetection()` runs automatically on every canvas change. It appends CSS classes to blocks:
+`runGapDetection()` runs automatically on every canvas change. Gap branches are **mutually exclusive** — a block reports exactly ONE gap (isolation wins outright; type-specific gaps only apply to *connected* blocks wired wrongly):
 
 | Class | Meaning | Trigger |
 |-------|---------|---------|
-| `gap-isolated` | No connections at all | Block has 0 incoming + 0 outgoing arrows |
-| `gap-assumption` | Unlinked question | Question block not connected to a Goal or Requirement |
-| `gap-no-req` | Goal without requirements | Goal block has no arrow to a Requirement |
-| `gap-unaddressed` | Ignored problem | Problem block lacks "resolve" action and has no outgoing arrows |
+| `gap-isolated` | No connections at all | Block has 0 incoming + 0 outgoing arrows (checked first; short-circuits) |
+| `gap-assumption` | Unvalidated assumption | **Connected** assumption-type block not linked to a Goal/Requirement and without a `validate` action |
+| `gap-no-req` | Goal without requirements | Connected Goal block has no arrow to a Requirement |
+| `gap-unaddressed` | Ignored problem | Connected Problem block lacks "resolve" action and has no outgoing arrows |
 
 Gap icons pulse (1.8–2.5s animation) in the block header.
 
@@ -111,7 +114,19 @@ Gap icons pulse (1.8–2.5s animation) in the block header.
 
 `generatePrompt()` builds a structured markdown prompt from canvas state.
 
-**Sections (in order):** Context → Goals → Problems → Requirements → Risks → Questions → Decisions → Resources → Outputs → Custom → Connections → Gap summary → Dev options
+**Prompt H1 is the canvas title** (`canvasMeta.title`), and an optional **`## Engagement Context`** section (`canvasMeta.contextBrief`, edited at the top of the Prompt pane) opens the body — both round-trip through save/import/share.
+
+**Section order is per-mode** (`ORDERS` in `prompt.js`). The four modes now produce genuinely different bodies:
+- **Plan** — Context → Goals → Problems → Requirements → Assumptions → Risks → Questions → Decisions → Resources → Outputs → Custom
+- **Explore** — front-loads Assumptions + Questions before everything else
+- **Build** — renders Requirements and Outputs as `- [ ]` task checklists (priority then incoming-arrow ordering); requirements without acceptance criteria emit `[NEEDS INPUT: acceptance criteria]` + a "do not invent — ask first" rule; drops framing-only types
+- **Clarify** — leads with Questions + Assumptions; suppresses the implementation dev-option modules
+
+An **Assumptions** section ("validate before building") carries a standing directive telling the AI to treat each assumption as believed-true-until-disproven. Trailing: Connections → Groups → Action Labels → Gap summary.
+
+**Always-visible pill:** a "Copy AI-ready prompt" pill + plain-language readiness verdict sit in the canvas bottom-right (`#copyPillWrap`). The verdict is a pure function of `computeHealthScore()` + gap count; non-green copies prompt "Copy anyway?". The pill copies via the same `markExported()` path as the panel button so the diff tracker stays in sync, and refreshes on the `pf:canvas-changed` event.
+
+**Brain Dump empty state:** when the canvas is empty (and not read-only/embed), a Brain Dump card replaces the text hint. `createBlocksFromText()` (shared by paste + Brain Dump) runs a sentence-level scoring classifier (`categorizeLine` in `events.js`) that strips a leading first-person/article prefix and scores against weighted keyword sets, so natural prose lands on a real type. Each imported block gets a sibling type-correction chip in `canvasRoot` (low-confidence blocks flagged with an amber dashed outline); chips dismiss on the next canvas pointerdown.
 
 **Dev options** (right panel "Prompt" tab):
 - Tone: Auto / Formal / Casual / Technical

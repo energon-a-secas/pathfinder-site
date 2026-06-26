@@ -4,16 +4,17 @@
 
 // ── Constants ────────────────────────────────────────────────
 export const TYPES = {
-  goal:        { label: 'Goal',        color: '#a78bfa' },
-  problem:     { label: 'Problem',     color: '#f87171' },
-  requirement: { label: 'Requirement', color: '#fbbf24' },
-  risk:        { label: 'Risk',        color: '#fb923c' },
-  question:    { label: 'Question',    color: '#38bdf8' },
-  decision:    { label: 'Decision',    color: '#34d399' },
-  resource:    { label: 'Resource',    color: '#2dd4bf' },
-  output:      { label: 'Output',      color: '#818cf8' },
-  context:     { label: 'Context',     color: '#64748b' },
-  custom:      { label: 'Custom',      color: '#c084fc' }
+  goal:        { label: 'Goal',          color: '#a78bfa' },
+  problem:     { label: 'Problem',       color: '#f87171' },
+  requirement: { label: 'Requirement',   color: '#fbbf24' },
+  assumption:  { label: 'Assumption',    color: '#eab308' },
+  risk:        { label: 'Risk',          color: '#fb923c' },
+  decision:    { label: 'Decision',      color: '#34d399' },
+  question:    { label: 'Open Question', color: '#38bdf8' },
+  resource:    { label: 'Resource',      color: '#2dd4bf' },
+  output:      { label: 'Output',        color: '#818cf8' },
+  context:     { label: 'Context',       color: '#64748b' },
+  custom:      { label: 'Custom',        color: '#c084fc' }
 }
 
 export const STORAGE_KEY    = 'pathfinder-v1'
@@ -26,6 +27,7 @@ export const ACTION_DEFS = {
   prepare:   'Gather resources or context before proceeding',
   recollect: 'Review past decisions or context relevant here',
   reinforce: 'Strengthen or validate the current approach',
+  validate:  'Test or confirm this before relying on it',
 }
 
 export const STATUS_DEFS = {
@@ -50,8 +52,9 @@ export const TYPE_EXPLANATIONS = {
   goal:        'A strategic objective you want to achieve. Examples: "Increase conversion by 15%", "Launch MVP by Q3". Connect to Requirements that must be met.',
   problem:     'A blocker, issue, or pain point that needs resolution. Examples: "API latency exceeds SLA", "No CI/CD pipeline". Mark "Resolve" when actioned.',
   requirement: 'A hard constraint that must be satisfied for a Goal to succeed. Examples: "GDPR compliance", "Response time under 200ms". Link to the Goal it serves.',
+  assumption:  'A belief you are treating as true without having validated it yet. Examples: "Users will pay for this", "The API can handle our load". The AI should pressure-test each one. Link to the Goal or Requirement it underpins.',
   risk:        'Something that could go wrong and derail the plan. Examples: "Key engineer leaving", "Vendor contract expires". Connect to a Decision that mitigates it.',
-  question:    'An unknown or assumption that needs validation before proceeding. Examples: "Will users accept SSO-only auth?", "Is the budget approved?". Link to the Goal or Requirement it affects.',
+  question:    'A genuine unknown that needs an answer before proceeding. Examples: "Will users accept SSO-only auth?", "Is the budget approved?". Link to the Goal or Requirement it affects. (For beliefs you are assuming true, use an Assumption instead.)',
   decision:    'A choice that has already been made or needs to be made. Examples: "Use PostgreSQL over MongoDB", "Ship without feature X". Document the rationale in Notes.',
   resource:    'An available asset, tool, team, or budget. Examples: "Design team (3 people)", "AWS credits ($10K)", "Existing auth library". Connect to what it enables.',
   output:      'An expected deliverable or measurable result. Examples: "API documentation", "Staging environment", "User research report". Connect from the Resources and Requirements that produce it.',

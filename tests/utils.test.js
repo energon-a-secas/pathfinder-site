@@ -171,32 +171,32 @@ describe('getBlockDims()', () => {
 // ── TYPES constant ───────────────────────────────────────────
 
 describe('TYPES constant', () => {
-  it('contains all 10 block types', () => {
-    const expected = ['goal','problem','requirement','risk','question','decision','resource','output','context','custom']
+  it('contains all 11 block types', () => {
+    const expected = ['goal','problem','requirement','assumption','risk','question','decision','resource','output','context','custom']
     expected.forEach(t => {
       assert.ok(TYPES[t], `Missing type: ${t}`)
       assert.ok(TYPES[t].label, `Type ${t} missing label`)
       assert.ok(TYPES[t].color, `Type ${t} missing color`)
     })
-    assert.eq(Object.keys(TYPES).length, 10)
+    assert.eq(Object.keys(TYPES).length, 11)
   })
 
   it('each type has a unique color', () => {
     const colors = Object.values(TYPES).map(t => t.color)
-    assert.eq(new Set(colors).size, 10, 'All colors should be unique')
+    assert.eq(new Set(colors).size, Object.keys(TYPES).length, 'All colors should be unique')
   })
 })
 
 // ── ACTION_DEFS constant ────────────────────────────────────
 
 describe('ACTION_DEFS constant', () => {
-  it('contains all four action definitions', () => {
-    const expected = ['resolve', 'prepare', 'recollect', 'reinforce']
+  it('contains all five action definitions', () => {
+    const expected = ['resolve', 'prepare', 'recollect', 'reinforce', 'validate']
     expected.forEach(a => {
       assert.ok(ACTION_DEFS[a], `Missing action def: ${a}`)
       assert.ok(typeof ACTION_DEFS[a] === 'string', `Action def ${a} should be a string`)
     })
-    assert.eq(Object.keys(ACTION_DEFS).length, 4)
+    assert.eq(Object.keys(ACTION_DEFS).length, 5)
   })
 
   it('each action has a non-empty description', () => {

@@ -9,7 +9,7 @@ import { $, TYPES, clamp, escHtml, showToast, getBlockDims, getSmallIcon, MIN_ZO
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
-import { refreshPrompt, markExported } from './prompt.js'
+import { refreshPrompt, markExported, generatePrompt, computeHealthScore } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { runGapDetection } from './gaps.js'
 
@@ -179,6 +179,27 @@ export function setupShortcutOverlay() {
   })
 }
 
+// ── Engagement Context field ─────────────────────────────────
+// One-or-two-line framing that opens the generated prompt. Lives in the
+// Prompt pane (where it shapes the output the user is about to copy).
+export function syncContextBrief() {
+  const el = document.getElementById('contextBrief')
+  if (el && el.value !== (canvasMeta.contextBrief || '')) el.value = canvasMeta.contextBrief || ''
+}
+
+export function setupContextBrief() {
+  const el = document.getElementById('contextBrief')
+  if (!el) return
+  syncContextBrief()
+  if (ui.readOnly) { el.readOnly = true; return }
+  el.addEventListener('input', () => {
+    canvasMeta.contextBrief = el.value
+    debouncedSave()
+    ui.promptDirty = true
+    if (ui.activeTab === 'prompt') refreshPrompt()
+  })
+}
+
 // ── Panel tabs ───────────────────────────────────────────────
 export function setupPanelTabs() {
   function showTab(tab) {
@@ -242,14 +263,122 @@ export function setupCopyPrompt() {
   document.getElementById('copyPromptBtn').addEventListener('click', () => {
     const promptOutput = $.promptOutput()
     if (!promptOutput.value) return
-    navigator.clipboard.writeText(promptOutput.value).then(() => {
+    copyText(promptOutput.value).then(ok => {
+      if (!ok) { showToast('Copy failed \u2014 select the text and press Ctrl/Cmd+C', 'warning'); return }
       markExported()
       ui.promptDirty = true; refreshPrompt()
+      showToast('Prompt copied to clipboard', 'success')
       const btn = document.getElementById('copyPromptBtn')
       btn.textContent = '\u2713 Copied!'; btn.classList.add('copied')
       setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied') }, 2000)
     })
   })
+}
+
+// \u2500\u2500 Clipboard helper \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// navigator.clipboard.writeText rejects silently when the page isn't focused
+// or over insecure origins. Fall back to a hidden textarea + execCommand so the
+// copy still lands, and always surface success/failure to the user.
+export function copyText(text) {
+  const fallback = () => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
+      document.body.appendChild(ta)
+      ta.focus(); ta.select()
+      const ok = document.execCommand('copy')
+      ta.remove()
+      return ok
+    } catch (_) { return false }
+  }
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text).then(() => true, () => fallback())
+  }
+  return Promise.resolve(fallback())
+}
+
+// \u2500\u2500 Readiness verdict (plain-language go/no-go) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Pure function of the health score + gap count \u2014 no new persisted state.
+function readiness() {
+  const score = computeHealthScore()
+  if (score === null) return null
+  const { count: gaps } = runGapDetection()
+  const blocks = Object.values(state.blocks)
+  const hasGoal = blocks.some(b => b.type === 'goal')
+  const hasReq  = blocks.some(b => b.type === 'requirement')
+
+  if (score >= 80) return { grade: 'a', green: true, text: 'Looks solid \u2014 your AI has enough to plan' }
+  if (score >= 50) {
+    let tip = 'add a bit more detail'
+    if (gaps) tip = `close ${gaps} gap${gaps > 1 ? 's' : ''}`
+    else if (!hasReq) tip = 'add a requirement'
+    else if (blocks.filter(b => !b.description?.trim()).length) tip = 'describe a few more blocks'
+    return { grade: 'b', green: false, text: `Almost ready \u2014 ${tip} for a stronger plan` }
+  }
+  const next = !hasGoal ? 'Add a goal' : !hasReq ? 'Add a requirement' : 'Describe your blocks'
+  return { grade: 'c', green: false, text: `${next} first for a useful plan` }
+}
+
+export function refreshReadinessVerdict() {
+  const wrap = document.getElementById('copyPillWrap')
+  if (!wrap) return
+  if (ui.readOnly) { wrap.style.display = 'none'; return }
+  const verdictEl = document.getElementById('copyPillVerdict')
+  const v = readiness()
+  if (!v) { verdictEl.textContent = ''; verdictEl.className = 'copy-pill-verdict'; return }
+  verdictEl.textContent = v.text
+  verdictEl.className = `copy-pill-verdict grade-${v.grade}`
+}
+
+export function setupCopyPill() {
+  const pill = document.getElementById('copyPromptPill')
+  if (!pill) return
+  if (ui.readOnly) { document.getElementById('copyPillWrap').style.display = 'none'; return }
+  let armed = false      // two-step confirm for non-green canvases (no blocking dialog)
+  let armTimer = null
+  const label = document.getElementById('copyPillLabel')
+
+  const doCopy = () => {
+    // Same export path as the panel button so the diff tracker stays in sync.
+    ui.promptDirty = true
+    const text = generatePrompt()
+    copyText(text).then(ok => {
+      if (!ok) { showToast('Copy failed — open the Prompt tab and copy manually', 'warning'); return }
+      markExported()
+      ui.promptDirty = true; refreshPrompt()
+      showToast('AI-ready prompt copied to clipboard', 'success')
+      const prev = 'Copy AI-ready prompt'
+      label.textContent = 'Copied!'; pill.classList.add('copied')
+      setTimeout(() => { label.textContent = prev; pill.classList.remove('copied') }, 1800)
+    })
+  }
+
+  const disarm = () => {
+    armed = false
+    if (armTimer) { clearTimeout(armTimer); armTimer = null }
+    pill.classList.remove('armed')
+    label.textContent = 'Copy AI-ready prompt'
+  }
+
+  pill.addEventListener('click', () => {
+    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
+    const v = readiness()
+    if (v && !v.green && !armed) {
+      // First click on an incomplete canvas: arm an inline "copy anyway" instead
+      // of a blocking confirm(). Second click within 4s copies; otherwise resets.
+      armed = true
+      pill.classList.add('armed')
+      label.textContent = 'Copy anyway?'
+      showToast(v.text, 'info')
+      armTimer = setTimeout(disarm, 4000)
+      return
+    }
+    disarm()
+    doCopy()
+  })
+  window.addEventListener('pf:canvas-changed', refreshReadinessVerdict)
+  refreshReadinessVerdict()
 }
 
 // ── Export dropdown ──────────────────────────────────────────
@@ -460,6 +589,16 @@ export function setupPaletteSections() {
     })
   })
 
+  // Advanced types sub-section toggle (nested inside Blocks)
+  const advToggle = document.getElementById('advancedBlocksToggle')
+  if (advToggle) {
+    advToggle.addEventListener('click', () => {
+      const sub = document.getElementById('advancedBlocks')
+      sub.classList.toggle('collapsed')
+      advToggle.setAttribute('aria-expanded', !sub.classList.contains('collapsed'))
+    })
+  }
+
   // Palette collapse button
   const collapseBtn = document.getElementById('paletteCollapseBtn')
   if (collapseBtn) {
@@ -641,6 +780,7 @@ export function checkShareUrl() {
       : (confirm('Load shared canvas?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
     const { dropped } = applyImport(data, mode)
     updateCanvasTitle()
+    syncContextBrief()
     const skipped = dropped.blocks + dropped.arrows + dropped.groups
     if (skipped) showToast(`Loaded shared canvas, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`, 'warning')
   } catch(_) { /* malformed hash -- silently ignore */ }
