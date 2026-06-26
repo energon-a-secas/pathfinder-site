@@ -76,6 +76,7 @@ export function normalizeArrow(raw) {
   const to   = toStr(raw.to).trim()
   if (!from || !to || from === to) return null
 
+  const PORTS = ['left', 'right', 'top', 'bottom']
   return {
     id: toStr(raw.id).trim() || null,
     from,
@@ -85,6 +86,8 @@ export function normalizeArrow(raw) {
     color: toColor(raw.color),
     weight: toFiniteNum(raw.weight, 2),
     label: raw.label != null ? toStr(raw.label) : undefined,
+    fromPort: PORTS.includes(raw.fromPort) ? raw.fromPort : null,
+    toPort:   PORTS.includes(raw.toPort)   ? raw.toPort   : null,
   }
 }
 

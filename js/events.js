@@ -104,7 +104,7 @@ export function setupCanvasPointerEvents() {
       e.stopPropagation()
       const bid  = port.dataset.bid
       const pp   = portPos(bid, port.dataset.port); if (!pp) return
-      pointer.ix = { type: 'arrow', fromId: bid, x1: pp.x, y1: pp.y, d1: pp.dir }
+      pointer.ix = { type: 'arrow', fromId: bid, fromPort: port.dataset.port, x1: pp.x, y1: pp.y, d1: pp.dir }
       arrowPreview.setAttribute('d', '')
       arrowPreview.setAttribute('marker-end', isLight() ? 'url(#arrowhead-light-pre)' : 'url(#arrowhead-pre)')
 
@@ -277,8 +277,15 @@ export function setupCanvasPointerEvents() {
       arrowPreview.setAttribute('d', '')
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
-      const tid = blockAtWorld(w.x, w.y)
-      if (tid && tid !== ix.fromId) addArrow(ix.fromId, tid)
+      // Pin the source port the user dragged from; pin the target port only if
+      // they released directly on one. Unpinned sides keep auto-routing.
+      const portEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.port')
+      const tid = (portEl && portEl.dataset.bid) || blockAtWorld(w.x, w.y)
+      if (tid && tid !== ix.fromId) {
+        const toPort = portEl && portEl.dataset.bid === tid ? portEl.dataset.port : null
+        const fromPort = ui.pinPorts ? ix.fromPort : null
+        addArrow(ix.fromId, tid, fromPort, ui.pinPorts ? toPort : null)
+      }
     }
     pointer.ix = null
   })
@@ -900,11 +907,19 @@ export function setupInspectorEvents() {
     })
   )
 
-  // Arrow reverse direction
+  // Arrow reverse direction (swap pinned ports too, so routing follows)
   document.getElementById('arrowReverse').addEventListener('click', () => {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
     snapshot();
-    [a.from, a.to] = [a.to, a.from]
+    [a.from, a.to] = [a.to, a.from];
+    [a.fromPort, a.toPort] = [a.toPort, a.fromPort]
+    renderArrows(); renderInspector(); debouncedSave()
+  })
+
+  // Arrow auto-route: clear pinned ports so it routes by box position
+  document.getElementById('arrowAutoRoute').addEventListener('click', () => {
+    const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+    a.fromPort = null; a.toPort = null
     renderArrows(); renderInspector(); debouncedSave()
   })
 

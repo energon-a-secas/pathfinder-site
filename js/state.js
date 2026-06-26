@@ -27,6 +27,7 @@ export const ui = {
   tintedBlocks:   false,
   lightMode:      false,
   hoveredBlockId: null,
+  pinPorts:       true,   // keep arrows on the port the user connected (vs auto-route)
 }
 
 export const canvasMeta = { title: '', contextBrief: '' }

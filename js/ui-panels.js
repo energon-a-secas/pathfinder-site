@@ -10,7 +10,7 @@ import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from 
 import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
 import { refreshPrompt, markExported, generatePrompt, computeHealthScore } from './prompt.js'
-import { applyImport, exportJSON, exportMarkdown, exportCopyPrompt, exportMeetingSummary, exportToPresentationSage } from './export.js'
+import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Search ───────────────────────────────────────────────────
@@ -335,47 +335,24 @@ export function setupCopyPill() {
   const pill = document.getElementById('copyPromptPill')
   if (!pill) return
   if (ui.readOnly) { document.getElementById('copyPillWrap').style.display = 'none'; return }
-  let armed = false      // two-step confirm for non-green canvases (no blocking dialog)
-  let armTimer = null
   const label = document.getElementById('copyPillLabel')
 
-  const doCopy = () => {
-    // Same export path as the panel button so the diff tracker stays in sync.
+  // Always copy on click. The readiness verdict above the pill is the nudge for
+  // an incomplete canvas — we never gate the actual copy behind a second click
+  // (that made "I copied something else recently" look like a broken button).
+  pill.addEventListener('click', () => {
+    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
     ui.promptDirty = true
     const text = generatePrompt()
     copyText(text).then(ok => {
       if (!ok) { showToast('Copy failed — open the Prompt tab and copy manually', 'warning'); return }
       markExported()
       ui.promptDirty = true; refreshPrompt()
-      showToast('AI-ready prompt copied to clipboard', 'success')
-      const prev = 'Copy AI-ready prompt'
+      const v = readiness()
+      showToast(v && !v.green ? `Copied — note: ${v.text}` : 'AI-ready prompt copied to clipboard', 'success')
       label.textContent = 'Copied!'; pill.classList.add('copied')
-      setTimeout(() => { label.textContent = prev; pill.classList.remove('copied') }, 1800)
+      setTimeout(() => { label.textContent = 'Copy AI-ready prompt'; pill.classList.remove('copied') }, 1800)
     })
-  }
-
-  const disarm = () => {
-    armed = false
-    if (armTimer) { clearTimeout(armTimer); armTimer = null }
-    pill.classList.remove('armed')
-    label.textContent = 'Copy AI-ready prompt'
-  }
-
-  pill.addEventListener('click', () => {
-    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
-    const v = readiness()
-    if (v && !v.green && !armed) {
-      // First click on an incomplete canvas: arm an inline "copy anyway" instead
-      // of a blocking confirm(). Second click within 4s copies; otherwise resets.
-      armed = true
-      pill.classList.add('armed')
-      label.textContent = 'Copy anyway?'
-      showToast(v.text, 'info')
-      armTimer = setTimeout(disarm, 4000)
-      return
-    }
-    disarm()
-    doCopy()
   })
   window.addEventListener('pf:canvas-changed', refreshReadinessVerdict)
   refreshReadinessVerdict()
@@ -431,9 +408,15 @@ export function setupExportDropdown() {
   })
 
   document.getElementById('exportCopyPrompt').addEventListener('click', () => {
-    exportCopyPrompt()
-    markExported()
-    ui.promptDirty = true; refreshPrompt()
+    setDropdownOpen('exportWrapper', false)
+    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
+    ui.promptDirty = true
+    copyText(generatePrompt()).then(ok => {
+      if (!ok) { showToast('Copy failed — open the Prompt tab and copy manually', 'warning'); return }
+      markExported()
+      ui.promptDirty = true; refreshPrompt()
+      showToast('AI-ready prompt copied to clipboard', 'success')
+    })
   })
 
   document.getElementById('exportJSON').addEventListener('click', () => {
@@ -473,18 +456,20 @@ export function setupShareDropdown() {
     const isOpen = document.getElementById('shareWrapper').classList.contains('open')
     setDropdownOpen('shareWrapper', !isOpen); e.stopPropagation()
   })
+  const shareCopy = (text, okMsg) => copyText(text).then(ok =>
+    showToast(ok ? okMsg : 'Copy failed — try again', ok ? 'success' : 'warning'))
   document.getElementById('shareCopyLink').addEventListener('click', () => {
-    navigator.clipboard.writeText(buildShareUrl(false)).then(() => showToast('Link copied!'))
+    shareCopy(buildShareUrl(false), 'Link copied!')
     setDropdownOpen('shareWrapper', false)
   })
   document.getElementById('shareCopyReadOnly').addEventListener('click', () => {
-    navigator.clipboard.writeText(buildShareUrl(true)).then(() => showToast('View-only link copied!'))
+    shareCopy(buildShareUrl(true), 'View-only link copied!')
     setDropdownOpen('shareWrapper', false)
   })
   document.getElementById('shareCopyEmbed').addEventListener('click', () => {
     const src = buildEmbedUrl()
     const snippet = `<iframe src="${src}" width="800" height="500" style="border:none;border-radius:12px" allowfullscreen></iframe>`
-    navigator.clipboard.writeText(snippet).then(() => showToast('Embed code copied!'))
+    shareCopy(snippet, 'Embed code copied!')
     setDropdownOpen('shareWrapper', false)
   })
 }
@@ -566,6 +551,17 @@ export function setupHeaderButtons() {
     ui.snapToGrid = !ui.snapToGrid
     document.getElementById('snapBtn').classList.toggle('active', ui.snapToGrid)
   })
+
+  // Pin ports: default ON. Reflect initial state + persist the toggle.
+  const pinBtn = document.getElementById('pinPortsBtn')
+  if (pinBtn) {
+    pinBtn.classList.toggle('active', ui.pinPorts)
+    pinBtn.addEventListener('click', () => {
+      ui.pinPorts = !ui.pinPorts
+      pinBtn.classList.toggle('active', ui.pinPorts)
+      try { localStorage.setItem('pathfinder-pinports', ui.pinPorts ? '1' : '0') } catch(_) {}
+    })
+  }
 }
 
 export function applyTheme() {

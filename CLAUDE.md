@@ -90,7 +90,7 @@ Auto-saved via `debouncedSave()` (300ms) on every change.
 - `fitView()` — auto-centers and scales to show all blocks
 - `toWorld(vx, vy)` — converts viewport coords to world coords
 - `portPos(id, port)` — returns `{x, y, dir}` for a port on a block
-- `bestPorts(fromId, toId)` — selects optimal left/right/top/bottom port pair
+- `bestPorts(fromId, toId, fromPort, toPort)` — resolves endpoints; **pinned ports stay put, unpinned sides auto-route** by box position (`autoPorts` is the position-based fallback). Arrows store `fromPort`/`toPort` (null = auto). The header "Pin ports" toggle (`ui.pinPorts`, default ON, persisted) controls whether new connections pin the port the user drew from; the arrow inspector has an "Auto-route this connection" reset.
 - `buildPath(x1,y1,d1,x2,y2,d2)` — builds SVG cubic Bézier; control offset 55–130px
 
 ---

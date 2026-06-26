@@ -145,6 +145,9 @@ export function renderInspector() {
       // Weight buttons
       document.querySelectorAll('[data-arrow-weight]').forEach(btn =>
         btn.classList.toggle('active', (a.weight || 2) === +btn.dataset.arrowWeight))
+      // Auto-route reset only offered when at least one end is pinned
+      const portSection = document.getElementById('arrowPortSection')
+      if (portSection) portSection.style.display = (a.fromPort || a.toPort) ? '' : 'none'
     }
     return
   }
@@ -378,12 +381,12 @@ export function deleteBlock(id) {
   afterMutation()
 }
 
-export function addArrow(fromId, toId) {
+export function addArrow(fromId, toId, fromPort = null, toPort = null) {
   if (fromId === toId) return
   if (state.arrows.some(a => a.from === fromId && a.to === toId)) return
   snapshot()
   state.arrows.push({ id: genId(), from: fromId, to: toId,
-    style: 'curved', bidirectional: false, color: null, weight: 2 })
+    style: 'curved', bidirectional: false, color: null, weight: 2, fromPort, toPort })
   renderArrows()
   runGapDetection()
   debouncedSave()

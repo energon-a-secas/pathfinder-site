@@ -120,6 +120,7 @@
     <button class="header-btn" id="themeBtn" title="Toggle light/dark mode" aria-label="Toggle light or dark mode">☀</button>
     <button class="header-btn header-btn-icon" id="tintBtn" title="Color tint on blocks" aria-label="Toggle block color tint"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18 4V3c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6h1v4H9v11c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-9h8V4h-3z"/></svg></button>
     <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
+    <button class="header-btn" id="pinPortsBtn" title="Pin connections to the port you draw from (off = auto-route by position)" aria-label="Toggle pin connection ports">Pin&nbsp;ports</button>
   </div>
 
   <!-- Canvas actions group -->
@@ -475,6 +476,10 @@
               <button class="radio-opt" data-arrow-weight="3.5">Thick</button>
               <button class="radio-opt" data-arrow-weight="5">Bold</button>
             </div>
+          </div>
+          <div class="insp-section" id="arrowPortSection" style="display:none">
+            <div class="insp-label">Routing</div>
+            <button class="radio-opt" id="arrowAutoRoute" style="width:100%">↺ Auto-route this connection</button>
           </div>
           <button class="insp-delete-btn" id="deleteArrowBtn">Delete Connection</button>
         </div>

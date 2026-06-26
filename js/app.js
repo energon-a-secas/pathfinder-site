@@ -40,6 +40,9 @@ function init() {
   } catch(_) {}
   if (ui.lightMode) applyTheme()
 
+  // Restore pin-ports preference (default ON)
+  try { const p = localStorage.getItem('pathfinder-pinports'); if (p !== null) ui.pinPorts = p === '1' } catch(_) {}
+
   // Restore tint preference
   try { ui.tintedBlocks = !!localStorage.getItem('pathfinder-tint') } catch(_) {}
   if (ui.tintedBlocks) {

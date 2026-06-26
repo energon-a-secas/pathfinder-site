@@ -49,8 +49,9 @@ export function portPos(id, port) {
   return map[port] || null
 }
 
-export function bestPorts(fromId, toId) {
-  const f = state.blocks[fromId], t = state.blocks[toId]; if (!f || !t) return null
+// Auto-pick the facing ports based on relative box position.
+function autoPorts(fromId, toId) {
+  const f = state.blocks[fromId], t = state.blocks[toId]
   const { w: fw, h: fh } = getBlockDims(fromId)
   const { w: tw, h: th } = getBlockDims(toId)
   const dx = (t.x + tw/2) - (f.x + fw/2)
@@ -64,6 +65,23 @@ export function bestPorts(fromId, toId) {
       ? { x1: f.x+fw/2, y1: f.y+fh, d1:'bottom', x2: t.x+tw/2, y2: t.y,    d2:'top'    }
       : { x1: f.x+fw/2, y1: f.y,    d1:'top',    x2: t.x+tw/2, y2: t.y+th, d2:'bottom' }
   }
+}
+
+// Resolve the endpoints for an arrow. Pinned ports (fromPort/toPort) stay on the
+// side the user connected; unpinned sides auto-route by box position.
+export function bestPorts(fromId, toId, fromPort, toPort) {
+  const f = state.blocks[fromId], t = state.blocks[toId]; if (!f || !t) return null
+  const auto = autoPorts(fromId, toId)
+  const pts = { ...auto }
+  if (fromPort) {
+    const p = portPos(fromId, fromPort)
+    if (p) { pts.x1 = p.x; pts.y1 = p.y; pts.d1 = p.dir }
+  }
+  if (toPort) {
+    const p = portPos(toId, toPort)
+    if (p) { pts.x2 = p.x; pts.y2 = p.y; pts.d2 = p.dir }
+  }
+  return pts
 }
 
 export function cpOffset(x, y, dir, off) {
@@ -111,7 +129,7 @@ export function renderArrows() {
   arrowsGroup.querySelectorAll('[data-aid]').forEach(g => { if (!live.has(g.dataset.aid)) g.remove() })
 
   state.arrows.forEach(a => {
-    const pts   = bestPorts(a.from, a.to); if (!pts) return
+    const pts   = bestPorts(a.from, a.to, a.fromPort, a.toPort); if (!pts) return
     const style = a.style || 'curved'
     const d     = buildPath(pts.x1, pts.y1, pts.d1, pts.x2, pts.y2, pts.d2, style)
     const sel   = selection.arrowId === a.id

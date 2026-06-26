@@ -62,6 +62,8 @@ export function applyImport(data, mode) {
       if (a.weight && a.weight !== 2) extra.weight = a.weight
       if (a.bidirectional) extra.bidirectional = a.bidirectional
       if (a.color) extra.color = a.color
+      if (a.fromPort) extra.fromPort = a.fromPort
+      if (a.toPort) extra.toPort = a.toPort
       state.arrows.push({ id: genId(), from: fId, to: tId, ...extra })
     }
   })
