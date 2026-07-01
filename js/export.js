@@ -58,6 +58,7 @@ export function applyImport(data, mode) {
         !state.arrows.some(x => x.from === fId && x.to === tId)) {
       const extra = {}
       if (a.label) extra.label = a.label
+      if (a.note) extra.note = a.note
       if (a.style && a.style !== 'curved') extra.style = a.style
       if (a.weight && a.weight !== 2) extra.weight = a.weight
       if (a.bidirectional) extra.bidirectional = a.bidirectional
@@ -94,9 +95,10 @@ export function exportJSON() {
 
 // ── Export Markdown ──────────────────────────────────────────
 export function exportMarkdown() {
-  const order   = ['goal','problem','requirement','risk','question','decision','resource','output']
+  const order   = ['goal','problem','requirement','risk','question','decision','resource','output','process','terminator']
   const headings = { goal:'Goals', problem:'Problems / Blockers', requirement:'Requirements',
-    risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs' }
+    risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs',
+    process:'Workflow Steps', terminator:'Workflow Start / End' }
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
   let md = `# Pathfinder Canvas\n_${new Date().toLocaleDateString()}_\n\n`

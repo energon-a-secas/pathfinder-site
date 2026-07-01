@@ -469,6 +469,8 @@ const PREFIX_PATTERNS = [
   { re: /^(output|deliverable|result|outcome)[:.]\s*/i,        type: 'output' },
   { re: /^(context|background|note|info|status)[:.]\s*/i,      type: 'context' },
   { re: /^(question)[:.]\s*/i,                                 type: 'question' },
+  { re: /^(action|step|process|task|do)[:.]\s*/i,             type: 'process' },
+  { re: /^(start|end|begin|finish|done|trigger)[:.]\s*/i,     type: 'terminator' },
 ]
 
 // Weighted keyword cues. Each entry: [regex, points]. Highest-scoring type wins.
@@ -482,6 +484,8 @@ const SCORE_RULES = {
   resource:    [[/\b(team|budget|tool|asset|library|api|service|credits?|headcount|engineers?|designers?)\b/i, 1]],
   output:      [[/\b(deliverable|output|result|outcome|artifact|report|doc(s|umentation)?|deploy|release)\b/i, 2]],
   context:     [[/\b(background|context|currently|today|historically|note that|fyi|for reference)\b/i, 2]],
+  process:     [[/^(update|create|add|send|generate|assign|review|submit|move|set|mark|run|trigger|notify)\b/i, 3], [/\b(step \d|then\b)/i, 1]],
+  terminator:  [[/^(start|begin|end|finish|done|complete[d]?)\b/i, 3]],
 }
 
 const LEADING_FILLER = /^(we|i|the|our|they|it|this|that|there)\s+/i
@@ -520,25 +524,62 @@ export function categorizeLine(raw) {
 }
 
 /**
+ * Parse freeform text into an outline: top-level lines become blocks, while
+ * more-indented or bulleted lines beneath them fold into that block's
+ * description. A line is a child only when it is "deeper" than the current
+ * block, so a flat bullet list (all same depth) still becomes sibling blocks.
+ *
+ * Depth = indentUnits*10 + (isBullet ? 1 : 0), where two spaces or one tab is
+ * one indent unit. This lets "Header / - bullet / - bullet" nest without
+ * requiring the bullets to be spatially indented.
+ */
+export function parseOutline(text) {
+  const MARKER = /^(\s*)([-*•]|\d+[.)])?\s*/
+  const items = []          // { line, description: [lines] }
+  let current = null, currentDepth = 0
+  text.split(/\r?\n/).forEach(raw => {
+    if (!raw.trim()) return
+    const m = raw.match(MARKER)
+    const ws = (m[1] || '').replace(/\t/g, '  ')
+    const isBullet = !!m[2]
+    const depth = Math.floor(ws.length / 2) * 10 + (isBullet ? 1 : 0)
+    const content = raw.slice(m[0].length).trim()
+    if (!content) return
+    if (current && depth > currentDepth) {
+      current.description.push(isBullet ? '• ' + content : content)
+    } else {
+      current = { line: content, description: [] }
+      currentDepth = depth
+      items.push(current)
+    }
+  })
+  return items
+}
+
+/**
  * Turn freeform text into a column of typed blocks. Shared by the paste
  * handler and the Brain Dump card. Returns the array of created block ids.
+ * When `nest` is true (default), indented/bulleted lines fold into the
+ * description of the block above them.
  */
-export function createBlocksFromText(text) {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-  if (!lines.length) return []
+export function createBlocksFromText(text, nest = true) {
+  const items = nest
+    ? parseOutline(text)
+    : text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(line => ({ line, description: [] }))
+  if (!items.length) return []
 
   const vp = $.canvasViewport()
   const r  = vp.getBoundingClientRect()
   const cx = (r.width  / 2 - view.panX) / view.zoom - DEFAULT_WIDTH / 2
-  const cy = (r.height / 2 - view.panY) / view.zoom - (lines.length * 90) / 2
+  const cy = (r.height / 2 - view.panY) / view.zoom - (items.length * 90) / 2
 
   snapshot()
   const created = []
-  lines.forEach((line, i) => {
-    const { type, title, confidence } = categorizeLine(line)
+  items.forEach((item, i) => {
+    const { type, title, confidence } = categorizeLine(item.line)
     const id = genId()
     state.blocks[id] = {
-      id, type, title, description: '', notes: '',
+      id, type, title, description: item.description.join('\n'), notes: '',
       x: cx, y: cy + i * 90,
       actions: [], questions: [],
       width: null, color: null, collapsed: false, groupId: null,
@@ -629,10 +670,11 @@ export function setupBrainDump() {
   const btn   = document.getElementById('brainDumpBtn')
   const input = document.getElementById('brainDumpInput')
   if (!btn || !input) return
+  const nestToggle = document.getElementById('brainDumpNest')
   const run = () => {
     const text = input.value.trim()
     if (!text) { input.focus(); return }
-    createBlocksFromText(text)
+    createBlocksFromText(text, nestToggle ? nestToggle.checked : true)
     input.value = ''
   }
   btn.addEventListener('click', run)
@@ -881,6 +923,12 @@ export function setupInspectorEvents() {
   document.getElementById('arrowLabelInput').addEventListener('input', () => {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
     a.label = document.getElementById('arrowLabelInput').value.trim()
+    renderArrows(); debouncedSave(); ui.promptDirty = true
+  })
+
+  document.getElementById('arrowNoteInput')?.addEventListener('input', () => {
+    const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+    a.note = document.getElementById('arrowNoteInput').value
     renderArrows(); debouncedSave(); ui.promptDirty = true
   })
 

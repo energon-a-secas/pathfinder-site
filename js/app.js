@@ -12,12 +12,13 @@ import {
   setupKeyboardShortcuts, setupTabNavigation, setupPalette, setupInspectorEvents, setupPasteHandler,
   setupTypeChips, setupBrainDump
 } from './events.js'
+import { setupContextMenu } from './context-menu.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
   setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme,
-  setupContextBrief, setupCopyPill, refreshReadinessVerdict
+  setupContextBrief, setupCopyPill, refreshReadinessVerdict, setupPanelCollapse
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -32,16 +33,19 @@ function init() {
   checkShareUrl()
   updateCanvasTitle()
 
-  // Restore theme preference (light/dark)
+  // Restore theme preference. Dark is the default identity — only switch to
+  // light when the user has explicitly chosen it before (no OS-preference opt-in).
   try {
-    const saved = localStorage.getItem('pathfinder-theme')
-    if (saved === 'light') ui.lightMode = true
-    else if (saved === null && window.matchMedia('(prefers-color-scheme: light)').matches) ui.lightMode = true
+    if (localStorage.getItem('pathfinder-theme') === 'light') ui.lightMode = true
   } catch(_) {}
   if (ui.lightMode) applyTheme()
 
   // Restore pin-ports preference (default ON)
   try { const p = localStorage.getItem('pathfinder-pinports'); if (p !== null) ui.pinPorts = p === '1' } catch(_) {}
+
+  // Restore arrow-text preference (default OFF)
+  try { ui.showArrowText = localStorage.getItem('pathfinder-arrowtext') === '1' } catch(_) {}
+  if (ui.showArrowText) document.body.classList.add('show-arrow-text')
 
   // Restore tint preference
   try { ui.tintedBlocks = !!localStorage.getItem('pathfinder-tint') } catch(_) {}
@@ -61,6 +65,7 @@ function init() {
   setupInspectorEvents()
   setupPasteHandler()
   setupTypeChips()
+  setupContextMenu()
   setupBrainDump()
   setupSearchEvents()
   buildShortcutGrid()
@@ -77,6 +82,7 @@ function init() {
   setupTemplates()
   setupContextBrief()
   setupCopyPill()
+  setupPanelCollapse()
 
   renderAllBlocks()
   updateHint()

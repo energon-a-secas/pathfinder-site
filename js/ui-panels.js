@@ -11,6 +11,7 @@ import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
 import { refreshPrompt, markExported, generatePrompt, computeHealthScore } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
+import { exportPNG, exportSVG } from './image-export.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Search ───────────────────────────────────────────────────
@@ -213,6 +214,21 @@ export function setupPanelTabs() {
   )
 }
 
+// ── Prompt mode descriptions ─────────────────────────────────
+// One-line plain-language explanation of what each mode asks the AI to do,
+// shown under the mode selector so the choice isn't a guess.
+const MODE_DESCS = {
+  explore: 'Surfaces gaps, risky assumptions, and missing links — asks questions instead of proposing solutions. Good for pressure-testing an early canvas.',
+  plan:    'Turns the canvas into a phased implementation plan with concrete outputs per phase. The default for "give me a roadmap".',
+  build:   'Treats requirements and outputs as a task checklist and asks for working code. Use once the plan is settled.',
+  clarify: 'Returns a prioritized list of clarifying questions (blocking → nice-to-have), each tied to a block, plus a readiness read. Best when you want gaps and useful questions before committing.',
+}
+
+export function refreshModeDesc() {
+  const el = document.getElementById('modeDesc')
+  if (el) el.textContent = MODE_DESCS[devOpts.mode] || MODE_DESCS.plan
+}
+
 // ── Dev options ──────────────────────────────────────────────
 function syncRadioAria(groupEl) {
   groupEl.querySelectorAll('.radio-opt').forEach(b =>
@@ -247,8 +263,10 @@ export function setupDevOptions() {
     btn.classList.add('active')
     devOpts.mode = btn.dataset.value
     syncRadioAria(document.getElementById('modeGroup'))
+    refreshModeDesc()
     ui.promptDirty = true; refreshPrompt()
   })
+  refreshModeDesc()
   document.getElementById('prePromptGroup').addEventListener('click', e => {
     const btn = e.target.closest('.check-opt'); if (!btn) return
     btn.classList.toggle('active')
@@ -427,6 +445,16 @@ export function setupExportDropdown() {
     exportMarkdown()
   })
 
+  document.getElementById('exportPNG').addEventListener('click', () => {
+    setDropdownOpen('exportWrapper', false)
+    exportPNG(2)
+  })
+
+  document.getElementById('exportSVG').addEventListener('click', () => {
+    setDropdownOpen('exportWrapper', false)
+    exportSVG()
+  })
+
   document.getElementById('exportMeetingSummary').addEventListener('click', () => {
     exportMeetingSummary()
     const btn = document.getElementById('exportBtn')
@@ -552,6 +580,19 @@ export function setupHeaderButtons() {
     document.getElementById('snapBtn').classList.toggle('active', ui.snapToGrid)
   })
 
+  // Arrow text: default OFF (notes reveal on hover/selection). Persist toggle.
+  const arrowTextBtn = document.getElementById('arrowTextBtn')
+  if (arrowTextBtn) {
+    arrowTextBtn.classList.toggle('active', ui.showArrowText)
+    document.body.classList.toggle('show-arrow-text', ui.showArrowText)
+    arrowTextBtn.addEventListener('click', () => {
+      ui.showArrowText = !ui.showArrowText
+      arrowTextBtn.classList.toggle('active', ui.showArrowText)
+      document.body.classList.toggle('show-arrow-text', ui.showArrowText)
+      try { localStorage.setItem('pathfinder-arrowtext', ui.showArrowText ? '1' : '0') } catch(_) {}
+    })
+  }
+
   // Pin ports: default ON. Reflect initial state + persist the toggle.
   const pinBtn = document.getElementById('pinPortsBtn')
   if (pinBtn) {
@@ -572,6 +613,24 @@ export function applyTheme() {
   // Re-render arrows to swap marker refs and color defaults
   applyTransform()
   renderArrows()
+}
+
+// ── Right panel collapse ─────────────────────────────────────
+export function setupPanelCollapse() {
+  const panel   = document.getElementById('rightPanel')
+  const collapse = document.getElementById('panelCollapseBtn')
+  const reopen   = document.getElementById('panelReopenBtn')
+  if (!panel || !collapse || !reopen) return
+
+  const setCollapsed = on => {
+    panel.classList.toggle('collapsed', on)
+    try { localStorage.setItem('pathfinder-panel-collapsed', on ? '1' : '0') } catch(_) {}
+  }
+  // Restore persisted state (embed/readonly hides the panel entirely already).
+  try { if (localStorage.getItem('pathfinder-panel-collapsed') === '1') panel.classList.add('collapsed') } catch(_) {}
+
+  collapse.addEventListener('click', () => setCollapsed(true))
+  reopen.addEventListener('click', () => setCollapsed(false))
 }
 
 // ── Palette sections & collapse ──────────────────────────────

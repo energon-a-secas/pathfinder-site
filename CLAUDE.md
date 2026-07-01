@@ -23,9 +23,21 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/prompt.js` | ~137 | `generatePrompt()`, `refreshPrompt()` |
 | `js/render.js` | ~317 | `renderBlock()`, `renderAllBlocks()`, `renderInspector()` |
 | `js/events.js` | ~367 | Canvas pointer, keyboard shortcuts, palette, inspector events |
-| `js/ui-panels.js` | ~306 | Export, share, search, panel tabs, dev options, header buttons |
+| `js/ui-panels.js` | ~306 | Export, share, search, panel tabs, dev options, header buttons, panel collapse, mode descriptions |
+| `js/context-menu.js` | ~150 | Right-click block quick menu (duplicate/type/color/collapse/delete) |
+| `js/image-export.js` | ~230 | High-quality diagram export — native SVG + 2× PNG |
 
-**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js`
+**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js`
+
+**Key interactions added 2026-07-01:**
+- Multi-line descriptions render with `escHtmlMultiline` + `white-space: pre-wrap` (newlines preserved on the card and in exports).
+- Right-click any block for a quick-action menu (`context-menu.js`); also `Shift+F10`/ContextMenu key on the selected block.
+- Arrows carry an optional `note` (richer than `label`), hidden until hover/selection, or always shown via the header **Arrow text** toggle (`ui.showArrowText`, persisted `pathfinder-arrowtext`, body class `show-arrow-text`).
+- Right panel collapses via a chevron (persisted `pathfinder-panel-collapsed`).
+- Export ▾ → **Download Image (PNG 2×)** / **Download Vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`) — no DOM screenshot.
+- Brain Dump folds indented/bulleted lines into the parent block's description (toggle in the card); `parseOutline()` in `events.js`.
+- Prompt pane shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
+- **Dark theme is the default** (no OS-preference opt-in); light mode only when explicitly saved.
 
 **Required assets:** `index.html` · `css/style.css` · `js/*.js` · `favicon.ico` · `energon-classic-logo.png` · `og-preview.jpg` · `CNAME`
 
@@ -57,7 +69,7 @@ Auto-saved via `debouncedSave()` (300ms) on every change.
 
 ## Block Types
 
-11 types defined in the `TYPES` constant. Each has a unique left-border color. The palette surfaces a **Core 6** by default; the rest live behind an "Advanced types" expander (`#advancedBlocks`) — but all 11 are fully usable and no type is ever removed (deleting a type would drop existing blocks via `normalize.js`).
+13 types defined in the `TYPES` constant. Each has a unique left-border color. The palette surfaces a **Core 6** by default; the rest live behind an "Advanced types" expander (`#advancedBlocks`) — but all 13 are fully usable and no type is ever removed (deleting a type would drop existing blocks via `normalize.js`).
 
 | Type | Color | CSS Var | Palette |
 |------|-------|---------|---------|
@@ -70,8 +82,12 @@ Auto-saved via `debouncedSave()` (300ms) on every change.
 | question ("Open Question") | #38bdf8 (sky) | --c-question | Advanced |
 | resource | #2dd4bf (teal) | --c-resource | Advanced |
 | output | #818cf8 (indigo) | --c-output | Advanced |
+| process | #60a5fa (blue) | --c-process | Advanced |
+| terminator ("Start / End") | #f0abfc (pink, pill-shaped) | --c-terminator | Advanced |
 | context | #64748b (slate) | --c-context | Advanced |
-| custom | #c084fc (fuchsia) | --c-custom | Advanced |
+| custom | #d8b4fe (bright fuchsia) | --c-custom | Advanced |
+
+**Flow node types (`process`, `terminator`):** for end-to-end workflows. `process` is a step/action, `terminator` bookends a flow (rendered pill-shaped). The prompt export adds a `## Workflow (end-to-end)` section that walks these in arrow order (light topological sort from arrow-less roots, terminators first). See `flowSection()` in `prompt.js`.
 
 **assumption vs question:** an Assumption is a belief treated as true without validation (default `validate` action; feeds an "Assumptions (validate before building)" prompt section the AI is told to pressure-test). A Question is a genuine unknown. A question's inspector shows a "Promote to Assumption" button.
 

@@ -79,6 +79,15 @@
           Download Markdown
         </div>
         <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
+        <div class="export-item" id="exportPNG">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+          Download Image (PNG 2×)
+        </div>
+        <div class="export-item" id="exportSVG">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 5.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S11.83 10 11 10s-1.5-.67-1.5-1.5zM17 17H7l2.5-3.2 1.79 2.15 2.5-3.22L17 17z"/></svg>
+          Download Vector (SVG)
+        </div>
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
         <div class="export-item" id="exportMeetingSummary">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
           Export Meeting Summary
@@ -121,6 +130,7 @@
     <button class="header-btn header-btn-icon" id="tintBtn" title="Color tint on blocks" aria-label="Toggle block color tint"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18 4V3c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6h1v4H9v11c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-9h8V4h-3z"/></svg></button>
     <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
     <button class="header-btn" id="pinPortsBtn" title="Pin connections to the port you draw from (off = auto-route by position)" aria-label="Toggle pin connection ports">Pin&nbsp;ports</button>
+    <button class="header-btn" id="arrowTextBtn" title="Always show connection notes (off = reveal on hover or selection)" aria-label="Toggle always show arrow text">Arrow&nbsp;text</button>
   </div>
 
   <!-- Canvas actions group -->
@@ -211,6 +221,16 @@
               <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
               <div class="palette-tooltip">An expected deliverable or measurable result.<br><span class="palette-tooltip-example">e.g. "API documentation", "Staging environment"</span><br><span class="palette-tooltip-tip">Connect from Resources and Requirements that produce it.</span></div>
             </div>
+            <div class="palette-item" data-type="process" role="button" tabindex="0" aria-label="Add Process block">
+              <div class="palette-dot" style="background:var(--c-process)"></div>
+              <div class="palette-item-text"><div class="palette-label">Process</div><div class="palette-desc">A workflow step or action</div></div>
+              <div class="palette-tooltip">A step or action in a workflow — something that gets done.<br><span class="palette-tooltip-example">e.g. "Update status to Ready for Review", "Generate the doc"</span><br><span class="palette-tooltip-tip">Chain these with arrows to show an end-to-end flow.</span></div>
+            </div>
+            <div class="palette-item" data-type="terminator" role="button" tabindex="0" aria-label="Add Start or End block">
+              <div class="palette-dot" style="background:var(--c-terminator)"></div>
+              <div class="palette-item-text"><div class="palette-label">Start / End</div><div class="palette-desc">Workflow entry or outcome</div></div>
+              <div class="palette-tooltip">The start or end of a workflow.<br><span class="palette-tooltip-example">e.g. "Submission received", "PRD approved"</span><br><span class="palette-tooltip-tip">Bookend a process flow so the beginning and outcome are explicit.</span></div>
+            </div>
             <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
               <div class="palette-dot" style="background:var(--c-context)"></div>
               <div class="palette-item-text"><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
@@ -252,7 +272,11 @@
         <h2>Start with a brain dump</h2>
         <p>Paste or type your messy thoughts — one idea per line. We’ll turn them into typed, AI-ready blocks. Fix any mislabels with one click after.</p>
         <textarea id="brainDumpInput" rows="6" spellcheck="false"
-          placeholder="Ship the onboarding flow before the seed demo&#10;Users will pay for the pro tier&#10;API latency is over our SLA&#10;Will SSO-only auth be acceptable?&#10;We need GDPR compliance"></textarea>
+          placeholder="Ship the onboarding flow before the seed demo&#10;Build the PRD&#10;  - Overview &amp; summary&#10;  - Goals and success metrics&#10;  - Scope and requirements&#10;Users will pay for the pro tier&#10;Will SSO-only auth be acceptable?"></textarea>
+        <label class="brain-dump-nest" for="brainDumpNest">
+          <input type="checkbox" id="brainDumpNest" checked>
+          <span>Fold indented / bulleted lines into the item above as its description</span>
+        </label>
         <div class="brain-dump-actions">
           <button class="brain-dump-btn" id="brainDumpBtn">Turn into blocks</button>
           <span class="brain-dump-hint">or just start dragging blocks from the left</span>
@@ -333,9 +357,15 @@
 
   <!-- Right panel -->
   <aside class="right-panel" id="rightPanel">
+    <button class="panel-reopen" id="panelReopenBtn" title="Show panel" aria-label="Show inspector panel">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
     <div class="panel-tabs">
       <button class="panel-tab active" data-tab="inspector">Inspector</button>
       <button class="panel-tab"        data-tab="prompt">Prompt</button>
+      <button class="panel-collapse-btn" id="panelCollapseBtn" title="Collapse panel" aria-label="Collapse panel">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </button>
     </div>
 
     <!-- Timer Widget -->
@@ -448,6 +478,11 @@
             <div class="arrow-label-presets" id="arrowLabelPresets"></div>
           </div>
           <div class="insp-section">
+            <div class="insp-label">Note <span class="insp-label-hint">— shown on hover / when selected</span></div>
+            <textarea class="insp-textarea" id="arrowNoteInput" rows="2"
+                      placeholder="Longer annotation for this connection…" maxlength="400"></textarea>
+          </div>
+          <div class="insp-section">
             <div class="insp-label">Style</div>
             <div class="dev-radio-group">
               <button class="radio-opt" data-arrow-style="curved">Curved</button>
@@ -505,6 +540,7 @@
             <button class="radio-opt" data-value="build">Build</button>
             <button class="radio-opt" data-value="clarify">Clarify</button>
           </div>
+          <div class="mode-desc" id="modeDesc"></div>
         </div>
 
         <div class="dev-options" id="devOptions">

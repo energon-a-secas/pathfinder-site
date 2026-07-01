@@ -6,7 +6,7 @@
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
-         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, escHtml, genId, getBlockEl, getBlockDims, getBlockVotes, getSmallIcon } from './utils.js'
+         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, escHtml, escHtmlMultiline, genId, getBlockEl, getBlockDims, getBlockVotes, getSmallIcon } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
@@ -45,7 +45,7 @@ export function renderBlock(id) {
   const priorityHtml = b.priority
     ? `<span class="priority-badge priority-${b.priority}" title="${PRIORITY_DEFS[b.priority]?.label || b.priority} priority">${PRIORITY_DEFS[b.priority]?.label || b.priority}</span>` : ''
   const descHtml = b.description
-    ? `<div class="block-desc">${escHtml(b.description)}</div>` : ''
+    ? `<div class="block-desc">${escHtmlMultiline(b.description)}</div>` : ''
   const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
 
   // Voting indicator - show vote count if any votes exist
@@ -121,6 +121,8 @@ export function renderInspector() {
       document.getElementById('arrowInfo').textContent =
         `${TYPES[f?.type]?.label||'?'} "${f?.title||'?'}" \u2192 ${TYPES[t?.type]?.label||'?'} "${t?.title||'?'}"`
       document.getElementById('arrowLabelInput').value = a.label || ''
+      const arrowNoteEl = document.getElementById('arrowNoteInput')
+      if (arrowNoteEl) arrowNoteEl.value = a.note || ''
       // Label presets
       const presetsEl = document.getElementById('arrowLabelPresets')
       if (presetsEl) {
@@ -168,7 +170,9 @@ export function renderInspector() {
     goal: 'What you want to achieve', problem: 'Blocker or issue', requirement: 'Needed to proceed',
     assumption: 'A belief you’re treating as true', risk: 'What might go wrong',
     question: 'A genuine unknown', decision: 'A choice already made',
-    resource: 'Available asset', output: 'Expected result', context: 'Background information', custom: 'Free-form block',
+    resource: 'Available asset', output: 'Expected result',
+    process: 'A workflow step or action', terminator: 'Workflow start or end',
+    context: 'Background information', custom: 'Free-form block',
   }
   $.typePicker().innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
     `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}" title="${TYPE_TIPS[t] || t}">${cfg.label}</span>`

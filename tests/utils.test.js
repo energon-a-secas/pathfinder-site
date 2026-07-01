@@ -171,14 +171,14 @@ describe('getBlockDims()', () => {
 // ── TYPES constant ───────────────────────────────────────────
 
 describe('TYPES constant', () => {
-  it('contains all 11 block types', () => {
-    const expected = ['goal','problem','requirement','assumption','risk','question','decision','resource','output','context','custom']
+  it('contains all 13 block types', () => {
+    const expected = ['goal','problem','requirement','assumption','risk','question','decision','resource','output','process','terminator','context','custom']
     expected.forEach(t => {
       assert.ok(TYPES[t], `Missing type: ${t}`)
       assert.ok(TYPES[t].label, `Type ${t} missing label`)
       assert.ok(TYPES[t].color, `Type ${t} missing color`)
     })
-    assert.eq(Object.keys(TYPES).length, 11)
+    assert.eq(Object.keys(TYPES).length, 13)
   })
 
   it('each type has a unique color', () => {

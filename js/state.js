@@ -28,6 +28,7 @@ export const ui = {
   lightMode:      false,
   hoveredBlockId: null,
   pinPorts:       true,   // keep arrows on the port the user connected (vs auto-route)
+  showArrowText:  false,  // always show arrow notes (vs reveal on hover/selection)
 }
 
 export const canvasMeta = { title: '', contextBrief: '' }

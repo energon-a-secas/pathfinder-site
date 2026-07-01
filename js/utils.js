@@ -13,8 +13,10 @@ export const TYPES = {
   question:    { label: 'Open Question', color: '#38bdf8' },
   resource:    { label: 'Resource',      color: '#2dd4bf' },
   output:      { label: 'Output',        color: '#818cf8' },
+  process:     { label: 'Process',       color: '#60a5fa' },
+  terminator:  { label: 'Start / End',   color: '#f0abfc' },
   context:     { label: 'Context',       color: '#64748b' },
-  custom:      { label: 'Custom',        color: '#c084fc' }
+  custom:      { label: 'Custom',        color: '#d8b4fe' }
 }
 
 export const STORAGE_KEY    = 'pathfinder-v1'
@@ -58,6 +60,8 @@ export const TYPE_EXPLANATIONS = {
   decision:    'A choice that has already been made or needs to be made. Examples: "Use PostgreSQL over MongoDB", "Ship without feature X". Document the rationale in Notes.',
   resource:    'An available asset, tool, team, or budget. Examples: "Design team (3 people)", "AWS credits ($10K)", "Existing auth library". Connect to what it enables.',
   output:      'An expected deliverable or measurable result. Examples: "API documentation", "Staging environment", "User research report". Connect from the Resources and Requirements that produce it.',
+  process:     'A step or action in a workflow — something that gets done. Examples: "Update status to Ready for Review", "Generate the Google Doc", "Assign a reviewer". Chain these with arrows to show an end-to-end flow.',
+  terminator:  'The start or end of a workflow. Examples: "Submission received", "PRD approved", "Done". Use it to bookend a process flow so the beginning and outcome are explicit.',
   context:     'Background information that frames the project. Examples: "Company is migrating to cloud", "Competitor launched similar feature last month". Helps AI understand constraints.',
   custom:      'A free-form block for anything that doesn\'t fit the other types. Use sparingly — the structured types produce better AI prompts.',
 }
@@ -82,6 +86,13 @@ export function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
 export function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+// Escape for HTML, then turn newlines into <br> so multi-line descriptions
+// keep their structure on the block card. Pair with `white-space: pre-wrap`
+// in CSS so runs of spaces survive too.
+export function escHtmlMultiline(s) {
+  return escHtml(s).replace(/\r\n|\r|\n/g, '<br>')
 }
 
 export function debounce(fn, ms) {

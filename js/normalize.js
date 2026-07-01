@@ -86,6 +86,7 @@ export function normalizeArrow(raw) {
     color: toColor(raw.color),
     weight: toFiniteNum(raw.weight, 2),
     label: raw.label != null ? toStr(raw.label) : undefined,
+    note: raw.note != null ? toStr(raw.note) : undefined,
     fromPort: PORTS.includes(raw.fromPort) ? raw.fromPort : null,
     toPort:   PORTS.includes(raw.toPort)   ? raw.toPort   : null,
   }

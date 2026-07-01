@@ -55,6 +55,39 @@ export function generatePrompt() {
     return out
   }
 
+  // Workflow section: process + terminator nodes rendered as an ordered
+  // step sequence. Ordering follows arrows between flow nodes (a light
+  // topological pass), falling back to canvas order for anything unlinked.
+  const flowSection = () => {
+    const flow = Object.values(state.blocks).filter(b => b.type === 'process' || b.type === 'terminator')
+    if (!flow.length) return ''
+    const flowIds = new Set(flow.map(b => b.id))
+    const nextOf = id => state.arrows.filter(a => a.from === id && flowIds.has(a.to)).map(a => a.to)
+    const indeg = {}
+    flow.forEach(b => { indeg[b.id] = 0 })
+    state.arrows.forEach(a => { if (flowIds.has(a.from) && flowIds.has(a.to)) indeg[a.to]++ })
+    const ordered = []
+    const seen = new Set()
+    // Start from nodes with no incoming flow edge (natural entry points),
+    // preferring terminators so a "Start" leads. Then walk forward.
+    const roots = flow.filter(b => indeg[b.id] === 0)
+      .sort((a, b) => (a.type === 'terminator' ? -1 : 0) - (b.type === 'terminator' ? -1 : 0))
+    const walk = id => {
+      if (seen.has(id)) return
+      seen.add(id); ordered.push(state.blocks[id])
+      nextOf(id).forEach(walk)
+    }
+    roots.forEach(r => walk(r.id))
+    flow.forEach(b => { if (!seen.has(b.id)) walk(b.id) }) // cycles / islands
+    let out = '## Workflow (end-to-end)\n'
+    ordered.forEach((b, i) => {
+      const kind = b.type === 'terminator' ? '◆' : `${i + 1}.`
+      out += `${kind} ${b.title || '(untitled)'}\n`
+      if (b.description) out += `      ${b.description.replace(/\n/g, '\n      ')}\n`
+    })
+    return out
+  }
+
   // Section builders keyed by intent, so each mode can choose order + form.
   const S = {
     context:      () => sec('Context / Background', 'context'),
@@ -69,16 +102,17 @@ export function generatePrompt() {
     resources:    () => sec('Resources Available', 'resource'),
     outputs:      () => sec('Expected Outputs', 'output'),
     outputTasks:  () => taskSection('Expected Outputs (as deliverables)', 'output'),
+    flow:         () => flowSection(),
     custom:       () => sec('Custom / Other', 'custom'),
   }
 
   // Per-mode section order. Explore/Clarify front-load the unknowns; Build
   // turns requirements/outputs into checklists and drops framing-only types.
   const ORDERS = {
-    plan:    ['context','goals','problems','requirements','assumptions','risks','questions','decisions','resources','outputs','custom'],
-    explore: ['assumptions','questions','goals','problems','requirements','risks','context','decisions','resources','outputs','custom'],
-    build:   ['goals','reqTasks','assumptions','problems','risks','decisions','outputTasks'],
-    clarify: ['questions','assumptions','goals','problems','requirements','risks','decisions','context'],
+    plan:    ['context','goals','problems','requirements','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
+    explore: ['assumptions','questions','goals','problems','requirements','risks','context','decisions','resources','outputs','flow','custom'],
+    build:   ['goals','reqTasks','assumptions','problems','risks','decisions','flow','outputTasks'],
+    clarify: ['questions','assumptions','goals','problems','requirements','risks','decisions','context','flow'],
   }
   const order = ORDERS[mode] || ORDERS.plan
   const content = order.map(k => S[k] && S[k]()).filter(Boolean).join('\n')
@@ -150,6 +184,8 @@ export function generatePrompt() {
       decision: 'Choice already made (rationale should be documented)',
       resource: 'Available asset, tool, or capability',
       output: 'Expected deliverable or result',
+      process: 'A step or action in a workflow',
+      terminator: 'The start or end of a workflow',
       context: 'Background information for framing',
       custom: 'Free-form block',
     }
@@ -174,6 +210,7 @@ export function generatePrompt() {
       if (f && t) {
         const via = a.label ? ` [${a.label}]` : ''
         prompt += `\u2022 ${TYPES[f.type]?.label} "${f.title}"${via} \u2192 ${TYPES[t.type]?.label} "${t.title}"\n`
+        if (a.note?.trim()) prompt += `    ${a.note.trim().replace(/\n/g, '\n    ')}\n`
       }
     })
   }

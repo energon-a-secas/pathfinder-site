@@ -96,6 +96,34 @@ describe('normalizeArrow()', () => {
   it('rejects an invalid style', () => {
     assert.eq(normalizeArrow({ from: 'a', to: 'b', style: 'zigzag' }).style, 'curved')
   })
+
+  it('preserves a note string when present', () => {
+    assert.eq(normalizeArrow({ from: 'a', to: 'b', note: 'only if approved' }).note, 'only if approved')
+  })
+
+  it('leaves note undefined when absent', () => {
+    assert.eq(normalizeArrow({ from: 'a', to: 'b' }).note, undefined)
+  })
+
+  it('coerces a non-string note to a string', () => {
+    assert.eq(normalizeArrow({ from: 'a', to: 'b', note: 7 }).note, '7')
+  })
+})
+
+// ── flow node types survive normalization ────────────────────
+
+describe('normalizeBlock() -- flow types', () => {
+  it('accepts a process block', () => {
+    const b = normalizeBlock({ id: 'p', type: 'process', title: 'Update status' })
+    assert.ok(b)
+    assert.eq(b.type, 'process')
+  })
+
+  it('accepts a terminator block', () => {
+    const b = normalizeBlock({ id: 't', type: 'terminator', title: 'Done' })
+    assert.ok(b)
+    assert.eq(b.type, 'terminator')
+  })
 })
 
 // ── normalizeCanvas ──────────────────────────────────────────

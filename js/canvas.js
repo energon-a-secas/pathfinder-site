@@ -27,7 +27,7 @@ export function applyTransform() {
   canvasRoot.style.transform = `translate(${view.panX}px,${view.panY}px) scale(${view.zoom})`
   // Move dot grid with canvas
   const sz = 28 * view.zoom
-  const dotColor = isLight() ? 'rgba(0,0,0,.12)' : 'rgba(255,255,255,.12)'
+  const dotColor = isLight() ? 'rgba(15,23,42,.09)' : 'rgba(255,255,255,.12)'
   canvasViewport.style.backgroundImage =
     `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`
   canvasViewport.style.backgroundSize = `${sz}px ${sz}px`
@@ -109,7 +109,7 @@ export function buildPath(x1, y1, d1, x2, y2, d2, style = 'curved') {
   return `M ${x1} ${y1} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${x2} ${y2}`
 }
 
-function arrowMidpoint(pts, style = 'curved') {
+export function arrowMidpoint(pts, style = 'curved') {
   if (style === 'straight' || style === 'elbow') {
     return { x: (pts.x1 + pts.x2) / 2, y: (pts.y1 + pts.y2) / 2 }
   }
@@ -151,6 +151,10 @@ export function renderArrows() {
       lbl.classList.add('arrow-label')
       g.appendChild(lbl)
 
+      const note = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      note.classList.add('arrow-note')
+      g.appendChild(note)
+
       arrowsGroup.appendChild(g)
     }
 
@@ -158,6 +162,7 @@ export function renderArrows() {
     hit.setAttribute('d', d)
     vis.setAttribute('d', d)
     vis.classList.toggle('selected', sel)
+    g.classList.toggle('sel', sel)
     vis.removeAttribute('stroke-dasharray')
     if (style === 'dashed') vis.setAttribute('stroke-dasharray', '10 6')
     else if (style === 'dotted') vis.setAttribute('stroke-dasharray', '3 5')
@@ -181,7 +186,42 @@ export function renderArrows() {
     lbl.textContent = a.label || ''
     lbl.style.display = a.label ? '' : 'none'
     lbl.classList.toggle('selected', sel)
+
+    // Arrow note: richer annotation. Content is always rendered when present;
+    // CSS decides whether it's visible (hover via .related, .sel, or the global
+    // body.show-arrow-text setting) so hover reveal needs no arrow re-render.
+    const noteEl = g.children[3]
+    const noteText = (a.note || '').trim()
+    if (noteText) {
+      const lines = wrapNote(noteText)
+      const startY = mid.y + (a.label ? 15 : 4)
+      noteEl.setAttribute('y', startY)
+      noteEl.innerHTML = lines.map((ln, i) =>
+        `<tspan x="${mid.x}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
+      g.classList.add('has-note')
+      noteEl.classList.toggle('selected', sel)
+    } else {
+      noteEl.textContent = ''
+      g.classList.remove('has-note')
+    }
   })
+}
+
+// Soft-wrap an arrow note into short lines so long annotations stay readable
+// on the canvas without an HTML layout pass. ~28 chars/line, max 4 lines.
+function wrapNote(text, maxChars = 28, maxLines = 4) {
+  const out = []
+  text.split(/\r?\n/).forEach(para => {
+    let line = ''
+    para.split(/\s+/).forEach(word => {
+      if (!line) { line = word }
+      else if ((line + ' ' + word).length <= maxChars) { line += ' ' + word }
+      else { out.push(line); line = word }
+    })
+    if (line) out.push(line)
+  })
+  if (out.length > maxLines) { const t = out.slice(0, maxLines); t[maxLines - 1] += '…'; return t }
+  return out
 }
 
 // ── Empty-canvas hint ────────────────────────────────────────
