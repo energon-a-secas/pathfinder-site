@@ -44,8 +44,10 @@ export function renderBlock(id) {
     ? `<span class="status-badge status-${b.status}" title="${STATUS_DEFS[b.status]?.label || b.status}">${STATUS_DEFS[b.status]?.icon || ''} ${STATUS_DEFS[b.status]?.label || b.status}</span>` : ''
   const priorityHtml = b.priority
     ? `<span class="priority-badge priority-${b.priority}" title="${PRIORITY_DEFS[b.priority]?.label || b.priority} priority">${PRIORITY_DEFS[b.priority]?.label || b.priority}</span>` : ''
-  const descHtml = b.description
-    ? `<div class="block-desc">${escHtmlMultiline(b.description)}</div>` : ''
+  // Always rendered (even when empty) so the description is directly
+  // double-click editable on the card. Empty ones collapse via CSS `:empty`
+  // and show an "Add description…" hint only on hover/selection.
+  const descHtml = `<div class="block-desc">${escHtmlMultiline(b.description)}</div>`
   const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
 
   // Voting indicator - show vote count if any votes exist

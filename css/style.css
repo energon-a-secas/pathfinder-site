@@ -202,7 +202,7 @@
     .palette-section-body {
       overflow: hidden;
       transition: max-height 0.25s ease;
-      max-height: 600px;
+      max-height: 1200px;
     }
     .palette-section.collapsed .palette-section-body { max-height: 0; }
 
@@ -228,7 +228,7 @@
     .palette-subsection-body {
       overflow: hidden;
       transition: max-height 0.25s ease;
-      max-height: 400px;
+      max-height: 700px;
     }
     .palette-subsection.collapsed .palette-subsection-body { max-height: 0; }
 
@@ -294,7 +294,7 @@
       gap: 0;
     }
     .palette.collapsed .palette-dot { width: 14px; height: 14px; }
-    .palette.collapsed .palette-section-body { max-height: 600px !important; }
+    .palette.collapsed .palette-section-body { max-height: 1200px !important; }
     .palette.collapsed .palette-section.collapsed .palette-section-body { max-height: 0 !important; }
     .palette.collapsed .palette-collapse-btn svg { transform: rotate(180deg); }
     .palette.collapsed .template-item { justify-content: center; padding: 10px 4px; }
@@ -670,6 +670,12 @@
     .ctx-caret { margin-left: auto; opacity: .5 !important; }
     .ctx-divider { height: 1px; background: rgba(255,255,255,.08); margin: 4px 2px; }
 
+    .ctx-add-heading {
+      padding: 5px 10px 7px;
+      font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
     .ctx-submenu {
       display: none;
       position: absolute;
@@ -887,7 +893,32 @@
       margin-top: 4px;
       word-break: break-word;
       white-space: pre-wrap;
+      outline: none;
     }
+    /* Empty description: hidden by default, shows a faint "add" hint on
+       hover/selection so the field is discoverable but never noisy. */
+    .block-desc:empty { display: none; margin-top: 0; }
+    .block:hover .block-desc:empty,
+    .block.selected .block-desc:empty { display: block; margin-top: 4px; }
+    .block:hover .block-desc:empty::before,
+    .block.selected .block-desc:empty::before {
+      content: 'Add description…';
+      color: rgba(255,255,255,.28);
+      font-style: italic;
+    }
+    .block-desc[contenteditable=true] {
+      background: rgba(255,255,255,.06);
+      border-radius: 4px;
+      padding: 3px 5px;
+      margin-top: 4px;
+      cursor: text;
+      color: var(--text-secondary);
+    }
+    .block-desc[contenteditable=true]:empty::before { content: ''; }
+    .block.collapsed .block-desc:empty { display: none; }
+    body.light-mode .block:hover .block-desc:empty::before,
+    body.light-mode .block.selected .block-desc:empty::before { color: rgba(0,0,0,.3); }
+    body.light-mode .block-desc[contenteditable=true] { background: rgba(0,0,0,.05); }
 
     .block-actions {
       display: flex;
@@ -2319,74 +2350,17 @@
 
 /*
  * The full-viewport canvas layout (body: 100vh, overflow:hidden) leaves no
- * room for an in-flow footer; the "Part of Neorgon" link is carried by the
- * header logo and home icon instead. The footer stays in the DOM for crawlers
- * but is removed from layout so it can't sit clipped below the fold.
+ * room for an in-flow footer. The Neorgon + GitHub links are carried by the
+ * header (logo, home icon, GitHub icon); an sr-only <nav> keeps them
+ * crawlable without spending vertical space.
  */
 .info-footer { display: none; }
-:root {
-  --neo-footer-bg: rgba(255, 255, 255, 0.03);
-  --neo-footer-border: rgba(255, 255, 255, 0.1);
-  --neo-footer-text: rgba(255, 255, 255, 0.6);
-  --neo-footer-hover: rgba(255, 255, 255, 0.9);
-  --neo-accent: #B015B0;
-}
 
-.neorgon-footer {
-  width: 100%;
-  padding: 24px 20px;
-  margin-top: auto;
-  border-top: 1px solid var(--neo-footer-border);
-  background: var(--neo-footer-bg);
-  backdrop-filter: blur(8px);
-}
-
-.neorgon-footer-inner {
-  max-width: 720px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.neorgon-footer-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 10px;
-  border: 1px solid var(--neo-footer-border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--neo-footer-text);
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.neorgon-footer-btn:hover {
-  background: rgba(176, 21, 176, 0.12);
-  border-color: rgba(176, 21, 176, 0.35);
-  color: var(--neo-footer-hover);
-}
-
-.neorgon-footer-btn svg {
-  flex-shrink: 0;
-}
-
-@media (max-width: 480px) {
-  .neorgon-footer-inner {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .neorgon-footer-btn {
-    justify-content: center;
-  }
-}
-
+/* Header GitHub icon: an <a> styled like the icon buttons, with a spring
+   pop on hover so it reads as "pretty" without a text label. */
+.header-github { text-decoration: none; }
+.header-github svg { transition: transform 0.3s var(--ease-snap); }
+.header-github:hover svg { transform: scale(1.18) rotate(-6deg); }
 @media (prefers-reduced-motion: reduce) {
-  .neorgon-footer-btn {
-    transition: none !important;
-  }
+  .header-github:hover svg { transform: none; }
 }

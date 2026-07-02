@@ -301,26 +301,44 @@ export function setupCanvasPointerEvents() {
     pointer.ix = null
   })
 
-  // Wheel zoom
+  // Wheel: trackpad two-finger scroll pans; pinch-zoom (which the browser
+  // reports as a wheel event with ctrlKey) and Cmd/Ctrl+wheel zoom at the
+  // cursor. This matches Figma/Miro/tldraw so "just move to pan" works on a
+  // trackpad without holding a drag.
   canvasViewport.addEventListener('wheel', e => {
     e.preventDefault()
     const r  = canvasViewport.getBoundingClientRect()
     const vx = e.clientX - r.left, vy = e.clientY - r.top
-    const wx = (vx - view.panX)/view.zoom, wy = (vy - view.panY)/view.zoom
-    view.zoom = clamp(view.zoom * (e.deltaY < 0 ? 1.1 : 0.9), MIN_ZOOM, MAX_ZOOM)
-    view.panX = vx - wx*view.zoom
-    view.panY = vy - wy*view.zoom
+
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom toward the cursor. deltaY here is the pinch amount (or wheel with
+      // modifier); scale it gently so pinch feels smooth.
+      const wx = (vx - view.panX) / view.zoom, wy = (vy - view.panY) / view.zoom
+      const factor = Math.exp(-e.deltaY * 0.01)
+      view.zoom = clamp(view.zoom * factor, MIN_ZOOM, MAX_ZOOM)
+      view.panX = vx - wx * view.zoom
+      view.panY = vy - wy * view.zoom
+    } else {
+      // Pan by the scroll delta (two-finger swipe on a trackpad, or wheel).
+      view.panX -= e.deltaX
+      view.panY -= e.deltaY
+    }
     applyTransform()
   }, { passive: false })
 
-  // Double-click: edit title or fit view
+  // Double-click: edit the field under the cursor (title or description),
+  // or fit view on empty canvas.
   canvasViewport.addEventListener('dblclick', e => {
     const block = e.target.closest('.block')
     if (block) {
       if (ui.readOnly) return
-      const bt = block.querySelector('.block-title'); if (!bt) return
-      bt.contentEditable = 'true'; bt.focus()
-      const r = document.createRange(); r.selectNodeContents(bt)
+      // Double-clicking the description edits it in place; anywhere else on
+      // the block edits the title.
+      const descEl = e.target.closest('.block-desc')
+      const target = descEl || block.querySelector('.block-title')
+      if (!target) return
+      target.contentEditable = 'true'; target.focus()
+      const r = document.createRange(); r.selectNodeContents(target)
       const s = window.getSelection(); s.removeAllRanges(); s.addRange(r)
       e.preventDefault()
     } else {
@@ -328,23 +346,39 @@ export function setupCanvasPointerEvents() {
     }
   })
 
-  // Commit inline title edit on blur
+  // Commit inline title/description edit on blur.
   canvasRoot.addEventListener('blur', e => {
-    const bt = e.target
-    if (!bt.classList.contains('block-title') || bt.contentEditable !== 'true') return
-    bt.contentEditable = 'false'
-    const id = bt.closest('.block')?.dataset.id; if (!id) return
-    const title = bt.textContent.trim()
-    if (state.blocks[id]) {
+    const el = e.target
+    if (el.contentEditable !== 'true') return
+    const id = el.closest('.block')?.dataset.id; if (!id || !state.blocks[id]) return
+
+    if (el.classList.contains('block-title')) {
+      el.contentEditable = 'false'
+      const title = el.textContent.trim()
       state.blocks[id].title = title
       if (selection.blockId === id) inspTitle.value = title
       debouncedSave(); ui.promptDirty = true
+    } else if (el.classList.contains('block-desc')) {
+      el.contentEditable = 'false'
+      // innerText preserves the user's line breaks; store as \n.
+      const desc = el.innerText.replace(/ /g, ' ').replace(/\n{3,}/g, '\n\n').trimEnd()
+      state.blocks[id].description = desc
+      if (selection.blockId === id) $.inspDesc().value = desc
+      renderBlock(id)              // re-render so escHtmlMultiline formats it
+      debouncedSave(); ui.promptDirty = true; runGapDetection()
     }
   }, true)
 
   canvasRoot.addEventListener('keydown', e => {
-    if (e.target.classList.contains('block-title') && e.target.contentEditable === 'true') {
-      if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
+    const el = e.target
+    if (el.contentEditable !== 'true') return
+    if (el.classList.contains('block-title')) {
+      // Title stays single-line: Enter commits.
+      if (e.key === 'Enter') { e.preventDefault(); el.blur() }
+      e.stopPropagation()
+    } else if (el.classList.contains('block-desc')) {
+      // Description is multi-line: Enter inserts a newline, Esc/Cmd+Enter commit.
+      if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) { e.preventDefault(); el.blur() }
       e.stopPropagation()
     }
   })

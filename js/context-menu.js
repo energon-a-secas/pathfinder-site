@@ -6,13 +6,17 @@
 //  the same mutation functions as the inspector so behavior stays in sync.
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, ui } from './state.js'
+import { state, selection, ui, toWorld } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, getBlockEl } from './utils.js'
 import {
-  duplicateBlock, deleteBlock, mutateBlock, selectBlock,
+  duplicateBlock, deleteBlock, mutateBlock, selectBlock, createBlock,
 } from './render.js'
 
 let menuEl = null
+
+// Types offered in the empty-canvas quick-add menu, in a sensible authoring
+// order (core planning types first, then flow nodes for workflows).
+const QUICK_ADD_TYPES = ['goal', 'problem', 'requirement', 'decision', 'process', 'terminator']
 
 function closeMenu() {
   if (menuEl) { menuEl.remove(); menuEl = null }
@@ -42,18 +46,18 @@ function buildMenu(id) {
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
       Duplicate <span class="ctx-shortcut">⌘D</span>
     </button>
-    <button class="ctx-item ctx-has-sub" role="menuitem" aria-haspopup="true" data-ctx-sub="type">
+    <div class="ctx-item ctx-has-sub" role="menuitem" tabindex="0" aria-haspopup="true" data-ctx-sub="type">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9h6V3H3v6zm0 12h6v-6H3v6zm8 0h6v-6h-6v6zm8 0h6v-6h-6v6zm-8-8h6V3h-6v10z"/></svg>
       Change type
       <svg class="ctx-caret" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
       <div class="ctx-submenu" data-ctx-submenu="type">${typeSwatchList()}</div>
-    </button>
-    <button class="ctx-item ctx-has-sub" role="menuitem" aria-haspopup="true" data-ctx-sub="color">
+    </div>
+    <div class="ctx-item ctx-has-sub" role="menuitem" tabindex="0" aria-haspopup="true" data-ctx-sub="color">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
       Accent color
       <svg class="ctx-caret" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
       <div class="ctx-submenu ctx-submenu-colors" data-ctx-submenu="color">${colorSwatchList()}</div>
-    </button>
+    </div>
     <button class="ctx-item" role="menuitem" data-ctx-action="collapse">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
       ${b.collapsed ? 'Expand' : 'Collapse'}
@@ -118,14 +122,65 @@ export function openBlockMenu(id, clientX, clientY) {
   })
 }
 
+// ── Empty-canvas quick-add menu ──────────────────────────────
+// Right-clicking blank canvas offers a fast "add block here" list. The new
+// block is dropped at the world position under the cursor and selected.
+function openAddMenu(clientX, clientY) {
+  if (ui.readOnly) return
+  closeMenu()
+  const menu = document.createElement('div')
+  menu.className = 'ctx-menu ctx-add-menu'
+  menu.setAttribute('role', 'menu')
+  menu.innerHTML =
+    `<div class="ctx-add-heading">Add block here</div>` +
+    QUICK_ADD_TYPES.map(t =>
+      `<button class="ctx-item" role="menuitem" data-add-type="${t}">` +
+      `<span class="ctx-dot" style="background:${TYPES[t].color}"></span>${TYPES[t].label}</button>`
+    ).join('')
+  menuEl = menu
+
+  // Convert the cursor's screen position to world coords now, before the menu
+  // steals focus, so the block lands exactly where the user right-clicked.
+  const vp = $.canvasViewport()
+  const r  = vp.getBoundingClientRect()
+  const w  = toWorld(clientX - r.left, clientY - r.top)
+
+  positionMenu(menu, clientX, clientY)
+  menu.addEventListener('click', e => {
+    const opt = e.target.closest('[data-add-type]'); if (!opt) return
+    selectBlock(createBlock(opt.dataset.addType, w.x, w.y))
+    closeMenu()
+  })
+  requestAnimationFrame(() => menu.querySelector('.ctx-item')?.focus())
+  menu.addEventListener('keydown', e => {
+    const items = [...menu.querySelectorAll('.ctx-item')]
+    const idx = items.indexOf(document.activeElement)
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus() }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus() }
+    else if (e.key === 'Escape') { e.preventDefault(); closeMenu() }
+  })
+}
+
 export function setupContextMenu() {
   const canvasRoot = $.canvasRoot()
+  const canvasViewport = $.canvasViewport()
 
   canvasRoot.addEventListener('contextmenu', e => {
     const block = e.target.closest('.block'); if (!block) return
     if (ui.readOnly) return
     e.preventDefault()
     openBlockMenu(block.dataset.id, e.clientX, e.clientY)
+  })
+
+  // Right-click on blank canvas → quick-add menu. Registered on the viewport
+  // so it fires for clicks that miss any block; the block handler above
+  // stops those from reaching here via its own preventDefault + return.
+  canvasViewport.addEventListener('contextmenu', e => {
+    if (e.target.closest('.block')) return
+    if (e.target.closest('.brain-dump, .copy-pill-wrap, .search-overlay')) return
+    if (ui.readOnly) return
+    e.preventDefault()
+    openAddMenu(e.clientX, e.clientY)
   })
 
   // Keyboard context-menu key / Shift+F10 on a focused or selected block.

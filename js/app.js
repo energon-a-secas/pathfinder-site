@@ -47,6 +47,13 @@ function init() {
   try { ui.showArrowText = localStorage.getItem('pathfinder-arrowtext') === '1' } catch(_) {}
   if (ui.showArrowText) document.body.classList.add('show-arrow-text')
 
+  // Restore grid-snap preference (default OFF)
+  try { ui.snapToGrid = localStorage.getItem('pathfinder-snap') === '1' } catch(_) {}
+  if (ui.snapToGrid) {
+    document.body.classList.add('snap-grid')
+    document.getElementById('snapBtn')?.classList.add('active')
+  }
+
   // Restore tint preference
   try { ui.tintedBlocks = !!localStorage.getItem('pathfinder-tint') } catch(_) {}
   if (ui.tintedBlocks) {

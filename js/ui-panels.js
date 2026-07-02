@@ -12,6 +12,7 @@ import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
 import { refreshPrompt, markExported, generatePrompt, computeHealthScore } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportPNG, exportSVG } from './image-export.js'
+import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
 
 // ── Search ───────────────────────────────────────────────────
@@ -132,8 +133,14 @@ const SHORTCUTS = [
   ['Shift + click',      'Add block to selection'],
   ['Shift + drag',       'Rubber-band multi-select'],
   ['Double-click block', 'Edit title inline'],
+  ['Double-click description', 'Edit description inline'],
+  ['Right-click block',  'Quick actions (duplicate, type, color…)'],
+  ['Right-click canvas', 'Add a block where you click'],
   ['Double-click canvas','Fit all blocks in view'],
   ['Drag port \u25CF',        'Draw connection arrow'],
+  ['Two-finger scroll',  'Pan the canvas'],
+  ['Pinch / \u2318+scroll',   'Zoom in and out'],
+  ['Drag empty canvas',  'Pan the canvas'],
   ['Tab / Shift+Tab',    'Navigate between blocks'],
   ['Enter / Space',      'Select focused block'],
   ['Alt + H',            'Toggle high-contrast mode'],
@@ -437,6 +444,15 @@ export function setupExportDropdown() {
     })
   })
 
+  document.getElementById('copyDiagramInstructions').addEventListener('click', () => {
+    setDropdownOpen('exportWrapper', false)
+    copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {
+      showToast(ok
+        ? 'AI diagram-builder prompt copied — paste it into Claude, add your topic, then Import the JSON'
+        : 'Copy failed — try again', ok ? 'success' : 'warning')
+    })
+  })
+
   document.getElementById('exportJSON').addEventListener('click', () => {
     exportJSON()
   })
@@ -578,6 +594,21 @@ export function setupHeaderButtons() {
   document.getElementById('snapBtn').addEventListener('click', () => {
     ui.snapToGrid = !ui.snapToGrid
     document.getElementById('snapBtn').classList.toggle('active', ui.snapToGrid)
+    document.body.classList.toggle('snap-grid', ui.snapToGrid)
+    try { localStorage.setItem('pathfinder-snap', ui.snapToGrid ? '1' : '0') } catch(_) {}
+    if (ui.snapToGrid) {
+      // Immediately align every existing block to the grid so the toggle has a
+      // visible effect, not just a behavior change for future drags.
+      snapshot()
+      Object.values(state.blocks).forEach(b => {
+        b.x = Math.round(b.x / 28) * 28
+        b.y = Math.round(b.y / 28) * 28
+      })
+      renderAllBlocks(); renderArrows(); renderFrames(); debouncedSave()
+      showToast('Snapped all blocks to the grid', 'success', 1500)
+    } else {
+      showToast('Grid snapping off', 'info', 1200)
+    }
   })
 
   // Arrow text: default OFF (notes reveal on hover/selection). Persist toggle.
