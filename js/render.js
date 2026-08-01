@@ -10,6 +10,7 @@ import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, STATUS_DEFS, PRIORI
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
+import { askQuestion, detectSeeReference } from './doc-panel.js'
 
 function afterMutation() {
   ui.promptDirty = true
@@ -55,6 +56,16 @@ export function renderBlock(id) {
   const voteClass = voteCount > 0 ? ' block-vote-indicator has-votes' : ' block-vote-indicator'
   const voteHtml = voteCount > 0 ? `\n      <span class="${voteClass}" title="${voteCount} votes">${getSmallIcon('vote')} ${voteCount}</span>` : ''
 
+  // Living-doc markers: a link chip when a doc is wired (click → preview popup),
+  // and a check when at least one question has an answer stored.
+  const hasDoc = !!(b.docRef && (b.docRef.href || b.docRef.label))
+  const docTitle = hasDoc ? (b.docRef.label || b.docRef.href) : ''
+  const docHtml = hasDoc
+    ? `\n      <button class="block-doc-badge" data-doc-bid="${id}" title="View referenced doc: ${escHtml(docTitle)}" aria-label="View referenced documentation">${getSmallIcon('link')}</button>` : ''
+  const answered = (b.questions || []).some(q => q.answer?.trim())
+  const answeredHtml = answered
+    ? `\n      <span class="block-answered-badge" title="A question on this block has an answer">${getSmallIcon('check')}</span>` : ''
+
   el.tabIndex = 0
   el.setAttribute('role', 'article')
   el.setAttribute('aria-label', `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}`)
@@ -62,7 +73,7 @@ export function renderBlock(id) {
 
   el.innerHTML = `
     <div class="block-header">
-      <span class="block-type-badge"${badgeStyle}>${TYPES[b.type]?.label || b.type}</span>${voteHtml}
+      <span class="block-type-badge"${badgeStyle}>${TYPES[b.type]?.label || b.type}</span>${voteHtml}${docHtml}${answeredHtml}
       <div class="block-gap-icons" id="gi-${id}"></div>
       <button class="block-collapse-btn" data-bid="${id}" title="${b.collapsed ? 'Expand' : 'Collapse'}" aria-label="${b.collapsed ? 'Expand block' : 'Collapse block'}">${b.collapsed ? '&#9654;' : '&#9660;'}</button>
     </div>
@@ -214,6 +225,28 @@ export function renderInspector() {
   inspDesc.value  = b.description
   inspNotes.value = b.notes || ''
 
+  // Documentation reference fields + "promote See:" nudge
+  const docHref = document.getElementById('docRefHref')
+  const docLabel = document.getElementById('docRefLabel')
+  const docAnchor = document.getElementById('docRefAnchor')
+  if (docHref && docLabel && docAnchor) {
+    docHref.value = b.docRef?.href || ''
+    docLabel.value = b.docRef?.label || ''
+    docAnchor.value = b.docRef?.anchor || ''
+    const previewBtn = document.getElementById('docRefPreviewBtn')
+    if (previewBtn) previewBtn.style.display = b.docRef?.href ? '' : 'none'
+  }
+  const promoteSee = document.getElementById('promoteSeeRef')
+  if (promoteSee) {
+    const seeRef = detectSeeReference(b.description)
+    if (seeRef && !b.docRef) {
+      promoteSee.style.display = ''
+      promoteSee.textContent = `↳ Use "See: ${seeRef.label || seeRef.href}" as this block's doc`
+    } else {
+      promoteSee.style.display = 'none'
+    }
+  }
+
   document.querySelectorAll('.action-toggle').forEach(btn => {
     const isActive = b.actions.includes(btn.dataset.action)
     btn.classList.toggle('active', isActive)
@@ -255,16 +288,37 @@ export function renderInspector() {
 export function renderQuestions(b) {
   const questionsList = $.questionsList()
   questionsList.innerHTML = (b.questions||[]).map((q, i) => `
-    <div class="question-item">
-      <input type="text" value="${escHtml(q)}" placeholder="Enter question\u2026" data-qi="${i}">
-      <button class="q-del" data-qi="${i}" title="Delete">\u00D7</button>
+    <div class="question-item${q.answer ? ' answered' : ''}">
+      <div class="question-row">
+        <input type="text" value="${escHtml(q.text)}" placeholder="Enter question\u2026" data-qi="${i}">
+        <button class="q-ask" data-qi="${i}" title="Copy a grounded prompt for this question">Ask</button>
+        <button class="q-del" data-qi="${i}" title="Delete">\u00D7</button>
+      </div>
+      <textarea class="question-answer" data-qi="${i}" rows="2"
+        placeholder="Paste the assistant's answer here\u2026">${escHtml(q.answer || '')}</textarea>
     </div>`).join('')
 
-  questionsList.querySelectorAll('input').forEach(inp =>
+  questionsList.querySelectorAll('input[data-qi]').forEach(inp =>
     inp.addEventListener('input', () => {
       const b2 = state.blocks[selection.blockId]; if (!b2) return
-      b2.questions[+inp.dataset.qi] = inp.value
+      const q = b2.questions[+inp.dataset.qi]; if (!q) return
+      q.text = inp.value
       debouncedSave(); ui.promptDirty = true
+    })
+  )
+  questionsList.querySelectorAll('.question-answer').forEach(ta =>
+    ta.addEventListener('input', () => {
+      const b2 = state.blocks[selection.blockId]; if (!b2) return
+      const q = b2.questions[+ta.dataset.qi]; if (!q) return
+      if (ta.value.trim()) q.answer = ta.value; else delete q.answer
+      ta.closest('.question-item')?.classList.toggle('answered', !!ta.value.trim())
+      debouncedSave(); ui.promptDirty = true
+    })
+  )
+  questionsList.querySelectorAll('.q-ask').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const b2 = state.blocks[selection.blockId]; if (!b2) return
+      askQuestion(b2, +btn.dataset.qi)
     })
   )
   questionsList.querySelectorAll('.q-del').forEach(btn =>
@@ -359,6 +413,7 @@ export function createBlock(type, wx, wy) {
     x: wx - DEFAULT_WIDTH/2 + (count % 5) * 12,
     y: wy - 50            + (count % 5) * 10,
     actions: [], questions: [],
+    docRef: null,
     width: null, color: null, collapsed: false, groupId: null,
     status: null, priority: null,
   }

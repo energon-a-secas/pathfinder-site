@@ -5,7 +5,7 @@
 
 import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
-import { $, TYPES, clamp, escHtml, showToast, getBlockDims, getSmallIcon, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, TYPES, clamp, escHtml, showToast, getBlockDims, getSmallIcon, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
@@ -14,6 +14,7 @@ import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportTo
 import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
+import { getDocsBase, setDocsBase } from './doc-panel.js'
 
 // ── Search ───────────────────────────────────────────────────
 function searchBlocks(query) {
@@ -274,6 +275,14 @@ export function setupDevOptions() {
     ui.promptDirty = true; refreshPrompt()
   })
   refreshModeDesc()
+
+  // Docs base URL — powers inline doc previews for pages under this origin/path.
+  const docsBaseInput = document.getElementById('docsBaseInput')
+  if (docsBaseInput) {
+    docsBaseInput.value = getDocsBase()
+    docsBaseInput.addEventListener('input', () => setDocsBase(docsBaseInput.value))
+  }
+
   document.getElementById('prePromptGroup').addEventListener('click', e => {
     const btn = e.target.closest('.check-opt'); if (!btn) return
     btn.classList.toggle('active')
@@ -301,27 +310,8 @@ export function setupCopyPrompt() {
 }
 
 // \u2500\u2500 Clipboard helper \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-// navigator.clipboard.writeText rejects silently when the page isn't focused
-// or over insecure origins. Fall back to a hidden textarea + execCommand so the
-// copy still lands, and always surface success/failure to the user.
-export function copyText(text) {
-  const fallback = () => {
-    try {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
-      document.body.appendChild(ta)
-      ta.focus(); ta.select()
-      const ok = document.execCommand('copy')
-      ta.remove()
-      return ok
-    } catch (_) { return false }
-  }
-  if (navigator.clipboard?.writeText) {
-    return navigator.clipboard.writeText(text).then(() => true, () => fallback())
-  }
-  return Promise.resolve(fallback())
-}
+// copyText now lives in utils.js; re-exported so existing importers keep working.
+export { copyText }
 
 // \u2500\u2500 Readiness verdict (plain-language go/no-go) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 // Pure function of the health score + gap count \u2014 no new persisted state.

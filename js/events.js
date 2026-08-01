@@ -14,6 +14,7 @@ import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
          duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup, undo, redo } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { openSearch, closeSearch, openShortcuts, closeShortcuts } from './ui-panels.js'
+import { openDocPopup, detectSeeReference } from './doc-panel.js'
 
 // ── Canvas title editing ─────────────────────────────────────
 export function setupCanvasTitle() {
@@ -85,6 +86,7 @@ export function setupCanvasPointerEvents() {
 
     const resizeHandle = e.target.closest('.block-resize-handle')
     const collapseBtn  = e.target.closest('.block-collapse-btn')
+    const docBadge     = e.target.closest('.block-doc-badge')
     const port         = e.target.closest('.port')
     const block        = e.target.closest('.block')
     const frame        = !block && e.target.closest('.frame')
@@ -95,8 +97,8 @@ export function setupCanvasPointerEvents() {
       const id = resizeHandle.dataset.bid; const b = state.blocks[id]; if (!b) return
       pointer.ix = { type: 'resize', id, startX: e.clientX, startW: b.width || DEFAULT_WIDTH }
 
-    } else if (collapseBtn) {
-      // handled by click event below — just prevent drag
+    } else if (collapseBtn || docBadge) {
+      // handled by their own click handlers below — just prevent drag
       pointer.ix = null
 
     } else if (port) {
@@ -395,6 +397,13 @@ export function setupCanvasPointerEvents() {
     e.stopPropagation()
   })
 
+  // Doc badge → open the referenced-doc preview popup
+  canvasRoot.addEventListener('click', e => {
+    const btn = e.target.closest('.block-doc-badge'); if (!btn) return
+    e.stopPropagation()
+    openDocPopup(btn.dataset.docBid, btn)
+  })
+
   // Voting on blocks (click block background/add area, not ports or buttons)
   canvasRoot.addEventListener('click', e => {
     // Only handle clicks on block (not ports, buttons, editable areas)
@@ -616,6 +625,7 @@ export function createBlocksFromText(text, nest = true) {
       id, type, title, description: item.description.join('\n'), notes: '',
       x: cx, y: cy + i * 90,
       actions: [], questions: [],
+      docRef: null,
       width: null, color: null, collapsed: false, groupId: null,
       status: null, priority: null,
     }
@@ -900,6 +910,37 @@ export function setupInspectorEvents() {
     if (selection.blockId) mutateBlock(selection.blockId, { notes: inspNotes.value })
   })
 
+  // Documentation reference: three inputs write one docRef object. An empty
+  // href + empty label clears it back to null so no stray marker lingers.
+  const docHref   = document.getElementById('docRefHref')
+  const docLabel  = document.getElementById('docRefLabel')
+  const docAnchor = document.getElementById('docRefAnchor')
+  const commitDocRef = () => {
+    if (!selection.blockId) return
+    const href = docHref.value.trim()
+    const label = docLabel.value.trim()
+    const anchor = docAnchor.value.trim().replace(/^#/, '')
+    const docRef = (href || label) ? { href, label, anchor } : null
+    mutateBlock(selection.blockId, { docRef })
+    const previewBtn = document.getElementById('docRefPreviewBtn')
+    if (previewBtn) previewBtn.style.display = href ? '' : 'none'
+  }
+  ;[docHref, docLabel, docAnchor].forEach(el => el?.addEventListener('input', commitDocRef))
+
+  document.getElementById('docRefPreviewBtn')?.addEventListener('click', () => {
+    if (selection.blockId) openDocPopup(selection.blockId, document.getElementById('docRefPreviewBtn'))
+  })
+
+  // Promote a "See: X" line in the description into a real docRef
+  document.getElementById('promoteSeeRef')?.addEventListener('click', () => {
+    const id = selection.blockId; if (!id) return
+    const b = state.blocks[id]; if (!b) return
+    const ref = detectSeeReference(b.description)
+    if (!ref) return
+    mutateBlock(id, { docRef: ref })
+    renderInspector()
+  })
+
   document.querySelectorAll('.action-toggle').forEach(btn =>
     btn.addEventListener('click', () => {
       if (!selection.blockId) return
@@ -936,8 +977,8 @@ export function setupInspectorEvents() {
 
   document.getElementById('addQuestionBtn').addEventListener('click', () => {
     const b = state.blocks[selection.blockId]; if (!b) return
-    b.questions.push(''); renderQuestions(b); debouncedSave(); ui.promptDirty = true
-    setTimeout(() => { const ins = $.questionsList().querySelectorAll('input'); ins[ins.length-1]?.focus() }, 30)
+    b.questions.push({ text: '' }); renderQuestions(b); debouncedSave(); ui.promptDirty = true
+    setTimeout(() => { const ins = $.questionsList().querySelectorAll('input[data-qi]'); ins[ins.length-1]?.focus() }, 30)
   })
 
   document.getElementById('dupeBlockBtn').addEventListener('click', () => {

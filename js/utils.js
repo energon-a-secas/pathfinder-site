@@ -99,6 +99,29 @@ export function debounce(fn, ms) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) }
 }
 
+// ── Clipboard helper ─────────────────────────────────────────
+// navigator.clipboard.writeText rejects silently when the page isn't focused
+// or over insecure origins. Fall back to a hidden textarea + execCommand so the
+// copy still lands. Resolves to true/false so callers can surface the outcome.
+export function copyText(text) {
+  const fallback = () => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
+      document.body.appendChild(ta)
+      ta.focus(); ta.select()
+      const ok = document.execCommand('copy')
+      ta.remove()
+      return ok
+    } catch (_) { return false }
+  }
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text).then(() => true, () => fallback())
+  }
+  return Promise.resolve(fallback())
+}
+
 // ── DOM element cache ────────────────────────────────────────
 export const $ = {
   canvasViewport:   () => document.getElementById('canvasViewport'),

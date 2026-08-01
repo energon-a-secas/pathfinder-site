@@ -21,9 +21,17 @@ export function generatePrompt() {
     const tagStr = tags.length ? ` [${tags.join('] [')}]` : ''
     let s = `\u2022${tagStr} ${b.title || '(untitled)'}`
     if (b.description) s += `\n  ${b.description}`
+    if (b.docRef && (b.docRef.href || b.docRef.label)) {
+      const ref = b.docRef.label || b.docRef.href
+      const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
+      s += `\n  Referenced doc: ${ref}${b.docRef.href && b.docRef.label ? ` (${b.docRef.href}${anchor})` : anchor}`
+    }
     if ((b.questions||[]).length) {
       s += '\n  Open questions:'
-      b.questions.forEach(q => { s += `\n    - ${q}` })
+      b.questions.forEach(q => {
+        s += `\n    - ${q.text}`
+        if (q.answer?.trim()) s += `\n      Answer: ${q.answer.trim().replace(/\n/g, '\n      ')}`
+      })
     }
     if ((b.actions||[]).length) s += `\n  Actions: ${b.actions.join(', ')}`
     if (b.notes) s += `\n  Notes: ${b.notes}`
@@ -255,6 +263,59 @@ export function generatePrompt() {
   }
 
   return prompt.trim()
+}
+
+// ── Grounded per-question prompt ──────────────────────────────
+// Turns one question on one block into a focused, self-contained prompt: the
+// question, the block it hangs off, its referenced doc, its 1-hop neighbors
+// (with arrow labels), and the canvas engagement brief. Enough context for an
+// assistant to answer THIS question without the whole canvas.
+export function buildQuestionPrompt(block, question) {
+  const q = question || (block.questions || [])[0] || { text: '' }
+  const brief = (canvasMeta.contextBrief || '').trim()
+  const title = (canvasMeta.title || '').trim() || 'Project Canvas'
+
+  const describe = b => {
+    let s = `${TYPES[b.type]?.label || b.type}: "${b.title || '(untitled)'}"`
+    if (b.description?.trim()) s += `\n  ${b.description.trim().replace(/\n/g, '\n  ')}`
+    return s
+  }
+
+  const neighbors = []
+  state.arrows.forEach(a => {
+    if (a.from === block.id && state.blocks[a.to]) neighbors.push({ b: state.blocks[a.to], dir: '→', label: a.label })
+    if (a.to === block.id && state.blocks[a.from]) neighbors.push({ b: state.blocks[a.from], dir: '←', label: a.label })
+  })
+
+  let p = '## Task\n'
+  p += 'Answer the specific question below using the surrounding context. If the context is insufficient, say what is missing rather than guessing.\n\n'
+  if (brief) p += `## Engagement Context\n${brief}\n\n`
+  p += `## Question\n${q.text.trim() || '(no question text)'}\n\n`
+  p += `## This relates to\n${describe(block)}\n`
+
+  if (block.docRef && (block.docRef.href || block.docRef.label)) {
+    const ref = block.docRef.label || block.docRef.href
+    const anchor = block.docRef.anchor ? `#${block.docRef.anchor}` : ''
+    p += `\n## Referenced documentation\n${ref}${block.docRef.href && block.docRef.label ? ` — ${block.docRef.href}${anchor}` : anchor}\n`
+    p += 'If you can access this document, ground your answer in it.\n'
+  }
+
+  if (neighbors.length) {
+    p += '\n## Connected blocks\n'
+    neighbors.forEach(n => {
+      const via = n.label ? ` [${n.label}]` : ''
+      p += `${n.dir}${via} ${describe(n.b).replace(/\n/g, '\n   ')}\n`
+    })
+  }
+
+  const otherQs = (block.questions || []).filter(x => x !== q && x.text?.trim())
+  if (otherQs.length) {
+    p += '\n## Other open questions on this block (for context, do not answer)\n'
+    otherQs.forEach(x => { p += `- ${x.text.trim()}\n` })
+  }
+
+  p += `\n(From the "${title}" strategy canvas.)`
+  return p.trim()
 }
 
 // ── Canvas health score ───────────────────────────────────────

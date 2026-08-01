@@ -112,7 +112,16 @@ export function exportMarkdown() {
       md += `### ${b.title}${tags.length ? ' [' + tags.join(', ') + ']' : ''}\n`
       if (b.description) md += `${b.description}\n\n`
       if (b.actions?.length) md += `**Actions:** ${b.actions.join(', ')}\n\n`
-      if (b.questions?.length) { md += `**Open questions:**\n`; b.questions.forEach(q => { md += `- ${q}\n` }); md += '\n' }
+      if (b.docRef && (b.docRef.href || b.docRef.label)) {
+        const ref = b.docRef.label || b.docRef.href
+        const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
+        md += b.docRef.href ? `**Doc:** [${ref}](${b.docRef.href}${anchor})\n\n` : `**Doc:** ${ref}${anchor}\n\n`
+      }
+      if (b.questions?.length) {
+        md += `**Open questions:**\n`
+        b.questions.forEach(q => { md += `- ${q.text}${q.answer?.trim() ? `\n  - _Answer:_ ${q.answer.trim().replace(/\n/g, ' ')}` : ''}\n` })
+        md += '\n'
+      }
       if (b.notes) md += `**Notes:** ${b.notes}\n\n`
     })
   })
@@ -234,7 +243,7 @@ export function exportMeetingSummary() {
       md += `- ${b.title}`
       if (b.description) md += `: ${b.description}`
       if (b.questions?.length) {
-        md += `\n  - ${b.questions.join('\n  - ')}`
+        md += `\n  - ${b.questions.map(q => q.text + (q.answer?.trim() ? ` — answered: ${q.answer.trim().replace(/\n/g, ' ')}` : '')).join('\n  - ')}`
       }
       md += `\n`
     })

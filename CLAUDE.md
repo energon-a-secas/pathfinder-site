@@ -26,8 +26,9 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/ui-panels.js` | ~306 | Export, share, search, panel tabs, dev options, header buttons, panel collapse, mode descriptions |
 | `js/context-menu.js` | ~150 | Right-click block quick menu (duplicate/type/color/collapse/delete) |
 | `js/image-export.js` | ~230 | High-quality diagram export — native SVG + 2× PNG |
+| `js/doc-panel.js` | ~230 | Living documentation — docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
 
-**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js`
+**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
 **Key interactions added 2026-07-01:**
 - Multi-line descriptions render with `escHtmlMultiline` + `white-space: pre-wrap` (newlines preserved on the card and in exports).
@@ -53,8 +54,9 @@ state = {
     [id]: {
       id, type, title, description, notes,
       x, y,                          // pixel position in canvas world
-      actions: [],                   // 'resolve' | 'prepare' | 'recollect' | 'reinforce'
-      questions: []                  // open question strings
+      actions: [],                   // 'resolve' | 'prepare' | 'recollect' | 'reinforce' | 'validate'
+      questions: [],                 // [{ text, answer?, askedAt? }] — see Living Documentation
+      docRef: null                   // { href, label, anchor } | null — see Living Documentation
     }
   },
   arrows: [{ id, from: blockId, to: blockId }]
@@ -64,6 +66,22 @@ view = { panX, panY, zoom }          // zoom range: 0.18–2.6
 ```
 
 Auto-saved via `debouncedSave()` (300ms) on every change.
+
+**Backward compatibility:** `normalize.js` is the single choke point for load/import/share. It coerces legacy `questions` (plain `string[]`) into `[{text}]` objects and tolerates a missing `docRef` (→ `null`). Per the "don't silently mutate on load" rule, the normalized shape only persists on the next real edit.
+
+---
+
+## Living Documentation
+
+Wire a block to an external doc, preview it inline, and turn its questions into grounded AI prompts. Lives in **`js/doc-panel.js`**.
+
+**`docRef` = `{ href, label, anchor }`** — editable in the inspector's **Documentation** section. `href` may be a full URL or a root-relative path; `anchor` is a fragment (stored without `#`). A block with a docRef shows a 🔗 badge in its header (click → doc preview popup).
+
+**Inline doc preview** (`openDocPopup`): a floating popup fetches and renders the referenced doc read-only. **Fetch is gated for security** — `resolveDocRef()` only marks a doc *fetchable* when it's same-origin **or** under the user-configured **docs base URL** (Prompt → Dev Options, localStorage `pathfinder-docs-base`). Anything else degrades to an "Open in new tab ↗" link, no request made. Fetched Markdown is HTML-escaped before a tiny inline renderer (`renderMarkdown`) promotes it — doc content can never inject markup. HTML pages degrade to a link. **CSP note:** an external docs base must also be added to `connect-src` in `index.html`'s CSP meta (same-origin works out of the box).
+
+**"See: X" promotion** (`detectSeeReference`): a trailing `See: <target>` line in a description is detected; the inspector offers a one-click button to promote it into a real `docRef` (URL/`/path` → `href`, otherwise → `label`). Existing canvases upgrade cleanly with no auto-mutation.
+
+**Live questions:** per-block questions carry an optional `answer`. Each question row has an **Ask** button (`askQuestion` → `buildQuestionPrompt` in `prompt.js`) that copies a focused, grounded prompt (the question + block + its docRef + 1-hop arrow neighbors + `canvasMeta.contextBrief`). Paste the answer back into the answer field; a ✓ badge appears on the block and the answer flows into the main prompt export as Q/A. **The no-provider path is the product** — a live-AI call is intentionally scaffolded-but-disabled (no secrets, no third-party calls shipped).
 
 ---
 

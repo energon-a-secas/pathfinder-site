@@ -29,6 +29,22 @@ function toColor(v) {
 }
 
 /**
+ * Coerce a block's documentation reference into { href, label, anchor } or
+ * null. Old canvases have no docRef (→ null); a docRef with neither an href
+ * nor a label is meaningless and also collapses to null. The href is kept as
+ * a plain string here — reachability (same-origin / configured base) and the
+ * decision to fetch vs. open-in-tab are enforced later in doc-panel.js.
+ */
+function normalizeDocRef(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const href   = toStr(raw.href).trim()
+  const label  = toStr(raw.label).trim()
+  const anchor = toStr(raw.anchor).trim().replace(/^#/, '')
+  if (!href && !label) return null
+  return { href, label, anchor }
+}
+
+/**
  * Coerce one raw object into a valid block, or return null if it
  * cannot be salvaged (missing id, or a type not in the registry).
  */
@@ -41,8 +57,21 @@ export function normalizeBlock(raw) {
   const actions = Array.isArray(raw.actions)
     ? [...new Set(raw.actions.filter(a => VALID_ACTIONS.includes(a)))]
     : []
+  // Questions are objects { text, answer?, askedAt? }. Old canvases stored
+  // plain strings — coerce those to { text } so a "living question" can carry
+  // a stored answer without breaking backward compatibility.
   const questions = Array.isArray(raw.questions)
-    ? raw.questions.map(toStr)
+    ? raw.questions
+        .map(q => {
+          if (typeof q === 'string') return { text: q }
+          if (!q || typeof q !== 'object') return null
+          const out = { text: toStr(q.text) }
+          if (q.answer != null && toStr(q.answer)) out.answer = toStr(q.answer)
+          const askedAt = toFiniteNum(q.askedAt, null)
+          if (askedAt != null) out.askedAt = askedAt
+          return out
+        })
+        .filter(q => q && (q.text || q.answer))
     : []
 
   const widthNum = toFiniteNum(raw.width, null)
@@ -57,6 +86,7 @@ export function normalizeBlock(raw) {
     y: toFiniteNum(raw.y, 0),
     actions,
     questions,
+    docRef: normalizeDocRef(raw.docRef),
     width: widthNum != null && widthNum > 0 ? widthNum : null,
     color: toColor(raw.color),
     collapsed: !!raw.collapsed,
