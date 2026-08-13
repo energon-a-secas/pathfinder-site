@@ -46,6 +46,8 @@
   <link rel="stylesheet" href="css/neorgon-themes.css">
   <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/header/season.css">
   <script defer src="js/neorgon-header.js"></script>
+  <link rel="stylesheet" href="css/neorgon-footer.css">
+  <script defer src="js/neorgon-footer.js"></script>
 </head>
 <body>
 
@@ -635,6 +637,12 @@
   <a href="https://neorgon.com/">Back to Neorgon</a>
   <a href="https://github.com/energon-a-secas">Star on GitHub</a>
 </nav>
+
+<!-- data-stick="off": body is a 100vh overflow-hidden flex column — the app owns
+     layout, the footer takes its natural slot at the bottom of the flex. -->
+<footer class="neo-footer" data-footer-mode="app" data-stick="off">
+  Your maps stay in this browser.
+</footer>
 
 <script type="module" src="js/app.js"></script>
 </body>
