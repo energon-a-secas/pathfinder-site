@@ -1,14 +1,185 @@
 # Pathfinder
 
-> Visual strategy canvas with gap detection and AI prompt export
+> Visual strategy canvas. You map a piece of work as typed blocks and labelled
+> connections, then export it as a structured prompt that tells an assistant
+> where things stand before it tells it what to do.
 
 - Live: https://pathfinder.neorgon.com/
+- Format spec: this file
+- Walkthrough: https://pathfinder.neorgon.com/tutorial.html
 - Part of the Neorgon tool suite (free, no signup, runs in your browser): https://neorgon.com/
-- Keywords: strategy, canvas, ai-prompt, gap-detection
+- Keywords: strategy, canvas, ai-prompt, gap-detection, planning, investigation
+
+Everything runs client-side. No account, no backend, no telemetry. A canvas
+lives in the visitor's browser and travels as a file or a link.
+
+---
+
+## Two ways an LLM meets Pathfinder
+
+**1. You are handed an exported prompt.** It starts with `## Situation`. Read
+that section before anything else and take it literally: it tells you whether a
+codebase exists, whether you can reach it, and what to do first. The rest of the
+document is a plan somebody drew. It is not a record of what exists, and nothing
+in it is verified unless the Situation says so.
+
+The blocks most worth your attention are the ones people skim:
+
+- **Assumptions** are beliefs nobody has checked. If the Situation says you have
+  the repository open, several are probably settleable by reading it. Check
+  those rather than asking, and label each result verified or still open.
+- **Open Questions** are genuine unknowns. Answering them from a guess is the
+  main way a plan like this goes wrong.
+- **Connections** carry labels (`blocks`, `depends on`, `mitigates`). They are
+  the dependency order. Use them to sequence work rather than inventing an
+  order of your own.
+- A **Gap summary** at the end lists blocks the tool itself flagged as
+  unconnected or unsupported. Treat it as a list of things the author has not
+  finished thinking about.
+
+**2. You are asked to produce a canvas.** Emit the JSON below and the user
+imports it with Export ▾ → Import JSON. In the app, Export ▾ → **Copy AI
+diagram-builder prompt** gives the same instructions with the current schema
+inlined.
+
+---
+
+## Canvas JSON
+
+```json
+{
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "goal",
+      "title": "Short imperative phrase",
+      "description": "One or two sentences. What and why.",
+      "notes": "",
+      "x": 0, "y": 0,
+      "actions": ["validate"],
+      "questions": [{ "text": "Open question?", "answer": "" }],
+      "priority": "high",
+      "status": "in-progress",
+      "highlight": "alert"
+    }
+  ],
+  "arrows": [
+    { "id": "a1", "from": "b1", "to": "b2", "label": "depends on", "style": "routed" }
+  ],
+  "groups": [{ "id": "g1", "label": "Phase 1" }],
+  "meta": {
+    "title": "Canvas title",
+    "contextBrief": "One or two lines of framing",
+    "cardStyle": "outline",
+    "spotlight": false,
+    "situation": {
+      "codebase": "current",
+      "runtime": "code",
+      "firstMove": "read",
+      "repoHint": "org/repo",
+      "constraints": "One boundary per line"
+    }
+  }
+}
+```
+
+Only `id`, `type`, `title`, `x` and `y` are needed on a block; the rest default.
+Only `from` and `to` are needed on an arrow. Unknown fields and unknown enum
+values are dropped on import rather than rejected, so a partial canvas still
+loads. Positions can be rough: the user presses **Tidy** (or `L`) and the app
+lays the graph out properly.
+
+### Block types
+
+| `type` | Use for |
+|---|---|
+| `goal` | An outcome to achieve |
+| `problem` | A blocker or issue, stated as an observable symptom |
+| `requirement` | A hard constraint that must hold |
+| `assumption` | A belief being treated as true without having been checked |
+| `risk` | Something that could go wrong |
+| `decision` | A choice made, or one that needs making |
+| `question` | A genuine unknown |
+| `resource` | An available asset, tool, team, or budget |
+| `output` | An expected deliverable |
+| `process` | A step in a workflow |
+| `terminator` | The start or end of a workflow |
+| `context` | Background that frames the rest |
+| `custom` | Anything else. Prefer a real type; they produce better prompts |
+
+`assumption` versus `question`: an assumption is something you are acting on
+without checking, a question is something you know you do not know. The
+difference matters, because the export tells the reader to pressure-test the
+first and answer the second.
+
+### Other enums
+
+- `actions`: `resolve`, `prepare`, `recollect`, `reinforce`, `validate`
+- `priority`: `high`, `medium`, `low`
+- `status`: `not-started`, `in-progress`, `done`, `blocked`
+- `arrows[].style`: `routed` (default, steers around blocks), `curved`,
+  `straight`, `elbow`, `dashed`, `dotted`
+- `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
+- `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
+- `meta.situation.codebase`: `none`, `current`, `other`, `greenfield`
+- `meta.situation.runtime`: `chat`, `code`, `ide`
+- `meta.situation.firstMove`: `read`, `ask`, `plan`, `act`
+
+#### Highlights are presentation, not meaning
+
+`highlight` draws a coloured ring around a block, and `meta.spotlight` fades
+every block that does not have one. It exists for the moment a canvas gets
+shared or presented: five of thirty boxes are the point and the rest are
+context.
+
+Do not read meaning into a highlight, and do not set one to encode meaning. The
+block `type` carries what a block *is*; `priority` and `status` carry where it
+stands. A highlight only says somebody wanted it looked at. It is deliberately
+absent from the exported prompt for the same reason.
+
+## Prompt modes
+
+`Investigate` establishes what is true and demands evidence per finding.
+`Explore` surfaces gaps and asks questions. `Plan` produces a phased plan.
+`Build` renders requirements as a task checklist. `Clarify` returns only
+questions. The mode reshapes section order and the task directive, so pick the
+one that matches what you actually want back.
+
+---
+
+## Using it from a terminal session
+
+There is no CLI and no API. The exchange is a file or a link:
+
+1. Export ▾ → **Download JSON** puts `pathfinder.json` in your downloads. Hand
+   that to a session directly; it is the whole canvas, situation included.
+2. Export ▾ → **Download Markdown** gives a readable version with one section
+   per block type, labelled connections, and a Mermaid graph of the topology.
+3. **Copy AI-ready prompt** (the pill on the canvas) copies the assembled
+   prompt, Situation first.
+4. **Share** → Copy link encodes the entire canvas in the URL hash. Nothing is
+   uploaded; the link is the data.
+
+To go the other way, write the JSON above to a file and import it. A session
+that has just finished an investigation can emit a canvas of what it found, and
+the next session picks it up with the situation already set.
+
+## Using it as a skill
+
+The useful shape is: read the canvas, do the work the Situation permits, then
+write an updated canvas back. Two rules make that work.
+
+**Respect the Situation rather than re-deriving it.** If it says `codebase:
+none`, do not reason about files. If it says `runtime: chat`, do not claim to
+have read anything.
+
+**Return blocks, not prose.** An answered question becomes
+`questions[].answer`. A checked assumption becomes a `decision` with the
+evidence in its description, and the assumption is either deleted or marked.
+A newly discovered unknown becomes a `question` block wired to what it affects.
+That way the canvas accumulates what was learned instead of resetting each time.
 
 ## More Neorgon tools
 
 - [Neorgon hub](https://neorgon.com/): Browse and launch every tool from one page.
 - [Full suite index](https://neorgon.com/llms.txt): Machine-readable list of every Neorgon tool.
-
-<!-- generated by scripts/generate-llms.py — edits here are overwritten; to hand-author this file, delete this line -->

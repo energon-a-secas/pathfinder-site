@@ -34,6 +34,8 @@ The core loop is: **diagram first, then generate a brief**. The canvas makes imp
 
 ---
 
+**New here?** [Take the walkthrough](https://pathfinder.neorgon.com/tutorial.html) — one worked example from a vague bug report to a brief a coding assistant can act on.
+
 ## Usage
 
 No install or build step required.
@@ -77,13 +79,24 @@ Paste the prompt as the first message to any AI. You get focused output because 
 | **Goal** | violet `#a78bfa` | What you want to achieve |
 | **Problem** | rose `#f87171` | A blocker or issue |
 | **Requirement** | amber `#fbbf24` | What must be true or in place to proceed |
+| **Assumption** | gold `#eab308` | A belief you are treating as true without having checked it |
 | **Risk** | orange `#fb923c` | What might go wrong |
-| **Question** | sky `#38bdf8` | An unknown or assumption that still needs an answer |
+| **Open Question** | sky `#38bdf8` | A genuine unknown that still needs an answer |
 | **Decision** | emerald `#34d399` | A choice that has already been made |
 | **Resource** | teal `#2dd4bf` | An available asset, tool, or reference |
 | **Output** | indigo `#818cf8` | An expected result or deliverable |
+| **Process** | blue `#60a5fa` | A step in a workflow |
+| **Start / End** | pink `#f0abfc` | The bookends of a workflow |
 | **Context** | slate `#64748b` | Background information that frames other blocks |
-| **Custom** | fuchsia `#c084fc` | Anything that doesn't fit the other categories |
+| **Custom** | fuchsia `#d8b4fe` | Anything that doesn't fit the other categories |
+
+The palette shows a core six by default; the rest sit behind the **Advanced types**
+expander. Every type stays usable and none is ever removed, because dropping a type
+would drop the blocks that use it on the next load.
+
+**Card style.** The accent colour renders as a full border by default. Pick a
+different look for the whole canvas from **Cards** in the header, or override one
+block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 
 **Action badges** (set in the Inspector) attach intent to any block:
 
@@ -93,6 +106,7 @@ Paste the prompt as the first message to any AI. You get focused output because 
 | `prepare` | amber | You need to set something up before proceeding |
 | `recollect` | sky | You need to retrieve or recall information |
 | `reinforce` | green | You are strengthening or validating this point |
+| `validate` | gold | You need to test this before relying on it |
 
 ---
 
@@ -105,6 +119,13 @@ Paste the prompt as the first message to any AI. You get focused output because 
 | Select block | Click once |
 | Edit title | Double-click the block title |
 | Draw arrow | Drag from a port circle on a block edge |
+| Change where an arrow attaches | Select it, then pick a side under **Connection points**, or drag either endpoint handle |
+| Auto-arrange everything | **Tidy** in the header, or `L`. One `Cmd/Ctrl+Z` undoes the whole arrangement |
+| Change layout direction | The arrow button beside Tidy toggles left-to-right and top-to-bottom |
+| Align a selection | Select two or more blocks, then use Align / Distribute in the inspector |
+| Highlight for a presentation | Select blocks, pick a colour in the inspector. Spotlight fades the rest |
+| Select every block of one type | Right-click a block, "Select all Problems" |
+| Hide the header and footer | `H`. `Z` hides the side panels too |
 | Delete selected | `Delete` or `Backspace` key |
 | Duplicate block | `Cmd/Ctrl + D`, or "Duplicate Block" in the Inspector |
 | Pan canvas | Drag on empty canvas area |
@@ -121,13 +142,46 @@ Selecting a block opens its properties in the right panel:
 - **Type** — switch the block type with one click; the color and badge update immediately
 - **Title** — edit inline or in the inspector input
 - **Description** — a longer note shown on the canvas block
-- **Actions** — multi-select badges: Resolve, Prepare, Recollect, Reinforce
+- **Accent Color** and **Card style** — per-block overrides of the type colour and the canvas-wide card look
+- **Actions** — multi-select badges: Resolve, Prepare, Recollect, Reinforce, Validate
 - **Open Questions** — a list of specific unknowns attached to this block; each appears in the generated prompt
 - **Notes** — freeform annotation (not shown on the canvas block, for your reference only)
 
 Delete and Duplicate buttons are at the bottom of the inspector.
 
 ---
+
+## Highlights
+
+For the moment you share a canvas and five of its thirty boxes are the point.
+
+Select some blocks, pick a colour: **Alert** (pulsing red), **Focus** (blue),
+**Go** (green), **Hold** (amber), or **Festive** (a moving candy-cane border
+that nobody can ignore). Right-click a block and choose **Select all Problems**
+to mark a whole type in one action.
+
+**Spotlight** fades everything that is not highlighted, which is where the drama
+comes from: the contrast does the work, not the colour. Both travel with the
+canvas through share links and the image export.
+
+A highlight says "look here" and nothing more. The block type carries what a
+block is, and priority and status carry where it stands, so highlights stay out
+of the exported prompt on purpose.
+
+## Situation
+
+Before the goals, the prompt says where the tool is standing. Four choices in the
+Prompt tab, and the panel shows you the exact lines they produce:
+
+| Field | Options | Why it matters |
+|---|---|---|
+| Codebase | None yet, This repo, Elsewhere, Greenfield | With no code, every technical claim in the canvas is unverified and the prompt says so. With the repo open, the reader is told to read it and report where it disagrees with the canvas. |
+| Running in | Chat, Claude Code, IDE | Whether the reader can actually reach files, and whether it may claim to have read them. |
+| Start by | Reading the code, Asking questions, Proposing a plan, Getting to work | The first move, stated before the plan implies a different one. |
+| Boundaries | Free text, one per line | What is out of bounds. |
+
+This is the difference between a plan an assistant guesses at and one it acts on
+correctly. It travels with the canvas through save, share, and export.
 
 ## Prompt builder
 

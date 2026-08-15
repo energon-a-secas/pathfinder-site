@@ -24,16 +24,30 @@ Wire a block to an external doc, preview it inline, and turn its questions into 
 - `.canvas-viewport` → overflow-hidden, captures pointer events for pan/zoom
 - `.canvas-root` → transformed child (CSS translate + scale), holds blocks and arrows
 - Dot grid: radial gradient at 28px spacing, follows pan and zoom
-- Arrows: SVG layer (`.arrows-layer`) behind blocks; cubic Bézier paths with smart port selection
+- Arrows: SVG layer (`.arrows-layer`) behind blocks. Default style is `routed` (orthogonal, obstacle-avoiding); several arrows on one side get separate lanes
 - `MIN_ZOOM = 0.18`, `MAX_ZOOM = 2.6`
 
 **Key canvas functions:**
-- `applyTransform()` — applies pan + zoom CSS transform
+- `applyTransform()` — applies pan + zoom CSS transform, and debounce-saves the camera
 - `fitView()` — auto-centers and scales to show all blocks
 - `toWorld(vx, vy)` — converts viewport coords to world coords
-- `portPos(id, port)` — returns `{x, y, dir}` for a port on a block
-- `bestPorts(fromId, toId, fromPort, toPort)` — resolves endpoints; **pinned ports stay put, unpinned sides auto-route** by box position (`autoPorts` is the position-based fallback). Arrows store `fromPort`/`toPort` (null = auto). The header "Pin ports" toggle (`ui.pinPorts`, default ON, persisted) controls whether new connections pin the port the user drew from; the arrow inspector has an "Auto-route this connection" reset.
-- `buildPath(x1,y1,d1,x2,y2,d2)` — builds SVG cubic Bézier; control offset 55–130px
+- `portPos(id, port, index = 0, count = 1)` — `{x, y, dir}` for a port. With the default index/count it is the exact side midpoint; with `count > 1` it is that lane's slot along the side, inset 14px from the corners.
+- `bestPorts(fromId, toId, fromPort, toPort)` — resolves *which sides* an arrow uses. Pinned ports stay put, unpinned sides auto-route by box position (`autoPorts` is the position-based fallback). The header "Pin ports" toggle (`ui.pinPorts`, default ON, persisted) controls whether new connections pin the port the user drew from.
+- **`resolveRoutes({ cheap })` — the single source of arrow geometry.** Both `renderArrows()` and the SVG exporter call it, which is what keeps an exported diagram identical to the one on screen. It resolves sides, buckets endpoints by `(block, side)`, orders each bucket by where its far end sits (so lanes fan out without crossing), assigns lane coordinates, and routes `routed` arrows. `cheap: true` skips the router; `renderArrows` passes it automatically while `pointer.ix` is set, and `events.js` re-renders once on pointerup.
+- `pathFor(pts, style)` — the path string for one resolved arrow. `routed` uses the router's polyline; everything else falls through to `buildPath`.
+- `buildPath(x1,y1,d1,x2,y2,d2,style)` — the primitive shapes. `curved` is a cubic Bézier with a 55–130px control offset. `elbow` reads **both** end directions: two bends when the ends share an axis, one when they do not.
+- `colorMarker(color, back)` — mints an arrowhead marker per colour on demand. The ten markers in `index.html` bake their fill in, so a recoloured arrow used to keep a white head.
+
+**Routing (`route.js`).** Pure geometry, no DOM, no app state. `routeOrtho(pts, obstacles, opts)` stubs 22px off each port, builds a lattice from every obstacle's inflated edges plus the stub coordinates, and runs A* over it. Cost is length plus a 45px penalty per direction change, so it buys straightness rather than the shortest path. State is `(node, incoming direction)` because the turn penalty makes cost path-dependent.
+
+Three behaviours worth knowing before changing it:
+- **It excludes obstacles that already contain a stub.** Such a block cannot be routed around; every edge in or out of that endpoint would be impassable and the search would fail outright, leaving the arrow undrawn.
+- **It declines rather than churning.** Past `maxNodes` it returns `null` and the caller falls back to `elbow`.
+- **Routes are cached** against a fingerprint of every block's box, so panning and selecting recompute nothing.
+
+**Auto-layout (`layout.js`).** `layoutGraph(nodes, edges, opts)` is pure: sizes in, positions out. Four stages — break cycles (DFS, reverse back edges), assign layers (longest path, then a tightening pass that pulls dangling inputs next to what they feed), order within layers (median heuristic, alternating sweeps, keeping the best ordering rather than the last), assign coordinates (stack by measured size, then straighten toward neighbour medians). Unconnected blocks are parked in a trailing lane. `tidyCanvas()` is the app wrapper: it takes **exactly one `snapshot()`**, so one Cmd+Z restores the whole arrangement.
+
+Two constraints the layout has to live with: **block heights are never stored** (`getBlockDims` measures the live DOM), so layout cannot run headlessly; and pinned `fromPort`/`toPort` values would fight a new arrangement, so `tidyCanvas` rewrites them along the flow.
 
 ---
 
@@ -68,7 +82,15 @@ Prompt is cached; `promptDirty` flag triggers re-generation only when canvas cha
 
 **`js/state.js`:** `genId()` · `saveState()` · `loadState()` · `mutateBlock(id, changes)` · `createBlock(type, wx, wy)` · `deleteBlock(id)` · `duplicateBlock(id)`
 
-**`js/canvas.js`:** `applyTransform()` · `fitView()` · `toWorld(vx, vy)` · `portPos(id, port)` · `bestPorts(fromId, toId)` · `buildPath(...)` · `renderArrows()` · `updateHint()`
+**`js/canvas.js`:** `applyTransform()` · `fitView()` · `toWorld(vx, vy)` · `portPos(id, port, index, count)` · `bestPorts(fromId, toId)` · `resolveRoutes(opts)` · `pathFor(pts, style)` · `buildPath(...)` · `colorMarker(...)` · `renderArrows(opts)` · `updateHint()`
+
+**`js/route.js`:** `routeOrtho(pts, obstacles, opts)` · `polyToPath(points, r)` · `polyMidpoint(points)` · `simplify(points)`
+
+**`js/layout.js`:** `layoutGraph(nodes, edges, opts)` · `tidyCanvas({ direction })` · `breakCycles()` · `assignLayers()` · `orderLayers()`
+
+**`js/align.js`:** `findGuides(moving, statics, tol)` · `guidesForDrag(ids)` · `alignSelection(ids, mode)` · `distributeSelection(ids, axis)`
+
+**`js/chrome.js`:** `toggleChrome()` · `toggleZen()` · `setupChrome()`
 
 **`js/render.js`:** `renderBlock(id)` · `renderAllBlocks()` · `renderInspector()` · `updateCanvasTitle()` · `selectBlock(id)` · `selectArrow(id)` · `deselectAll()`
 
@@ -76,4 +98,6 @@ Prompt is cached; `promptDirty` flag triggers re-generation only when canvas cha
 
 **`js/prompt.js`:** `generatePrompt()` · `refreshPrompt()`
 
-**`js/utils.js`:** `escHtml(s)` · `clamp(v, lo, hi)` · `debounce(fn, ms)` · `getBlockEl(id)` · `getBlockDims(id)`
+**`js/utils.js`:** `escHtml(s)` · `clamp(v, lo, hi)` · `debounce(fn, ms)` · `getBlockEl(id)` · `getBlockDims(id)` · `CARD_STYLES` · `BORDER_WIDTHS`
+
+**`js/state.js`:** `snapTo(v, grid)` rounds half **away from zero**, so the grid behaves the same above and below the origin (`Math.round` breaks halves toward +Infinity, which made -14 and +14 snap differently).
