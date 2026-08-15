@@ -2,7 +2,7 @@
 //  app.js — Entry point: imports everything, initializes
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, loadState } from './state.js'
+import { state, ui, canvasMeta, loadState, loadView } from './state.js'
 import { applyTransform, fitView, updateHint, renderArrows, renderFrames } from './canvas.js'
 import { renderAllBlocks, renderInspector, updateCanvasTitle } from './render.js'
 import { runGapDetection } from './gaps.js'
@@ -13,12 +13,13 @@ import {
   setupTypeChips, setupBrainDump
 } from './events.js'
 import { setupContextMenu } from './context-menu.js'
+import { setupChrome } from './chrome.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
   setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme,
-  setupContextBrief, setupCopyPill, refreshReadinessVerdict, setupPanelCollapse
+  setupContextBrief, setupCopyPill, refreshReadinessVerdict, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -60,6 +61,11 @@ function init() {
     document.body.classList.add('tinted-blocks')
     document.getElementById('tintBtn')?.classList.add('active')
   }
+  // Restore the camera. A share link brings its own canvas, so that case
+  // still fits to the diagram rather than reusing wherever you last were.
+  const fromShare = location.hash.startsWith('#s=')
+  const restoredView = !fromShare && loadView()
+  if (canvasMeta.spotlight) document.body.classList.add('spotlight')
   applyTransform()
 
   // Wire up all event handlers
@@ -90,6 +96,10 @@ function init() {
   setupContextBrief()
   setupCopyPill()
   setupPanelCollapse()
+  setupTidy()
+  setupCardStyles()
+  setupSituation()
+  setupChrome()
 
   renderAllBlocks()
   updateHint()
@@ -97,7 +107,7 @@ function init() {
     renderArrows()
     renderFrames()
     runGapDetection()
-    if (Object.keys(state.blocks).length) fitView()
+    if (!restoredView && Object.keys(state.blocks).length) fitView()
     renderInspector()
     refreshPrompt()
     refreshReadinessVerdict()

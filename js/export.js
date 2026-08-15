@@ -3,12 +3,12 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, canvasMeta, saveState } from './state.js'
-import { $, TYPES, genId, getAllVotes, SVG_ICONS } from './utils.js'
+import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, SVG_ICONS } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
-import { generatePrompt, refreshPrompt } from './prompt.js'
+import { generatePrompt, refreshPrompt, situationSection } from './prompt.js'
 
 // ── Import JSON ───────────────────────────────────────────────
 /**
@@ -26,6 +26,16 @@ export function applyImport(data, mode) {
     $.arrowsGroup().innerHTML = ''
     $.framesLayer()?.querySelectorAll('.frame').forEach(el => el.remove())
     selection.ids.clear(); selection.blockId = null; selection.arrowId = null; selection.groupId = null
+
+    // Canvas-level settings land before any block renders, because renderBlock
+    // resolves each card against canvasMeta.cardStyle. A merge deliberately
+    // keeps the existing framing: the canvas being merged into is the one
+    // somebody set up.
+    if (clean.meta.title) canvasMeta.title = clean.meta.title
+    canvasMeta.contextBrief = clean.meta.contextBrief || ''
+    canvasMeta.cardStyle = clean.meta.cardStyle || DEFAULT_CARD_STYLE
+    canvasMeta.spotlight = !!clean.meta.spotlight
+    canvasMeta.situation = { ...SITUATION_DEFAULT, ...(clean.meta.situation || {}) }
   }
 
   // Build ID remap (merge needs fresh IDs to avoid collisions)
@@ -69,11 +79,6 @@ export function applyImport(data, mode) {
     }
   })
 
-  if (mode === 'replace') {
-    if (clean.meta.title) canvasMeta.title = clean.meta.title
-    canvasMeta.contextBrief = clean.meta.contextBrief || ''
-  }
-
   updateHint()
   requestAnimationFrame(() => {
     renderArrows(); renderFrames(); runGapDetection()
@@ -95,13 +100,27 @@ export function exportJSON() {
 
 // ── Export Markdown ──────────────────────────────────────────
 export function exportMarkdown() {
-  const order   = ['goal','problem','requirement','risk','question','decision','resource','output','process','terminator']
+  // Every type in the registry gets a section. Leaving one out silently drops
+  // those blocks from the file, which is how assumptions, context and custom
+  // blocks used to vanish on export.
+  const order   = ['goal','problem','requirement','assumption','risk','question','decision',
+                   'resource','output','process','terminator','context','custom']
   const headings = { goal:'Goals', problem:'Problems / Blockers', requirement:'Requirements',
-    risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs',
-    process:'Workflow Steps', terminator:'Workflow Start / End' }
+    assumption:'Assumptions (validate before building)', risk:'Risks', question:'Open Questions',
+    decision:'Decisions', resource:'Resources', output:'Outputs',
+    process:'Workflow Steps', terminator:'Workflow Start / End', context:'Context', custom:'Other' }
+  const missing = Object.keys(TYPES).filter(t => !order.includes(t))
+  if (missing.length) order.push(...missing)
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
-  let md = `# Pathfinder Canvas\n_${new Date().toLocaleDateString()}_\n\n`
+  const title = (canvasMeta.title || '').trim() || 'Pathfinder Canvas'
+  let md = `# ${title}\n_${new Date().toLocaleDateString()}_\n\n`
+  // The markdown export gets handed to sessions too, so it carries the same
+  // framing the prompt does. A plan read without its situation is a plan that
+  // gets acted on wrongly, whichever file format it arrived in.
+  md += situationSection()
+  const brief = (canvasMeta.contextBrief || '').trim()
+  if (brief) md += `## Engagement Context\n${brief}\n\n`
   order.forEach(t => {
     const items = byType[t]; if (!items?.length) return
     md += `## ${headings[t]}\n\n`
@@ -129,12 +148,50 @@ export function exportMarkdown() {
     md += '## Connections\n\n'
     state.arrows.forEach(a => {
       const f = state.blocks[a.from], t = state.blocks[a.to]
-      if (f && t) md += `- **${f.title}** \u2192 **${t.title}**\n`
+      if (!f || !t) return
+      // Labels and notes round-trip through JSON but used to be thrown away
+      // here, so the exported list said what connected to what and never why.
+      const label = (a.label || '').trim()
+      const note  = (a.note  || '').trim().replace(/\s*\n\s*/g, ' ')
+      const arrow = a.bidirectional ? '\u2194' : '\u2192'
+      md += `- **${f.title}** ${arrow} **${t.title}**`
+      if (label) md += ` — _${label}_`
+      md += '\n'
+      if (note) md += `  - ${note}\n`
     })
+    md += '\n'
+    md += mermaidBlock()
   }
   const blob = new Blob([md], { type: 'text/markdown' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
   a.download = 'pathfinder.md'; a.click(); URL.revokeObjectURL(a.href)
+}
+
+/**
+ * A Mermaid graph of the same connections.
+ *
+ * The flat list above says what links to what, one pair at a time. A reader
+ * (or an AI being handed this file) has to rebuild the shape in their head
+ * from it. The graph states the shape directly, and Mermaid renders natively
+ * in GitHub, Obsidian and most Markdown viewers.
+ */
+function mermaidBlock() {
+  const ids = new Map()
+  const key = id => {
+    if (!ids.has(id)) ids.set(id, 'n' + (ids.size + 1))
+    return ids.get(id)
+  }
+  const clean = s => String(s || 'Untitled').replace(/["\\]/g, '').replace(/\s+/g, ' ').slice(0, 60)
+  const lines = []
+  state.arrows.forEach(a => {
+    const f = state.blocks[a.from], t = state.blocks[a.to]
+    if (!f || !t) return
+    const label = (a.label || '').trim()
+    const edge = a.bidirectional ? '<-->' : '-->'
+    lines.push(`  ${key(a.from)}["${clean(f.title)}"] ${edge}${label ? `|${clean(label)}|` : ''} ${key(a.to)}["${clean(t.title)}"]`)
+  })
+  if (!lines.length) return ''
+  return '```mermaid\ngraph LR\n' + lines.join('\n') + '\n```\n\n'
 }
 
 // ── Export copy prompt ───────────────────────────────────────

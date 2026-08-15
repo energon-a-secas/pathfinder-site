@@ -3,8 +3,43 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, devOpts, promptState, canvasMeta } from './state.js'
-import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, escHtml } from './utils.js'
+import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml } from './utils.js'
 import { runGapDetection } from './gaps.js'
+
+/**
+ * The standing brief: what this document is, and where the reader is standing.
+ *
+ * A canvas handed over without this gets acted on wrongly. An assistant with
+ * the repository open should go read it rather than take the canvas at face
+ * value; one in a chat window should not pretend it has. This section says
+ * which of those is true before the plan gets a chance to imply otherwise.
+ */
+export function situationSection() {
+  const sit = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}) }
+  const lines = [
+    'This is a planning canvas exported from Pathfinder. It is a plan, not a codebase, and not a record of what exists. Everything below is what somebody mapped out; none of it is verified unless this section says otherwise.',
+  ]
+
+  const pick = (field, key) => SITUATION_FIELDS[field]?.options?.[key]?.line
+  const codebase = pick('codebase', sit.codebase)
+  if (codebase) {
+    const hint = (sit.repoHint || '').trim()
+    lines.push(codebase + (hint ? ` The code in question: ${hint}.` : ''))
+  }
+  const runtime = pick('runtime', sit.runtime)
+  if (runtime) lines.push(runtime)
+  const firstMove = pick('firstMove', sit.firstMove)
+  if (firstMove) lines.push(firstMove)
+
+  let out = '## Situation\n' + lines.map(l => `- ${l}`).join('\n') + '\n'
+
+  const constraints = (sit.constraints || '').trim()
+  if (constraints) {
+    out += '\n### Constraints and boundaries\n' + constraints.split(/\r?\n/)
+      .map(l => l.trim()).filter(Boolean).map(l => `- ${l}`).join('\n') + '\n'
+  }
+  return out + '\n'
+}
 
 // ── Prompt generation ────────────────────────────────────────
 export function generatePrompt() {
@@ -118,6 +153,7 @@ export function generatePrompt() {
   // turns requirements/outputs into checklists and drops framing-only types.
   const ORDERS = {
     plan:    ['context','goals','problems','requirements','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
+    investigate: ['context','problems','questions','assumptions','goals','requirements','risks','decisions','resources','flow','outputs','custom'],
     explore: ['assumptions','questions','goals','problems','requirements','risks','context','decisions','resources','outputs','flow','custom'],
     build:   ['goals','reqTasks','assumptions','problems','risks','decisions','flow','outputTasks'],
     clarify: ['questions','assumptions','goals','problems','requirements','risks','decisions','context','flow'],
@@ -129,6 +165,14 @@ export function generatePrompt() {
 
   // 1. Mode directive
   const modeDirectives = {
+    investigate:
+      '## Task\nInvestigate. Establish what is actually true before anything is changed or proposed. ' +
+      'Work outward from the Problems and Open Questions below.\n\n' +
+      'For each finding, state the evidence you based it on. Where you could not establish something, say so plainly ' +
+      'rather than filling the gap with a plausible guess \u2014 an unmarked guess in an investigation is worse than an ' +
+      'admitted unknown.\n' +
+      'Where this canvas and reality disagree, report the disagreement; do not quietly reconcile it.\n' +
+      'Do not write fixes yet. Close with what you would need in order to be sure.\n',
     explore:
       '## Task\nReview this strategy canvas and surface gaps, assumptions, and missing connections. ' +
       'Ask clarifying questions rather than proposing solutions. Highlight what is unclear or contradictory. ' +
@@ -149,11 +193,18 @@ export function generatePrompt() {
       'Return no more than 15 questions, prioritized by blocking status.\n' +
       'Close with a one-paragraph Readiness Assessment.\n'
   }
-  let prompt = (modeDirectives[mode] || modeDirectives.plan) + '\n'
+  let prompt = situationSection() + (modeDirectives[mode] || modeDirectives.plan) + '\n'
 
-  // Standing directive: assumptions are bets, not facts.
+  // Standing directive: assumptions are bets, not facts. When the reader can
+  // actually reach the code, checking beats asking, and saying so is the
+  // difference between a useful answer and a list of questions.
   if (byType.assumption?.length) {
-    prompt += 'Treat each Assumption below as believed-true-until-disproven; explicitly confirm or challenge each one before relying on it.\n\n'
+    const sit = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}) }
+    const canCheck = sit.codebase === 'current' && (sit.runtime === 'code' || sit.runtime === 'ide')
+    prompt += 'Treat each Assumption below as believed-true-until-disproven. Confirm or challenge each one explicitly before relying on it.\n'
+    prompt += canCheck
+      ? 'Several of them are probably settleable from the repository you have open. Check those against the code and label each result verified or still open, rather than asking about something you could have read.\n\n'
+      : 'You cannot verify these from here, so do not treat any of them as established. Say which ones would change the plan most if they turned out to be wrong.\n\n'
   }
 
   // 2. Dev option instructions \u2014 suppressed in Clarify (no implementation yet)

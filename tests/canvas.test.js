@@ -4,7 +4,8 @@
 
 import { describe, it, assert, mockBlockEl, cleanupMockEls } from './test-utils.js'
 import { state } from '../js/state.js'
-import { portPos, bestPorts, buildPath, cpOffset, blockAtWorld, blocksInRect } from '../js/canvas.js'
+import { portPos, bestPorts, buildPath, pathFor, cpOffset, blockAtWorld, blocksInRect,
+         resolveRoutes } from '../js/canvas.js'
 import { DEFAULT_WIDTH } from '../js/utils.js'
 
 // Default block dims when no DOM element: { w: 220, h: 100 }
@@ -317,5 +318,91 @@ describe('blocksInRect()', () => {
     addBlock('b3', 300, 300)
     const found = blocksInRect(0, 0, 600, 600)
     assert.eq(found.length, 3)
+  })
+})
+
+// ── Port lanes ───────────────────────────────────────────────
+
+describe('portPos() -- lanes', () => {
+  it('returns the exact midpoint for a single connection', () => {
+    resetCanvas()
+    addBlock('b1', 0, 0)
+    const solo = portPos('b1', 'right')
+    const explicit = portPos('b1', 'right', 0, 1)
+    assert.eq(solo.y, DH / 2)
+    assert.eq(explicit.y, solo.y)
+  })
+
+  it('spreads several connections along the side in order', () => {
+    resetCanvas()
+    addBlock('b1', 0, 0)
+    const ys = [0, 1, 2].map(i => portPos('b1', 'right', i, 3).y)
+    assert.ok(ys[0] < ys[1], 'lane 0 should sit above lane 1')
+    assert.ok(ys[1] < ys[2], 'lane 1 should sit above lane 2')
+  })
+
+  it('keeps every lane inside the block', () => {
+    resetCanvas()
+    addBlock('b1', 0, 0)
+    for (let i = 0; i < 6; i++) {
+      const p = portPos('b1', 'right', i, 6)
+      assert.ok(p.y > 0 && p.y < DH, `lane ${i} should be inside the block, got ${p.y}`)
+    }
+  })
+
+  it('spreads horizontally on the top and bottom sides', () => {
+    resetCanvas()
+    addBlock('b1', 0, 0)
+    const xs = [0, 1].map(i => portPos('b1', 'top', i, 2).x)
+    assert.ok(xs[0] < xs[1])
+    assert.ok(xs[0] > 0 && xs[1] < DW)
+  })
+
+  it('centres the middle lane of an odd fan', () => {
+    resetCanvas()
+    addBlock('b1', 0, 0)
+    assert.eq(portPos('b1', 'right', 1, 3).y, DH / 2)
+  })
+})
+
+describe('resolveRoutes()', () => {
+  it('gives every arrow its own lane on a shared side', () => {
+    resetCanvas()
+    addBlock('hub', 400, 200)
+    addBlock('s1', 0, 0)
+    addBlock('s2', 0, 200)
+    addBlock('s3', 0, 400)
+    state.arrows = ['s1', 's2', 's3'].map((id, i) => ({
+      id: 'a' + i, from: id, to: 'hub', style: 'curved',
+      weight: 2, bidirectional: false, color: null, fromPort: null, toPort: null,
+    }))
+    const routes = resolveRoutes({ cheap: true })
+    const ys = ['a0', 'a1', 'a2'].map(id => routes.get(id).y2)
+    assert.eq(new Set(ys).size, 3, 'three arrows into one side should land on three points')
+    assert.eq(routes.get('a0').toLaneCount, 3, 'the crowded end should report its fan size')
+    assert.eq(routes.get('a0').fromLaneCount, 1, 'the source side carries one arrow each')
+    assert.eq(routes.get('a0').laneCount, 3, 'label spread should follow the crowded end')
+  })
+
+  it('skips arrows whose endpoints are gone', () => {
+    resetCanvas()
+    addBlock('b1', 0, 0)
+    state.arrows = [{ id: 'a1', from: 'b1', to: 'ghost', style: 'curved', weight: 2,
+                      bidirectional: false, color: null, fromPort: null, toPort: null }]
+    assert.eq(resolveRoutes({ cheap: true }).size, 0)
+  })
+})
+
+describe('buildPath() -- elbow entry side', () => {
+  it('uses one bend when the two ends face different axes', () => {
+    // Leaving right and arriving from above needs a single corner. Using only
+    // the start direction produced a path that approached from the wrong side.
+    const d = buildPath(0, 0, 'right', 200, 100, 'top', 'elbow')
+    assert.eq(d, 'M 0 0 H 200 V 100')
+  })
+
+  it('still uses two bends when both ends are horizontal', () => {
+    const d = buildPath(0, 0, 'right', 200, 100, 'left', 'elbow')
+    assert.eq(d, 'M 0 0 H 100 V 100 H 200')
   })
 })

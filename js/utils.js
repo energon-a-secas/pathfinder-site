@@ -19,6 +19,94 @@ export const TYPES = {
   custom:      { label: 'Custom',        color: '#d8b4fe' }
 }
 
+// Card presets. `bar` is the original 3px left stripe, kept so canvases built
+// in it can stay that way; `outline` is the default now.
+export const CARD_STYLES = {
+  outline: { label: 'Outline', hint: 'Accent border on all four sides' },
+  bar:     { label: 'Accent bar', hint: 'Colour stripe down the left edge' },
+  header:  { label: 'Header', hint: 'Colour fills the title strip' },
+  tint:    { label: 'Tinted', hint: 'Accent wash across the card' },
+  plain:   { label: 'Plain', hint: 'Neutral edge, colour in the badge only' },
+}
+export const DEFAULT_CARD_STYLE = 'outline'
+export const BORDER_WIDTHS = [1, 1.5, 2, 3]
+
+/**
+ * Where the tool is standing when the canvas gets handed over.
+ *
+ * A canvas is a plan, and a plan read without its situation gets acted on
+ * wrongly: an assistant with the repository open should go read it, one in a
+ * chat window should not pretend it has. Each option owns the sentence it
+ * contributes to the prompt, so the copy lives next to the choice rather than
+ * being assembled somewhere else.
+ */
+/**
+ * Presentation highlights.
+ *
+ * Not semantics: a highlight says "look here", nothing more. The block types
+ * already carry meaning, and overloading colour with a second meaning is how a
+ * diagram stops being readable. This is for the moment you share a canvas and
+ * need five of its thirty boxes to be the ones people actually look at.
+ */
+export const HIGHLIGHTS = {
+  alert:   { label: 'Alert',   color: '#f87171', hint: 'Pulsing red. The thing you want looked at first.' },
+  focus:   { label: 'Focus',   color: '#38bdf8', hint: 'Steady blue ring. "This is what we are discussing."' },
+  go:      { label: 'Go',      color: '#34d399', hint: 'Green. Settled, agreed, or done.' },
+  hold:    { label: 'Hold',    color: '#fbbf24', hint: 'Amber. Blocked, or waiting on somebody.' },
+  festive: { label: 'Festive', color: '#f472b6', hint: 'A moving candy-cane border. Impossible to ignore, which is the point.' },
+}
+
+export const SITUATION_FIELDS = {
+  codebase: {
+    label: 'Codebase',
+    hint: 'what code exists, and whether you can see it',
+    options: {
+      none: { label: 'None yet',
+        line: 'There is no codebase yet. Nothing in this canvas can be checked against source, so treat every technical claim in it as unverified.' },
+      current: { label: 'This repo',
+        line: 'The relevant repository is open to you. Read it before trusting this canvas: the canvas records what somebody believed, the repository is what is actually there. Where the two disagree, the repository wins and the disagreement is worth reporting.' },
+      other: { label: 'Elsewhere',
+        line: 'The code exists but you do not have it open. Ask for access rather than reasoning about contents you cannot see.' },
+      greenfield: { label: 'Greenfield',
+        line: 'This is greenfield work. There is no existing implementation to respect or work around.' },
+    },
+  },
+  runtime: {
+    label: 'Running in',
+    hint: 'what the assistant can actually reach',
+    options: {
+      chat: { label: 'Chat',
+        line: 'You are in a chat window with no file or shell access. Do not assert anything about code you have not been shown.' },
+      code: { label: 'Claude Code',
+        line: 'You are running in Claude Code with file and shell access. Prefer reading the repository over asking about it, and cite file paths for any claim you make about the code.' },
+      ide: { label: 'IDE',
+        line: 'You are an assistant inside an editor with the project open. Ground your answers in the files you can actually read.' },
+    },
+  },
+  firstMove: {
+    label: 'Start by',
+    hint: 'the first thing to do, before anything else',
+    options: {
+      read: { label: 'Reading the code',
+        line: 'Start by reading the code. Reconcile it against this canvas and report what does not match before proposing anything.' },
+      ask: { label: 'Asking questions',
+        line: 'Start by asking. Return your questions and stop; do not analyse or build until they are answered.' },
+      plan: { label: 'Proposing a plan',
+        line: 'Start by proposing a plan and waiting for a yes before acting on it.' },
+      act: { label: 'Getting to work',
+        line: 'Start work directly. Ask only where this canvas is genuinely ambiguous.' },
+    },
+  },
+}
+
+export const SITUATION_DEFAULT = {
+  codebase: 'none',
+  runtime: 'chat',
+  firstMove: 'plan',
+  repoHint: '',
+  constraints: '',
+}
+
 export const STORAGE_KEY    = 'pathfinder-v1'
 export const DEFAULT_WIDTH  = 220
 export const MIN_ZOOM       = 0.18

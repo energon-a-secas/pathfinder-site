@@ -4,7 +4,7 @@
 // ============================================================
 
 import { describe, it, assert, mockBlockEl, cleanupMockEls } from './test-utils.js'
-import { state, ui } from '../js/state.js'
+import { state, ui, canvasMeta } from '../js/state.js'
 import { buildSvg } from '../js/image-export.js'
 
 function reset() {
@@ -13,6 +13,7 @@ function reset() {
   state.arrows = []
   state.groups = {}
   ui.lightMode = false
+  canvasMeta.cardStyle = 'outline'
 }
 
 function addBlock(id, type, title, opts = {}) {
@@ -57,8 +58,21 @@ describe('buildSvg() -- structure', () => {
     assert.includes(svg, 'Alpha')
     assert.includes(svg, 'Beta')
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
-    // background rect + 2 card rects + 2 accent bars = 5 rects minimum
-    assert.gte(doc.querySelectorAll('rect').length, 5)
+    // background rect + one card rect per block. The default `outline` preset
+    // carries its colour in the border, so there is no separate accent bar.
+    assert.gte(doc.querySelectorAll('rect').length, 3)
+  })
+
+  it('draws an accent bar only for the accent-bar preset', () => {
+    reset()
+    addBlock('g1', 'goal', 'Alpha')
+    const outlineRects = new DOMParser()
+      .parseFromString(buildSvg().svg, 'image/svg+xml').querySelectorAll('rect').length
+    canvasMeta.cardStyle = 'bar'
+    const barRects = new DOMParser()
+      .parseFromString(buildSvg().svg, 'image/svg+xml').querySelectorAll('rect').length
+    canvasMeta.cardStyle = 'outline'
+    assert.eq(barRects, outlineRects + 1)
   })
 
   it('renders one path per valid arrow', () => {

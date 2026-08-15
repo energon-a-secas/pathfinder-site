@@ -9,12 +9,16 @@
 //  items (no id/type) are dropped and counted.
 // ════════════════════════════════════════════════════════════
 
-import { TYPES, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS } from './utils.js'
+import { TYPES, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
+         CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS,
+         SITUATION_FIELDS, SITUATION_DEFAULT, HIGHLIGHTS } from './utils.js'
 
 const VALID_ACTIONS   = Object.keys(ACTION_DEFS)
 const VALID_STATUSES  = Object.keys(STATUS_DEFS)
 const VALID_PRIORITIES = Object.keys(PRIORITY_DEFS)
-const VALID_ARROW_STYLES = ['curved', 'straight', 'elbow', 'dashed', 'dotted']
+const VALID_ARROW_STYLES = ['curved', 'straight', 'elbow', 'routed', 'dashed', 'dotted']
+const VALID_CARD_STYLES = Object.keys(CARD_STYLES)
+const VALID_HIGHLIGHTS = Object.keys(HIGHLIGHTS)
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/
 
 function toStr(v) {
@@ -93,6 +97,12 @@ export function normalizeBlock(raw) {
     groupId: raw.groupId != null ? toStr(raw.groupId) : null,
     status: VALID_STATUSES.includes(raw.status) ? raw.status : null,
     priority: VALID_PRIORITIES.includes(raw.priority) ? raw.priority : null,
+    // null on both means "inherit the canvas default", which is what an old
+    // canvas gets, and what most blocks should keep.
+    cardStyle: VALID_CARD_STYLES.includes(raw.cardStyle) ? raw.cardStyle : null,
+    borderWidth: BORDER_WIDTHS.includes(toFiniteNum(raw.borderWidth, null)) ? toFiniteNum(raw.borderWidth, null) : null,
+    // Presentation only. null means "not highlighted", which is nearly always.
+    highlight: VALID_HIGHLIGHTS.includes(raw.highlight) ? raw.highlight : null,
   }
 }
 
@@ -122,6 +132,22 @@ export function normalizeArrow(raw) {
   }
 }
 
+/**
+ * Coerce the engagement situation. Unknown keys fall back to the default
+ * rather than being dropped, because a missing situation is worse than a
+ * conservative one: the prompt would simply stop saying where things stand.
+ */
+export function normalizeSituation(raw) {
+  const out = { ...SITUATION_DEFAULT }
+  if (!raw || typeof raw !== 'object') return out
+  Object.keys(SITUATION_FIELDS).forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(SITUATION_FIELDS[key].options, raw[key])) out[key] = raw[key]
+  })
+  out.repoHint = toStr(raw.repoHint).slice(0, 300)
+  out.constraints = toStr(raw.constraints).slice(0, 1000)
+  return out
+}
+
 function normalizeGroup(raw) {
   if (!raw || typeof raw !== 'object') return null
   const id = toStr(raw.id).trim()
@@ -136,7 +162,7 @@ function normalizeGroup(raw) {
  */
 export function normalizeCanvas(data) {
   const dropped = { blocks: 0, arrows: 0, groups: 0 }
-  const result = { blocks: {}, arrows: [], groups: {}, meta: { title: '', contextBrief: '' } }
+  const result = { blocks: {}, arrows: [], groups: {}, meta: { title: '', contextBrief: '', cardStyle: DEFAULT_CARD_STYLE, spotlight: false, situation: { ...SITUATION_DEFAULT } } }
   if (!data || typeof data !== 'object') return { ...result, dropped }
 
   const rawBlocks = Array.isArray(data.blocks)
@@ -170,7 +196,13 @@ export function normalizeCanvas(data) {
   })
 
   if (data.meta && typeof data.meta === 'object') {
-    result.meta = { title: toStr(data.meta.title), contextBrief: toStr(data.meta.contextBrief) }
+    result.meta = {
+      title: toStr(data.meta.title),
+      contextBrief: toStr(data.meta.contextBrief),
+      cardStyle: VALID_CARD_STYLES.includes(data.meta.cardStyle) ? data.meta.cardStyle : DEFAULT_CARD_STYLE,
+      spotlight: !!data.meta.spotlight,
+      situation: normalizeSituation(data.meta.situation),
+    }
   }
 
   return { ...result, dropped }

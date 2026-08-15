@@ -7,9 +7,9 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, toWorld } from './state.js'
-import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, getBlockEl } from './utils.js'
+import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
 import {
-  duplicateBlock, deleteBlock, mutateBlock, selectBlock, createBlock,
+  duplicateBlock, deleteBlock, mutateBlock, selectBlock, setSelection, createBlock,
 } from './render.js'
 
 let menuEl = null
@@ -36,8 +36,18 @@ function colorSwatchList() {
     ).join('')
 }
 
+function highlightSwatchList() {
+  return `<button class="ctx-color-opt ctx-color-reset" role="menuitem" data-ctx-hl="" title="No highlight" aria-label="No highlight"></button>` +
+    Object.entries(HIGHLIGHTS).map(([key, h]) =>
+      `<button class="ctx-color-opt${key === 'festive' ? ' hl-swatch-festive' : ''}" role="menuitem" data-ctx-hl="${key}"` +
+      `${key === 'festive' ? '' : ` style="background:${h.color}"`} title="${h.label} — ${h.hint}" aria-label="${h.label}"></button>`
+    ).join('')
+}
+
 function buildMenu(id) {
   const b = state.blocks[id]; if (!b) return null
+  const sameType = Object.values(state.blocks).filter(x => x.type === b.type).length
+  const typeLabel = TYPES[b.type]?.label || b.type
   const menu = document.createElement('div')
   menu.className = 'ctx-menu'
   menu.setAttribute('role', 'menu')
@@ -58,6 +68,16 @@ function buildMenu(id) {
       <svg class="ctx-caret" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
       <div class="ctx-submenu ctx-submenu-colors" data-ctx-submenu="color">${colorSwatchList()}</div>
     </div>
+    <div class="ctx-item ctx-has-sub" role="menuitem" tabindex="0" aria-haspopup="true" data-ctx-sub="highlight">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/></svg>
+      Highlight
+      <svg class="ctx-caret" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      <div class="ctx-submenu ctx-submenu-colors" data-ctx-submenu="highlight">${highlightSwatchList()}</div>
+    </div>
+    ${sameType > 1 ? `<button class="ctx-item" role="menuitem" data-ctx-action="select-type">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h2V3c-1.1 0-2 .9-2 2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2c0-1.1-.9-2-2-2zM5 21v-2H3c0 1.1.9 2 2 2zm-2-4h2v-2H3v2zM9 3H7v2h2V3zm2 18h2v-2h-2v2zm8-8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2zm0-12h2V7h-2v2zm0 8h2v-2h-2v2zm-4 4h2v-2h-2v2zm0-16h2V3h-2v2z"/></svg>
+      Select all ${sameType} ${escHtml(typeLabel)}${sameType === 1 ? '' : 's'}
+    </button>` : ''}
     <button class="ctx-item" role="menuitem" data-ctx-action="collapse">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
       ${b.collapsed ? 'Expand' : 'Collapse'}
@@ -102,12 +122,22 @@ export function openBlockMenu(id, clientX, clientY) {
       const c = colorOpt.dataset.ctxColor
       mutateBlock(id, { color: c === 'reset' ? null : c }); closeMenu(); return
     }
+    const hlOpt = e.target.closest('[data-ctx-hl]')
+    if (hlOpt) { mutateBlock(id, { highlight: hlOpt.dataset.ctxHl || null }); closeMenu(); return }
     const item = e.target.closest('[data-ctx-action]')
     if (!item) return
     const action = item.dataset.ctxAction
     if (action === 'duplicate') { const n = duplicateBlock(id); if (n) selectBlock(n) }
     else if (action === 'collapse') mutateBlock(id, { collapsed: !state.blocks[id]?.collapsed })
     else if (action === 'delete') deleteBlock(id)
+    else if (action === 'select-type') {
+      // The bridge to highlighting: "all five problems" in one action rather
+      // than five shift-clicks across a canvas you have to hunt through.
+      const t = state.blocks[id]?.type
+      const ids = Object.values(state.blocks).filter(b => b.type === t).map(b => b.id)
+      setSelection(ids)
+      showToast(`Selected ${ids.length} ${(TYPES[t]?.label || t).toLowerCase()}${ids.length === 1 ? '' : 's'}`, 'success', 1600)
+    }
     closeMenu()
   })
 

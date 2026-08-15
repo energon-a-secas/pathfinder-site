@@ -3,7 +3,7 @@
 // ============================================================
 
 import { describe, it, assert } from './test-utils.js'
-import { normalizeBlock, normalizeArrow, normalizeCanvas } from '../js/normalize.js'
+import { normalizeBlock, normalizeArrow, normalizeCanvas, normalizeSituation } from '../js/normalize.js'
 
 // ── normalizeBlock ───────────────────────────────────────────
 
@@ -41,9 +41,19 @@ describe('normalizeBlock()', () => {
     assert.deepEq(b.actions, ['resolve'])
   })
 
-  it('coerces question entries to strings', () => {
-    const b = normalizeBlock({ id: 'a', type: 'goal', questions: ['q', 7] })
-    assert.deepEq(b.questions, ['q', '7'])
+  it('coerces legacy string questions into { text } objects', () => {
+    const b = normalizeBlock({ id: 'a', type: 'goal', questions: ['q'] })
+    assert.deepEq(b.questions, [{ text: 'q' }])
+  })
+
+  it('drops question entries that are neither a string nor an object', () => {
+    const b = normalizeBlock({ id: 'a', type: 'goal', questions: ['q', 7, null] })
+    assert.deepEq(b.questions, [{ text: 'q' }])
+  })
+
+  it('keeps a stored answer on a question', () => {
+    const b = normalizeBlock({ id: 'a', type: 'goal', questions: [{ text: 'q', answer: 'a' }] })
+    assert.deepEq(b.questions, [{ text: 'q', answer: 'a' }])
   })
 
   it('repairs non-finite coordinates to 0', () => {
@@ -170,5 +180,106 @@ describe('normalizeCanvas()', () => {
 
   it('coerces meta.title to a string', () => {
     assert.eq(normalizeCanvas({ meta: { title: 9 } }).meta.title, '9')
+  })
+})
+
+// ── Appearance fields ────────────────────────────────────────
+
+describe('normalizeBlock() -- appearance', () => {
+  it('defaults a block with no appearance set to inherit', () => {
+    const b = normalizeBlock({ id: 'a', type: 'goal' })
+    assert.eq(b.cardStyle, null)
+    assert.eq(b.borderWidth, null)
+  })
+
+  it('keeps a known card style', () => {
+    const b = normalizeBlock({ id: 'a', type: 'goal', cardStyle: 'header' })
+    assert.eq(b.cardStyle, 'header')
+  })
+
+  it('drops an unknown card style back to inherit', () => {
+    const b = normalizeBlock({ id: 'a', type: 'goal', cardStyle: 'neon' })
+    assert.eq(b.cardStyle, null)
+  })
+
+  it('only accepts border widths from the offered set', () => {
+    assert.eq(normalizeBlock({ id: 'a', type: 'goal', borderWidth: 2 }).borderWidth, 2)
+    assert.eq(normalizeBlock({ id: 'a', type: 'goal', borderWidth: 47 }).borderWidth, null)
+  })
+})
+
+describe('normalizeCanvas() -- card style default', () => {
+  it('gives an old canvas the outline default', () => {
+    const c = normalizeCanvas({ blocks: [], arrows: [], meta: { title: 'x' } })
+    assert.eq(c.meta.cardStyle, 'outline')
+  })
+
+  it('round-trips a chosen default', () => {
+    const c = normalizeCanvas({ blocks: [], arrows: [], meta: { title: 'x', cardStyle: 'tint' } })
+    assert.eq(c.meta.cardStyle, 'tint')
+  })
+
+  it('rejects a card style it does not know', () => {
+    const c = normalizeCanvas({ blocks: [], arrows: [], meta: { cardStyle: 'chrome' } })
+    assert.eq(c.meta.cardStyle, 'outline')
+  })
+})
+
+describe('normalizeArrow() -- routed style', () => {
+  it('accepts the routed style', () => {
+    assert.eq(normalizeArrow({ from: 'a', to: 'b', style: 'routed' }).style, 'routed')
+  })
+})
+
+// ── Situation ────────────────────────────────────────────────
+
+describe('normalizeSituation()', () => {
+  it('falls back to the default for a missing situation', () => {
+    const sit = normalizeSituation(undefined)
+    assert.eq(sit.codebase, 'none')
+    assert.eq(sit.runtime, 'chat')
+    assert.eq(sit.firstMove, 'plan')
+  })
+
+  it('keeps every recognised choice', () => {
+    const sit = normalizeSituation({ codebase: 'current', runtime: 'code', firstMove: 'read' })
+    assert.eq(sit.codebase, 'current')
+    assert.eq(sit.runtime, 'code')
+    assert.eq(sit.firstMove, 'read')
+  })
+
+  it('replaces an unknown choice rather than dropping the field', () => {
+    // A missing situation is worse than a conservative one: the prompt would
+    // simply stop saying where things stand.
+    const sit = normalizeSituation({ codebase: 'quantum', runtime: 'code' })
+    assert.eq(sit.codebase, 'none')
+    assert.eq(sit.runtime, 'code')
+  })
+
+  it('carries the free-text fields', () => {
+    const sit = normalizeSituation({ repoHint: 'org/repo', constraints: 'No new deps' })
+    assert.eq(sit.repoHint, 'org/repo')
+    assert.eq(sit.constraints, 'No new deps')
+  })
+
+  it('caps free text so a pasted document cannot become the prompt', () => {
+    const sit = normalizeSituation({ repoHint: 'x'.repeat(900), constraints: 'y'.repeat(5000) })
+    assert.eq(sit.repoHint.length, 300)
+    assert.eq(sit.constraints.length, 1000)
+  })
+})
+
+describe('normalizeCanvas() -- situation round-trip', () => {
+  it('gives a canvas with no situation the default', () => {
+    const c = normalizeCanvas({ blocks: [], arrows: [], meta: { title: 'x' } })
+    assert.eq(c.meta.situation.codebase, 'none')
+  })
+
+  it('round-trips a full situation', () => {
+    const c = normalizeCanvas({ blocks: [], arrows: [], meta: {
+      situation: { codebase: 'current', runtime: 'code', firstMove: 'read', repoHint: 'r', constraints: 'c' } } })
+    assert.eq(c.meta.situation.codebase, 'current')
+    assert.eq(c.meta.situation.runtime, 'code')
+    assert.eq(c.meta.situation.repoHint, 'r')
   })
 })

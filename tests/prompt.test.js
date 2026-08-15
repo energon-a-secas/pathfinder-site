@@ -172,7 +172,7 @@ describe('generatePrompt() -- block content', () => {
 
   it('includes open questions on blocks', () => {
     resetPromptState()
-    addBlock('g1', 'goal', 'Ship', { questions: ['When?', 'Budget?'] })
+    addBlock('g1', 'goal', 'Ship', { questions: [{ text: 'When?' }, { text: 'Budget?' }] })
     const prompt = generatePrompt()
     assert.includes(prompt, 'Open questions:')
     assert.includes(prompt, '- When?')

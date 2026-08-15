@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.neorgon.org; font-src 'self'; img-src 'self' data: https://cdn.neorgon.org; connect-src 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>Pathfinder | Walkthrough</title>
+  <meta name="description" content="Turn a vague bug report into a brief a coding assistant can act on, one step at a time">
+  <meta property="og:title" content="Pathfinder: Walkthrough">
+  <meta property="og:description" content="Turn a vague bug report into a brief a coding assistant can act on, one step at a time">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://pathfinder.neorgon.com/tutorial.html">
+  <meta property="og:site_name" content="Neorgon">
+  <meta property="og:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://pathfinder.neorgon.com/tutorial.html">
+  <meta name="theme-color" content="#040714">
+  <link rel="icon" type="image/x-icon" href="https://cdn.neorgon.org/v1.0.0/favicon.ico" />
+  <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/styles/base.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script>(function(){var m=location.search.match(/[?&]theme=([\w-]+)/)||document.cookie.match(/(?:^|;\s*)neo_theme=([\w-]+)/);if(m&&m[1]!=='default')document.documentElement.dataset.theme=decodeURIComponent(m[1]);})();</script>
+  <link rel="stylesheet" href="css/neorgon-header.css">
+  <link rel="stylesheet" href="css/neorgon-themes.css">
+  <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/header/season.css">
+  <script defer src="js/neorgon-header.js"></script>
+  <link rel="stylesheet" href="css/neorgon-footer.css">
+  <script defer src="js/neorgon-footer.js"></script>
+  <meta name="neo-repo" content="https://github.com/energon-a-secas">
+</head>
+<body class="doc-page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="header-bar" data-header-mode="content">
+  <div class="header-logo">
+    <a href="https://neorgon.com/" target="_blank" rel="noopener noreferrer">
+      <img src="energon-classic-logo.png" class="header-logo-img" alt="Logo">
+    </a>
+    <a href="./" class="header-title-link">
+      <h1>Pathfinder</h1>
+      <div class="header-subtitle">Walkthrough</div>
+    </a>
+  </div>
+  <div class="header-right">
+    <div class="header-actions">
+      <a class="header-btn" href="./">Open the canvas</a>
+    </div>
+    <a class="header-home" href="https://neorgon.com/" title="neorgon.com" aria-label="Neorgon home">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    </a>
+  </div>
+</header>
+
+<main class="doc" id="main">
+
+  <p class="doc-kicker">Walkthrough</p>
+  <h1>From a vague bug report to a brief worth handing over</h1>
+  <p class="doc-lede">
+    One worked example, start to finish. The case is deliberately ordinary: checkout
+    fails sometimes, nobody knows why, and you would like an assistant with the
+    repository open to help rather than guess. Roughly ten minutes.
+  </p>
+
+  <div class="doc-cta">
+    <button class="doc-btn" id="loadExample">Load this example into the canvas</button>
+    <span class="doc-cta-note">Opens Pathfinder with the finished version of what we build below. Your current canvas is left alone until you confirm.</span>
+  </div>
+
+  <h2>The situation</h2>
+  <p>
+    Someone forwards you a message: <em>"checkout is broken for some people, can you look?"</em>
+    You have the repository. You want to hand this to a coding assistant, and you want it to
+    go and read the code rather than invent a plausible-sounding theory.
+  </p>
+  <p>
+    That last sentence is the part most planning tools drop, and it is the part this
+    walkthrough is really about.
+  </p>
+
+  <h2>Step 1. Say where you are standing, before you draw anything</h2>
+  <p>
+    Open the <strong>Prompt</strong> tab and fill in <strong>Situation</strong> first. It
+    is four choices and takes about fifteen seconds:
+  </p>
+  <ul class="doc-list">
+    <li><strong>Codebase → This repo.</strong> The code exists and the assistant can see it.</li>
+    <li><strong>Running in → Claude Code.</strong> It has file and shell access.</li>
+    <li><strong>Start by → Reading the code.</strong> Before any theory.</li>
+    <li><strong>Boundaries.</strong> One per line. Here: <code>Reproduce before theorising</code>.</li>
+  </ul>
+  <p>
+    The panel shows you the exact lines this produces, because the point is being able to
+    read what you are about to hand over:
+  </p>
+  <pre class="doc-pre"><code>## Situation
+- This is a planning canvas exported from Pathfinder. It is a plan, not a codebase,
+  and not a record of what exists. Everything below is what somebody mapped out;
+  none of it is verified unless this section says otherwise.
+- The relevant repository is open to you. Read it before trusting this canvas: the
+  canvas records what somebody believed, the repository is what is actually there.
+  Where the two disagree, the repository wins and the disagreement is worth reporting.
+- You are running in Claude Code with file and shell access. Prefer reading the
+  repository over asking about it, and cite file paths for any claim you make.
+- Start by reading the code. Reconcile it against this canvas and report what does
+  not match before proposing anything.</code></pre>
+  <p class="doc-aside">
+    Change <strong>Codebase</strong> to <em>None yet</em> and the same canvas tells the
+    reader that nothing in it can be checked and every technical claim is unverified. Same
+    blocks, opposite instruction. That is the whole reason this section exists.
+  </p>
+
+  <h2>Step 2. Get the mess out of your head</h2>
+  <p>
+    On an empty canvas you get a <strong>Brain Dump</strong> box. One idea per line, no
+    formatting, no thinking about types:
+  </p>
+  <pre class="doc-pre"><code>checkout 500s for some people
+started sometime last week maybe?
+probably the payment service
+we deployed on Tuesday
+does it happen on staging
+no test covers the retry path</code></pre>
+  <p>
+    Press <strong>Turn into blocks</strong>. Each line is classified and dropped on the
+    canvas as a typed block, with a correction chip under any it was unsure about. Fix
+    the wrong ones with a click. Two minutes of typing beats twenty minutes of dragging
+    boxes.
+  </p>
+  <p>
+    The shortcut for this exact case: the <strong>Investigate a Bug</strong> template in
+    the palette. It lands thirteen blocks, arranges them, and sets the Situation to match
+    in one click. Use it as scaffolding and delete what does not apply.
+  </p>
+
+  <h2>Step 3. Separate what you know from what you assume</h2>
+  <p>
+    This is the step that earns its keep. Look at the line <em>"probably the payment
+    service"</em>. That is not a problem, and it is not a question. It is a belief you are
+    about to act on without checking, which makes it an <strong>Assumption</strong>.
+  </p>
+  <p>The distinction is not pedantry, because the export treats the three differently:</p>
+  <ul class="doc-list">
+    <li><strong>Problem</strong> — the observable symptom. <em>Checkout returns 500 on card payments.</em> Stated without a theory attached.</li>
+    <li><strong>Assumption</strong> — a belief nobody has checked. <em>It started with Tuesday's deploy.</em> The prompt tells the reader to pressure-test it, and when the repository is reachable, to go and settle it rather than ask.</li>
+    <li><strong>Open Question</strong> — a genuine unknown. <em>Does it happen on staging?</em> The prompt tells the reader that guessing here is how the plan goes wrong.</li>
+  </ul>
+  <p>
+    Select the "probably the payment service" block and switch its type to Assumption.
+    A Question block has a one-click <strong>Promote to Assumption</strong> button for
+    exactly this moment.
+  </p>
+
+  <h2>Step 4. Connect them, and say why</h2>
+  <p>
+    Drag from the dot on a block's edge to another block. Then select the arrow and give
+    it a label from the presets: <code>depends on</code>, <code>blocks</code>,
+    <code>underpins</code>, <code>mitigates</code>. Unlabelled arrows say two things are
+    related; labelled arrows say how, and the export carries the label through as the
+    dependency order.
+  </p>
+  <p>
+    If an arrow leaves from an awkward side, select it and pick a side under
+    <strong>Connection points</strong>, or drag its endpoint handle onto the port you
+    want. Connections route themselves around other blocks, so you should rarely need to.
+  </p>
+
+  <h2>Step 5. Press Tidy</h2>
+  <p>
+    <kbd>L</kbd>, or the <strong>Tidy</strong> button. The canvas is rearranged into
+    layers along the flow, connections are re-pointed to match, and the toast tells you
+    how many crossings are left. The direction toggle beside it switches between
+    left-to-right and top-to-bottom.
+  </p>
+  <p>
+    It is one undo step. If you hate the result, <kbd>Cmd/Ctrl</kbd>+<kbd>Z</kbd> puts
+    every block back exactly where it was.
+  </p>
+  <p class="doc-aside">
+    Tidy is also a diagnostic. If the result looks like a straight line with everything
+    dangling off one node, your canvas has one real idea in it and a lot of decoration.
+  </p>
+
+  <h2>Step 6. Read what the tool is telling you</h2>
+  <p>
+    Blocks with a pulsing icon have a gap. An isolated block is connected to nothing,
+    which usually means it does not belong or you have not finished the thought. An
+    assumption not anchored to a goal or requirement is one nobody has said why they
+    care about.
+  </p>
+  <p>
+    The readiness pill in the corner is blunt on purpose. If it says the canvas is thin,
+    the prompt will be thin, and no amount of mode-switching fixes that.
+  </p>
+
+  <h2>Step 7. Pick what you want back</h2>
+  <p>The mode reshapes the whole document, not just a header line:</p>
+  <ul class="doc-list">
+    <li><strong>Investigate</strong> — establish what is true. Every finding must carry its evidence, unknowns stay marked as unknown, and disagreements between canvas and reality get reported rather than smoothed over. The right mode here.</li>
+    <li><strong>Explore</strong> — pressure-test the canvas itself. Gaps and questions, no solutions.</li>
+    <li><strong>Plan</strong> — a phased plan with outputs per phase.</li>
+    <li><strong>Build</strong> — requirements as a task checklist, once the plan is settled.</li>
+    <li><strong>Clarify</strong> — questions only, ranked blocking first.</li>
+  </ul>
+
+  <h2>Step 8. Hand it over</h2>
+  <p>
+    <strong>Copy AI-ready prompt</strong> in the corner, or Export ▾ for a file. What
+    lands in the paste buffer opens like this:
+  </p>
+  <pre class="doc-pre"><code>## Situation
+- ... (the four lines from step 1)
+
+## Task
+Investigate. Establish what is actually true before anything is changed or
+proposed. Work outward from the Problems and Open Questions below.
+
+For each finding, state the evidence you based it on. Where you could not
+establish something, say so plainly rather than filling the gap with a plausible
+guess. Where this canvas and reality disagree, report the disagreement.
+
+Treat each Assumption below as believed-true-until-disproven. Several of them are
+probably settleable from the repository you have open. Check those against the
+code and label each result verified or still open, rather than asking about
+something you could have read.</code></pre>
+  <p>
+    Then the blocks, grouped by type, with the connections as a dependency list. The
+    assistant knows what kind of document it is holding, what it can reach, and what to
+    do first, before it has read a single one of your boxes.
+  </p>
+
+  <h2>Step 9. Before you present it</h2>
+  <p>
+    A canvas you are about to walk somebody through has a different job from one you
+    are working in. Select the blocks that carry your point and give them a
+    <strong>Highlight</strong>: Alert for the thing to look at first, Focus for what you
+    are discussing, Festive if you want a moving border nobody can ignore.
+  </p>
+  <p>
+    Right-click any block and choose <strong>Select all Problems</strong> to mark a whole
+    type at once. Then turn on <strong>Spotlight</strong>, which fades everything you did
+    not mark. The contrast does the work, not the colour.
+  </p>
+  <p class="doc-aside">
+    Highlights say "look here" and nothing more. They travel with a share link and reach
+    the image export, but they stay out of the prompt on purpose: the block type already
+    says what a block is, and colour that means two things at once means neither.
+  </p>
+
+  <h2>Step 10. Bring the answer back</h2>
+  <p>
+    An investigation that ends in a chat log is an investigation you will run again in
+    three weeks. Put what came back into the canvas:
+  </p>
+  <ul class="doc-list">
+    <li>An answered question goes in the question's <strong>Answer</strong> field. It travels with the canvas and shows up in the next export.</li>
+    <li>A settled assumption becomes a <strong>Decision</strong>, with the evidence in its description. Then delete the assumption. It is not one any more.</li>
+    <li>Something new that was discovered becomes a block wired to whatever it affects.</li>
+  </ul>
+  <p>
+    Now the canvas is worth more than when you started, which is the only test of whether
+    a planning tool was worth using.
+  </p>
+
+  <h2>Other formats</h2>
+  <ul class="doc-list">
+    <li><strong>Download Markdown</strong> — every block type as a section, connections with their labels, and a Mermaid graph of the topology for anything that renders it.</li>
+    <li><strong>Download JSON</strong> — the whole canvas including the Situation. This is the one to hand a terminal session directly.</li>
+    <li><strong>Share → Copy link</strong> — the entire canvas encoded in the URL. Nothing is uploaded; the link is the data.</li>
+    <li><strong>Copy AI diagram-builder prompt</strong> — the other direction. Paste it into any assistant, describe your problem, import the JSON it hands back.</li>
+    <li><a href="llms.txt">llms.txt</a> — the format spec, if you would rather generate canvases than draw them.</li>
+  </ul>
+
+  <h2>Keyboard</h2>
+  <div class="doc-keys">
+    <div><kbd>L</kbd><span>Tidy the canvas</span></div>
+    <div><kbd>H</kbd><span>Hide the header and footer</span></div>
+    <div><kbd>Z</kbd><span>Zen: hide every panel</span></div>
+    <div><kbd>?</kbd><span>Every other shortcut</span></div>
+  </div>
+
+  <div class="doc-cta doc-cta-end">
+    <a class="doc-btn" href="./">Open the canvas</a>
+    <span class="doc-cta-note">Nothing is uploaded. Your canvas stays in this browser.</span>
+  </div>
+
+</main>
+
+<footer class="neo-footer" data-footer-mode="content">
+  <p>Pathfinder is part of <a href="https://neorgon.com/">Neorgon</a>. Free, no signup, runs in your browser.</p>
+</footer>
+
+<script type="module" src="js/tutorial-example.js"></script>
+</body>
+</html>

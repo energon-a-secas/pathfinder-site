@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline' https://esm.sh cdn.jsdelivr.net cdnjs.cloudflare.com https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://plausible.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.neorgon.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.convex.cloud https://img.clerk.com https://cdn.neorgon.org https://i.ytimg.com https://yt3.ggpht.com https://www.google-analytics.com; connect-src 'self' https://*.convex.cloud https://*.clerk.accounts.dev https://*.accounts.dev https://clerk-telemetry.com https://api.clerk.com https://challenges.cloudflare.com https://*.workers.dev https://www.google-analytics.com https://www.googletagmanager.com https://plausible.io; frame-src 'self' https://challenges.cloudflare.com https://*.clerk.accounts.dev https://*.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://esm.sh cdn.jsdelivr.net cdnjs.cloudflare.com https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://plausible.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.neorgon.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.convex.cloud https://img.clerk.com https://cdn.neorgon.org https://i.ytimg.com https://yt3.ggpht.com https://www.google-analytics.com; connect-src 'self' https://*.convex.cloud https://*.clerk.accounts.dev https://*.accounts.dev https://clerk-telemetry.com https://api.clerk.com https://challenges.cloudflare.com https://*.workers.dev https://www.google-analytics.com https://www.googletagmanager.com https://plausible.io; frame-src 'self' https://challenges.cloudflare.com https://*.clerk.accounts.dev https://*.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Pathfinder | Strategy Canvas</title>
@@ -138,6 +138,10 @@
       <!-- View toggles group -->
       <div class="header-btn-group" role="group" aria-label="View options">
         <button class="header-btn" id="themeBtn" title="Toggle light/dark mode" aria-label="Toggle light or dark mode">☀</button>
+        <div class="export-wrapper" id="cardsWrapper" aria-haspopup="true">
+          <button class="header-btn" id="cardsBtn" aria-expanded="false" aria-label="Default card style">Cards &#9662;</button>
+          <div class="export-dropdown" id="cardsDropdown"></div>
+        </div>
         <button class="header-btn header-btn-icon" id="tintBtn" title="Color tint on blocks" aria-label="Toggle block color tint"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18 4V3c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6h1v4H9v11c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-9h8V4h-3z"/></svg></button>
         <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
         <button class="header-btn" id="pinPortsBtn" title="Pin connections to the port you draw from (off = auto-route by position)" aria-label="Toggle pin connection ports">Pin&nbsp;ports</button>
@@ -146,15 +150,19 @@
 
       <!-- Canvas actions group -->
       <div class="header-btn-group" role="group" aria-label="Canvas actions">
+        <button class="header-btn" id="tidyBtn" title="Arrange blocks into layers and re-point every connection along the flow" aria-label="Tidy layout">Tidy</button>
+        <button class="header-btn header-btn-icon" id="tidyDirBtn" title="Layout direction" aria-label="Toggle layout direction"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M7 7h10.17l-3.58 3.59L15 12l6-6-6-6-1.41 1.41L17.17 5H7c-2.21 0-4 1.79-4 4v3h2V9c0-1.1.9-2 2-2z" transform="translate(0,5)"/></svg></button>
         <button class="header-btn" id="fitBtn" aria-label="Fit all blocks in view">Fit</button>
         <button class="header-btn header-btn-danger" id="clearBtn" aria-label="Clear canvas">Clear</button>
       </div>
 
       <button class="header-btn header-btn-icon" id="helpBtn" aria-label="Keyboard shortcuts" title="Shortcuts &amp; help"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg></button>
+
+      <a class="header-btn header-btn-icon header-github" data-keep-mobile href="https://github.com/energon-a-secas" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">
+      <svg viewBox="0 0 98 96" fill="currentColor" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>
+      </a>
     </div>
-    <a class="header-btn header-btn-icon header-github" href="https://github.com/energon-a-secas" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">
-    <svg viewBox="0 0 98 96" fill="currentColor" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>
-    </a>
+
     <a class="header-home" href="https://neorgon.com/" title="neorgon.com" aria-label="Neorgon home">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
     </a>
@@ -167,7 +175,16 @@
   <!-- Palette -->
   <aside class="palette" id="palette">
 
-    <!-- Templates (collapsible, on top) -->
+    <!-- Palette header. The collapse control lives here rather than stranded at
+         the foot of the list, so every control that shrinks a panel is at its top. -->
+    <div class="palette-head">
+      <span class="palette-head-title">Palette</span>
+      <button class="palette-collapse-btn" id="paletteCollapseBtn" title="Collapse palette" aria-label="Toggle palette width" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+    </div>
+
+    <!-- Templates (collapsible; folds itself away once the canvas has content) -->
     <div class="palette-section" id="templatesSection">
       <div class="palette-section-toggle" id="templatesToggle" role="button" tabindex="0" aria-expanded="true">
         <span>Templates</span>
@@ -261,10 +278,6 @@
       </div>
     </div>
 
-    <!-- Collapse toggle -->
-    <button class="palette-collapse-btn" id="paletteCollapseBtn" title="Collapse palette" aria-label="Toggle palette width">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-    </button>
   </aside>
 
   <!-- Canvas viewport -->
@@ -294,7 +307,7 @@
         </label>
         <div class="brain-dump-actions">
           <button class="brain-dump-btn" id="brainDumpBtn">Turn into blocks</button>
-          <span class="brain-dump-hint">or just start dragging blocks from the left</span>
+          <span class="brain-dump-hint">or drag blocks from the left, or <a href="tutorial.html">walk through a worked example</a></span>
         </div>
       </div>
     </div>
@@ -326,6 +339,7 @@
 
       <!-- Frames layer (rendered behind arrows and blocks) -->
       <div id="framesLayer" class="frames-layer"></div>
+      <div id="guidesLayer" class="guides-layer"></div>
 
       <!-- SVG arrows layer (rendered under blocks) -->
       <svg class="arrows-layer" id="arrowsLayer">
@@ -420,6 +434,14 @@
             <div class="insp-label">Accent Color</div>
             <div class="color-swatches" id="colorSwatches"></div>
           </div>
+          <div class="insp-section" id="appearanceSection">
+            <div class="insp-label">Card style <span class="insp-label-hint">— overrides the canvas default</span></div>
+            <div class="dev-radio-group" id="cardStylePicker"></div>
+            <div class="insp-label" style="margin-top:8px">Border</div>
+            <div class="dev-radio-group" id="borderWidthPicker"></div>
+            <div class="insp-label" style="margin-top:8px">Highlight <span class="insp-label-hint">— for presenting, not for meaning</span></div>
+            <div class="hl-row" id="blockHighlightRow"></div>
+          </div>
           <div class="insp-section">
             <div class="insp-label">Title</div>
             <input class="insp-input" id="inspTitle" type="text" placeholder="Block title…">
@@ -478,6 +500,30 @@
 
         <div class="inspector-multi" id="inspectorMulti" style="display:none">
           <div class="inspector-multi-count" id="multiCount"></div>
+          <div class="insp-section">
+            <div class="insp-label">Highlight <span class="insp-label-hint">— draw the eye when you share this</span></div>
+            <div class="hl-row" id="multiHighlightRow"></div>
+            <button class="radio-opt" id="spotlightBtn" style="width:100%;margin-top:8px"
+                    title="Fade every block that is not highlighted, so the marked ones carry the canvas">Spotlight: off</button>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Align</div>
+            <div class="dev-radio-group align-grid">
+              <button class="radio-opt" data-align="left" title="Align left edges">Left</button>
+              <button class="radio-opt" data-align="hcenter" title="Align horizontal centres">Centre</button>
+              <button class="radio-opt" data-align="right" title="Align right edges">Right</button>
+              <button class="radio-opt" data-align="top" title="Align top edges">Top</button>
+              <button class="radio-opt" data-align="vcenter" title="Align vertical centres">Middle</button>
+              <button class="radio-opt" data-align="bottom" title="Align bottom edges">Bottom</button>
+            </div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-label">Distribute <span class="insp-label-hint">— needs three or more</span></div>
+            <div class="dev-radio-group">
+              <button class="radio-opt" data-distribute="h" style="flex:1" title="Even horizontal gaps">Horizontally</button>
+              <button class="radio-opt" data-distribute="v" style="flex:1" title="Even vertical gaps">Vertically</button>
+            </div>
+          </div>
           <button class="insp-dupe-btn" id="groupBlocksBtn">Group selected</button>
           <div id="frameSection" style="display:none">
             <div class="insp-section" style="margin-top:10px">
@@ -510,6 +556,7 @@
             <div class="dev-radio-group">
               <button class="radio-opt" data-arrow-style="curved">Curved</button>
               <button class="radio-opt" data-arrow-style="straight">Straight</button>
+              <button class="radio-opt" data-arrow-style="routed" title="Orthogonal line that steers around other blocks">Routed</button>
               <button class="radio-opt" data-arrow-style="elbow">Elbow</button>
               <button class="radio-opt" data-arrow-style="dashed">Dashed</button>
               <button class="radio-opt" data-arrow-style="dotted">Dotted</button>
@@ -535,9 +582,29 @@
               <button class="radio-opt" data-arrow-weight="5">Bold</button>
             </div>
           </div>
-          <div class="insp-section" id="arrowPortSection" style="display:none">
-            <div class="insp-label">Routing</div>
-            <button class="radio-opt" id="arrowAutoRoute" style="width:100%">↺ Auto-route this connection</button>
+          <div class="insp-section" id="arrowPortSection">
+            <div class="insp-label">Connection points <span class="insp-label-hint">— the side each end attaches to</span></div>
+            <div class="port-pick-row">
+              <span class="port-pick-label">From</span>
+              <div class="dev-radio-group port-pick" data-port-end="from">
+                <button class="radio-opt" data-port-side="" title="Pick the side automatically">Auto</button>
+                <button class="radio-opt" data-port-side="top" aria-label="Top" title="Top">&#8593;</button>
+                <button class="radio-opt" data-port-side="right" aria-label="Right" title="Right">&#8594;</button>
+                <button class="radio-opt" data-port-side="bottom" aria-label="Bottom" title="Bottom">&#8595;</button>
+                <button class="radio-opt" data-port-side="left" aria-label="Left" title="Left">&#8592;</button>
+              </div>
+            </div>
+            <div class="port-pick-row">
+              <span class="port-pick-label">To</span>
+              <div class="dev-radio-group port-pick" data-port-end="to">
+                <button class="radio-opt" data-port-side="" title="Pick the side automatically">Auto</button>
+                <button class="radio-opt" data-port-side="top" aria-label="Top" title="Top">&#8593;</button>
+                <button class="radio-opt" data-port-side="right" aria-label="Right" title="Right">&#8594;</button>
+                <button class="radio-opt" data-port-side="bottom" aria-label="Bottom" title="Bottom">&#8595;</button>
+                <button class="radio-opt" data-port-side="left" aria-label="Left" title="Left">&#8592;</button>
+              </div>
+            </div>
+            <button class="radio-opt" id="arrowAutoRoute" style="width:100%">&#8634; Reset both ends to auto</button>
           </div>
           <button class="insp-delete-btn" id="deleteArrowBtn">Delete Connection</button>
         </div>
@@ -549,6 +616,17 @@
         <div id="healthBar" class="health-bar" style="display:none"></div>
         <div id="promptDiff" class="prompt-diff" style="display:none"></div>
 
+        <div class="insp-section situation-section" id="situationSection">
+          <div class="insp-label">Situation <span class="insp-label-hint">— where the tool is standing when it reads this</span></div>
+          <div id="situationFields"></div>
+          <input class="insp-input" id="situationRepoHint" type="text" maxlength="300"
+                 placeholder="Which repo or path, if it helps (optional)">
+          <div class="insp-label" style="margin-top:8px">Boundaries <span class="insp-label-hint">— one per line</span></div>
+          <textarea class="insp-textarea" id="situationConstraints" rows="2" maxlength="1000"
+            placeholder="Do not touch the auth module&#10;No new dependencies&#10;Ship behind a flag"></textarea>
+          <div class="situation-preview" id="situationPreview"></div>
+        </div>
+
         <div class="insp-section">
           <div class="insp-label">Engagement Context <span class="insp-label-hint">— framing the AI sees first</span></div>
           <textarea class="insp-textarea" id="contextBrief" rows="2"
@@ -558,6 +636,7 @@
         <div class="prompt-mode-row">
           <div class="insp-label" style="margin-bottom:6px">Mode</div>
           <div class="dev-radio-group" id="modeGroup">
+            <button class="radio-opt" data-value="investigate">Investigate</button>
             <button class="radio-opt" data-value="explore">Explore</button>
             <button class="radio-opt active" data-value="plan">Plan</button>
             <button class="radio-opt" data-value="build">Build</button>
@@ -625,6 +704,9 @@
       <button class="shortcut-close" id="shortcutClose">✕</button>
     </div>
     <div class="shortcut-grid" id="shortcutGrid"></div>
+    <div class="shortcut-modal-footer">
+      New here? <a href="tutorial.html">Take the walkthrough</a> — one worked example, start to finish.
+    </div>
   </div>
 </div>
 

@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, view, canvasMeta, pointer,
-         debouncedSave, snapshot, snap, toWorld } from './state.js'
+         debouncedSave, saveState, snapshot, snap, toWorld } from './state.js'
 import { $, clamp, genId, getBlockEl, getBlockDims, escHtml, showToast, addVotesToBlock, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
          blockAtWorld, blocksInRect, isLight, updateHint } from './canvas.js'
@@ -13,7 +13,9 @@ import { renderBlock, renderAllBlocks, renderInspector, renderQuestions,
          mutateBlock, createBlock, deleteBlock, addArrow, deleteArrow,
          duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup, undo, redo } from './render.js'
 import { runGapDetection } from './gaps.js'
-import { openSearch, closeSearch, openShortcuts, closeShortcuts } from './ui-panels.js'
+import { openSearch, closeSearch, openShortcuts, closeShortcuts, runTidy } from './ui-panels.js'
+import { toggleChrome, toggleZen } from './chrome.js'
+import { guidesForDrag, drawGuides, clearGuides, alignSelection, distributeSelection } from './align.js'
 import { openDocPopup, detectSeeReference } from './doc-panel.js'
 
 // ── Canvas title editing ─────────────────────────────────────
@@ -84,6 +86,7 @@ export function setupCanvasPointerEvents() {
       return
     }
 
+    const arrowHandle  = e.target.closest('.arrow-handle')
     const resizeHandle = e.target.closest('.block-resize-handle')
     const collapseBtn  = e.target.closest('.block-collapse-btn')
     const docBadge     = e.target.closest('.block-doc-badge')
@@ -91,7 +94,20 @@ export function setupCanvasPointerEvents() {
     const block        = e.target.closest('.block')
     const frame        = !block && e.target.closest('.frame')
 
-    if (resizeHandle) {
+    if (arrowHandle) {
+      if (ui.readOnly) return
+      e.stopPropagation()
+      const a = state.arrows.find(arr => arr.id === arrowHandle.dataset.aid); if (!a) return
+      const end = arrowHandle.dataset.end
+      // The end that is staying put anchors the preview line.
+      const anchorId = end === 'from' ? a.to : a.from
+      const anchorSide = end === 'from' ? a.toPort : a.fromPort
+      const ap = portPos(anchorId, anchorSide || 'right'); if (!ap) return
+      pointer.ix = { type: 'aend', aid: a.id, end, x1: ap.x, y1: ap.y, d1: ap.dir }
+      arrowPreview.setAttribute('d', '')
+      arrowPreview.setAttribute('marker-end', isLight() ? 'url(#arrowhead-light-pre)' : 'url(#arrowhead-pre)')
+
+    } else if (resizeHandle) {
       if (ui.readOnly) return
       e.stopPropagation()
       const id = resizeHandle.dataset.bid; const b = state.blocks[id]; if (!b) return
@@ -216,16 +232,27 @@ export function setupCanvasPointerEvents() {
         ix.snapshotted || (snapshot(), ix.snapshotted = true)
       }
       if (ix.moved) {
-        Object.entries(ix.startPositions).forEach(([id, sp]) => {
-          const b = state.blocks[id]; if (!b) return
-          b.x = snap(sp.x + dx / view.zoom); b.y = snap(sp.y + dy / view.zoom)
+        const ids = Object.keys(ix.startPositions)
+        const place = (adjX, adjY) => ids.forEach(id => {
+          const b = state.blocks[id], sp = ix.startPositions[id]; if (!b) return
+          b.x = snap(sp.x + dx / view.zoom) + adjX
+          b.y = snap(sp.y + dy / view.zoom) + adjY
           const el = getBlockEl(id)
           if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px' }
         })
+        place(0, 0)
+        // Nudge onto a neighbour's edge or centre when it is within a few
+        // pixels, and show the line that explains why. Grid snapping is the
+        // stronger claim on position, so it wins outright.
+        if (!ui.snapToGrid) {
+          const g = guidesForDrag(ids)
+          if (g.dx || g.dy) place(g.dx, g.dy)
+          drawGuides(g)
+        }
         requestAnimationFrame(() => { renderArrows(); renderFrames() })
       }
 
-    } else if (ix.type === 'arrow') {
+    } else if (ix.type === 'arrow' || ix.type === 'aend') {
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
       const c1 = cpOffset(ix.x1, ix.y1, ix.d1, 80)
@@ -251,6 +278,7 @@ export function setupCanvasPointerEvents() {
       if (found.length) setSelection(found)
 
     } else if (ix.type === 'block') {
+      clearGuides()
       selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging'))
       // Track that these blocks were just dragged (prevents voting on click-after-drag)
       selection.ids.forEach(sid => {
@@ -275,6 +303,24 @@ export function setupCanvasPointerEvents() {
         renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true
       }
 
+    } else if (ix.type === 'aend') {
+      arrowPreview.setAttribute('d', '')
+      const a = state.arrows.find(arr => arr.id === ix.aid)
+      const r = canvasViewport.getBoundingClientRect()
+      const w = toWorld(e.clientX - r.left, e.clientY - r.top)
+      const portEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.port')
+      const tid = (portEl && portEl.dataset.bid) || blockAtWorld(w.x, w.y)
+      const otherId = a && (ix.end === 'from' ? a.to : a.from)
+      // Dropping on a port pins that side; dropping on the body of a block
+      // re-targets and hands the side back to auto.
+      if (a && tid && tid !== otherId) {
+        const side = portEl && portEl.dataset.bid === tid ? portEl.dataset.port : null
+        snapshot()
+        if (ix.end === 'from') { a.from = tid; a.fromPort = side }
+        else                   { a.to   = tid; a.toPort   = side }
+        renderInspector(); runGapDetection(); debouncedSave(); ui.promptDirty = true
+      }
+
     } else if (ix.type === 'arrow') {
       arrowPreview.setAttribute('d', '')
       const r = canvasViewport.getBoundingClientRect()
@@ -290,6 +336,9 @@ export function setupCanvasPointerEvents() {
       }
     }
     pointer.ix = null
+    // Arrows draw on a cheap path while a pointer is down. Now that it is up,
+    // run the real router once.
+    if (ix.type !== 'pan') renderArrows({ cheap: false })
   })
 
   canvasViewport.addEventListener('pointercancel', e => {
@@ -299,8 +348,9 @@ export function setupCanvasPointerEvents() {
     if (ix?.type === 'arrow') arrowPreview.setAttribute('d', '')
     if (ix?.type === 'pan') canvasViewport.style.cursor = 'default'
     if (ix?.type === 'select') selectBox.style.display = 'none'
-    if (ix?.type === 'block') selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging'))
+    if (ix?.type === 'block') { clearGuides(); selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging')) }
     pointer.ix = null
+    if (ix && ix.type !== 'pan') renderArrows({ cheap: false })
   })
 
   // Wheel: trackpad two-finger scroll pans; pinch-zoom (which the browser
@@ -469,11 +519,26 @@ export function setupKeyboardShortcuts() {
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
       e.preventDefault(); ui.searchOpen ? $.searchInput().focus() : openSearch(); return
     }
-    if (e.key === '?') { e.preventDefault(); openShortcuts(); return }
-    if (e.altKey && e.key === 'h') { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
-    if (ui.readOnly) return
+    // Nothing below this line may fire while the user is typing. `?` used to
+    // sit above it, so a question mark in a description opened the help sheet.
     const tag = document.activeElement?.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.contentEditable === 'true') return
+
+    if (e.key === '?') { e.preventDefault(); openShortcuts(); return }
+    if (e.altKey && e.key === 'h') { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
+
+    // View keys stay live in read-only and embed views: they are about the
+    // window, not about editing.
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const k = e.key.toLowerCase()
+      if (k === 'h') { e.preventDefault(); toggleChrome(); return }
+      if (k === 'z') { e.preventDefault(); toggleZen();   return }
+    }
+
+    if (ui.readOnly) return
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault(); runTidy(); return
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); setSelection(Object.keys(state.blocks)); return }
     if (e.key === 'Escape') {
       if ($.shortcutOverlay().style.display !== 'none') { closeShortcuts(); return }
@@ -1017,6 +1082,75 @@ export function setupInspectorEvents() {
     renderArrows(); renderInspector(); debouncedSave(); ui.promptDirty = true
   })
 
+  // Card style + border width. Delegated, because renderInspector rebuilds
+  // these buttons every time the selection changes.
+  document.getElementById('cardStylePicker')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-card-style]'); if (!btn || !selection.blockId) return
+    mutateBlock(selection.blockId, { cardStyle: btn.dataset.cardStyle || null })
+    renderInspector()
+  })
+  document.getElementById('borderWidthPicker')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-border-width]'); if (!btn || !selection.blockId) return
+    const w = btn.dataset.borderWidth ? parseFloat(btn.dataset.borderWidth) : null
+    mutateBlock(selection.blockId, { borderWidth: w })
+    renderInspector()
+  })
+
+  // Highlights. Presentation emphasis, applied to whatever is selected.
+  const applyHighlight = (ids, key) => {
+    if (!ids.length) return
+    snapshot()
+    ids.forEach(id => { if (state.blocks[id]) state.blocks[id].highlight = key })
+    ids.forEach(renderBlock)
+    debouncedSave()
+    renderInspector()
+  }
+  document.getElementById('blockHighlightRow')?.addEventListener('click', e => {
+    const sw = e.target.closest('[data-hl]'); if (!sw || !selection.blockId) return
+    applyHighlight([selection.blockId], sw.dataset.hl || null)
+  })
+  document.getElementById('multiHighlightRow')?.addEventListener('click', e => {
+    const sw = e.target.closest('[data-hl]'); if (!sw) return
+    applyHighlight([...selection.ids], sw.dataset.hl || null)
+    const n = selection.ids.size
+    showToast(sw.dataset.hl
+      ? `Highlighted ${n} block${n === 1 ? '' : 's'}`
+      : `Cleared the highlight on ${n} block${n === 1 ? '' : 's'}`, 'success', 1500)
+  })
+
+  // Spotlight: the emphasis is the contrast, so fade everything unmarked.
+  document.getElementById('spotlightBtn')?.addEventListener('click', () => {
+    const any = Object.values(state.blocks).some(b => b.highlight)
+    if (!any && !canvasMeta.spotlight) {
+      showToast('Highlight something first, then Spotlight fades the rest', 'info', 2400)
+      return
+    }
+    canvasMeta.spotlight = !canvasMeta.spotlight
+    document.body.classList.toggle('spotlight', canvasMeta.spotlight)
+    saveState()
+    renderInspector()
+  })
+
+  // Align and distribute for a multi-selection
+  document.querySelectorAll('[data-align]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const ids = [...selection.ids]
+      const n = alignSelection(ids, btn.dataset.align)
+      if (!n) { showToast('Select two or more blocks to align', 'info', 1600); return }
+      renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
+      showToast(`Aligned ${n} blocks`, 'success', 1400)
+    })
+  )
+  document.querySelectorAll('[data-distribute]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const ids = [...selection.ids]
+      const n = distributeSelection(ids, btn.dataset.distribute)
+      if (!n) { showToast('Select three or more blocks to distribute', 'info', 1600); return }
+      renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
+      showToast(`Spaced ${n} blocks evenly`, 'success', 1400)
+    })
+  )
+
   document.getElementById('deleteArrowBtn').addEventListener('click', () => {
     if (selection.arrowId) deleteArrow(selection.arrowId)
   })
@@ -1026,7 +1160,7 @@ export function setupInspectorEvents() {
     btn.addEventListener('click', () => {
       const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
       a.style = btn.dataset.arrowStyle
-      renderArrows(); renderInspector(); debouncedSave()
+      renderArrows({ cheap: false }); renderInspector(); debouncedSave()
     })
   )
 
@@ -1039,11 +1173,23 @@ export function setupInspectorEvents() {
     renderArrows(); renderInspector(); debouncedSave()
   })
 
+  // Connection points: pin either end to a chosen side, or hand it back to auto
+  document.querySelectorAll('.port-pick').forEach(group => {
+    group.querySelectorAll('[data-port-side]').forEach(btn =>
+      btn.addEventListener('click', () => {
+        const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
+        const side = btn.dataset.portSide || null
+        if (group.dataset.portEnd === 'from') a.fromPort = side; else a.toPort = side
+        renderArrows({ cheap: false }); renderInspector(); debouncedSave()
+      })
+    )
+  })
+
   // Arrow auto-route: clear pinned ports so it routes by box position
   document.getElementById('arrowAutoRoute').addEventListener('click', () => {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
     a.fromPort = null; a.toPort = null
-    renderArrows(); renderInspector(); debouncedSave()
+    renderArrows({ cheap: false }); renderInspector(); debouncedSave()
   })
 
   // Arrow bidirectional

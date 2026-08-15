@@ -6,7 +6,8 @@
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
-         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, escHtml, escHtmlMultiline, genId, getBlockEl, getBlockDims, getBlockVotes, getSmallIcon } from './utils.js'
+         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS,
+         escHtml, escHtmlMultiline, genId, getBlockEl, getBlockDims, getBlockVotes, getSmallIcon } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection, getGapFixes } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
@@ -21,6 +22,30 @@ function afterMutation() {
 }
 
 // ── Block rendering ──────────────────────────────────────────
+/**
+ * The highlight picker. One markup helper for both places it appears, so the
+ * single-block and multi-select versions cannot drift.
+ *
+ * `active` is the currently applied key, or `'mixed'` when a selection carries
+ * more than one, which is worth showing rather than silently picking the first.
+ */
+export function highlightRowHtml(active) {
+  return `<button class="hl-swatch hl-swatch-none${!active ? ' active' : ''}" data-hl=""
+            title="No highlight" aria-label="No highlight"></button>` +
+    Object.entries(HIGHLIGHTS).map(([key, h]) =>
+      `<button class="hl-swatch${key === 'festive' ? ' hl-swatch-festive' : ''}${active === key ? ' active' : ''}"
+               data-hl="${key}" style="--sw:${h.color}"
+               title="${escHtml(h.label)} — ${escHtml(h.hint)}" aria-label="${escHtml(h.label)}"></button>`
+    ).join('')
+}
+
+/** What a whole selection is set to: one key, null, or 'mixed'. */
+export function selectionHighlight(ids) {
+  const seen = new Set(ids.map(id => state.blocks[id]?.highlight || null))
+  if (seen.size > 1) return 'mixed'
+  return [...seen][0] || null
+}
+
 export function renderBlock(id) {
   const b  = state.blocks[id]; if (!b) return
   let el   = getBlockEl(id)
@@ -38,7 +63,13 @@ export function renderBlock(id) {
   el.dataset.type = b.type
   const w = b.width || DEFAULT_WIDTH
   el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${w}px`
+  // Appearance. Both fall back to the canvas-wide default, so changing that
+  // one setting restyles every card that has not been overridden.
+  el.dataset.card = b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE
+  if (b.highlight) el.dataset.highlight = b.highlight
+  else delete el.dataset.highlight
   if (b.color) el.style.setProperty('--bc', b.color)
+  if (b.borderWidth) el.style.setProperty('--bw', b.borderWidth + 'px')
 
   const actHtml = (b.actions || []).map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
   const statusHtml = b.status && b.status !== 'not-started'
@@ -108,7 +139,28 @@ export function renderInspector() {
     inspectorContent.style.display = 'none'
     inspectorMulti.style.display = ''
     inspectorArrow.style.display = 'none'
-    document.getElementById('multiCount').textContent = `${selection.ids.size} blocks selected`
+    // A count by type, because "5 problems, 3 requirements, 1 goal" is what
+    // people actually want to say out loud when they present a canvas.
+    const tally = {}
+    selection.ids.forEach(id => { const t = state.blocks[id]?.type; if (t) tally[t] = (tally[t] || 0) + 1 })
+    const parts = Object.entries(tally)
+      .sort((a, b) => b[1] - a[1])
+      .map(([t, n]) => `${n} ${(TYPES[t]?.label || t).toLowerCase()}${n === 1 ? '' : 's'}`)
+    document.getElementById('multiCount').textContent =
+      `${selection.ids.size} blocks selected` + (parts.length > 1 ? ` \u2014 ${parts.join(', ')}` : '')
+
+    const multiHl = document.getElementById('multiHighlightRow')
+    if (multiHl) {
+      const active = selectionHighlight([...selection.ids])
+      multiHl.innerHTML = highlightRowHtml(active === 'mixed' ? null : active)
+      multiHl.dataset.mixed = active === 'mixed' ? '1' : ''
+    }
+    const spotBtn = document.getElementById('spotlightBtn')
+    if (spotBtn) {
+      spotBtn.classList.toggle('active', !!canvasMeta.spotlight)
+      spotBtn.textContent = canvasMeta.spotlight ? 'Spotlight: on' : 'Spotlight: off'
+    }
+
     const frameSection = document.getElementById('frameSection')
     const ungroupBtn = document.getElementById('ungroupBtn')
     const groupBlocksBtn = document.getElementById('groupBlocksBtn')
@@ -160,9 +212,13 @@ export function renderInspector() {
       // Weight buttons
       document.querySelectorAll('[data-arrow-weight]').forEach(btn =>
         btn.classList.toggle('active', (a.weight || 2) === +btn.dataset.arrowWeight))
-      // Auto-route reset only offered when at least one end is pinned
-      const portSection = document.getElementById('arrowPortSection')
-      if (portSection) portSection.style.display = (a.fromPort || a.toPort) ? '' : 'none'
+      // Connection points. An unpinned end reads as Auto; the canvas still picks
+      // a side for it, but the user has not committed to one.
+      document.querySelectorAll('.port-pick').forEach(group => {
+        const pinned = (group.dataset.portEnd === 'from' ? a.fromPort : a.toPort) || ''
+        group.querySelectorAll('[data-port-side]').forEach(btn =>
+          btn.classList.toggle('active', btn.dataset.portSide === pinned))
+      })
     }
     return
   }
@@ -262,6 +318,29 @@ export function renderInspector() {
         `<div class="color-swatch${b.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" role="button" aria-label="${SWATCH_NAMES[c] || c}" title="${SWATCH_NAMES[c] || c}"></div>`
       ).join('')
   }
+
+  // Appearance. "Default" is a real choice, not an absent one: it means this
+  // block follows the canvas, so changing the canvas default still moves it.
+  const cardPicker = document.getElementById('cardStylePicker')
+  if (cardPicker) {
+    const canvasDefault = CARD_STYLES[canvasMeta.cardStyle]?.label || 'Outline'
+    cardPicker.innerHTML =
+      `<button class="radio-opt${!b.cardStyle ? ' active' : ''}" data-card-style="" title="Follow the canvas default (${escHtml(canvasDefault)})">Default</button>` +
+      Object.entries(CARD_STYLES).map(([k, v]) =>
+        `<button class="radio-opt${b.cardStyle === k ? ' active' : ''}" data-card-style="${k}" title="${escHtml(v.hint)}">${escHtml(v.label)}</button>`
+      ).join('')
+  }
+  const borderPicker = document.getElementById('borderWidthPicker')
+  if (borderPicker) {
+    borderPicker.innerHTML =
+      `<button class="radio-opt${!b.borderWidth ? ' active' : ''}" data-border-width="" style="flex:1">Default</button>` +
+      BORDER_WIDTHS.map(w =>
+        `<button class="radio-opt${b.borderWidth === w ? ' active' : ''}" data-border-width="${w}" style="flex:1">${w}px</button>`
+      ).join('')
+  }
+
+  const hlRow = document.getElementById('blockHighlightRow')
+  if (hlRow) hlRow.innerHTML = highlightRowHtml(b.highlight)
 
   renderQuestions(b)
 
@@ -416,6 +495,8 @@ export function createBlock(type, wx, wy) {
     docRef: null,
     width: null, color: null, collapsed: false, groupId: null,
     status: null, priority: null,
+    cardStyle: null, borderWidth: null,   // null = follow the canvas default
+    highlight: null,                      // presentation emphasis, not meaning
   }
   renderBlock(id)
   updateHint()
@@ -447,7 +528,7 @@ export function addArrow(fromId, toId, fromPort = null, toPort = null) {
   if (state.arrows.some(a => a.from === fromId && a.to === toId)) return
   snapshot()
   state.arrows.push({ id: genId(), from: fromId, to: toId,
-    style: 'curved', bidirectional: false, color: null, weight: 2, fromPort, toPort })
+    style: 'routed', bidirectional: false, color: null, weight: 2, fromPort, toPort })
   renderArrows()
   runGapDetection()
   debouncedSave()

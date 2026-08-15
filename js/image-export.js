@@ -9,10 +9,10 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta } from './state.js'
-import { TYPES, PRIORITY_DEFS, STATUS_DEFS, getBlockDims, DEFAULT_WIDTH, escHtml, showToast } from './utils.js'
-import { bestPorts, buildPath, arrowMidpoint } from './canvas.js'
+import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, DEFAULT_WIDTH, escHtml, showToast } from './utils.js'
+import { resolveRoutes, pathFor, arrowMidpoint } from './canvas.js'
 
-const PAD = 48          // outer margin around the diagram
+const PAD = 48          // outer margin; also covers the 6px highlight ring
 const BADGE_H = 14
 
 // Rough per-character width for the sans title/desc, used to wrap text
@@ -87,7 +87,14 @@ export function buildSvg() {
 
   const parts = []
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Avenir Next, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">`)
-  parts.push(`<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${C.arrow}"/></marker></defs>`)
+  // One marker per distinct arrow colour. A single shared head meant a
+  // recoloured arrow exported with a default-coloured tip.
+  const headId = c => 'ah-' + c.replace(/[^0-9a-zA-Z]/g, '')
+  const headColors = [...new Set([C.arrow, ...state.arrows.map(a => a.color).filter(Boolean)])]
+  parts.push('<defs>' + headColors.map(c =>
+    `<marker id="${headId(c)}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${c}"/></marker>` +
+    `<marker id="${headId(c)}-b" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto"><polygon points="10 0, 0 3.5, 10 7" fill="${c}"/></marker>`
+  ).join('') + '</defs>')
   parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${C.bg}"/>`)
   parts.push(`<g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)})">`)
 
@@ -98,17 +105,26 @@ export function buildSvg() {
     if (f.label) parts.push(`<text x="${(f.x + 14).toFixed(1)}" y="${(f.y + 22).toFixed(1)}" font-size="12" font-weight="600" fill="${C.frameLabel}">${escHtml(f.label)}</text>`)
   })
 
-  // 2. Arrows (under blocks), with labels + notes
+  // 2. Arrows (under blocks), with labels + notes.
+  // Geometry comes from the same resolver the canvas uses, so lanes and routed
+  // paths in the export match what was on screen.
+  const routes = resolveRoutes()
   state.arrows.forEach(a => {
     const f = state.blocks[a.from], t = state.blocks[a.to]; if (!f || !t) return
-    const pts = bestPorts(a.from, a.to, a.fromPort, a.toPort); if (!pts) return
+    const pts = routes.get(a.id); if (!pts) return
     const style = a.style || 'curved'
-    const d = buildPath(pts.x1, pts.y1, pts.d1, pts.x2, pts.y2, pts.d2, style)
+    const d = pathFor(pts, style)
     const color = a.color || C.arrow
     const dash = style === 'dashed' ? ' stroke-dasharray="10 6"' : style === 'dotted' ? ' stroke-dasharray="3 5"' : ''
-    parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${a.weight || 2}"${dash} marker-end="url(#ah)"/>`)
+    const back = a.bidirectional ? ` marker-start="url(#${headId(color)}-b)"` : ''
+    parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${a.weight || 2}"${dash} marker-end="url(#${headId(color)})"${back}/>`)
     const mid = arrowMidpoint(pts, style)
-    const mx = mid.x, my = mid.y
+    let mx = mid.x, my = mid.y
+    if (pts.laneCount > 1) {
+      const spread = (pts.lane - (pts.laneCount - 1) / 2) * 15
+      if (pts.d1 === 'left' || pts.d1 === 'right') my += spread
+      else mx += spread
+    }
     if (a.label) {
       parts.push(`<text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="middle" fill="${C.label}" stroke="${C.bg}" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${escHtml(a.label)}</text>`)
     }
@@ -121,18 +137,44 @@ export function buildSvg() {
   })
 
   // 3. Blocks
+  const spotlit = !!canvasMeta.spotlight && ids.some(id => state.blocks[id].highlight)
   ids.forEach(id => {
     const b = state.blocks[id], { w, h } = dims[id]
     const x = b.x, y = b.y
     const accent = b.color || TYPES[b.type]?.color || '#888'
     const label = TYPES[b.type]?.label || b.type
     const rx = b.type === 'terminator' ? 22 : 10
-    parts.push(`<g>`)
-    parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${C.card}" stroke="${C.cardBorder}" stroke-width="1"/>`)
-    // Left accent bar
-    parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="3" height="${h}" rx="1.5" fill="${accent}"/>`)
-    // Type badge
-    parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(y + 18).toFixed(1)}" font-size="9" font-weight="700" letter-spacing="0.7" fill="${accent}">${escHtml(label.toUpperCase())}</text>`)
+    // Match the canvas preset. Before this the export always drew an accent bar
+    // over a neutral border, which was not what any on-screen card looked like.
+    const card = b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE
+    const bw = b.borderWidth || (card === 'bar' ? 1 : 1.5)
+    const edge = card === 'plain' || card === 'header' ? C.cardBorder : accent
+    parts.push(`<g${spotlit && !b.highlight ? ' opacity="0.3"' : ''}>`)
+    // Highlight ring first, so the card sits on top of it exactly as on screen.
+    // The festive border animates in the browser and cannot in a raster, so it
+    // exports as a static candy-cane dash rather than as a plain line.
+    if (b.highlight && HIGHLIGHTS[b.highlight]) {
+      const hc = HIGHLIGHTS[b.highlight].color
+      const dash = b.highlight === 'festive' ? ' stroke-dasharray="9 9"' : ''
+      parts.push(`<rect x="${(x - 6).toFixed(1)}" y="${(y - 6).toFixed(1)}" width="${w + 12}" height="${h + 12}" rx="${rx + 5}" fill="none" stroke="${hc}" stroke-width="3"${dash}/>`)
+      if (b.highlight === 'festive') {
+        parts.push(`<rect x="${(x - 6).toFixed(1)}" y="${(y - 6).toFixed(1)}" width="${w + 12}" height="${h + 12}" rx="${rx + 5}" fill="none" stroke="#34d399" stroke-width="3" stroke-dasharray="9 9" stroke-dashoffset="9"/>`)
+      }
+    }
+    parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${C.card}" stroke="${edge}" stroke-width="${bw}"/>`)
+    if (card === 'tint') {
+      // An overlay rather than a computed blend: the card fill is a theme
+      // token that is not always a parseable hex.
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${accent}" opacity="0.14"/>`)
+    } else if (card === 'bar') {
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="3" height="${h}" rx="1.5" fill="${accent}"/>`)
+    } else if (card === 'header') {
+      parts.push(`<path d="M ${x} ${(y + rx).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${-rx} h ${(w - rx * 2).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${rx} v 16 h ${-w} Z" fill="${accent}"/>`)
+    }
+    // Type badge. On the header preset it sits on the accent strip, so it flips
+    // to dark ink for the same reason the canvas does.
+    const badgeFill = card === 'header' ? 'rgba(0,0,0,.78)' : accent
+    parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(y + 18).toFixed(1)}" font-size="9" font-weight="700" letter-spacing="0.7" fill="${badgeFill}">${escHtml(label.toUpperCase())}</text>`)
     // Title (wrapped)
     let ty = y + 38
     if (b.title) {

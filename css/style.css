@@ -95,6 +95,16 @@
 
     /* Export dropdown */
     .export-wrapper { position: relative; }
+    /* The wrapper sits inside .header-btn-group, one level deeper than the
+       header kit's uniform-control-row rules reach — deliberately, since the
+       kit must not stretch dropdown items. Carry the height across the
+       wrapper ourselves so Export/Share match the 40px row instead of
+       standing 3px short of it. */
+    .header-btn-group > .export-wrapper { display: flex; }
+    .header-btn-group > .export-wrapper > .header-btn {
+      height: var(--header-control-h);
+      min-height: 0;
+    }
     .export-dropdown {
       position: absolute;
       top: calc(100% + 6px);
@@ -229,15 +239,35 @@
     .palette-desc  { font-size: 11px; color: var(--text-muted); line-height: 1.3; margin-top: 1px; }
 
     /* Palette collapse button */
+    /* Palette header. Sticky so the collapse control stays reachable however far
+       down the block list you have scrolled. */
+    .palette-head {
+      position: sticky; top: 0; z-index: 2;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      padding: 8px 8px 8px 16px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .palette-head-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
     .palette-collapse-btn {
-      margin-top: auto; flex-shrink: 0;
+      flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      padding: 8px; border: none; background: none;
+      width: 26px; height: 26px;
+      padding: 0; border: none; border-radius: var(--radius-sm);
+      background: none;
       color: var(--text-muted); cursor: pointer;
-      border-top: 1px solid var(--border-subtle);
       transition: color var(--dur-fast), background var(--dur-fast);
     }
-    .palette-collapse-btn:hover { color: var(--text-secondary); background: var(--surface-1); }
+    .palette-collapse-btn:hover { color: var(--text-secondary); background: var(--surface-2); }
     .palette-collapse-btn svg { width: 18px; height: 18px; transition: transform 0.25s ease; }
 
     /* Collapsed palette */
@@ -261,6 +291,8 @@
     .palette.collapsed .palette-section-body { max-height: 1200px !important; }
     .palette.collapsed .palette-section.collapsed .palette-section-body { max-height: 0 !important; }
     .palette.collapsed .palette-collapse-btn svg { transform: rotate(180deg); }
+    .palette.collapsed .palette-head { justify-content: center; padding: 8px 4px; }
+    .palette.collapsed .palette-head-title { display: none; }
     .palette.collapsed .template-item { justify-content: center; padding: 10px 4px; }
     .palette.collapsed .template-item > div:last-child { display: none; }
     .palette.collapsed .template-icon { margin: 0; }
@@ -346,6 +378,19 @@
     body.light-mode .arrow-note { fill: rgba(0,0,0,.62); stroke: var(--bg); }
     body.light-mode .arrow-note.selected { fill: #000; }
 
+    /* Endpoint handles on the selected connection. The arrows layer is
+       pointer-events:none, so these opt back in explicitly. */
+    .arrow-handle {
+      fill: var(--bg);
+      stroke: rgba(255,255,255,.85);
+      stroke-width: 2;
+      pointer-events: all;
+      cursor: grab;
+    }
+    .arrow-handle:hover { fill: rgba(255,255,255,.85); }
+    body.light-mode .arrow-handle { stroke: rgba(0,0,0,.7); }
+    body.light-mode .arrow-handle:hover { fill: rgba(0,0,0,.7); }
+
     .arrow-hitbox {
       fill: none;
       stroke: transparent;
@@ -378,20 +423,55 @@
     .canvas-hint svg { width: 40px; height: 40px; opacity: .3; display: block; margin: 0 auto 12px; }
 
     /* ── Blocks ─────────────────────────────────────────────── */
+    /* Card presets. Every preset declares all four borders itself, so the
+       look lives in one place instead of being patched across light mode,
+       high contrast, and the gap states. `--bw` is the per-block border
+       width override; `--card-fill` the surface. */
     .block {
       position: absolute;
       width: 220px;
+      --bw: 1.5px;
+      --card-fill: rgba(8, 8, 22, 0.88);
+      --card-edge: color-mix(in srgb, var(--bc, white) 62%, transparent);
       border-radius: var(--radius);
-      border-left: 3px solid var(--bc, rgba(255,255,255,.12));
-      border-top: 1px solid color-mix(in srgb, var(--bc, white) 28%, transparent);
-      border-right: 1px solid color-mix(in srgb, var(--bc, white) 28%, transparent);
-      border-bottom: 1px solid color-mix(in srgb, var(--bc, white) 28%, transparent);
-      background: rgba(8, 8, 22, 0.88);
+      border: var(--bw) solid var(--card-edge);
+      background: var(--card-fill);
       padding: 10px 12px 10px;
       cursor: grab;
       user-select: none;
       transition: box-shadow var(--dur);
     }
+
+    /* Accent bar: the original look, kept because canvases were built in it. */
+    .block[data-card="bar"] {
+      --card-edge: color-mix(in srgb, var(--bc, white) 28%, transparent);
+      border-width: 1px;
+      border-left: 3px solid var(--bc, rgba(255,255,255,.12));
+    }
+
+    /* Solid header: the type colour reads as a strip rather than an edge. */
+    .block[data-card="header"] {
+      --card-edge: var(--border);
+      padding-top: 0;
+      overflow: hidden;
+    }
+    .block[data-card="header"] .block-header {
+      background: var(--bc, var(--border-strong));
+      margin: 0 -12px 8px;
+      padding: 5px 12px;
+    }
+    .block[data-card="header"] .block-type-badge { color: rgba(0,0,0,.78); }
+    .block[data-card="header"] .block-collapse-btn { color: rgba(0,0,0,.6); }
+
+    /* Tinted: full border plus an accent wash across the card. */
+    .block[data-card="tint"] {
+      --card-fill: linear-gradient(135deg,
+        color-mix(in srgb, var(--bc, #080816) 16%, rgba(8,8,22,.92)) 0%,
+        color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 100%);
+    }
+
+    /* Plain: neutral edge, colour survives in the type badge only. */
+    .block[data-card="plain"] { --card-edge: var(--border); }
     .block:hover { box-shadow: 0 4px 20px rgba(0,0,0,.45); }
     .block.selected {
       outline: 2px solid rgba(255,255,255,.38);
@@ -478,6 +558,167 @@
       z-index: 100;
       backdrop-filter: blur(6px);
     }
+    /* Alignment guides drawn while dragging. They live in world coordinates
+       inside canvas-root, so pan and zoom carry them for free. */
+    .guides-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+    .align-guide { position: absolute; background: var(--accent-bright, #86efac); opacity: .8; }
+    .align-guide.v { top: -6000px; height: 12000px; width: 1px; }
+    .align-guide.h { left: -6000px; width: 12000px; height: 1px; }
+
+    .align-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+
+    .shortcut-modal-footer {
+      margin-top: 14px; padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: var(--text-xs); color: var(--text-muted);
+    }
+    .shortcut-modal-footer a { color: var(--accent-bright); }
+
+    /* Block count on the larger templates, so nobody drops a 15-block diagram
+       onto a working canvas by accident. */
+    .template-size {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 0 5px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+
+    /* Situation: the engagement setup, with a live preview of the exact lines
+       it contributes to the prompt. Reading what you are about to hand over is
+       the whole point, so the preview is not hidden behind a disclosure. */
+    .situation-row { margin-bottom: 8px; }
+    .situation-row-label { margin-bottom: 4px; }
+    .situation-row .dev-radio-group { flex-wrap: wrap; }
+    .situation-row .radio-opt { flex: 1 1 auto; }
+    .situation-preview {
+      margin-top: 10px;
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-left: 2px solid var(--accent);
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      max-height: 190px;
+      overflow-y: auto;
+    }
+    body.light-mode .situation-preview { background: rgba(15,23,42,.03); color: rgba(15,23,42,.62); }
+
+    /* Miniature of each card preset, so the menu shows the look rather than
+       just naming it. */
+    .card-swatch {
+      width: 16px; height: 12px; flex: 0 0 16px;
+      border-radius: 3px;
+      background: rgba(8,8,22,.9);
+      border: 1.5px solid var(--accent-bright);
+    }
+    .card-swatch-bar    { border: 1px solid rgba(255,255,255,.25); border-left: 3px solid var(--accent-bright); }
+    .card-swatch-header { border: 1px solid rgba(255,255,255,.25); background: linear-gradient(var(--accent-bright) 0 4px, rgba(8,8,22,.9) 4px 100%); }
+    .card-swatch-tint   { border: 1.5px solid var(--accent-bright); background: color-mix(in srgb, var(--accent-bright) 22%, rgba(8,8,22,.9)); }
+    .card-swatch-plain  { border: 1.5px solid rgba(255,255,255,.3); }
+    .export-item.active { color: var(--text-primary); font-weight: 600; }
+
+    /* ── Presentation highlights ────────────────────────────
+       Emphasis for the moment a canvas gets shared: five of thirty boxes are
+       the point, and the rest are context. Drawn as a ring outside the card so
+       it never disturbs the card's own border or the layout. */
+    .block[data-highlight] { --hl: var(--border-strong); }
+    .block[data-highlight=alert]   { --hl: #f87171; }
+    .block[data-highlight=focus]   { --hl: #38bdf8; }
+    .block[data-highlight=go]      { --hl: #34d399; }
+    .block[data-highlight=hold]    { --hl: #fbbf24; }
+    .block[data-highlight=festive] { --hl: #f472b6; }
+
+    .block[data-highlight]::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: calc(var(--radius) + 5px);
+      border: 3px solid var(--hl);
+      pointer-events: none;
+      box-shadow: 0 0 22px -2px color-mix(in srgb, var(--hl) 55%, transparent);
+    }
+    /* The ring sits entirely outside the card (-6px inset, 3px border), so it
+       needs no stacking games and never covers the card's own edge. */
+    .block[data-type=terminator][data-highlight]::before { border-radius: 28px; }
+
+    /* Alert breathes. Slow enough to read past, fast enough to notice. */
+    @keyframes hlPulse {
+      0%, 100% { opacity: 1;   box-shadow: 0 0 22px -2px color-mix(in srgb, var(--hl) 55%, transparent); }
+      50%      { opacity: .55; box-shadow: 0 0 34px 2px color-mix(in srgb, var(--hl) 70%, transparent); }
+    }
+    .block[data-highlight=alert]::before { animation: hlPulse 1.9s ease-in-out infinite; }
+
+    /* Festive: a candy-cane border that actually travels. The two-layer mask is
+       the standard gradient-border recipe -- a plain border cannot carry a
+       repeating gradient, and border-image cannot be animated. */
+    .block[data-highlight=festive]::before {
+      border: none;
+      padding: 3px;
+      background: repeating-linear-gradient(45deg,
+        #f87171 0 10px, #ffffff 10px 20px, #34d399 20px 30px, #ffffff 30px 40px);
+      background-size: 56.57px 56.57px;
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      animation: hlMarch 1.6s linear infinite;
+    }
+    @keyframes hlMarch { to { background-position: 56.57px 0; } }
+
+    /* Spotlight: the emphasis is the contrast, so everything unmarked recedes.
+       Higher specificity than the hover-dim rule, which is a different job. */
+    body.spotlight .canvas-root .block:not([data-highlight]) {
+      opacity: .28;
+      filter: saturate(.35);
+      transition: opacity var(--dur), filter var(--dur);
+    }
+    body.spotlight .canvas-root .block:not([data-highlight]):hover { opacity: .7; filter: none; }
+    body.spotlight [data-aid] .arrow-path { opacity: .35; }
+    body.spotlight [data-aid].related .arrow-path { opacity: 1; }
+
+    /* Motion is decoration here; the ring carries the whole message without it. */
+    @media (prefers-reduced-motion: reduce) {
+      .block[data-highlight=alert]::before,
+      .block[data-highlight=festive]::before { animation: none; }
+      .block[data-highlight=festive]::before { background-position: 0 0; }
+    }
+
+    /* Swatch used by the highlight pickers. */
+    .hl-swatch {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--sw, var(--border-strong));
+      background: color-mix(in srgb, var(--sw, #888) 22%, transparent);
+      cursor: pointer;
+      transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+    }
+    .hl-swatch:hover { transform: scale(1.12); }
+    .hl-swatch.active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--sw, #888); }
+    .hl-swatch-none {
+      background: none;
+      border-style: dashed;
+      --sw: var(--text-muted);
+      position: relative;
+    }
+    .hl-swatch-festive {
+      border-color: transparent;
+      background: repeating-linear-gradient(45deg, #f87171 0 5px, #fff 5px 10px, #34d399 10px 15px, #fff 15px 20px);
+    }
+    .hl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    /* Tidy animates blocks to their new homes. The class sits on <body>
+       because renderBlock rewrites each block's className wholesale. */
+    body.tidying .block { transition: left 420ms var(--ease-snap), top 420ms var(--ease-snap); }
+
     .block.dragging { cursor: grabbing; box-shadow: 0 10px 36px rgba(0,0,0,.55); z-index: 100; }
     .canvas-root.has-hover .arrow-path:not(.related) { stroke: rgba(255,255,255,.08) !important; }
 
@@ -787,9 +1028,12 @@
     /* Terminators (start/end) read as pill-shaped nodes to signal flow bounds. */
     .block[data-type=terminator] { border-radius: 22px; }
 
-    /* Opt-in colored background tint (toggled via header button) */
+    /* Opt-in colour tint across every card, whatever preset each one is on
+       (toggled via the header button). */
     body.tinted-blocks .block {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--bc, #080816) 14%, rgba(8,8,22,.92)) 0%, color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 100%);
+      --card-fill: linear-gradient(135deg,
+        color-mix(in srgb, var(--bc, #080816) 14%, rgba(8,8,22,.92)) 0%,
+        color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 100%);
     }
 
     .block-header {
@@ -1032,13 +1276,10 @@
       50%      { box-shadow: 0 0 16px 4px rgba(250,204,21,.4); }
     }
 
-    .block.gap-isolated {
-      border-style: dashed;
-      border-left-style: solid;
-      border-top-color: rgba(255,255,255,.12);
-      border-right-color: rgba(255,255,255,.12);
-      border-bottom-color: rgba(255,255,255,.12);
-    }
+    /* An unconnected block reads as provisional. The accent-bar preset keeps
+       its stripe solid so the type is still legible at a glance. */
+    .block.gap-isolated { border-style: dashed; --card-edge: rgba(255,255,255,.2); }
+    .block[data-card="bar"].gap-isolated { border-left-style: solid; }
 
     .block.gap-assumption  { animation: glowAmber  2s ease-in-out infinite; }
     .block.gap-no-req      { animation: glowYellow 2.5s ease-in-out infinite; }
@@ -1503,6 +1744,19 @@
 
     .dev-radio-group, .dev-check-group { display: flex; flex-wrap: wrap; gap: 5px; }
 
+    /* Connection-point pickers: a label column plus a row of side buttons, so
+       "From" and "To" read as a pair rather than two unrelated toggle rows. */
+    .port-pick-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .port-pick-label {
+      flex: 0 0 34px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .port-pick { flex: 1; flex-wrap: nowrap; }
+    .port-pick .radio-opt { flex: 1; padding: 5px 0; text-align: center; }
+    .port-pick .radio-opt[data-port-side=""] { flex: 1.5; }
+
     .radio-opt, .check-opt {
       font-size: var(--text-xs);
       padding: 4px 10px;
@@ -1917,13 +2171,20 @@
     body.light-mode .palette-item:hover { background: rgba(0,0,0,.04); }
     body.light-mode .palette-item:active { background: rgba(0,0,0,.08); }
     body.light-mode .palette-section-header { border-top-color: rgba(0,0,0,.06); }
+    body.light-mode .palette-head { background: var(--bg); }
 
     body.light-mode .block {
-      background: #fff;
-      border-top-color: color-mix(in srgb, var(--bc, #999) 40%, transparent);
-      border-right-color: color-mix(in srgb, var(--bc, #999) 40%, transparent);
-      border-bottom-color: color-mix(in srgb, var(--bc, #999) 40%, transparent);
+      --card-fill: #fff;
+      --card-edge: color-mix(in srgb, var(--bc, #999) 55%, transparent);
       box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 12px rgba(15,23,42,.06);
+    }
+    body.light-mode .block[data-card="bar"]   { --card-edge: color-mix(in srgb, var(--bc, #999) 40%, transparent); }
+    body.light-mode .block[data-card="plain"] { --card-edge: rgba(15,23,42,.16); }
+    body.light-mode .block[data-card="header"] { --card-edge: rgba(15,23,42,.16); }
+    body.light-mode .block[data-card="tint"] {
+      --card-fill: linear-gradient(135deg,
+        color-mix(in srgb, var(--bc, #fff) 14%, #fff) 0%,
+        color-mix(in srgb, var(--bc, #fff) 5%, #fff) 100%);
     }
     body.light-mode .block:hover { box-shadow: 0 2px 4px rgba(15,23,42,.1), 0 8px 24px rgba(15,23,42,.12); }
     body.light-mode .block.selected {
@@ -1945,9 +2206,7 @@
     }
 
     body.light-mode .block.gap-isolated {
-      border-top-color: rgba(0,0,0,.12);
-      border-right-color: rgba(0,0,0,.12);
-      border-bottom-color: rgba(0,0,0,.12);
+      --card-edge: rgba(0,0,0,.22);
       box-shadow: 0 1px 4px rgba(0,0,0,.04);
     }
 
@@ -2440,3 +2699,123 @@
 @media (prefers-reduced-motion: reduce) {
   .header-github:hover svg { transform: none; }
 }
+
+    /* ── Walkthrough page (tutorial.html) ───────────────────── */
+    /* A reading page, so it opts out of the app's fixed-height body and
+       scrolls normally. */
+    body.doc-page { height: auto; min-height: 100vh; overflow: visible; display: block; }
+    body.doc-page .header-bar { position: sticky; top: 0; z-index: 40; }
+
+    .doc {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px 72px;
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.68;
+    }
+    .doc-kicker {
+      font-size: 11px; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    .doc h1 {
+      font-size: 2rem; line-height: 1.2; font-weight: 700;
+      color: var(--text-primary); margin-bottom: 14px; letter-spacing: -0.01em;
+    }
+    .doc-lede { font-size: 17px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 28px; }
+    .doc h2 {
+      font-size: 1.15rem; font-weight: 700; color: var(--text-primary);
+      margin: 40px 0 12px; padding-top: 20px;
+      border-top: 1px solid var(--border-subtle); letter-spacing: -0.005em;
+    }
+    .doc p { margin-bottom: 14px; }
+    .doc strong { color: var(--text-primary); font-weight: 600; }
+    .doc em { color: var(--text-primary); font-style: italic; opacity: .9; }
+    .doc a { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 2px; }
+    .doc a:hover { color: var(--accent); }
+
+    .doc-list { margin: 0 0 16px; padding-left: 20px; }
+    .doc-list li { margin-bottom: 9px; }
+
+    .doc code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: var(--text-primary);
+    }
+    .doc-pre {
+      margin: 0 0 18px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-left: 2px solid var(--accent);
+      overflow-x: auto;
+    }
+    .doc-pre code {
+      background: none; border: none; padding: 0;
+      font-size: 12.5px; line-height: 1.6;
+      color: var(--text-secondary);
+      white-space: pre;
+    }
+
+    .doc-aside {
+      margin: 0 0 18px;
+      padding: 12px 15px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-1);
+      border-left: 2px solid var(--c-assumption);
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .doc-cta {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+      margin: 26px 0 34px;
+      padding: 18px;
+      border-radius: var(--radius);
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+    }
+    .doc-cta-end { margin-top: 44px; }
+    .doc-cta-note { flex: 1 1 240px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+    .doc-btn {
+      flex-shrink: 0;
+      display: inline-flex; align-items: center;
+      padding: 10px 18px;
+      border: none; border-radius: var(--radius-sm);
+      background: var(--accent); color: #04140a;
+      font-family: var(--font); font-size: 14px; font-weight: 700;
+      cursor: pointer; text-decoration: none;
+      transition: background var(--dur-fast), transform var(--dur-fast);
+    }
+    .doc-btn:hover { background: var(--accent-bright); color: #04140a; transform: translateY(-1px); }
+    .doc-btn:disabled { opacity: .6; cursor: default; transform: none; }
+
+    .doc kbd {
+      display: inline-block;
+      min-width: 22px; text-align: center;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
+      border-bottom-width: 2px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px; font-weight: 600;
+      color: var(--text-primary);
+    }
+    .doc-keys { display: grid; gap: 10px; margin-bottom: 8px; }
+    .doc-keys > div { display: flex; align-items: center; gap: 12px; }
+    .doc-keys span { font-size: 14px; }
+
+    body.light-mode .doc-btn { color: #fff; }
+    body.light-mode .doc-pre code,
+    body.light-mode .doc { color: rgba(15,23,42,.78); }
+
+    @media (max-width: 640px) {
+      .doc { padding: 28px 18px 56px; font-size: 14.5px; }
+      .doc h1 { font-size: 1.6rem; }
+    }

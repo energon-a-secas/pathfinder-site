@@ -4,17 +4,19 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, view, canvasMeta, devOpts,
-         saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
-import { $, TYPES, clamp, escHtml, showToast, getBlockDims, getSmallIcon, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+         saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave, snapTo } from './state.js'
+import { $, TYPES, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
+         clamp, escHtml, showToast, getBlockDims, getSmallIcon, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
-import { TEMPLATES, TICONS, applyTemplate } from './templates.js'
-import { refreshPrompt, markExported, generatePrompt, computeHealthScore } from './prompt.js'
+import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation } from './templates.js'
+import { refreshPrompt, markExported, generatePrompt, computeHealthScore, situationSection } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
 import { getDocsBase, setDocsBase } from './doc-panel.js'
+import { tidyCanvas } from './layout.js'
 
 // ── Search ───────────────────────────────────────────────────
 function searchBlocks(query) {
@@ -144,6 +146,9 @@ const SHORTCUTS = [
   ['Drag empty canvas',  'Pan the canvas'],
   ['Tab / Shift+Tab',    'Navigate between blocks'],
   ['Enter / Space',      'Select focused block'],
+  ['L',                  'Tidy: auto-arrange the canvas'],
+  ['H',                  'Hide the header and footer'],
+  ['Z',                  'Zen: hide every panel too'],
   ['Alt + H',            'Toggle high-contrast mode'],
   ['Escape',             'Deselect / close overlay'],
   ['?',                  'Show this help'],
@@ -226,6 +231,7 @@ export function setupPanelTabs() {
 // One-line plain-language explanation of what each mode asks the AI to do,
 // shown under the mode selector so the choice isn't a guess.
 const MODE_DESCS = {
+  investigate: 'Establishes what is actually true before anything changes. Findings must carry their evidence, unknowns stay marked as unknown, and disagreements between the canvas and reality get reported rather than smoothed over. Use it when you are picking up somebody else\'s system.',
   explore: 'Surfaces gaps, risky assumptions, and missing links — asks questions instead of proposing solutions. Good for pressure-testing an early canvas.',
   plan:    'Turns the canvas into a phased implementation plan with concrete outputs per phase. The default for "give me a roadmap".',
   build:   'Treats requirements and outputs as a task checklist and asks for working code. Use once the plan is settled.',
@@ -235,6 +241,64 @@ const MODE_DESCS = {
 export function refreshModeDesc() {
   const el = document.getElementById('modeDesc')
   if (el) el.textContent = MODE_DESCS[devOpts.mode] || MODE_DESCS.plan
+}
+
+// ── Situation ────────────────────────────────────────────────
+
+/**
+ * The engagement setup: what code exists, what the assistant can reach, and
+ * what it should do first. Rendered from SITUATION_FIELDS so the control and
+ * the sentence it produces cannot drift apart, and previewed live because the
+ * whole point is being able to read what you are about to hand over.
+ */
+export function setupSituation() {
+  const host = document.getElementById('situationFields')
+  const repo = document.getElementById('situationRepoHint')
+  const cons = document.getElementById('situationConstraints')
+  if (!host) return
+
+  const paint = () => {
+    const sit = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}) }
+    host.innerHTML = Object.entries(SITUATION_FIELDS).map(([key, field]) => `
+      <div class="situation-row">
+        <div class="insp-label situation-row-label">${escHtml(field.label)}
+          <span class="insp-label-hint">${escHtml(field.hint)}</span></div>
+        <div class="dev-radio-group" data-situation="${key}">
+          ${Object.entries(field.options).map(([val, opt]) =>
+            `<button class="radio-opt${sit[key] === val ? ' active' : ''}" data-situation-value="${val}"
+                     title="${escHtml(opt.line)}">${escHtml(opt.label)}</button>`).join('')}
+        </div>
+      </div>`).join('')
+    if (repo && document.activeElement !== repo) repo.value = sit.repoHint || ''
+    if (cons && document.activeElement !== cons) cons.value = sit.constraints || ''
+    refreshSituationPreview()
+  }
+
+  host.addEventListener('click', e => {
+    const btn = e.target.closest('[data-situation-value]'); if (!btn) return
+    const key = btn.closest('[data-situation]')?.dataset.situation; if (!key) return
+    canvasMeta.situation = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}), [key]: btn.dataset.situationValue }
+    paint(); saveState(); ui.promptDirty = true; refreshPrompt()
+  })
+
+  const bindText = (el, key) => el && el.addEventListener('input', () => {
+    canvasMeta.situation = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}), [key]: el.value }
+    refreshSituationPreview(); debouncedSave(); ui.promptDirty = true; refreshPrompt()
+  })
+  bindText(repo, 'repoHint')
+  bindText(cons, 'constraints')
+
+  paint()
+  syncSituation = paint
+}
+
+let syncSituation = () => {}
+export function refreshSituation() { syncSituation() }
+
+/** Show the exact lines the situation will contribute to the prompt. */
+export function refreshSituationPreview() {
+  const el = document.getElementById('situationPreview'); if (!el) return
+  el.textContent = situationSection().trim()
 }
 
 // ── Dev options ──────────────────────────────────────────────
@@ -543,6 +607,8 @@ export function setupImportHandler() {
           ) ? 'replace' : 'merge')
 
       const { imported, dropped } = applyImport(data, mode)
+      collapseTemplatesAfterUse()
+      refreshSituation(); refreshCardStyles(); refreshSpotlight()
       reportImport(imported, dropped)
     }
     reader.onerror = () => showToast('Could not read file', 'error')
@@ -551,6 +617,120 @@ export function setupImportHandler() {
 }
 
 // ── Header buttons ───────────────────────────────────────────
+// ── Canvas-wide card style ───────────────────────────────────
+
+/**
+ * The default look for every block that has not overridden it. Lives on the
+ * canvas (not in ui) so it travels with a share link and an exported JSON:
+ * a diagram someone else opens should look like the one you sent.
+ */
+export function setupCardStyles() {
+  const wrapper = document.getElementById('cardsWrapper')
+  const menu = document.getElementById('cardsDropdown')
+  if (!wrapper || !menu) return
+
+  const paint = () => {
+    menu.innerHTML = Object.entries(CARD_STYLES).map(([k, v]) => {
+      const on = (canvasMeta.cardStyle || DEFAULT_CARD_STYLE) === k
+      return `<div class="export-item${on ? ' active' : ''}" data-canvas-card="${k}" title="${escHtml(v.hint)}">` +
+             `<span class="card-swatch card-swatch-${k}"></span>${escHtml(v.label)}</div>`
+    }).join('')
+  }
+  paint()
+  syncCardStyles = paint
+
+  document.getElementById('cardsBtn').addEventListener('click', e => {
+    e.stopPropagation()
+    const open = wrapper.classList.toggle('open')
+    document.getElementById('cardsBtn').setAttribute('aria-expanded', open ? 'true' : 'false')
+  })
+  menu.addEventListener('click', e => {
+    const item = e.target.closest('[data-canvas-card]'); if (!item) return
+    canvasMeta.cardStyle = item.dataset.canvasCard
+    paint()
+    wrapper.classList.remove('open')
+    renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
+    renderInspector()
+    saveState()
+    showToast(`Cards set to ${CARD_STYLES[canvasMeta.cardStyle].label}`, 'success', 1500)
+  })
+  document.addEventListener('click', () => wrapper.classList.remove('open'))
+}
+
+let syncCardStyles = () => {}
+export function refreshCardStyles() { syncCardStyles() }
+
+/** Spotlight rides on the canvas, so an imported one arrives already on. */
+export function refreshSpotlight() {
+  document.body.classList.toggle('spotlight', !!canvasMeta.spotlight)
+}
+
+// ── Tidy (auto-layout) ───────────────────────────────────────
+
+const DIR_KEY = 'pathfinder-layout-dir'
+let layoutDir = 'LR'
+try { const d = localStorage.getItem(DIR_KEY); if (d === 'LR' || d === 'TB') layoutDir = d } catch (_) {}
+
+function refreshDirButton() {
+  const btn = document.getElementById('tidyDirBtn'); if (!btn) return
+  const label = layoutDir === 'LR' ? 'Left to right' : 'Top to bottom'
+  btn.title = 'Layout direction: ' + label + '. Click to switch.'
+  btn.setAttribute('aria-label', 'Layout direction: ' + label)
+  btn.style.transform = layoutDir === 'LR' ? '' : 'rotate(90deg)'
+}
+
+/**
+ * Re-lay the canvas and animate every block to its new home.
+ *
+ * Positions land in one undo step (tidyCanvas takes the snapshot), so Cmd+Z
+ * restores the whole arrangement. Arrows are re-rendered each frame during the
+ * transition, then routed properly once it settles.
+ */
+export function runTidy() {
+  if (ui.readOnly) return
+  const count = Object.keys(state.blocks).length
+  if (count < 2) { showToast('Add at least two blocks to arrange', 'info', 1600); return }
+
+  const { moved, crossings } = tidyCanvas({ direction: layoutDir })
+  document.body.classList.add('tidying')
+  renderAllBlocks()
+  renderFrames()
+
+  const started = performance.now()
+  const step = () => {
+    renderArrows({ cheap: true })
+    renderFrames()
+    if (performance.now() - started < 460) requestAnimationFrame(step)
+    else {
+      document.body.classList.remove('tidying')
+      renderArrows({ cheap: false })
+      fitView()
+    }
+  }
+  requestAnimationFrame(step)
+
+  saveState()
+  ui.promptDirty = true
+  runGapDetection()
+  const dir = layoutDir === 'LR' ? 'left to right' : 'top to bottom'
+  showToast(
+    moved
+      ? `Arranged ${count} blocks ${dir}, ${crossings} crossing${crossings === 1 ? '' : 's'}. Undo with Cmd+Z`
+      : 'Already arranged',
+    'success', 2600)
+}
+
+export function setupTidy() {
+  refreshDirButton()
+  document.getElementById('tidyBtn')?.addEventListener('click', runTidy)
+  document.getElementById('tidyDirBtn')?.addEventListener('click', () => {
+    layoutDir = layoutDir === 'LR' ? 'TB' : 'LR'
+    try { localStorage.setItem(DIR_KEY, layoutDir) } catch (_) {}
+    refreshDirButton()
+    runTidy()
+  })
+}
+
 export function setupHeaderButtons() {
   document.getElementById('clearBtn').addEventListener('click', () => {
     if (!confirm('Clear the entire canvas? All blocks and connections will be lost.')) return
@@ -591,8 +771,8 @@ export function setupHeaderButtons() {
       // visible effect, not just a behavior change for future drags.
       snapshot()
       Object.values(state.blocks).forEach(b => {
-        b.x = Math.round(b.x / 28) * 28
-        b.y = Math.round(b.y / 28) * 28
+        b.x = snapTo(b.x)
+        b.y = snapTo(b.y)
       })
       renderAllBlocks(); renderArrows(); renderFrames(); debouncedSave()
       showToast('Snapped all blocks to the grid', 'success', 1500)
@@ -655,14 +835,49 @@ export function setupPanelCollapse() {
 }
 
 // ── Palette sections & collapse ──────────────────────────────
+/**
+ * Open or fold a palette section, and remember it.
+ *
+ * Exported because the canvas drives it too: once you have blocks, Templates
+ * has done its job and the block list is what you reach for.
+ */
+export function setPaletteSection(sectionId, open) {
+  const section = document.getElementById(sectionId); if (!section) return
+  section.classList.toggle('collapsed', !open)
+  section.querySelector('.palette-section-toggle')?.setAttribute('aria-expanded', open ? 'true' : 'false')
+  try { localStorage.setItem('pathfinder-pal-' + sectionId, open ? '1' : '0') } catch (_) {}
+}
+
+/** Fold Templates away, but only if the user has not already opened it by hand. */
+export function collapseTemplatesAfterUse() {
+  let pinned = null
+  try { pinned = localStorage.getItem('pathfinder-pal-templatesSection') } catch (_) {}
+  if (pinned === '1') return
+  setPaletteSection('templatesSection', false)
+  try { localStorage.removeItem('pathfinder-pal-templatesSection') } catch (_) {}
+}
+
 export function setupPaletteSections() {
   // Section toggles (Templates, Blocks)
   document.querySelectorAll('.palette-section-toggle').forEach(toggle => {
     toggle.addEventListener('click', () => {
       const section = toggle.closest('.palette-section')
-      section.classList.toggle('collapsed')
-      toggle.setAttribute('aria-expanded', !section.classList.contains('collapsed'))
+      const open = section.classList.contains('collapsed')
+      setPaletteSection(section.id, open)
     })
+  })
+
+  // Restore section state. Templates defaults to open on an empty canvas and
+  // folded once there is something on it, because that is the point at which
+  // it stops being the thing you need.
+  ;['templatesSection', 'blocksSection'].forEach(id => {
+    let saved = null
+    try { saved = localStorage.getItem('pathfinder-pal-' + id) } catch (_) {}
+    if (saved !== null) { setPaletteSection(id, saved === '1'); return }
+    if (id === 'templatesSection' && Object.keys(state.blocks).length) {
+      document.getElementById(id)?.classList.add('collapsed')
+      document.querySelector('#' + id + ' .palette-section-toggle')?.setAttribute('aria-expanded', 'false')
+    }
   })
 
   // Advanced types sub-section toggle (nested inside Blocks)
@@ -675,13 +890,21 @@ export function setupPaletteSections() {
     })
   }
 
-  // Palette collapse button
+  // Palette collapse button, now in the palette header
   const collapseBtn = document.getElementById('paletteCollapseBtn')
-  if (collapseBtn) {
+  const palette = document.getElementById('palette')
+  if (collapseBtn && palette) {
+    const reflect = () => {
+      const on = palette.classList.contains('collapsed')
+      collapseBtn.title = on ? 'Expand palette' : 'Collapse palette'
+      collapseBtn.setAttribute('aria-expanded', on ? 'false' : 'true')
+    }
+    try { if (localStorage.getItem('pathfinder-palette-collapsed') === '1') palette.classList.add('collapsed') } catch (_) {}
+    reflect()
     collapseBtn.addEventListener('click', () => {
-      const palette = document.getElementById('palette')
       palette.classList.toggle('collapsed')
-      collapseBtn.title = palette.classList.contains('collapsed') ? 'Expand palette' : 'Collapse palette'
+      try { localStorage.setItem('pathfinder-palette-collapsed', palette.classList.contains('collapsed') ? '1' : '0') } catch (_) {}
+      reflect()
     })
   }
 }
@@ -820,25 +1043,52 @@ export function setupTimer() {
 export function setupTemplates() {
   const list = $.templatesList(); if (!list) return
   list.innerHTML = TEMPLATES.map((tpl, i) => `
-    <div class="template-item" data-tpl="${i}" title="${escHtml(tpl.name)}">
+    <div class="template-item${tpl.large ? ' template-large' : ''}" data-tpl="${i}" title="${escHtml(tpl.name)}">
       <div class="template-icon">${TICONS[tpl.icon] || ''}</div>
       <div>
-        <div class="template-label">${escHtml(tpl.name)}</div>
+        <div class="template-label">${escHtml(tpl.name)}${tpl.large ? '<span class="template-size">' + tpl.blocks.length + '</span>' : ''}</div>
         <div class="template-desc">${escHtml(tpl.desc)}</div>
       </div>
     </div>`).join('')
   list.addEventListener('click', e => {
     const item = e.target.closest('.template-item'); if (!item) return
     const tpl = TEMPLATES[+item.dataset.tpl]; if (!tpl) return
+    const wasEmpty = Object.keys(state.blocks).length === 0
     snapshot()
     applyTemplate(tpl)
+    // A template's framing only lands on a canvas that had nothing on it. On a
+    // merge the existing situation is somebody's deliberate choice.
+    const framed = wasEmpty && applyTemplateSituation(tpl, canvasMeta, devOpts)
+    if (framed) { refreshSituation(); refreshModeDesc(); syncModeButtons() }
     renderAllBlocks()
-    renderArrows()
+    renderArrows({ cheap: false })
     renderFrames()
     runGapDetection()
     updateHint()
-    debouncedSave()
+    saveState()
     ui.promptDirty = true
+    refreshPrompt()
+    collapseTemplatesAfterUse()
+
+    // The big templates exist to be read as a shape, so arrange them straight
+    // away rather than dropping a knot of boxes and hoping the button is found.
+    if (tpl.large) {
+      runTidy()
+      if (framed) showToast(`${tpl.name} added, arranged, and the Situation set to match`, 'success', 3200)
+    } else {
+      fitView()
+      showToast(`Added ${tpl.name}. Press Tidy or L to arrange it`, 'success', 2600)
+    }
+  })
+}
+
+/** Reflect devOpts.mode back onto the mode buttons after a template sets it. */
+function syncModeButtons() {
+  const group = document.getElementById('modeGroup'); if (!group) return
+  group.querySelectorAll('.radio-opt').forEach(b => {
+    const on = b.dataset.value === devOpts.mode
+    b.classList.toggle('active', on)
+    b.setAttribute('aria-pressed', on ? 'true' : 'false')
   })
 }
 
@@ -855,6 +1105,8 @@ export function checkShareUrl() {
     const mode = (isEmpty || ui.embed) ? 'replace'
       : (confirm('Load shared canvas?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
     const { dropped } = applyImport(data, mode)
+    collapseTemplatesAfterUse()
+    refreshSituation(); refreshCardStyles(); refreshSpotlight()
     updateCanvasTitle()
     syncContextBrief()
     const skipped = dropped.blocks + dropped.arrows + dropped.groups

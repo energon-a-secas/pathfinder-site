@@ -81,7 +81,7 @@ describe('saveState() / loadState() round-trip', () => {
   it('saves and loads blocks correctly', () => {
     resetState()
     state.blocks = {
-      b1: { id: 'b1', type: 'goal', title: 'Goal 1', description: 'desc', notes: '', x: 100, y: 200, actions: ['resolve'], questions: ['why?'] }
+      b1: { id: 'b1', type: 'goal', title: 'Goal 1', description: 'desc', notes: '', x: 100, y: 200, actions: ['resolve'], questions: [{ text: 'why?' }] }
     }
     state.arrows = [{ id: 'a1', from: 'b1', to: 'b2' }]
     canvasMeta.title = 'My Canvas'
@@ -96,7 +96,7 @@ describe('saveState() / loadState() round-trip', () => {
     assert.ok(state.blocks.b1, 'Block b1 should be restored')
     assert.eq(state.blocks.b1.title, 'Goal 1')
     assert.eq(state.blocks.b1.actions[0], 'resolve')
-    assert.eq(state.blocks.b1.questions[0], 'why?')
+    assert.eq(state.blocks.b1.questions[0].text, 'why?')
     assert.eq(state.arrows.length, 1)
     assert.eq(canvasMeta.title, 'My Canvas')
   })
@@ -139,8 +139,8 @@ describe('snap()', () => {
   it('snaps to nearest multiple of 28 when snapToGrid is on', () => {
     ui.snapToGrid = true
     assert.eq(snap(0), 0)
-    assert.eq(snap(14), 0)    // rounds down
-    assert.eq(snap(15), 28)   // rounds up
+    assert.eq(snap(14), 28)   // exact half rounds away from zero
+    assert.eq(snap(15), 28)
     assert.eq(snap(28), 28)
     assert.eq(snap(42), 56)   // 42/28 = 1.5, rounds to 2 * 28 = 56
     assert.eq(snap(56), 56)
@@ -149,7 +149,8 @@ describe('snap()', () => {
 
   it('handles negative values', () => {
     ui.snapToGrid = true
-    assert.eq(snap(-14), 0)
+    // Mirrors the positive cases exactly, which is the point of snapTo.
+    assert.eq(snap(-14), -28)
     assert.eq(snap(-28), -28)
     assert.eq(snap(-42), -56)
     ui.snapToGrid = false
