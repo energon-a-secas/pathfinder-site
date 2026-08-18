@@ -1,4 +1,4 @@
-# CLAUDE.md — Pathfinder
+# CLAUDE.md: Pathfinder
 
 Visual strategy canvas for planning, gap detection, and AI prompt export.
 
@@ -19,23 +19,23 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 |------|-------|------|
 | `index.html` | ~703 | HTML shell + OG meta |
 | `css/style.css` | ~2544 | All CSS, variables, animations |
-| `js/app.js` | ~115 | Entry point — imports all modules, calls `init()` |
+| `js/app.js` | ~115 | Entry point: imports all modules, calls `init()` |
 | `js/state.js` | ~136 | State shape, `loadState()`/`saveState()`, camera persistence, `snapTo()` |
 | `js/utils.js` | ~378 | `TYPES`, `CARD_STYLES`, `genId()`, `escHtml()`, `clamp()`, `debounce()` |
 | `js/canvas.js` | ~538 | Pan/zoom, `resolveRoutes()` (lanes + routing), `pathFor()`, `renderArrows()` |
-| `js/gaps.js` | ~74 | `runGapDetection()` — appends gap CSS classes |
+| `js/gaps.js` | ~74 | `runGapDetection()`: appends gap CSS classes |
 | `js/prompt.js` | ~447 | `generatePrompt()`, `refreshPrompt()` |
 | `js/render.js` | ~580 | `renderBlock()`, `renderAllBlocks()`, `renderInspector()` |
 | `js/events.js` | ~1228 | Canvas pointer, keyboard shortcuts, palette, inspector events |
 | `js/ui-panels.js` | ~972 | Export, share, search, panel tabs, dev options, header buttons, Tidy, card-style default |
 | `js/context-menu.js` | ~203 | Right-click block quick menu (duplicate/type/color/collapse/delete) |
-| `js/image-export.js` | ~241 | High-quality diagram export — native SVG + 2× PNG, mirrors the canvas exactly |
-| `js/doc-panel.js` | ~217 | Living documentation — docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
+| `js/image-export.js` | ~241 | High-quality diagram export: native SVG + 2× PNG, mirrors the canvas exactly |
+| `js/doc-panel.js` | ~217 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
 | `js/route.js` | ~261 | Orthogonal router: A* over a lattice of block edges. Pure, no DOM |
 | `js/layout.js` | ~349 | Layered auto-layout (`tidyCanvas`). Pure `layoutGraph` + app wrapper |
 | `js/align.js` | ~138 | Drag guides, align, distribute |
 | `js/chrome.js` | ~73 | `H` / `Z` expanded view |
-| `tutorial.html` + `js/tutorial-example.js` | — | Worked walkthrough; the example loads via the share hash |
+| `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
 
 **JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
@@ -51,11 +51,11 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **`canvasMeta.situation`** is the engagement setup: `codebase` (none / current / other / greenfield), `runtime` (chat / code / ide), `firstMove` (read / ask / plan / act), plus `repoHint` and `constraints`. `situationSection()` in `prompt.js` emits it as the **first** section of every prompt, ahead of the task, because a plan read without its situation gets acted on wrongly. Each option owns the sentence it contributes (`SITUATION_FIELDS` in `utils.js`), so the control and the copy cannot drift.
 - The **assumptions directive adapts**: with the repository reachable it tells the reader to settle assumptions from the code rather than ask; otherwise it says none of them can be treated as established.
 - New **`investigate` prompt mode**: establish what is true, evidence per finding, unknowns stay marked, canvas-versus-reality disagreements get reported rather than reconciled.
-- Three **large templates** (`Investigate a Bug`, `Inherit a Codebase`, `Migrate a System`, 13-15 blocks) carry a `situation` + `mode` and auto-run Tidy on apply. A template's framing lands **only on a canvas that was empty** — on a merge the existing situation is somebody's deliberate choice.
+- Three **large templates** (`Investigate a Bug`, `Inherit a Codebase`, `Migrate a System`, 13-15 blocks) carry a `situation` + `mode` and auto-run Tidy on apply. A template's framing lands **only on a canvas that was empty**, on a merge the existing situation is somebody's deliberate choice.
 - **Palette**: the collapse control moved into a sticky `.palette-head` at the top. Templates folds itself away once the canvas has content (`collapseTemplatesAfterUse` in `ui-panels.js`) unless the user pinned it open. Palette and section state persist.
 - **`applyImport` now carries the whole meta** on replace (title, contextBrief, cardStyle, situation) and does it *before* blocks render, since `renderBlock` resolves each card against `canvasMeta.cardStyle`. A merge leaves the framing alone.
 - **`tutorial.html`** is a worked walkthrough; `js/tutorial-example.js` is a plain script (not a module) that loads the finished example through the share hash.
-- **`llms.txt` is hand-authored** — the generator marker was removed deliberately. It is the format spec: canvas JSON, every enum, and how to consume an export from a terminal session or a skill.
+- **`llms.txt` is hand-authored**: the generator marker was removed deliberately. It is the format spec: canvas JSON, every enum, and how to consume an export from a terminal session or a skill.
 
 **Key interactions added 2026-08-14 (connections, layout, card styling):**
 - **Connections do not stack.** `resolveRoutes()` in `canvas.js` is the single source of arrow geometry for both the canvas and the SVG/PNG export. It buckets every endpoint by the side it lands on and gives each one its own lane, so six arrows into one block arrive on six points instead of fusing into one line.
@@ -71,7 +71,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - Right-click any block for a quick-action menu (`context-menu.js`); also `Shift+F10`/ContextMenu key on the selected block.
 - Arrows carry an optional `note` (richer than `label`), hidden until hover/selection, or always shown via the header **Arrow text** toggle (`ui.showArrowText`, persisted `pathfinder-arrowtext`, body class `show-arrow-text`).
 - Right panel collapses via a chevron (persisted `pathfinder-panel-collapsed`).
-- Export ▾ → **Download Image (PNG 2×)** / **Download Vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`) — no DOM screenshot.
+- Export ▾ → **Download Image (PNG 2×)** / **Download Vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`). No DOM screenshot.
 - Brain Dump folds indented/bulleted lines into the parent block's description (toggle in the card); `parseOutline()` in `events.js`.
 - Prompt pane shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
 - **Dark theme is the default** (no OS-preference opt-in); light mode only when explicitly saved.
@@ -84,7 +84,7 @@ break embedding.
 
 **Required assets:** `index.html` · `css/style.css` · `js/*.js` · `favicon.ico` · `energon-classic-logo.png` · `og-preview.jpg` · `CNAME`
 
-**📖 Read `docs/references/internals.md` before changing code in** `doc-panel.js` (Living Documentation — docRef, fetch gating/CSP, "See:" promotion, live questions), `canvas.js` (pan/zoom, ports, Bézier routing), or `prompt.js` (per-mode prompt generation, Brain Dump classifier, dev options). It also holds the full **Key Functions Reference** (per-module function lookup).
+**📖 Read `docs/references/internals.md` before changing code in** `doc-panel.js` (Living Documentation, docRef, fetch gating/CSP, "See:" promotion, live questions), `canvas.js` (pan/zoom, ports, Bézier routing), or `prompt.js` (per-mode prompt generation, Brain Dump classifier, dev options). It also holds the full **Key Functions Reference** (per-module function lookup).
 
 ---
 
@@ -131,7 +131,7 @@ a share link should carry the diagram, not the sender's pan and zoom.
 
 ## Block Types
 
-13 types defined in the `TYPES` constant. Each has a unique accent colour, which the card preset renders as a full border, a left stripe, a header strip, or a tint (see **Card presets** above). The palette surfaces a **Core 6** by default; the rest live behind an "Advanced types" expander (`#advancedBlocks`) — but all 13 are fully usable and no type is ever removed (deleting a type would drop existing blocks via `normalize.js`).
+13 types defined in the `TYPES` constant. Each has a unique accent colour, which the card preset renders as a full border, a left stripe, a header strip, or a tint (see **Card presets** above). The palette surfaces a **Core 6** by default; the rest live behind an "Advanced types" expander (`#advancedBlocks`), but all 13 are fully usable and no type is ever removed (deleting a type would drop existing blocks via `normalize.js`).
 
 | Type | Color | CSS Var | Palette |
 |------|-------|---------|---------|
@@ -157,7 +157,7 @@ a share link should carry the diagram, not the sender's pan and zoom.
 
 ## Gap Detection
 
-`runGapDetection()` runs automatically on every canvas change. Gap branches are **mutually exclusive** — a block reports exactly ONE gap (isolation wins outright; type-specific gaps only apply to *connected* blocks wired wrongly):
+`runGapDetection()` runs automatically on every canvas change. Gap branches are **mutually exclusive**. A block reports exactly ONE gap (isolation wins outright; type-specific gaps only apply to *connected* blocks wired wrongly):
 
 | Class | Meaning | Trigger |
 |-------|---------|---------|
@@ -176,9 +176,9 @@ Accessed via "Export ▾" dropdown in the header:
 
 | Action | Output |
 |--------|--------|
-| Copy Prompt | Clipboard — markdown AI prompt |
-| Download JSON | `pathfinder.json` — full canvas (blocks + arrows + timestamp) |
-| Download Markdown | `pathfinder.md` — a section per block type (**every** type: leaving one out of `order` silently drops those blocks), labelled connections, and a Mermaid graph of the same topology |
+| Copy Prompt | Clipboard: markdown AI prompt |
+| Download JSON | `pathfinder.json`: full canvas (blocks + arrows + timestamp) |
+| Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of `order` silently drops those blocks), labelled connections, and a Mermaid graph of the same topology |
 | Import JSON | File picker; replace or merge with existing canvas |
 
 **Merge behavior:** existing blocks preserved; imported blocks get new IDs, arrow refs remapped.
@@ -211,15 +211,15 @@ and `?embed`, and below the typing bail so they never fire inside an input.
 
 ## CSS Class Patterns
 
-- `.block[data-type=goal]` — type-specific styling
+- `.block[data-type=goal]`: type-specific styling
 - `.block.selected` · `.block.dragging`
 - `.block.gap-isolated` · `.block.gap-assumption` · `.block.gap-no-req` · `.block.gap-unaddressed`
-- `.block[data-card=outline|bar|header|tint|plain]` — card preset
-- `.block[data-highlight=alert|focus|go|hold|festive]` — presentation ring
-- `body.spotlight` — fade every block without a highlight
+- `.block[data-card=outline|bar|header|tint|plain]`: card preset
+- `.block[data-highlight=alert|focus|go|hold|festive]`: presentation ring
+- `body.spotlight`: fade every block without a highlight
 - `.port-left` · `.port-right` · `.port-top` · `.port-bottom` · `.arrow-handle`
-- `body.tidying` — transient, animates blocks to their new positions
-- `body[data-chrome=off]` · `body[data-zen=on]` — expanded view
+- `body.tidying`: transient, animates blocks to their new positions
+- `body[data-chrome=off]` · `body[data-zen=on]`: expanded view
 - `.panel-tab.active` · `.tab-pane.active`
 - `.type-pill.active` · `.action-toggle.active`
 - `.export-wrapper.open`
