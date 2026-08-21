@@ -207,18 +207,23 @@ export function exportToPresentationSage() {
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
 
-  let yaml = `presentation:\n  title: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n  subtitle: "Exported from Pathfinder"\n  author: "Neorgon"\n  slides:\n    - type: title\n      title: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n      subtitle: "${Object.values(state.blocks).length} blocks, ${state.arrows.length} connections"\n`
+  let yaml = `presentation:\n  title: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n  subtitle: "Exported from Pathfinder"\n  author: "Neorgon"\n  slides:\n    - type: title\n      heading: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n      subtitle: "${Object.values(state.blocks).length} blocks, ${state.arrows.length} connections"\n`
 
   order.forEach(t => {
     const items = byType[t]; if (!items?.length) return
-    yaml += `    - type: bullets\n      title: "${headings[t]}"\n      bullets:\n`
+    yaml += `    - type: bullets\n      heading: "${headings[t]}"\n      bullets:\n`
     items.forEach(b => {
       yaml += `        - "${b.title.replace(/"/g, '\\"')}"\n`
     })
   })
 
-  const url = 'https://slides.neorgon.com/?yaml=' + encodeURIComponent(yaml)
-  window.open(url, '_blank')
+  // Presentation Sage's share contract: the deck travels in the fragment as
+  // base64url UTF-8, never hits a server, and ?via= lets the arrival be counted.
+  // (?yaml= still works there, but raw YAML in a query string had no size guard.)
+  const bytes = new TextEncoder().encode(yaml)
+  let bin = ''; bytes.forEach(b => { bin += String.fromCharCode(b) })
+  const payload = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  window.open('https://slides.neorgon.com/?via=pathfinder#d=' + payload, '_blank')
 }
 
 // ── Export Meeting Summary ───────────────────────────────────
