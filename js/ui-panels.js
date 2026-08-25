@@ -1177,3 +1177,48 @@ export function checkShareUrl() {
     if (skipped) showToast(`Loaded shared canvas, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`, 'warning')
   } catch(_) { /* malformed hash -- silently ignore */ }
 }
+
+// ── ?src= loader ─────────────────────────────────────────────
+/**
+ * Load a canvas from a URL: ?src=https://... pointing at canvas JSON, the
+ * pattern proctor-site established. It is the link an agent can hand over
+ * when a #s= hash would be unwieldy: a gist, a raw file in a repo. Only
+ * https, only hosts the CSP allows (GitHub raw/gist plus same-origin), a
+ * 1 MB cap, and the same replace-or-merge confirmation a share link gets.
+ */
+export async function checkSrcUrl() {
+  const params = new URLSearchParams(location.search)
+  const src = params.get('src')
+  if (!src) return
+  if (!/^https:\/\//.test(src) && !src.startsWith('/')) {
+    showToast('?src= must be an https URL', 'warning'); return
+  }
+  // Drop src from the URL either way, keeping embed/readonly flags: reloads
+  // should not re-fetch, and a failed fetch should not look retryable-by-F5.
+  const keep = []
+  if (ui.embed) keep.push('embed')
+  if (ui.readOnly && !ui.embed) keep.push('readonly')
+  history.replaceState(null, '', location.pathname + (keep.length ? '?' + keep.join('&') : '') + location.hash)
+  try {
+    const res = await fetch(src, { credentials: 'omit' })
+    if (!res.ok) { showToast(`Could not load ?src= (HTTP ${res.status})`, 'warning'); return }
+    const text = await res.text()
+    if (text.length > 1_000_000) { showToast('That canvas file is over 1 MB; import it as a file instead', 'warning'); return }
+    const data = JSON.parse(text)
+    if (!data || (!data.blocks && !data.arrows)) { showToast('That URL has no canvas in it', 'warning'); return }
+    const isEmpty = Object.keys(state.blocks).length === 0
+    const mode = (isEmpty || ui.embed) ? 'replace'
+      : (confirm('Load canvas from the link?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
+    const { imported, dropped } = applyImport(data, mode)
+    collapseTemplatesAfterUse()
+    refreshSituation(); refreshCardStyles(); refreshSpotlight()
+    updateCanvasTitle()
+    syncContextBrief()
+    const skipped = dropped.blocks + dropped.arrows + dropped.groups
+    showToast(skipped
+      ? `Loaded ${imported} blocks from the link, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`
+      : `Loaded ${imported} block${imported === 1 ? '' : 's'} from the link`, skipped ? 'warning' : 'success')
+  } catch (_) {
+    showToast('Could not fetch ?src= (network, CORS, or a host the app does not allow)', 'warning')
+  }
+}

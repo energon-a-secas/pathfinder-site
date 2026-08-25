@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-08-24 (fourth pass)
+
+### The agent channel
+
+Three small pieces that make the canvas contract usable by something other
+than a human with a clipboard:
+
+- **`validate.mjs`**: prove an emitted canvas loads before handing it over.
+  A thin Node CLI over the app's own `js/normalize.js` (fetched from the live
+  site when run standalone), so what it accepts is exactly what the canvas
+  accepts. Names every dropped or coerced item; exit 0 / 1 / 2.
+- **`?src=<https url>`** loads canvas JSON from a link, for canvases too big
+  for a `#s=` hash: https or same-origin only, 1 MB cap, GitHub raw and gist
+  whitelisted in the CSP, and the same replace-or-merge confirmation a share
+  link gets.
+- **`#s=` arrivals are finally counted.** The fleet beacon counts `?via=`,
+  `?src=` and `#d=`/`#t=` payloads but its pattern misses this app's `#s=`;
+  a site-local counter fires the same anonymous `share/<host>/hash-payload`
+  event for exactly that gap, with the same privacy guards and no double
+  counting. No canvas content is ever sent.
+
+llms.txt documents all three, plus the `?via=` convention for links other
+tools emit toward Pathfinder. The `pathfinder` skill (in neorgon-forge)
+closes the loop: read a canvas, do the work, hand back a validated one.
+
 ## 2026-08-24 (third pass)
 
 ### Criteria, rationale, and the Spec bundle

@@ -152,6 +152,30 @@ block `type` carries what a block *is*; `priority` and `status` carry where it
 stands. A highlight only says somebody wanted it looked at. It is deliberately
 absent from the exported prompt for the same reason.
 
+## Arriving by URL, and being counted
+
+- **Share hash:** `https://pathfinder.neorgon.com/#s=<base64(encodeURIComponent(JSON))>`
+  carries a whole canvas in the link. Build it exactly that way when emitting
+  a link; the app offers replace-or-merge on arrival.
+- **`?src=`:** `https://pathfinder.neorgon.com/?src=<https url>` fetches canvas
+  JSON from a URL instead, for canvases too large for a hash. Allowed hosts:
+  GitHub raw and gist (`raw.githubusercontent.com`, `gist.githubusercontent.com`)
+  and the site itself; anything else is blocked by the page's CSP.
+- **`?via=`:** append `?via=<your-name>` (letters, digits, dashes) to any link
+  you emit toward Pathfinder. It is counted as an anonymous arrival event and
+  nothing more; no canvas content is ever sent anywhere.
+
+## Validating before handing over
+
+An emitted canvas can be proven loadable without opening the app:
+
+    curl -sO https://pathfinder.neorgon.com/validate.mjs
+    node validate.mjs canvas.json        # or -  (stdin), or a '#s=...' link
+
+It runs the app's own normalizer (fetched from this site when not local), so
+what it accepts is exactly what the canvas accepts. Exit 0 clean; exit 1 when
+items would be dropped or coerced (each one is named); exit 2 unreadable.
+
 ## Prompt modes
 
 `Investigate` establishes what is true and demands evidence per finding.

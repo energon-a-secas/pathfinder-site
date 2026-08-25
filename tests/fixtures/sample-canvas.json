@@ -1,0 +1,20 @@
+{
+  "blocks": [
+    { "id": "g1", "type": "goal", "title": "Ship the src loader", "description": "Prove a canvas can arrive by URL.", "x": 0, "y": 0,
+      "criteria": ["loads from a same-origin fixture"] },
+    { "id": "r1", "type": "requirement", "title": "Only https or same-origin", "x": 320, "y": 0,
+      "criteria": ["WHEN the URL is not https THE SYSTEM SHALL refuse it"] },
+    { "id": "d1", "type": "decision", "title": "Reuse the share import path", "x": 640, "y": 0,
+      "rationale": "One normalize choke point; no second importer to drift." }
+  ],
+  "arrows": [
+    { "id": "a1", "from": "g1", "to": "r1", "label": "requires", "style": "routed" },
+    { "id": "a2", "from": "r1", "to": "d1", "label": "led to", "style": "routed" }
+  ],
+  "groups": [],
+  "meta": {
+    "title": "Src loader fixture",
+    "contextBrief": "A tiny canvas served from the repo itself, for verifying ?src=.",
+    "prompt": { "mode": "investigate" }
+  }
+}
