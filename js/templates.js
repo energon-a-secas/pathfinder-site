@@ -259,9 +259,12 @@ export function applyTemplate(tpl) {
       id, type: bd.type, title: bd.title,
       description: bd.description || '', notes: '',
       x: cx + bd.dx, y: cy + bd.dy,
-      actions: bd.actions ? [...bd.actions] : [], questions: [],
+      actions: bd.actions ? [...bd.actions] : [],
+      questions: bd.questions ? bd.questions.map(q => ({ text: q.text })) : [],
+      criteria: bd.criteria ? [...bd.criteria] : [],
+      rationale: bd.rationale || '',
       width: null, color: null, collapsed: false, groupId: null,
-      status: null, priority: bd.priority || null,
+      status: bd.status || null, priority: bd.priority || null,
       cardStyle: null, borderWidth: null,
     }
     return id
@@ -277,6 +280,69 @@ export function applyTemplate(tpl) {
   })
 
   return ids
+}
+
+// ── User templates: your own canvas, kept as a starting point ─
+// Stored in the same shape the built-ins use, so applyTemplate treats both
+// identically. Positions are normalised to the canvas's own top-left, and
+// the situation and mode ride along like the large built-ins carry theirs.
+
+const USER_TPL_KEY = 'pathfinder-templates'
+const MAX_USER_TPL = 12
+
+export function listUserTemplates() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(USER_TPL_KEY) || '[]')
+    return Array.isArray(arr) ? arr : []
+  } catch (_) { return [] }
+}
+
+export function deleteUserTemplate(id) {
+  try {
+    localStorage.setItem(USER_TPL_KEY, JSON.stringify(listUserTemplates().filter(t => t.id !== id)))
+  } catch (_) {}
+}
+
+/**
+ * Capture the live canvas as a reusable template. Pure of DOM: reads state
+ * and returns the stored entry (or null when there is nothing to save or no
+ * room). `deps` exist so tests can hand in plain objects.
+ */
+export function saveCurrentAsTemplate(name, deps) {
+  const st = deps?.state || state
+  const meta = deps?.canvasMeta
+  const mode = deps?.mode
+  const blocks = Object.values(st.blocks)
+  if (!blocks.length) return null
+  const minX = Math.min(...blocks.map(b => b.x))
+  const minY = Math.min(...blocks.map(b => b.y))
+  const index = new Map(blocks.map((b, i) => [b.id, i]))
+  const tpl = {
+    id: genId(),
+    name: (name || '').trim() || 'My template',
+    desc: `${blocks.length} block${blocks.length === 1 ? '' : 's'} · yours`,
+    large: blocks.length > 8,
+    user: true,
+    blocks: blocks.map(b => ({
+      type: b.type, title: b.title, description: b.description || '',
+      dx: Math.round(b.x - minX), dy: Math.round(b.y - minY),
+      actions: (b.actions || []).slice(), priority: b.priority || undefined,
+      status: b.status || undefined,
+      criteria: (b.criteria || []).slice(),
+      rationale: b.rationale || undefined,
+      questions: (b.questions || []).map(q => ({ text: q.text })),
+    })),
+    arrows: st.arrows
+      .filter(a => index.has(a.from) && index.has(a.to))
+      .map(a => [index.get(a.from), index.get(a.to), a.label || undefined]),
+  }
+  if (meta?.situation) tpl.situation = { ...meta.situation }
+  if (mode) tpl.mode = mode
+  const all = listUserTemplates()
+  all.push(tpl)
+  while (all.length > MAX_USER_TPL) all.shift()
+  try { localStorage.setItem(USER_TPL_KEY, JSON.stringify(all)) } catch (_) { return null }
+  return tpl
 }
 
 /**

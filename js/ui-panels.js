@@ -9,7 +9,8 @@ import { $, TYPES, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_
          clamp, escHtml, showToast, getBlockDims, getSmallIcon, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
-import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation } from './templates.js'
+import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
+         listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from './templates.js'
 import { refreshPrompt, markExported, generatePrompt, computeHealthScore, situationSection } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportSpecBundle } from './spec-export.js'
@@ -1141,8 +1142,11 @@ export function setupTimer() {
 }
 
 // ── Templates ────────────────────────────────────────────────
-export function setupTemplates() {
+const SAVE_TPL_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>'
+
+function renderTemplatesList() {
   const list = $.templatesList(); if (!list) return
+  const users = listUserTemplates()
   list.innerHTML = TEMPLATES.map((tpl, i) => `
     <div class="template-item${tpl.large ? ' template-large' : ''}" data-tpl="${i}" title="${escHtml(tpl.name)}">
       <div class="template-icon">${TICONS[tpl.icon] || ''}</div>
@@ -1151,9 +1155,45 @@ export function setupTemplates() {
         <div class="template-desc">${escHtml(tpl.desc)}</div>
       </div>
     </div>`).join('')
+    + users.map(tpl => `
+    <div class="template-item template-user" data-utpl="${escHtml(tpl.id)}" title="${escHtml(tpl.name)}">
+      <div class="template-icon">${SAVE_TPL_ICON}</div>
+      <div>
+        <div class="template-label">${escHtml(tpl.name)}</div>
+        <div class="template-desc">${escHtml(tpl.desc || '')}</div>
+      </div>
+      <button class="utpl-del" data-utpl-del="${escHtml(tpl.id)}" title="Delete this template" aria-label="Delete template">×</button>
+    </div>`).join('')
+    + `
+    <button class="template-save" id="saveTemplateBtn" title="Keep the current canvas as a reusable starting point">
+      ${SAVE_TPL_ICON}<span>Save canvas as template</span>
+    </button>`
+}
+
+export function setupTemplates() {
+  const list = $.templatesList(); if (!list) return
+  renderTemplatesList()
   list.addEventListener('click', e => {
+    const del = e.target.closest('[data-utpl-del]')
+    if (del) {
+      e.stopPropagation()
+      deleteUserTemplate(del.dataset.utplDel)
+      renderTemplatesList()
+      showToast('Template deleted', 'info', 1500)
+      return
+    }
+    if (e.target.closest('#saveTemplateBtn')) {
+      if (!Object.keys(state.blocks).length) { showToast('Add blocks first, then save them as a template', 'warning'); return }
+      const tpl = saveCurrentAsTemplate(canvasMeta.title, { state, canvasMeta, mode: devOpts.mode })
+      renderTemplatesList()
+      showToast(tpl ? `"${tpl.name}" saved — it now lives in Templates` : 'No room to save the template', tpl ? 'success' : 'warning', 2400)
+      return
+    }
     const item = e.target.closest('.template-item'); if (!item) return
-    const tpl = TEMPLATES[+item.dataset.tpl]; if (!tpl) return
+    const tpl = item.dataset.utpl
+      ? listUserTemplates().find(t => t.id === item.dataset.utpl)
+      : TEMPLATES[+item.dataset.tpl]
+    if (!tpl) return
     const wasEmpty = Object.keys(state.blocks).length === 0
     snapshot()
     applyTemplate(tpl)

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-24 (ninth pass)
+
+### Your canvas, as a template
+
+Teams reuse their own structures more than anyone else's. The Templates
+section gains **Save canvas as template**: the live canvas is captured in
+the same shape the built-ins use (positions normalised, arrows re-indexed,
+acceptance criteria, questions, the situation and the prompt mode all riding
+along), listed after the built-ins with a delete control, capped at twelve.
+Applying one works exactly like applying a built-in, framing included.
+
+The roadmap also wanted template JSON export/import; a template already
+travels as a canvas (export the canvas, import it elsewhere, save it as a
+template there), so no second file format was added.
+
 ## 2026-08-24 (eighth pass)
 
 ### Snapshots, and a camera per map

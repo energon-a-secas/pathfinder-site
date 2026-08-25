@@ -39,6 +39,9 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
+**Key interactions added 2026-08-24 (user templates):**
+- **Save canvas as template** (foot of the Templates palette section): captures the live canvas into `pathfinder-templates` (max 12) in the exact shape built-ins use, positions normalised, arrows re-indexed, criteria/questions/situation/mode riding along; `applyTemplate` now carries `criteria`, `rationale`, `status` and `questions` for any template that has them. User templates render after the built-ins with a delete ×. Templates travel between browsers as canvases (export the canvas, import, save as template).
+
 **Key interactions added 2026-08-24 (snapshots, per-map camera):**
 - **Map snapshots** (`library.js`): Maps ▾ → "Snapshot this map" keeps a full copy under `pathfinder-snaps-<mapId>` (max 8, oldest dropped); the Snapshots submenu lists each with `fmtWhen` and a since-then diff (`diffPayloads`: ±blocks, changed, ±arrows); restoring auto-snapshots the pre-restore state first. Applying a patch auto-snapshots as "Before the patch": Cmd+Z covers the session, the snapshot covers next week.
 - **Per-map camera**: the view persists under `pathfinder-view:<mapId>` (legacy `pathfinder-view` is a read fallback); switching maps restores the target's camera and skips the fit (`applyImport(data, mode, { fit })`).
