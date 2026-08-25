@@ -18,6 +18,7 @@ function setupCanvas(blocks, arrows) {
       description: b.description || '', notes: '',
       x: b.x || 0, y: b.y || 0,
       actions: b.actions || [], questions: b.questions || [],
+      criteria: b.criteria || [], rationale: b.rationale || '',
       width: null, color: null, collapsed: false, groupId: null,
     }
     mockBlockEl(b.id)
@@ -32,7 +33,8 @@ function setupCanvas(blocks, arrows) {
 function getGapClasses(id) {
   const el = document.getElementById('b-' + id)
   if (!el) return []
-  return ['gap-isolated', 'gap-assumption', 'gap-no-req', 'gap-unaddressed']
+  return ['gap-isolated', 'gap-assumption', 'gap-no-req', 'gap-unaddressed',
+          'gap-no-mitigation', 'gap-no-basis', 'gap-no-producer', 'gap-no-criteria', 'gap-loose-step']
     .filter(c => el.classList.contains(c))
 }
 
@@ -280,7 +282,7 @@ describe('Block with all gaps resolved', () => {
     setupCanvas(
       [
         { id: 'g1', type: 'goal', title: 'Ship v2' },
-        { id: 'r1', type: 'requirement', title: 'Performance' },
+        { id: 'r1', type: 'requirement', title: 'Performance', criteria: ['p95 under 200ms'] },
         { id: 'q1', type: 'question', title: 'Timeline?' },
         { id: 'p1', type: 'problem', title: 'Legacy code', actions: ['resolve'] },
       ],
@@ -342,5 +344,113 @@ describe('runGapDetection() return value', () => {
     )
     const result = runGapDetection()
     assert.eq(result.details[0].title, '(untitled)')
+  })
+})
+
+// ── The lint expansion (2026-08-24) ──────────────────────────
+
+describe('Gap: risk without mitigation', () => {
+  it('flags a connected risk with no outgoing arrows and no prepare action', () => {
+    setupCanvas(
+      [{ id: 'g', type: 'goal' }, { id: 'r', type: 'risk' }],
+      [{ from: 'g', to: 'r' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('r'), ['gap-no-mitigation'])
+  })
+  it('a prepare action clears it', () => {
+    setupCanvas(
+      [{ id: 'g', type: 'goal' }, { id: 'r', type: 'risk', actions: ['prepare'] }],
+      [{ from: 'g', to: 'r' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('r'), [])
+  })
+})
+
+describe('Gap: decision without basis', () => {
+  it('flags a decision with nothing incoming and no rationale', () => {
+    setupCanvas(
+      [{ id: 'd', type: 'decision' }, { id: 'o', type: 'output' }],
+      [{ from: 'd', to: 'o' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('d'), ['gap-no-basis'])
+  })
+  it('a recorded rationale clears it', () => {
+    setupCanvas(
+      [{ id: 'd', type: 'decision' }, { id: 'o', type: 'output' }],
+      [{ from: 'd', to: 'o' }]
+    )
+    state.blocks.d.rationale = 'cheaper and boring'
+    runGapDetection()
+    assert.deepEq(getGapClasses('d'), [])
+  })
+})
+
+describe('Gap: output nothing produces, requirement without criteria', () => {
+  it('flags them, and criteria clear the requirement', () => {
+    setupCanvas(
+      [{ id: 'r', type: 'requirement' }, { id: 'o', type: 'output' }],
+      [{ from: 'o', to: 'r' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('o'), ['gap-no-producer'])
+    assert.deepEq(getGapClasses('r'), ['gap-no-criteria'])
+    state.blocks.r.criteria = ['holds under load']
+    runGapDetection()
+    assert.deepEq(getGapClasses('r'), [])
+  })
+})
+
+describe('Gap: step outside any flow', () => {
+  it('flags a process wired only to non-flow blocks', () => {
+    setupCanvas(
+      [{ id: 'p', type: 'process' }, { id: 'x', type: 'problem', actions: ['resolve'] }],
+      [{ from: 'x', to: 'p' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('p'), ['gap-loose-step'])
+  })
+  it('another flow node clears it', () => {
+    setupCanvas(
+      [{ id: 'p', type: 'process' }, { id: 't', type: 'terminator' }],
+      [{ from: 't', to: 'p' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('p'), [])
+  })
+  it('reaching a flow node THROUGH ordinary blocks also clears it', () => {
+    setupCanvas(
+      [{ id: 't', type: 'terminator' }, { id: 'x', type: 'problem', actions: ['resolve'] },
+       { id: 'p', type: 'process' }],
+      [{ from: 't', to: 'x' }, { from: 'x', to: 'p' }]
+    )
+    runGapDetection()
+    assert.deepEq(getGapClasses('p'), [], 'the tutorial example flows through non-flow blocks')
+  })
+})
+
+describe('Gap precedence and canvas findings', () => {
+  it('isolation still wins over every new rule', () => {
+    setupCanvas([{ id: 'r', type: 'requirement' }], [])
+    runGapDetection()
+    assert.deepEq(getGapClasses('r'), ['gap-isolated'])
+  })
+  it('reports a dependency cycle as a canvas finding', () => {
+    setupCanvas(
+      [{ id: 'a', type: 'process' }, { id: 'b', type: 'process' }],
+      [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }]
+    )
+    const { canvasFindings } = runGapDetection()
+    assert.eq(canvasFindings.length, 1)
+    assert.match(canvasFindings[0], /cycle/)
+  })
+  it('reports a named empty group', () => {
+    setupCanvas([{ id: 'a', type: 'goal' }], [])
+    state.groups = { g1: { id: 'g1', label: 'Phase 9' } }
+    const { canvasFindings } = runGapDetection()
+    assert.ok(canvasFindings.some(f => f.includes('Phase 9')))
+    state.groups = {}
   })
 })

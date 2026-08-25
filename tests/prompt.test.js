@@ -319,6 +319,7 @@ describe('generatePrompt() -- gap details', () => {
     resetPromptState()
     addBlock('g1', 'goal', 'G')
     addBlock('r1', 'requirement', 'R')
+    state.blocks.r1.criteria = ['met']   // the stricter lint flags criteria-less requirements
     addArrow('g1', 'r1')
     const prompt = generatePrompt()
     assert.notIncludes(prompt, '## Planning Gaps')

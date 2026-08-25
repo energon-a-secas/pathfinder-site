@@ -63,7 +63,7 @@ export const EXAMPLE_CANVAS = {
 
       B('t11', 'requirement', 'A test that fails before the fix',
         'Written against the reproduction. If it passes on the unfixed code it is testing something else.',
-        1660, 10, { priority: 'high' }),
+        1660, 10, { priority: 'high', criteria: ['fails on the unfixed code', 'passes after the fix, on the reproduction'] }),
 
       B('t12', 'terminator', 'Fixed and proven',
         'Test goes red then green, the symptom is gone where it was reported, and the cause is written down somewhere the next person will look.',

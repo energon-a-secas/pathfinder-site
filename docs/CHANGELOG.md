@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-08-24 (sixth pass)
+
+### Plan lint: gap detection grows up
+
+Four rules covered 4 of 13 types; the hub card promised more than that. Five
+new rules, same mutually-exclusive discipline (one gap per block, isolation
+still wins): an unmitigated **risk** (nothing downstream, no prepare), a
+**decision without basis** (nothing leads to it and no rationale), an
+**output nothing produces**, a **requirement with no acceptance criteria**
+("done" is undefined), and a workflow **step wired into no flow**. Two
+canvas-level findings join them: circular dependency orders and named groups
+with no members.
+
+Every rule carries inspector suggestions, several with a one-click fix (Mark
+Prepare, Create Decision, focus the criteria or rationale field). The Prompt
+tab gains a per-rule breakdown under the health score; clicking a row jumps
+to the first offender. One label source (`GAP_META`) feeds the breakdown and
+the prompt's gap section, so they cannot drift.
+
+Health scores get stricter on old canvases, deliberately: the new rules are
+real gaps that were always there, unreported.
+
 ## 2026-08-24 (fifth pass)
 
 ### The round trip

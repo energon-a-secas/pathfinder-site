@@ -21,7 +21,7 @@ import { state, ui, snapshot, saveState } from './state.js'
 import { genId, escHtml, showToast, STATUS_DEFS } from './utils.js'
 import { normalizeBlock, normalizeArrow } from './normalize.js'
 import { renderAllBlocks, renderInspector } from './render.js'
-import { renderArrows, renderFrames } from './canvas.js'
+import { renderArrows, renderFrames, fitView } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 
@@ -244,10 +244,14 @@ export function setupPatchUI() {
   input.addEventListener('input', refresh)
   applyBtn.addEventListener('click', () => {
     if (!plan) return
+    const addedBlocks = plan.ops.some(o => o.ok && o.kind === 'block')
     const n = applyPlan(plan)
     if (!n) return
     renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
     runGapDetection(); renderInspector()
+    // New blocks land beside the canvas; show them rather than leaving an
+    // arrow running off the edge of the viewport.
+    if (addedBlocks) fitView()
     ui.promptDirty = true
     if (ui.activeTab === 'prompt') refreshPrompt()
     input.value = ''; preview.innerHTML = ''; applyBtn.disabled = true

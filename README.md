@@ -59,8 +59,16 @@ The gap detection layer runs automatically and highlights structural problems:
 
 - A **goal** with no requirements linked glows yellow (how will you get there?)
 - A **problem** with no outgoing arrow and no "Resolve" action pulses red (what are you doing about it?)
-- A **question** not connected to a goal or requirement glows amber and earns an ⚠ badge (unanchored assumptions compound)
-- Any block with zero connections gets a dashed border (is this block actually part of the plan?)
+- An **assumption** not anchored to a goal or requirement glows amber (unanchored assumptions compound)
+- A **risk** with nothing downstream and no "Prepare" action (what mitigates it?)
+- A **decision** with nothing leading to it and no rationale (why was this chosen?)
+- An **output** nothing produces, and a **requirement** with no acceptance criteria ("done" is undefined)
+- A workflow **step** wired into no flow, and any block with zero connections at all
+- Canvas-wide: circular dependency orders and named groups with no members
+
+Each flagged block gets plain-language suggestions in the inspector, several with
+a one-click fix, and the Prompt tab lists every firing rule with a jump to the
+first offender.
 
 The gap icons are not mandatory warnings. They are conversation starters: the canvas asking you to articulate things you might otherwise assume.
 

@@ -1271,9 +1271,15 @@ export function setupInspectorEvents() {
     } else if (btn.dataset.fix === 'add-req') {
       const id = createBlock('requirement', nx, ny); addArrow(id, blockId); selectBlock(id)
       showToast('Requirement created and linked')
-    } else if (btn.dataset.fix === 'add-decision') {
+    } else if (btn.dataset.fix === 'add-decision' || btn.dataset.fix === 'mitigate') {
       const id = createBlock('decision', nx, ny); addArrow(blockId, id); selectBlock(id)
       showToast('Decision created and linked')
+    } else if (btn.dataset.fix === 'prepare') {
+      if (!b.actions.includes('prepare')) mutateBlock(blockId, { actions: [...b.actions, 'prepare'] })
+    } else if (btn.dataset.fix === 'rationale') {
+      document.getElementById('inspRationale')?.focus()
+    } else if (btn.dataset.fix === 'criteria') {
+      document.getElementById('inspCriteria')?.focus()
     }
   })
 }

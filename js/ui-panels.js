@@ -457,6 +457,14 @@ export function refreshReadinessVerdict() {
   verdictEl.className = `copy-pill-verdict grade-${v.grade}`
 }
 
+/** Clicks on the gap breakdown jump to the first offending block. */
+export function setupGapBreakdown() {
+  document.getElementById('gapBreakdown')?.addEventListener('click', e => {
+    const row = e.target.closest('.gap-row[data-bid]'); if (!row) return
+    focusBlock(row.dataset.bid)
+  })
+}
+
 export function setupCopyPill() {
   const pill = document.getElementById('copyPromptPill')
   if (!pill) return

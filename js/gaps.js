@@ -4,6 +4,7 @@
 
 import { state } from './state.js'
 import { getBlockEl, DEFAULT_WIDTH } from './utils.js'
+import { breakCycles } from './layout.js'
 
 // ── Gap detection ────────────────────────────────────────────
 //
@@ -12,10 +13,31 @@ import { getBlockEl, DEFAULT_WIDTH } from './utils.js'
 // on top of it. Type-specific gaps (assumption / no-req / unaddressed)
 // only apply to blocks that ARE connected but are connected wrongly.
 export function runGapDetection() {
-  const GAP = ['gap-isolated','gap-assumption','gap-no-req','gap-unaddressed']
+  const GAP = ['gap-isolated','gap-assumption','gap-no-req','gap-unaddressed',
+               'gap-no-mitigation','gap-no-basis','gap-no-producer','gap-no-criteria','gap-loose-step']
   const details = []
+
+  // Connected components over the arrows, for the loose-step rule: a flow in
+  // this app legitimately passes THROUGH non-flow blocks (the tutorial's own
+  // example does), so "outside any flow" must mean the whole component holds
+  // no other flow node, not merely the direct neighbours.
+  const comp = new Map()
+  const find = x => { let r = x; while (comp.get(r) !== r) r = comp.get(r); comp.set(x, r); return r }
+  for (const id in state.blocks) comp.set(id, id)
+  state.arrows.forEach(a => {
+    if (!comp.has(a.from) || !comp.has(a.to)) return
+    comp.set(find(a.from), find(a.to))
+  })
+  const flowInComp = new Map()
+  for (const id in state.blocks) {
+    const t = state.blocks[id].type
+    if (t === 'process' || t === 'terminator') {
+      const r = find(id)
+      flowInComp.set(r, (flowInComp.get(r) || 0) + 1)
+    }
+  }
   const record = (b, gapClass) =>
-    details.push({ title: b.title || '(untitled)', type: b.type, gaps: [gapClass] })
+    details.push({ id: b.id, title: b.title || '(untitled)', type: b.type, gaps: [gapClass] })
 
   for (const id in state.blocks) {
     const b   = state.blocks[id]
@@ -49,8 +71,61 @@ export function runGapDetection() {
     if (b.type === 'problem' && !b.actions.includes('resolve') && out.length === 0) {
       el.classList.add('gap-unaddressed'); record(b, 'gap-unaddressed'); continue
     }
+    // Risk with no mitigation: nothing downstream of it and nobody preparing.
+    if (b.type === 'risk' && out.length === 0 && !b.actions.includes('prepare')) {
+      el.classList.add('gap-no-mitigation'); record(b, 'gap-no-mitigation'); continue
+    }
+    // Decision with no basis: nothing leads to it and no rationale recorded.
+    if (b.type === 'decision' && inc.length === 0 && !b.rationale?.trim()) {
+      el.classList.add('gap-no-basis'); record(b, 'gap-no-basis'); continue
+    }
+    // Output nothing produces.
+    if (b.type === 'output' && inc.length === 0) {
+      el.classList.add('gap-no-producer'); record(b, 'gap-no-producer'); continue
+    }
+    // Requirement with no acceptance criteria: "done" is undefined.
+    if (b.type === 'requirement' && !(b.criteria || []).length) {
+      el.classList.add('gap-no-criteria'); record(b, 'gap-no-criteria'); continue
+    }
+    // Workflow step in a component holding no other flow node: it is in no
+    // flow at all, however many ordinary blocks it touches.
+    if (b.type === 'process' && (flowInComp.get(find(id)) || 0) < 2) {
+      el.classList.add('gap-loose-step'); record(b, 'gap-loose-step'); continue
+    }
   }
-  return { count: details.length, details }
+
+  // Canvas-level findings: real problems that belong to no single block.
+  const canvasFindings = []
+  const ids = Object.keys(state.blocks)
+  if (ids.length) {
+    const edges = state.arrows
+      .filter(a => state.blocks[a.from] && state.blocks[a.to] && a.from !== a.to)
+      .map(a => ({ from: a.from, to: a.to }))
+    const { reversed } = breakCycles(ids, edges)
+    if (reversed.size) {
+      canvasFindings.push(`${reversed.size} connection${reversed.size === 1 ? '' : 's'} close a cycle: the dependency order is circular somewhere`)
+    }
+  }
+  Object.values(state.groups || {}).forEach(g => {
+    if (!Object.values(state.blocks).some(b => b.groupId === g.id)) {
+      canvasFindings.push(`group "${g.label || '(unnamed)'}" has a name and no members`)
+    }
+  })
+
+  return { count: details.length, details, canvasFindings }
+}
+
+/* ── Rule metadata: one source for the prompt, the breakdown, and docs ── */
+export const GAP_META = {
+  'gap-isolated':      { short: 'Isolated',            prompt: 'no connections: not linked to anything on the canvas' },
+  'gap-assumption':    { short: 'Dangling assumption', prompt: 'unvalidated assumption: not linked to a Goal or Requirement and not flagged to validate' },
+  'gap-no-req':        { short: 'Goal without requirements', prompt: 'no requirement: goal has no linked requirement' },
+  'gap-unaddressed':   { short: 'Unaddressed problem', prompt: 'unaddressed: problem with no resolve action and no outgoing links' },
+  'gap-no-mitigation': { short: 'Unmitigated risk',    prompt: 'unmitigated: risk with nothing downstream of it and no prepare action' },
+  'gap-no-basis':      { short: 'Decision without basis', prompt: 'no basis: decision with nothing leading to it and no recorded rationale' },
+  'gap-no-producer':   { short: 'Output nothing produces', prompt: 'no producer: output with no incoming connection' },
+  'gap-no-criteria':   { short: 'Requirement without criteria', prompt: 'no acceptance criteria: "done" is undefined for this requirement' },
+  'gap-loose-step':    { short: 'Step outside any flow', prompt: 'loose step: workflow step connected to no other step or start/end' },
 }
 
 /* ── Suggestion icons ─────────────────────────────────────────
@@ -75,7 +150,11 @@ const FIX_ICON = {
   /* check in a circle, for a problem nothing is acting on */
   resolve:      svg('<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>'),
   /* a fork in the road: one path in, two out, which is what a decision is */
-  'add-decision': svg('<path d="M12 21V13"/><path d="M12 13 5.5 7.5"/><path d="M12 13l6.5-5.5"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/>')
+  'add-decision': svg('<path d="M12 21V13"/><path d="M12 13 5.5 7.5"/><path d="M12 13l6.5-5.5"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/>'),
+  /* a shield, for a risk with no mitigation */
+  shield:       svg('<path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/>'),
+  /* a checked list, for a requirement whose "done" is undefined */
+  criteria:     svg('<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3 6l1.2 1.2L6.5 4.9M3 12l1.2 1.2 2.3-2.3M3 18l1.2 1.2 2.3-2.3"/>')
 }
 
 // ── Gap auto-fix suggestions ──────────────────────────────────
@@ -96,6 +175,22 @@ export function getGapFixes(b) {
     /* This one shipped with an empty string, so it rendered as an icon, a blank
        column and a button, with nothing saying what the button was for. */
     fixes.push({ id: 'add-decision', icon: FIX_ICON['add-decision'], text: 'Or record the call you already made, so the reasoning behind it survives.', action: 'Create Decision' })
+  }
+  if (el.classList.contains('gap-no-mitigation')) {
+    fixes.push({ id: 'prepare', icon: FIX_ICON['shield'], text: 'Nothing mitigates this risk yet — flag the prep work, or link what handles it.', action: 'Mark Prepare' })
+    fixes.push({ id: 'mitigate', icon: FIX_ICON['add-decision'], text: 'Or record the mitigation as a decision downstream of it.', action: 'Create Decision' })
+  }
+  if (el.classList.contains('gap-no-basis')) {
+    fixes.push({ id: 'rationale', icon: FIX_ICON['add-decision'], text: 'This decision records no basis — nothing leads to it and the why is empty.', action: 'Add rationale' })
+  }
+  if (el.classList.contains('gap-no-producer')) {
+    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'Nothing on the canvas produces this output — link the work that yields it.' })
+  }
+  if (el.classList.contains('gap-no-criteria')) {
+    fixes.push({ id: 'criteria', icon: FIX_ICON['criteria'], text: '"Done" is undefined here — add acceptance criteria, one per line.', action: 'Add criteria' })
+  }
+  if (el.classList.contains('gap-loose-step')) {
+    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'This step is in no flow — connect it to another step or a Start/End.' })
   }
   return fixes
 }

@@ -23,7 +23,7 @@ import {
   setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
   setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme,
-  setupContextBrief, setupCopyPill, refreshReadinessVerdict, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation
+  setupContextBrief, setupCopyPill, refreshReadinessVerdict, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation, setupGapBreakdown
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -101,6 +101,7 @@ function init() {
   setupTemplates()
   setupContextBrief()
   setupCopyPill()
+  setupGapBreakdown()
   setupPanelCollapse()
   setupTidy()
   setupCardStyles()

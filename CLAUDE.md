@@ -190,6 +190,16 @@ a share link should carry the diagram, not the sender's pan and zoom.
 | `gap-assumption` | Unvalidated assumption | **Connected** assumption-type block not linked to a Goal/Requirement and without a `validate` action |
 | `gap-no-req` | Goal without requirements | Connected Goal block has no arrow to a Requirement |
 | `gap-unaddressed` | Ignored problem | Connected Problem block lacks "resolve" action and has no outgoing arrows |
+| `gap-no-mitigation` | Unmitigated risk | Connected Risk with no outgoing arrows and no "prepare" action |
+| `gap-no-basis` | Decision without basis | Connected Decision with no incoming arrows and no `rationale` |
+| `gap-no-producer` | Output nothing produces | Connected Output with no incoming arrows |
+| `gap-no-criteria` | Done is undefined | Connected Requirement with empty `criteria` |
+| `gap-loose-step` | Step outside any flow | Connected Process linked to no process/terminator |
+
+`runGapDetection()` also returns `canvasFindings` (strings, not per-block): dependency
+cycles (via `breakCycles`) and named groups with no members. `GAP_META` in `gaps.js` is
+the single label source for the prompt's gap section and the Prompt tab's per-rule
+breakdown (`#gapBreakdown`, click jumps to the first offender).
 
 Gap icons pulse (1.8–2.5s animation) in the block header.
 

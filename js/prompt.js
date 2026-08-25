@@ -4,7 +4,7 @@
 
 import { state, ui, devOpts, promptState, canvasMeta } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml } from './utils.js'
-import { runGapDetection } from './gaps.js'
+import { runGapDetection, GAP_META } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 
 /**
@@ -308,21 +308,17 @@ export function generatePrompt() {
     })
   }
 
-  // 8. Gap details
-  const { count: gapCount, details: gapDetails } = runGapDetection()
-  if (gapCount) {
-    const gapLabels = {
-      'gap-isolated':     'no connections: not linked to anything on the canvas',
-      'gap-assumption':   'unvalidated assumption: not linked to a Goal or Requirement and not flagged to validate',
-      'gap-no-req':       'no requirement: goal has no linked requirement',
-      'gap-unaddressed':  'unaddressed: problem with no resolve action and no outgoing links'
-    }
+  // 8. Gap details. Labels come from GAP_META so the prompt, the breakdown
+  // and the docs cannot drift apart.
+  const { count: gapCount, details: gapDetails, canvasFindings } = runGapDetection()
+  if (gapCount || (canvasFindings || []).length) {
     prompt += '\n## Planning Gaps Detected\n'
     gapDetails.forEach(g => {
       g.gaps.forEach(gapType => {
-        prompt += `\u2022 ${TYPES[g.type]?.label}: "${g.title}" \u2014 ${gapLabels[gapType]}\n`
+        prompt += `\u2022 ${TYPES[g.type]?.label}: "${g.title}" \u2014 ${GAP_META[gapType]?.prompt || gapType}\n`
       })
     })
+    ;(canvasFindings || []).forEach(f => { prompt += `\u2022 Canvas: ${f}\n` })
   }
 
   // 9. The way back. The canvas absorbs results through a small patch format;
@@ -499,6 +495,27 @@ export function refreshPrompt() {
         (tips.length ? `<br>${tips.join(' \u00B7 ')}` : '') +
         `</div>`
     }
+  }
+
+  // Per-rule breakdown: which lint rules fire, how often, and a click that
+  // takes you to the first offender instead of leaving you to hunt for it.
+  const breakdown = document.getElementById('gapBreakdown')
+  if (breakdown) {
+    const { details, canvasFindings } = runGapDetection()
+    const byRule = new Map()
+    details.forEach(d => {
+      const cls = d.gaps[0]
+      if (!byRule.has(cls)) byRule.set(cls, { n: 0, first: d.id })
+      byRule.get(cls).n++
+    })
+    const rows = [...byRule.entries()].map(([cls, r]) =>
+      `<button class="gap-row" data-bid="${r.first}" title="Jump to the first one">` +
+      `<span>${GAP_META[cls]?.short || cls}</span><span class="gap-row-n">${r.n}</span></button>`)
+    ;(canvasFindings || []).forEach(f => {
+      rows.push(`<div class="gap-row canvas"><span>${f}</span></div>`)
+    })
+    breakdown.style.display = rows.length ? '' : 'none'
+    breakdown.innerHTML = rows.join('')
   }
 
   // Prompt diff

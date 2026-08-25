@@ -1349,6 +1349,29 @@
     .block.gap-assumption  { animation: glowAmber  2s ease-in-out infinite; }
     .block.gap-no-req      { animation: glowYellow 2.5s ease-in-out infinite; }
     .block.gap-unaddressed { animation: pulseRed   1.8s ease-in-out infinite; }
+    .block.gap-no-mitigation { animation: glowAmber  2.2s ease-in-out infinite; }
+    .block.gap-no-basis      { animation: glowYellow 2.4s ease-in-out infinite; }
+    .block.gap-no-producer   { animation: glowYellow 2.6s ease-in-out infinite; }
+    .block.gap-no-criteria   { animation: glowAmber  2.8s ease-in-out infinite; }
+    .block.gap-loose-step    { animation: glowYellow 2.2s ease-in-out infinite; }
+
+    /* Prompt tab: per-rule lint breakdown */
+    .gap-breakdown { display: grid; gap: 4px; margin: 8px 0 2px; }
+    .gap-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 11px; text-align: left;
+      padding: 5px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-left: 2px solid var(--c-assumption);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: var(--font);
+    }
+    .gap-row:hover { background: var(--surface-2); color: var(--text-primary); }
+    .gap-row.canvas { cursor: default; border-left-color: var(--c-context); }
+    .gap-row-n { font-weight: 700; color: var(--text-muted); }
 
     /* ── Right panel ────────────────────────────────────────── */
     .right-panel {
@@ -2466,6 +2489,11 @@
     body.light-mode .block.gap-assumption  { box-shadow: 0 0 12px 3px rgba(202,144,8,.25); }
     body.light-mode .block.gap-no-req      { box-shadow: 0 0 10px 3px rgba(196,144,8,.2); }
     body.light-mode .block.gap-unaddressed { box-shadow: 0 0 12px 3px rgba(217,68,68,.25); }
+    body.light-mode .block.gap-no-mitigation,
+    body.light-mode .block.gap-no-criteria { box-shadow: 0 0 12px 3px rgba(202,144,8,.22); }
+    body.light-mode .block.gap-no-basis,
+    body.light-mode .block.gap-no-producer,
+    body.light-mode .block.gap-loose-step  { box-shadow: 0 0 10px 3px rgba(196,144,8,.18); }
 
     body.light-mode .select-box {
       border-color: rgba(0,0,0,.4);
@@ -2775,6 +2803,8 @@
       .block.gap-assumption  { box-shadow: 0 0 0 3px rgba(251,191,36,.4); }
       .block.gap-no-req      { box-shadow: 0 0 0 3px rgba(250,204,21,.35); }
       .block.gap-unaddressed { box-shadow: 0 0 0 3px rgba(248,113,113,.4); }
+      .block.gap-no-mitigation, .block.gap-no-criteria { box-shadow: 0 0 0 3px rgba(251,191,36,.35); }
+      .block.gap-no-basis, .block.gap-no-producer, .block.gap-loose-step { box-shadow: 0 0 0 3px rgba(250,204,21,.3); }
     }
 
 /* ── Template alignment (header title link) ── */
