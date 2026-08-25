@@ -106,10 +106,18 @@ export function loadState() {
 // ── Camera persistence ───────────────────────────────────────
 // Kept in its own key, deliberately not inside the canvas payload: a share
 // link should carry the diagram, not the sender's pan and zoom.
+// Per map since 2026-08-24: each map remembers its own camera. The legacy
+// single key stays as a read fallback so nobody's view jumps on upgrade.
 const VIEW_KEY = 'pathfinder-view'
+const viewKey = () => {
+  try {
+    const cur = localStorage.getItem('pathfinder-map-current')
+    return cur ? 'pathfinder-view:' + cur : VIEW_KEY
+  } catch (_) { return VIEW_KEY }
+}
 
 export function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ panX: view.panX, panY: view.panY, zoom: view.zoom })) }
+  try { localStorage.setItem(viewKey(), JSON.stringify({ panX: view.panX, panY: view.panY, zoom: view.zoom })) }
   catch (_) {}
 }
 export const debouncedSaveView = debounce(saveView, 400)
@@ -117,7 +125,7 @@ export const debouncedSaveView = debounce(saveView, 400)
 /** Restore the saved camera. Returns false when there was nothing to restore. */
 export function loadView() {
   try {
-    const raw = localStorage.getItem(VIEW_KEY)
+    const raw = localStorage.getItem(viewKey()) || localStorage.getItem(VIEW_KEY)
     if (!raw) return false
     const v = JSON.parse(raw)
     if (![v.panX, v.panY, v.zoom].every(Number.isFinite)) return false

@@ -15,7 +15,6 @@ import {
 import { setupContextMenu } from './context-menu.js'
 import { setupChrome } from './chrome.js'
 import { setupLibrary } from './library.js'
-import { countShareHashArrival } from './arrival.js'
 import { setupPatchUI } from './patch.js'
 import { checkSrcUrl } from './ui-panels.js'
 import {
@@ -35,7 +34,6 @@ function init() {
   if (ui.readOnly) document.body.classList.add('readonly-mode')
 
   loadState()
-  countShareHashArrival()
   checkShareUrl()
   checkSrcUrl()
   updateCanvasTitle()

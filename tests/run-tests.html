@@ -69,6 +69,26 @@
 <script type="module">
   import { runAll, renderReport } from './test-utils.js'
 
+  // The suite runs on the same origin as the app, and several tests exercise
+  // real save/load round-trips. Snapshot every pathfinder-* localStorage key
+  // before any test module loads, and restore them afterwards, so running
+  // the tests never overwrites the canvas someone was actually working on.
+  const preserved = new Map()
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k && k.startsWith('pathfinder-')) preserved.set(k, localStorage.getItem(k))
+  }
+  const restoreStorage = () => {
+    const stray = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('pathfinder-') && !preserved.has(k)) stray.push(k)
+    }
+    stray.forEach(k => localStorage.removeItem(k))
+    preserved.forEach((v, k) => localStorage.setItem(k, v))
+  }
+  window.addEventListener('pagehide', restoreStorage)
+
   // Import all test modules (this registers their describe/it calls)
   await import('./utils.test.js')
   await import('./state.test.js')
@@ -85,12 +105,17 @@
   await import('./highlight.test.js')
   await import('./zip.test.js')
   await import('./spec-export.test.js')
-  await import('./arrival.test.js')
   await import('./patch.test.js')
   await import('./interop.test.js')
+  await import('./snapshots.test.js')
 
   // Run everything and render results
   const results = await runAll()
+  // Restore twice: once after the app's debounced saves (300ms) have had
+  // time to fire, since a pending save landing after a naive restore would
+  // re-clobber the canvas with the last suite's fixture; and on pagehide,
+  // for whoever navigates away faster than that.
+  setTimeout(restoreStorage, 800)
   renderReport(document.getElementById('report'), results)
 
   // Also log summary to console

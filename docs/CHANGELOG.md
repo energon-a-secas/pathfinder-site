@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-08-24 (eighth pass)
+
+### Snapshots, and a camera per map
+
+Undo covers the session; snapshots cover next week. Maps ▾ gains "Snapshot
+this map" (full copies, eight per map, oldest dropped) and a Snapshots list
+showing, for each one, when it was taken and what has changed since: added,
+removed and edited blocks, and the arrow delta. Restoring first snapshots
+the state being replaced, so a restore is never a loss. Applying a patch
+takes an automatic "Before the patch" snapshot.
+
+Each map now remembers its own camera (`pathfinder-view:<mapId>`): switching
+maps returns you to where you were looking, not to a re-fit.
+
+### Housekeeping
+
+- The test suite preserves and restores every `pathfinder-*` localStorage
+  key, so running it no longer overwrites the canvas you were working on.
+- The site-local `#s=` arrival counter is retired: the header kit's pattern
+  now covers `#s=` fleet-wide, and counting it twice would be worse than
+  not counting it at all.
+
 ## 2026-08-24 (seventh pass)
 
 ### Interop: JSON Canvas both ways, Mermaid in

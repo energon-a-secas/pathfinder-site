@@ -24,6 +24,7 @@ import { renderAllBlocks, renderInspector } from './render.js'
 import { renderArrows, renderFrames, fitView } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
+import { takeSnapshot } from './library.js'
 
 // ── Parsing ──────────────────────────────────────────────────
 
@@ -245,6 +246,8 @@ export function setupPatchUI() {
   applyBtn.addEventListener('click', () => {
     if (!plan) return
     const addedBlocks = plan.ops.some(o => o.ok && o.kind === 'block')
+    // Cmd+Z covers this session; the snapshot covers next week.
+    takeSnapshot('Before the patch')
     const n = applyPlan(plan)
     if (!n) return
     renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()

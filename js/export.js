@@ -16,7 +16,8 @@ import { generatePrompt, refreshPrompt, situationSection } from './prompt.js'
  * mode: 'replace' | 'merge'. Returns { imported, dropped } so the
  * caller can report how many items were added vs skipped.
  */
-export function applyImport(data, mode) {
+export function applyImport(data, mode, opts = {}) {
+  const fit = opts.fit !== false
   const clean = normalizeCanvas(data)
   const cleanBlocks = Object.values(clean.blocks)
 
@@ -88,7 +89,7 @@ export function applyImport(data, mode) {
   updateHint()
   requestAnimationFrame(() => {
     renderArrows(); renderFrames(); runGapDetection()
-    if (Object.keys(state.blocks).length) fitView()
+    if (fit && Object.keys(state.blocks).length) fitView()
     renderInspector()
     ui.promptDirty = true; if (ui.activeTab === 'prompt') refreshPrompt()
   })

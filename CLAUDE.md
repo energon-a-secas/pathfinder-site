@@ -39,6 +39,11 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
+**Key interactions added 2026-08-24 (snapshots, per-map camera):**
+- **Map snapshots** (`library.js`): Maps ▾ → "Snapshot this map" keeps a full copy under `pathfinder-snaps-<mapId>` (max 8, oldest dropped); the Snapshots submenu lists each with `fmtWhen` and a since-then diff (`diffPayloads`: ±blocks, changed, ±arrows); restoring auto-snapshots the pre-restore state first. Applying a patch auto-snapshots as "Before the patch": Cmd+Z covers the session, the snapshot covers next week.
+- **Per-map camera**: the view persists under `pathfinder-view:<mapId>` (legacy `pathfinder-view` is a read fallback); switching maps restores the target's camera and skips the fit (`applyImport(data, mode, { fit })`).
+- **The test suite no longer clobbers the live canvas**: `run-tests.html` snapshots every `pathfinder-*` localStorage key before importing test modules and restores them after the run (and on pagehide).
+
 **Key interactions added 2026-08-24 (interop):**
 - **JSON Canvas in and out, Mermaid in** (`js/interop.js`). The Import picker detects the format; converted nodes go through the Brain Dump classifier and surface correction chips via the `pf:show-type-chips` event (`applyImport` now returns `idMap` so chips survive a merge remap). Mermaid positions come from `layoutGraph`, not a guess.
 
@@ -48,7 +53,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 **Key interactions added 2026-08-24 (agent channel):**
 - **`validate.mjs`**: Node CLI over the app's own `normalize.js` (fetched from the live site when run standalone), naming every dropped or coerced item. Exit 0 clean / 1 items dropped or coerced / 2 unreadable. The write-back contract's proof step; documented in `llms.txt`.
 - **`?src=<https url>`** loads canvas JSON from a URL (proctor's pattern): https or same-origin only, 1 MB cap, GitHub raw/gist whitelisted in the CSP `connect-src`, same replace-or-merge confirm as `#s=`, URL cleaned via `replaceState` either way (`checkSrcUrl` in `ui-panels.js`).
-- **Arrival counting**: the header kit counts `?via=`/`?src=`/`#d=`/`#t=` arrivals fleet-wide but its pattern misses `#s=`; `js/arrival.js` fires the same `share/<host>/hash-payload` GoatCounter event for exactly that gap (same guards, no double counting, no content). Kit-regex fix parked in the root prompt queue.
+- **Arrival counting** is fully kit-owned: the header kit's `shareArrivalLabel` pattern covers `#s=` since 2026-08-24 (the site-local `js/arrival.js` stopgap was retired the same day to avoid double counting).
 - **`pathfinder` skill** lives in `neorgon-forge` (`skills/before/pathfinder`): reads a canvas or brief, writes back a validated canvas or share link.
 
 **Key interactions added 2026-08-24 (tidy pins, pill, maps):**
@@ -112,7 +117,8 @@ break embedding.
 
 **localStorage key:** `'pathfinder-v1'` (the **active** map). The canvas library keeps
 `'pathfinder-maps'` (index), `'pathfinder-map-<id>'` (one payload per map) and
-`'pathfinder-map-current'` (active id); `saveState()` write-through hooks
+`'pathfinder-map-current'` (active id), `'pathfinder-snaps-<id>'` (snapshots, max 8)
+and `'pathfinder-view:<id>'` (per-map camera); `saveState()` write-through hooks
 (`saveHooks` in `state.js`, registered by `library.js`) mirror every autosave into
 the active map's slot. `'pathfinder-pill'` = '0' hides the floating copy pill.
 

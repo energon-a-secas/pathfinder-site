@@ -14,7 +14,8 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta, saveState, saveHooks, serializeCanvas,
-         getUndoHistory, getRedoFuture } from './state.js'
+         loadView, getUndoHistory, getRedoFuture } from './state.js'
+import { applyTransform } from './canvas.js'
 import { genId, showToast } from './utils.js'
 import { applyImport } from './export.js'
 import { updateCanvasTitle } from './render.js'
@@ -25,6 +26,8 @@ import { setDropdownOpen, setupDropdownKeyboard,
 const INDEX_KEY = 'pathfinder-maps'
 const CUR_KEY   = 'pathfinder-map-current'
 const slotKey   = id => 'pathfinder-map-' + id
+const snapKey   = id => 'pathfinder-snaps-' + id
+const MAX_SNAPS = 8
 
 // ── Index and slots ──────────────────────────────────────────
 
@@ -71,6 +74,68 @@ export function writeThrough() {
   saveIndex(index)
 }
 
+// ── Snapshots: named states of the current map ───────────────
+// Full copies, capped per map, oldest dropped. A snapshot survives sessions
+// where the in-memory undo stack does not, which is the whole point: the
+// "before the investigation" state is still there next week.
+
+export function listSnapshots(mapId = currentId()) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(snapKey(mapId)) || '[]')
+    return Array.isArray(arr) ? arr : []
+  } catch (_) { return [] }
+}
+
+export function takeSnapshot(name) {
+  const id = currentId()
+  if (!id) return null
+  const snaps = listSnapshots(id)
+  const snap = { id: genId(), name: (name || '').trim() || 'Snapshot', at: Date.now(), payload: serializeCanvas() }
+  snaps.push(snap)
+  while (snaps.length > MAX_SNAPS) snaps.shift()
+  try { localStorage.setItem(snapKey(id), JSON.stringify(snaps)) } catch (_) { return null }
+  return snap
+}
+
+export function deleteSnapshot(snapId, mapId = currentId()) {
+  const snaps = listSnapshots(mapId).filter(sn => sn.id !== snapId)
+  try { localStorage.setItem(snapKey(mapId), JSON.stringify(snaps)) } catch (_) {}
+}
+
+/** What changed between a snapshot and now, as a short honest summary. */
+export function diffPayloads(oldP, newP) {
+  const a = oldP?.blocks || {}, b = newP?.blocks || {}
+  const aIds = new Set(Object.keys(a)), bIds = new Set(Object.keys(b))
+  let added = 0, removed = 0, changed = 0
+  bIds.forEach(id => { if (!aIds.has(id)) added++ })
+  aIds.forEach(id => { if (!bIds.has(id)) removed++ })
+  aIds.forEach(id => {
+    if (!bIds.has(id)) return
+    const x = a[id], y = b[id]
+    if (x.title !== y.title || x.description !== y.description || x.type !== y.type ||
+        x.status !== y.status || (x.criteria || []).join('\n') !== (y.criteria || []).join('\n') ||
+        (x.rationale || '') !== (y.rationale || '')) changed++
+  })
+  const dArrows = ((newP?.arrows || []).length) - ((oldP?.arrows || []).length)
+  const parts = []
+  if (added) parts.push(`+${added} block${added === 1 ? '' : 's'}`)
+  if (removed) parts.push(`-${removed}`)
+  if (changed) parts.push(`${changed} changed`)
+  if (dArrows) parts.push(`${dArrows > 0 ? '+' : ''}${dArrows} arrow${Math.abs(dArrows) === 1 ? '' : 's'}`)
+  return parts.length ? parts.join(' · ') : 'no changes'
+}
+
+export function restoreSnapshot(snapId) {
+  const id = currentId()
+  const snap = listSnapshots(id).find(sn => sn.id === snapId)
+  if (!snap) { showToast('That snapshot is gone', 'warning'); return }
+  // The state being replaced is itself worth keeping.
+  takeSnapshot('Before restoring "' + snap.name + '"')
+  loadPayload(snap.payload)
+  writeThrough()
+  showToast(`Restored "${snap.name}"`, 'success', 2200)
+}
+
 /** First run: adopt whatever canvas already exists as map number one. */
 function ensureLibrary() {
   if (currentId()) return
@@ -94,7 +159,11 @@ function clearUndo() {
  * map genuinely has none yet), so the title is forced from the payload.
  */
 function loadPayload(payload) {
-  applyImport(payload, 'replace')
+  // Each map remembers its own camera; restore it and skip the fit when it
+  // was there. A brand-new or never-visited map still fits to its content.
+  const restored = loadView()
+  applyImport(payload, 'replace', { fit: !restored })
+  if (restored) applyTransform()
   canvasMeta.title = (payload.meta && typeof payload.meta.title === 'string') ? payload.meta.title : ''
   clearUndo()
   collapseTemplatesAfterUse()
@@ -146,6 +215,8 @@ export function deleteMap(id) {
   const index = loadIndex().filter(e => e.id !== id)
   saveIndex(index)
   try { localStorage.removeItem(slotKey(id)) } catch (_) {}
+  try { localStorage.removeItem(snapKey(id)) } catch (_) {}
+  try { localStorage.removeItem('pathfinder-view:' + id) } catch (_) {}
   if (id === currentId()) {
     const next = index[0]
     if (next) {
@@ -261,8 +332,54 @@ function renderMenu() {
   }
   action('New map', newMap)
   action('Duplicate this map', duplicateCurrent)
+  const nSnaps = listSnapshots().length
+  const snapNow = document.createElement('div')
+  snapNow.className = 'export-item'
+  snapNow.setAttribute('role', 'menuitem'); snapNow.setAttribute('tabindex', '-1')
+  snapNow.textContent = 'Snapshot this map'
+  snapNow.addEventListener('click', () => {
+    const when = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const snap = takeSnapshot('Snapshot · ' + when)
+    setDropdownOpen('mapsWrapper', false)
+    showToast(snap ? 'Snapshot kept. Restore it any time from Maps' : 'No room left for a snapshot', snap ? 'success' : 'warning', 2200)
+  })
+  dd.appendChild(snapNow)
+  if (nSnaps) action(`Snapshots (${nSnaps})…`, () => renderSnapshotMenu())
   action('Export all maps (JSON)', exportAllMaps)
   action('Import maps (JSON)', () => document.getElementById('importMapsFile')?.click())
+}
+
+function renderSnapshotMenu() {
+  const dd = document.getElementById('mapsDropdown')
+  if (!dd) return
+  setDropdownOpen('mapsWrapper', true)
+  const now = serializeCanvas()
+  dd.innerHTML = ''
+  const back = document.createElement('div')
+  back.className = 'export-item'
+  back.setAttribute('role', 'menuitem'); back.setAttribute('tabindex', '-1')
+  back.textContent = '← Maps'
+  back.addEventListener('click', ev => { ev.stopPropagation(); renderMenu() })
+  dd.appendChild(back)
+  const snaps = listSnapshots().slice().reverse()
+  snaps.forEach(sn => {
+    const row = document.createElement('div')
+    row.className = 'export-item map-row'
+    row.setAttribute('role', 'menuitem'); row.setAttribute('tabindex', '-1')
+    row.innerHTML = `<span class="map-item-text"><span class="map-item-name"></span><div class="map-item-meta"></div></span>
+      <button class="map-del" title="Delete this snapshot" aria-label="Delete snapshot">×</button>`
+    row.querySelector('.map-item-name').textContent = sn.name
+    row.querySelector('.map-item-meta').textContent =
+      `${fmtWhen(sn.at)} · since then: ${diffPayloads(sn.payload, now)}`
+    row.addEventListener('click', () => { setDropdownOpen('mapsWrapper', false); restoreSnapshot(sn.id) })
+    row.querySelector('.map-del').addEventListener('click', ev => {
+      ev.stopPropagation()
+      deleteSnapshot(sn.id)
+      renderSnapshotMenu()
+    })
+    dd.appendChild(row)
+  })
+  if (!snaps.length) renderMenu()
 }
 
 export function setupLibrary() {
