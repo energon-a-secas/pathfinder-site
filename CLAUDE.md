@@ -39,6 +39,9 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
+**Key interactions added 2026-08-24 (async review):**
+- **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into Bring the answer back; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
+
 **Key interactions added 2026-08-24 (user templates):**
 - **Save canvas as template** (foot of the Templates palette section): captures the live canvas into `pathfinder-templates` (max 12) in the exact shape built-ins use, positions normalised, arrows re-indexed, criteria/questions/situation/mode riding along; `applyTemplate` now carries `criteria`, `rationale`, `status` and `questions` for any template that has them. User templates render after the built-ins with a delete ×. Templates travel between browsers as canvases (export the canvas, import, save as template).
 

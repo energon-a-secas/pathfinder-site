@@ -52,6 +52,20 @@ describe('resolveRef()', () => {
   })
 })
 
+describe('notes op (review remarks)', () => {
+  it('appends prefixed notes and refuses empty ones', () => {
+    seedPatchState()
+    state.blocks.q1.notes = 'mine'
+    const plan = buildPlan({ format: 'pathfinder-patch', notes: [
+      { block: 'q1', note: 'check the cert dates' },
+      { block: 'q1', note: '   ' },
+    ] })
+    assert.eq(plan.ops.filter(o => o.ok).length, 1)
+    applyPlan(plan)
+    assert.eq(state.blocks.q1.notes, 'mine\nReview: check the cert dates')
+  })
+})
+
 describe('buildPlan() + applyPlan()', () => {
   it('applies answers, verify, status, criteria, blocks and arrows as one undo step', () => {
     seedPatchState()

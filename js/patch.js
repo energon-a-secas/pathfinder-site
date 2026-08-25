@@ -146,6 +146,23 @@ export function buildPlan(patch) {
     })
   })
 
+  // notes → appended to the block's freeform notes, prefixed so review
+  // remarks stay tellable-apart from the author's own. The read-only review
+  // bar emits these; anything may.
+  ;(Array.isArray(patch.notes) ? patch.notes : []).forEach(nOp => {
+    const t = resolveRef(nOp?.block)
+    if (!t) return miss('note', nOp?.block, 'No unique block match')
+    const text = String(nOp?.note || '').trim()
+    if (!text) return miss('note', nOp?.block, 'Empty note')
+    add('note', true, `Note on "${short(titleOf(t.id), 40)}"`, {
+      conf: t.how, detail: short(text),
+      apply() {
+        const blk = state.blocks[t.id]
+        blk.notes = (blk.notes ? blk.notes + '\n' : '') + 'Review: ' + text
+      },
+    })
+  })
+
   // new blocks (normalized; ids remapped when they collide), then new arrows
   const idMap = {}
   const placed = Object.values(state.blocks)

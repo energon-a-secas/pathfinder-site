@@ -340,6 +340,17 @@
     <!-- Zoom indicator -->
     <div class="zoom-indicator" id="zoomIndicator">100%</div>
 
+    <!-- Review bar: view-only links let a reviewer collect notes per block
+         and copy them out as a pathfinder-patch. Hidden outside readonly. -->
+    <div class="review-bar" id="reviewBar">
+      <input class="review-input" id="reviewInput" type="text" maxlength="500"
+             placeholder="Select a block, note what you'd change…">
+      <button class="review-btn" id="reviewAddBtn">Add note</button>
+      <button class="review-btn review-copy" id="reviewCopyBtn" style="display:none">
+        Copy review patch <span class="review-count" id="reviewCount"></span>
+      </button>
+    </div>
+
     <!-- Always-visible AI-ready prompt pill + readiness verdict -->
     <div class="copy-pill-wrap" id="copyPillWrap">
       <div class="copy-pill-verdict" id="copyPillVerdict"></div>

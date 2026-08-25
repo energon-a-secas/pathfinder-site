@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-24 (eleventh pass)
+
+### Async review, not multiplayer
+
+The view-only share link grows a review bar: select a block, note what you
+would change, repeat; "Copy review patch" puts a standard pathfinder-patch
+on the clipboard with the new `notes` operation. The author pastes it into
+"Bring the answer back" and the notes land appended to each block's notes,
+prefixed "Review:", previewed first and undone with one Cmd+Z, exactly like
+every other patch.
+
+No server, no presence, no cursors, deliberately: a plan goes to someone,
+comes back annotated, and the canvas records it. That is what review means
+here; realtime multiplayer remains explicitly off the list.
+
 ## 2026-08-24 (tenth pass)
 
 ### The examples gallery

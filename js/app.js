@@ -16,6 +16,7 @@ import { setupContextMenu } from './context-menu.js'
 import { setupChrome } from './chrome.js'
 import { setupLibrary } from './library.js'
 import { setupPatchUI } from './patch.js'
+import { setupReview } from './review.js'
 import { checkSrcUrl } from './ui-panels.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
@@ -107,6 +108,7 @@ function init() {
   setupChrome()
   setupLibrary()
   setupPatchUI()
+  setupReview()
 
   renderAllBlocks()
   updateHint()

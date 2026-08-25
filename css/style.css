@@ -862,6 +862,38 @@
     /* Presenting: Z (zen) clears the canvas of everything, the pill included. */
     body[data-zen="on"] .copy-pill-wrap { display: none; }
 
+    /* Review bar: only exists on the view-only link */
+    .review-bar { display: none; }
+    .readonly-mode .review-bar {
+      display: flex; gap: 6px; align-items: center;
+      position: absolute; bottom: 14px; left: 14px; z-index: 120;
+      max-width: min(520px, calc(100% - 200px));
+    }
+    .review-input {
+      flex: 1; min-width: 200px;
+      padding: 8px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(8,8,22,.82);
+      color: var(--text-primary);
+      font-family: var(--font); font-size: 12px;
+      backdrop-filter: blur(6px);
+    }
+    .review-input::placeholder { color: var(--text-muted); }
+    .review-btn {
+      padding: 8px 13px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(8,8,22,.82);
+      color: var(--text-secondary);
+      font-family: var(--font); font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+    }
+    .review-btn:hover { color: var(--text-primary); border-color: rgba(255,255,255,.3); }
+    .review-btn.review-copy { background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%); color: #fff; border: none; }
+    .review-count { opacity: .8; }
+    body[data-zen="on"] .review-bar { display: none; }
+
     /* ── Type-correction chips (post-import reclassify) ────────── */
     .type-chip {
       position: absolute;
