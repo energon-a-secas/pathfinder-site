@@ -147,3 +147,91 @@ describe('layoutGraph() -- placement', () => {
     assert.eq(crossings, 0)
   })
 })
+
+// ── Tidy port provenance ─────────────────────────────────────
+// tidyCanvas writes ports with portsBy:'tidy' so they can be told apart from
+// sides the user chose, and released when a block moves afterwards.
+
+import { tidyCanvas, releaseTidyPins } from '../js/layout.js'
+import { state, getUndoHistory, getRedoFuture } from '../js/state.js'
+
+function seedCanvas(arrows) {
+  state.blocks = {
+    a: { id: 'a', type: 'goal',    title: 'A', x: 0,   y: 0 },
+    b: { id: 'b', type: 'problem', title: 'B', x: 300, y: 0 },
+    c: { id: 'c', type: 'decision', title: 'C', x: 600, y: 0 },
+  }
+  state.arrows = arrows
+  state.groups = {}
+  getUndoHistory().length = 0
+  getRedoFuture().length = 0
+}
+
+describe('tidyCanvas() port provenance', () => {
+  it('pins forward edges along the flow and marks them tidy', () => {
+    seedCanvas([{ id: 'x', from: 'a', to: 'b', style: 'routed' }])
+    tidyCanvas({ direction: 'LR' })
+    const a = state.arrows[0]
+    assert.eq(a.fromPort, 'right')
+    assert.eq(a.toPort, 'left')
+    assert.eq(a.portsBy, 'tidy')
+  })
+
+  it('sends a routed back edge underneath, marked tidy', () => {
+    seedCanvas([
+      { id: 'x', from: 'a', to: 'b', style: 'routed' },
+      { id: 'y', from: 'b', to: 'a', style: 'routed' },
+    ])
+    tidyCanvas({ direction: 'LR' })
+    const back = state.arrows.find(ar => ar.id === 'y')
+    assert.eq(back.fromPort, 'bottom')
+    assert.eq(back.toPort, 'bottom')
+    assert.eq(back.portsBy, 'tidy')
+  })
+
+  it('hands a curved back edge to auto instead of a bottom U-turn', () => {
+    seedCanvas([
+      { id: 'x', from: 'a', to: 'b', style: 'routed' },
+      { id: 'y', from: 'b', to: 'a', style: 'curved', fromPort: 'bottom', toPort: 'bottom', portsBy: 'tidy' },
+    ])
+    tidyCanvas({ direction: 'LR' })
+    const back = state.arrows.find(ar => ar.id === 'y')
+    assert.eq(back.fromPort, null)
+    assert.eq(back.toPort, null)
+    assert.eq(back.portsBy, undefined)
+  })
+
+  it('never overwrites a side the user pinned', () => {
+    seedCanvas([{ id: 'x', from: 'a', to: 'b', style: 'routed', fromPort: 'top', toPort: null }])
+    tidyCanvas({ direction: 'LR' })
+    const a = state.arrows[0]
+    assert.eq(a.fromPort, 'top')
+    assert.eq(a.toPort, null)
+    assert.eq(a.portsBy, undefined)
+  })
+})
+
+describe('releaseTidyPins()', () => {
+  it('releases tidy pins on arrows touching the moved blocks', () => {
+    seedCanvas([
+      { id: 'x', from: 'a', to: 'b', style: 'routed' },
+      { id: 'y', from: 'b', to: 'c', style: 'routed' },
+    ])
+    tidyCanvas({ direction: 'LR' })
+    const n = releaseTidyPins(['a'])
+    assert.eq(n, 1)
+    const moved = state.arrows.find(ar => ar.id === 'x')
+    const kept  = state.arrows.find(ar => ar.id === 'y')
+    assert.eq(moved.fromPort, null)
+    assert.eq(moved.portsBy, undefined)
+    assert.eq(kept.fromPort, 'right')
+    assert.eq(kept.portsBy, 'tidy')
+  })
+
+  it('leaves user pins alone even on a moved block', () => {
+    seedCanvas([{ id: 'x', from: 'a', to: 'b', style: 'routed', fromPort: 'top' }])
+    const n = releaseTidyPins(['a', 'b'])
+    assert.eq(n, 0)
+    assert.eq(state.arrows[0].fromPort, 'top')
+  })
+})

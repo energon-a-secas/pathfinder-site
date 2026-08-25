@@ -94,7 +94,10 @@ export function portPos(id, port, index = 0, count = 1) {
     top:    { x: b.x + ox, y: b.y,      dir: 'top'    },
     bottom: { x: b.x + ox, y: b.y + h,  dir: 'bottom' }
   }
-  return map[port] || null
+  const p = map[port]
+  // Whole pixels. Fractional lane offsets left half-pixel jogs in routed
+  // paths (… L 998 -24 L 998 -23.5 …) where the two ends disagreed.
+  return p ? { x: Math.round(p.x), y: Math.round(p.y), dir: p.dir } : null
 }
 
 // Auto-pick the facing ports based on relative box position.

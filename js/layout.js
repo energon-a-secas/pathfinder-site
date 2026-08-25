@@ -332,18 +332,69 @@ export function tidyCanvas({ direction = 'LR' } = {}) {
     b.x = nx; b.y = ny
   })
 
-  // Point every connection along the flow. Edges that run backwards or
-  // stay inside a layer leave from the perpendicular sides instead, so
-  // they read as returns rather than fighting the forward traffic.
+  // Point connections along the flow, but never stamp over a side somebody
+  // chose by hand: a pin without 'tidy' provenance is the user's and stays.
+  // Pins written here carry portsBy:'tidy' so a later drag can release them
+  // back to auto instead of leaving arrows glued to stale sides forever.
   const horiz = direction !== 'TB'
-  const fwd  = horiz ? ['right', 'left']   : ['bottom', 'top']
-  const back = horiz ? ['bottom', 'bottom'] : ['right', 'right']
+  const fwd = horiz ? ['right', 'left'] : ['bottom', 'top']
   state.arrows.forEach(a => {
-    if (!state.blocks[a.from] || !state.blocks[a.to]) return
+    const f = state.blocks[a.from], t = state.blocks[a.to]
+    if (!f || !t) return
+    // Canvases tidied before pins carried provenance are stamped with the old
+    // scheme (right→left / bottom→top forward, bottom→bottom / right→right
+    // back) on every arrow. Adopt those as tidy pins so this Tidy can heal
+    // them; a genuine hand pin matching the old scheme on a forward edge gets
+    // re-stamped to the identical sides, so nothing visible is lost.
+    const looksOldTidy =
+      (a.fromPort === 'right'  && a.toPort === 'left')   ||
+      (a.fromPort === 'bottom' && a.toPort === 'top')    ||
+      (a.fromPort === 'bottom' && a.toPort === 'bottom') ||
+      (a.fromPort === 'right'  && a.toPort === 'right')
+    if ((a.fromPort || a.toPort) && a.portsBy !== 'tidy' && !looksOldTidy) return
     const lf = layerOf.get(a.from), lt = layerOf.get(a.to)
-    const forward = lf != null && lt != null && lt > lf
-    ;[a.fromPort, a.toPort] = forward ? fwd : back
+    if (lf == null || lt == null) return
+    if (lt > lf) {
+      // Forward: along the flow.
+      ;[a.fromPort, a.toPort] = fwd
+      a.portsBy = 'tidy'
+    } else if (lt === lf) {
+      // Same layer: perpendicular, by where the target actually sits, so the
+      // arrow crosses the gap between siblings instead of looping under both.
+      ;[a.fromPort, a.toPort] = horiz
+        ? (t.y >= f.y ? ['bottom', 'top'] : ['top', 'bottom'])
+        : (t.x >= f.x ? ['right', 'left'] : ['left', 'right'])
+      a.portsBy = 'tidy'
+    } else if (a.style === 'routed') {
+      // Backward, routed: the router carries a clean detour underneath.
+      ;[a.fromPort, a.toPort] = horiz ? ['bottom', 'bottom'] : ['right', 'right']
+      a.portsBy = 'tidy'
+    } else {
+      // Backward, any primitive style: a bottom-to-bottom pin draws a giant U
+      // through the row. Auto by box position reads better for these.
+      a.fromPort = null; a.toPort = null
+      delete a.portsBy
+    }
   })
 
   return { moved, crossings }
+}
+
+/**
+ * Release tidy-written port pins on every arrow touching the given blocks,
+ * so a block the user moves after an auto-layout gets self-routing arrows
+ * again. Hand-pinned ports (no 'tidy' provenance) are left alone.
+ * Returns how many arrows were released.
+ */
+export function releaseTidyPins(blockIds) {
+  const ids = new Set(blockIds)
+  let released = 0
+  state.arrows.forEach(a => {
+    if (a.portsBy !== 'tidy') return
+    if (!ids.has(a.from) && !ids.has(a.to)) return
+    a.fromPort = null; a.toPort = null
+    delete a.portsBy
+    released++
+  })
+  return released
 }

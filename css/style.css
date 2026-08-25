@@ -293,6 +293,11 @@
     .palette.collapsed .palette-collapse-btn svg { transform: rotate(180deg); }
     .palette.collapsed .palette-head { justify-content: center; padding: 8px 4px; }
     .palette.collapsed .palette-head-title { display: none; }
+    .palette.collapsed .palette-subsection-toggle { justify-content: center; padding: 8px 4px; }
+    .palette.collapsed .palette-subsection-toggle span { display: none; }
+    .palette.collapsed .palette-subsection-toggle .palette-chevron { display: block; }
+    .palette.collapsed .palette-subsection-body { max-height: 1200px; }
+    .palette.collapsed .palette-subsection.collapsed .palette-subsection-body { max-height: 0; }
     .palette.collapsed .template-item { justify-content: center; padding: 10px 4px; }
     .palette.collapsed .template-item > div:last-child { display: none; }
     .palette.collapsed .template-icon { margin: 0; }
@@ -626,6 +631,29 @@
     .card-swatch-plain  { border: 1.5px solid rgba(255,255,255,.3); }
     .export-item.active { color: var(--text-primary); font-weight: 600; }
 
+    /* Maps (canvas library) menu */
+    .header-actions > .export-wrapper { display: flex; }
+    .header-actions > .export-wrapper > .header-btn {
+      height: var(--header-control-h);
+      min-height: 0;
+    }
+    .export-item.map-row { align-items: center; gap: 8px; }
+    .export-item.map-row .map-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: transparent; flex-shrink: 0;
+    }
+    .export-item.map-row.active .map-dot { background: var(--c-decision); }
+    .map-item-text { min-width: 0; flex: 1; }
+    .map-item-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+    .export-item.map-row.active .map-item-name { color: var(--text-primary); }
+    .map-item-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+    .map-del {
+      margin-left: auto; width: 20px; height: 20px; border-radius: 50%;
+      border: none; background: transparent; color: var(--text-muted);
+      font-size: 13px; line-height: 1; cursor: pointer; flex-shrink: 0;
+    }
+    .map-del:hover { color: var(--c-problem); background: var(--surface-2); }
+
     /* ── Presentation highlights ────────────────────────────
        Emphasis for the moment a canvas gets shared: five of thirty boxes are
        the point, and the rest are context. Drawn as a ring outside the card so
@@ -775,6 +803,43 @@
       animation: pillPulse 1s ease-in-out infinite;
     }
     @keyframes pillPulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+
+    /* Hide the pill at will; a small chip brings it back. Zen hides it all. */
+    .copy-pill-row { display: flex; align-items: center; gap: 7px; }
+    .copy-pill-hide {
+      pointer-events: auto;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(8,8,22,.82);
+      color: var(--text-muted);
+      font-size: 14px; line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity var(--dur-fast), color var(--dur-fast);
+    }
+    .copy-pill-wrap:hover .copy-pill-hide,
+    .copy-pill-hide:focus-visible { opacity: 1; }
+    .copy-pill-hide:hover { color: var(--text-primary); }
+    .copy-pill-mini {
+      pointer-events: auto;
+      display: none;
+      width: 34px; height: 34px;
+      align-items: center; justify-content: center;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(8,8,22,.75);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color var(--dur-fast), border-color var(--dur-fast);
+    }
+    .copy-pill-mini svg { width: 16px; height: 16px; }
+    .copy-pill-mini:hover { color: var(--text-primary); border-color: rgba(255,255,255,.3); }
+    .copy-pill-wrap.minimized .copy-pill-row,
+    .copy-pill-wrap.minimized .copy-pill-verdict { display: none; }
+    .copy-pill-wrap.minimized .copy-pill-mini { display: inline-flex; }
+    /* Presenting: Z (zen) clears the canvas of everything, the pill included. */
+    body[data-zen="on"] .copy-pill-wrap { display: none; }
 
     /* ── Type-correction chips (post-import reclassify) ────────── */
     .type-chip {

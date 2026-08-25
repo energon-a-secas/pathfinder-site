@@ -119,6 +119,8 @@ first and answer the second.
 - `status`: `not-started`, `in-progress`, `done`, `blocked`
 - `arrows[].style`: `routed` (default, steers around blocks), `curved`,
   `straight`, `elbow`, `dashed`, `dotted`
+- `arrows[].portsBy`: `tidy` marks connection sides written by auto-layout
+  (released when a block moves). Omit it for sides a person chose
 - `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
 - `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
 - `meta.situation.codebase`: `none`, `current`, `other`, `greenfield`

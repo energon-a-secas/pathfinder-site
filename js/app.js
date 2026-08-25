@@ -14,6 +14,7 @@ import {
 } from './events.js'
 import { setupContextMenu } from './context-menu.js'
 import { setupChrome } from './chrome.js'
+import { setupLibrary } from './library.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
@@ -100,6 +101,7 @@ function init() {
   setupCardStyles()
   setupSituation()
   setupChrome()
+  setupLibrary()
 
   renderAllBlocks()
   updateHint()

@@ -57,9 +57,15 @@ export function getUndoHistory() { return undoHistory }
 export function getRedoFuture()  { return redoFuture }
 
 // ── Persistence ──────────────────────────────────────────────
+// Write-through hooks: the canvas library mirrors the active canvas into its
+// own per-map slot on every save. Registered from library.js, so this module
+// keeps zero knowledge of the library.
+export const saveHooks = []
+
 export function saveState() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta: canvasMeta })) }
   catch(_) {}
+  saveHooks.forEach(fn => { try { fn() } catch (_) {} })
 }
 export const debouncedSave = debounce(saveState, 300)
 

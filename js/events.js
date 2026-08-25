@@ -17,6 +17,7 @@ import { openSearch, closeSearch, openShortcuts, closeShortcuts, runTidy } from 
 import { toggleChrome, toggleZen } from './chrome.js'
 import { guidesForDrag, drawGuides, clearGuides, alignSelection, distributeSelection } from './align.js'
 import { openDocPopup, detectSeeReference } from './doc-panel.js'
+import { releaseTidyPins } from './layout.js'
 
 // ── Canvas title editing ─────────────────────────────────────
 export function setupCanvasTitle() {
@@ -286,7 +287,9 @@ export function setupCanvasPointerEvents() {
         if (blockEl) recentlyDragged.set(blockEl, Date.now())
       })
       if (!ix.moved && ix.willDeselect) selectBlock(ix.id)
-      if (ix.moved) { renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true }
+      // A moved block releases tidy-written pins on its arrows: the auto-layout's
+      // side choices were for positions that no longer exist. Hand pins stay.
+      if (ix.moved) { releaseTidyPins(selection.ids); renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true }
 
     } else if (ix.type === 'resize') {
       debouncedSave(); renderArrows(); ui.promptDirty = true
@@ -318,6 +321,7 @@ export function setupCanvasPointerEvents() {
         snapshot()
         if (ix.end === 'from') { a.from = tid; a.fromPort = side }
         else                   { a.to   = tid; a.toPort   = side }
+        delete a.portsBy
         renderInspector(); runGapDetection(); debouncedSave(); ui.promptDirty = true
       }
 
@@ -1180,6 +1184,7 @@ export function setupInspectorEvents() {
         const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
         const side = btn.dataset.portSide || null
         if (group.dataset.portEnd === 'from') a.fromPort = side; else a.toPort = side
+        delete a.portsBy
         renderArrows({ cheap: false }); renderInspector(); debouncedSave()
       })
     )
@@ -1189,6 +1194,7 @@ export function setupInspectorEvents() {
   document.getElementById('arrowAutoRoute').addEventListener('click', () => {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
     a.fromPort = null; a.toPort = null
+    delete a.portsBy
     renderArrows({ cheap: false }); renderInspector(); debouncedSave()
   })
 

@@ -129,6 +129,9 @@ export function normalizeArrow(raw) {
     note: raw.note != null ? toStr(raw.note) : undefined,
     fromPort: PORTS.includes(raw.fromPort) ? raw.fromPort : null,
     toPort:   PORTS.includes(raw.toPort)   ? raw.toPort   : null,
+    // Provenance of the pins: 'tidy' means auto-layout wrote them and a later
+    // block drag may release them. Anything else collapses to absent (= user).
+    portsBy: raw.portsBy === 'tidy' ? 'tidy' : undefined,
   }
 }
 

@@ -39,6 +39,12 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
+**Key interactions added 2026-08-24 (tidy pins, pill, maps):**
+- **Tidy port pins carry provenance** (`portsBy: 'tidy'`). Tidy never overwrites a hand-pinned side; a same-layer edge gets perpendicular geometry ports (not bottom→bottom); a backward edge keeps the under-detour only when `routed`, other styles go back to auto; dragging a block releases tidy pins on its arrows (`releaseTidyPins` in `layout.js`, called from the drag pointerup). Pins matching the pre-provenance scheme are adopted and healed on the next Tidy.
+- **The floating copy pill can be hidden**: an × on hover collapses verdict + pill to a small chip (`pathfinder-pill`), and Zen (`Z`) hides the whole cluster for presenting.
+- **Maps** (header, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
+- `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
+
 **Key interactions added 2026-08-14 (presentation highlights):**
 - **`block.highlight`** (`alert` / `focus` / `go` / `hold` / `festive`) draws a ring *outside* the card, so it never disturbs the card border or the layout. `festive` is an animated candy-cane border built with the two-layer mask recipe, since a plain border cannot carry a repeating gradient and `border-image` cannot be animated. Registry: `HIGHLIGHTS` in `utils.js`.
 - **`canvasMeta.spotlight`** fades every block *without* a highlight. The emphasis is the contrast, which is why this exists as a mode rather than as a stronger colour. It is ignored when nothing is highlighted, on canvas and in the exporter, so turning it on with an empty selection cannot fade the whole diagram to nothing.
@@ -90,7 +96,11 @@ break embedding.
 
 ## State
 
-**localStorage key:** `'pathfinder-v1'`
+**localStorage key:** `'pathfinder-v1'` (the **active** map). The canvas library keeps
+`'pathfinder-maps'` (index), `'pathfinder-map-<id>'` (one payload per map) and
+`'pathfinder-map-current'` (active id); `saveState()` write-through hooks
+(`saveHooks` in `state.js`, registered by `library.js`) mirror every autosave into
+the active map's slot. `'pathfinder-pill'` = '0' hides the floating copy pill.
 
 ```js
 state = {
@@ -109,7 +119,8 @@ state = {
   arrows: [{
     id, from: blockId, to: blockId,
     style,                           // 'routed' (default) | 'curved' | 'straight' | 'elbow' | 'dashed' | 'dotted'
-    fromPort, toPort                 // 'left'|'right'|'top'|'bottom' | null = auto
+    fromPort, toPort,                // 'left'|'right'|'top'|'bottom' | null = auto
+    portsBy                          // 'tidy' when auto-layout wrote the pins (released when a block moves); absent = user/auto
   }]
 }
 

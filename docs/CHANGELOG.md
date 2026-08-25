@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-08-24
+
+### Tidy stops vandalising arrows
+
+Auto-layout used to stamp fixed ports onto every arrow: forward edges got
+right→left, and anything backward or inside a layer got bottom→bottom, whose
+curved and elbow paths loop under the row or cut through blocks. The pins were
+permanent, so one Tidy meant arrows never self-routed again and stayed glued to
+stale sides after every later drag. Reported 2026-08-24 ("arrows get other
+format after autolayout and are not aligned correctly").
+
+- Pins written by Tidy now carry provenance (`portsBy: 'tidy'`), and a side the
+  user pinned by hand is never overwritten.
+- Same-layer edges get perpendicular ports picked from where the target
+  actually sits. Backward edges keep the under-the-row detour only when the
+  style is `routed` (the router steers around blocks); curved and straight
+  back edges return to auto instead of drawing a giant U.
+- Dragging a block releases the tidy pins on its arrows, so they self-route
+  again for the new position. Hand pins stay.
+- Canvases tidied before provenance existed are healed on their next Tidy:
+  pins matching the old scheme are adopted and re-evaluated.
+- Port lane offsets are rounded to whole pixels, removing half-pixel jogs in
+  routed paths.
+
+### The pill learns to get out of the way
+
+The floating "Copy AI-ready prompt" pill and its readiness verdict can be
+hidden: an × appears on hover and collapses both to a small chip, persisted
+(`pathfinder-pill`). Zen (`Z`) now hides the whole cluster, so presenting shows
+the diagram and nothing else.
+
+### Collapsed palette, coherent
+
+The 48px palette rail used to leave the "Advanced types" label at full width,
+overflowing the rail. It now collapses to its chevron like every other section.
+
+### Maps: several canvases per browser
+
+Storage was one slot: starting a second plan destroyed the first. A Maps menu
+in the header now lists every canvas in this browser with switch, new,
+duplicate, delete, export-all and import-all. The active map still lives in
+`pathfinder-v1`, so share links, undo, autosave and existing canvases work
+unchanged; every autosave writes through to the active map's own slot.
+Switching maps clears the undo stack, deliberately: undo must not cross
+canvases.
+
+### Tests
+
+New coverage for tidy port provenance, pin release on drag, and `portsBy`
+normalization.
+
 ## 2026-08-14 (third pass)
 
 ### Highlights, for when a canvas is being presented

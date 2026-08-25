@@ -435,10 +435,22 @@ export function setupCopyPill() {
   })
   window.addEventListener('pf:canvas-changed', refreshReadinessVerdict)
   refreshReadinessVerdict()
+
+  // Hide or show the whole cluster at will, and remember the choice. The ×
+  // appears on hover; the small chip is the way back. Zen (Z) hides everything
+  // regardless, via CSS, because a presentation wants none of it.
+  const wrap = document.getElementById('copyPillWrap')
+  const setMin = on => {
+    wrap.classList.toggle('minimized', on)
+    try { localStorage.setItem('pathfinder-pill', on ? '0' : '1') } catch (_) {}
+  }
+  document.getElementById('copyPillHide')?.addEventListener('click', () => setMin(true))
+  document.getElementById('copyPillMini')?.addEventListener('click', () => setMin(false))
+  try { if (localStorage.getItem('pathfinder-pill') === '0') wrap.classList.add('minimized') } catch (_) {}
 }
 
 // ── Export dropdown ──────────────────────────────────────────
-function setDropdownOpen(wrapperId, open) {
+export function setDropdownOpen(wrapperId, open) {
   const el = document.getElementById(wrapperId)
   el.classList.toggle('open', open)
   el.querySelector('.header-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false')
@@ -448,7 +460,7 @@ function setDropdownOpen(wrapperId, open) {
   }
 }
 
-function setupDropdownKeyboard(wrapperId) {
+export function setupDropdownKeyboard(wrapperId) {
   const wrapper = document.getElementById(wrapperId)
   const dropdown = wrapper.querySelector('.export-dropdown')
   if (!dropdown) return

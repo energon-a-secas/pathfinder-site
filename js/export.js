@@ -75,6 +75,7 @@ export function applyImport(data, mode) {
       if (a.color) extra.color = a.color
       if (a.fromPort) extra.fromPort = a.fromPort
       if (a.toPort) extra.toPort = a.toPort
+      if (a.portsBy) extra.portsBy = a.portsBy
       state.arrows.push({ id: genId(), from: fId, to: tId, ...extra })
     }
   })

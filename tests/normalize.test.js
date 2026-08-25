@@ -283,3 +283,20 @@ describe('normalizeCanvas() -- situation round-trip', () => {
     assert.eq(c.meta.situation.repoHint, 'r')
   })
 })
+
+// ── portsBy provenance ───────────────────────────────────────
+
+import { normalizeArrow as _naPortsBy } from '../js/normalize.js'
+
+describe('normalizeArrow() portsBy', () => {
+  it("keeps 'tidy' provenance", () => {
+    const a = _naPortsBy({ from: 'x', to: 'y', fromPort: 'right', toPort: 'left', portsBy: 'tidy' })
+    assert.eq(a.portsBy, 'tidy')
+  })
+  it('collapses anything else to absent', () => {
+    const a = _naPortsBy({ from: 'x', to: 'y', portsBy: 'evil' })
+    assert.eq(a.portsBy, undefined)
+    const b = _naPortsBy({ from: 'x', to: 'y' })
+    assert.eq(b.portsBy, undefined)
+  })
+})
