@@ -325,6 +325,19 @@ export function generatePrompt() {
     })
   }
 
+  // 9. The way back. The canvas absorbs results through a small patch format;
+  // asking for it here is what turns a one-shot export into a round trip.
+  prompt += '\n## When you reply\n'
+  prompt += 'End your reply with a fenced ```pathfinder-patch``` code block (JSON; spec: ' +
+    'https://pathfinder.neorgon.com/llms.txt) carrying: answers to the open questions, each ' +
+    'assumption marked verified or refuted with its evidence, status changes, new acceptance ' +
+    'criteria, and any new blocks wired to existing ones. Address blocks by the ids below; ' +
+    'do not invent answers you do not have.\n'
+  prompt += '\n### Block ids\n'
+  Object.values(state.blocks).forEach(b => {
+    prompt += `\u2022 ${b.id}: ${(b.title || '(untitled)').slice(0, 60)}\n`
+  })
+
   return prompt.trim()
 }
 

@@ -1807,6 +1807,29 @@
     .dev-row { margin-bottom: 10px; }
     .dev-row:last-child { margin-bottom: 0; }
 
+    /* Bring the answer back: patch preview */
+    .patch-preview { margin-top: 8px; display: grid; gap: 4px; }
+    .patch-op {
+      font-size: 11px; line-height: 1.45;
+      padding: 6px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-left: 2px solid var(--c-decision);
+      color: var(--text-secondary);
+    }
+    .patch-op.warn { border-left-color: var(--c-assumption); }
+    .patch-op.err  { border-left-color: var(--c-problem); color: var(--text-muted); }
+    .patch-op-kind {
+      font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--text-muted); margin-right: 4px;
+    }
+    .patch-op em { color: var(--text-muted); font-style: normal; }
+    .patch-op-detail { color: var(--text-muted); margin-top: 2px; }
+    .patch-op-note, .patch-op-sum { font-size: 11px; color: var(--text-muted); padding: 2px 1px; }
+    .patch-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .patch-actions .add-btn[disabled] { opacity: .45; cursor: default; }
+
     .dev-radio-group, .dev-check-group { display: flex; flex-wrap: wrap; gap: 5px; }
     .preset-opt:hover { color: var(--text-primary); border-color: var(--border-strong); }
     .preset-opt:active { background: var(--surface-2); }

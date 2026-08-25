@@ -641,6 +641,20 @@
         <div id="healthBar" class="health-bar" style="display:none"></div>
         <div id="promptDiff" class="prompt-diff" style="display:none"></div>
 
+        <div class="insp-section" id="patchSection">
+          <div class="insp-label">Bring the answer back <span class="insp-label-hint">paste the assistant's reply; the patch inside updates this canvas</span></div>
+          <button class="add-btn" id="patchOpenBtn">Paste a reply…</button>
+          <div id="patchPanel" style="display:none">
+            <textarea class="insp-textarea" id="patchInput" rows="5"
+              placeholder="Paste the whole reply. The ```pathfinder-patch``` block inside is found automatically."></textarea>
+            <div class="patch-preview" id="patchPreview"></div>
+            <div class="patch-actions">
+              <button class="add-btn" id="patchApplyBtn" disabled>Apply to canvas</button>
+              <button class="add-btn" id="patchCancelBtn">Close</button>
+            </div>
+          </div>
+        </div>
+
         <div class="insp-section situation-section" id="situationSection">
           <div class="insp-label">Situation <span class="insp-label-hint">— where the tool is standing when it reads this</span></div>
           <div id="situationFields"></div>

@@ -176,6 +176,43 @@ It runs the app's own normalizer (fetched from this site when not local), so
 what it accepts is exactly what the canvas accepts. Exit 0 clean; exit 1 when
 items would be dropped or coerced (each one is named); exit 2 unreadable.
 
+## Writing results back: the patch
+
+Every exported prompt ends by asking for a fenced ```pathfinder-patch``` block.
+The app finds it inside a pasted reply (Prompt tab, "Bring the answer back"),
+previews every operation, and applies them as one undo step. Address blocks by
+the ids the prompt lists (titles work too; exact matches are trusted, a unique
+fuzzy match is labeled, ambiguity is refused).
+
+```pathfinder-patch
+{
+  "format": "pathfinder-patch",
+  "version": 1,
+  "note": "one line the human sees first",
+  "answers":  [{ "block": "b3", "question": 0, "answer": "Staging is clean; production only." }],
+  "verify":   [{ "block": "b5", "verdict": "verified", "evidence": "The cert rotated on Wed; log line attached." }],
+  "status":   [{ "block": "b2", "status": "done" }],
+  "criteria": [{ "block": "b4", "add": ["fails before the fix, passes after"] }],
+  "blocks":   [{ "id": "n1", "type": "problem", "title": "Retry path swallows errors" }],
+  "arrows":   [{ "from": "n1", "to": "b2", "label": "explains" }]
+}
+```
+
+Semantics:
+
+- `answers`: fills a question's `answer` field. `question` is the index or the
+  question text; omit it when the block has exactly one question.
+- `verify`: an `assumption` becomes a `decision` **in place** (same id, so its
+  arrows survive); `verdict` is `verified` or `refuted`, and `evidence` is
+  required, because a verdict without evidence is still a guess.
+- `status`: `not-started`, `in-progress`, `done`, `blocked`.
+- `criteria`: appends acceptance criteria (deduplicated, capped at 30).
+- `blocks` / `arrows`: the canvas JSON shapes above; new blocks may reference
+  each other and existing ids. Omitted positions are placed beside the canvas;
+  Tidy arranges them.
+
+Do not put answers you do not have in a patch. An empty patch is a valid reply.
+
 ## Prompt modes
 
 `Investigate` establishes what is true and demands evidence per finding.

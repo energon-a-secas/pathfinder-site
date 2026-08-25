@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-08-24 (fifth pass)
+
+### The round trip
+
+An investigation that ends in a chat log gets run again in three weeks, so
+the canvas now asks for its answers back. Every exported prompt ends with a
+`## When you reply` section and a map of block ids, asking the assistant to
+close with a fenced `pathfinder-patch` JSON block (spec in llms.txt): answers
+keyed to questions, each assumption marked verified or refuted **with
+evidence**, status changes, new acceptance criteria, and new blocks wired to
+existing ids.
+
+The Prompt tab's **Bring the answer back** takes the whole pasted reply,
+finds the patch, and previews every operation before anything happens: id
+matches are trusted, exact titles too, a unique fuzzy match is applied but
+labeled, and anything ambiguous is refused rather than guessed. Apply is one
+undo step. A verified assumption becomes a decision **in place**, keeping its
+id so every arrow survives; the evidence lands in the decision's rationale,
+which is exactly what the walkthrough's step 10 asked people to do by hand.
+
 ## 2026-08-24 (fourth pass)
 
 ### The agent channel
