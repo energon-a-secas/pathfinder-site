@@ -799,6 +799,9 @@ export function setupBrainDump() {
 }
 
 export function setupTypeChips() {
+  // Importers (Brain Dump lives here, interop does not) request chips via an
+  // event, so no module has to import this one just to show them.
+  window.addEventListener('pf:show-type-chips', e => showTypeChips(Array.isArray(e.detail) ? e.detail : []))
   const root = $.canvasRoot()
   // Open a chip's menu on click; dismiss all chips on any other canvas press.
   root.addEventListener('pointerdown', e => {

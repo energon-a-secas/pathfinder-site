@@ -176,6 +176,17 @@ It runs the app's own normalizer (fetched from this site when not local), so
 what it accepts is exactly what the canvas accepts. Exit 0 clean; exit 1 when
 items would be dropped or coerced (each one is named); exit 2 unreadable.
 
+## Other formats, in and out
+
+- **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): Export ▾ →
+  Download JSON Canvas writes the map as a `.canvas` file; the same Import
+  picker reads one, classifying text nodes into block types (correction chips
+  appear for uncertain calls).
+- **Mermaid flowcharts** import through the same picker (a fenced
+  ```mermaid block or a bare `flowchart`/`graph` file): shapes map to types
+  (rhombus → decision, stadium/circle → start/end), subgraphs become groups,
+  and positions come from the app's own layout.
+
 ## Writing results back: the patch
 
 Every exported prompt ends by asking for a fenced ```pathfinder-patch``` block.

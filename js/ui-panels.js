@@ -13,6 +13,7 @@ import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation } from './temp
 import { refreshPrompt, markExported, generatePrompt, computeHealthScore, situationSection } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportSpecBundle } from './spec-export.js'
+import { detectFormat, fromJsonCanvas, parseMermaid, downloadJsonCanvas } from './interop.js'
 import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
@@ -587,6 +588,13 @@ export function setupExportDropdown() {
     exportSpecBundle()
   })
 
+  document.getElementById('exportJsonCanvas').addEventListener('click', () => {
+    setDropdownOpen('exportWrapper', false)
+    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
+    downloadJsonCanvas()
+    showToast('JSON Canvas downloaded — it opens in Obsidian and friends', 'success')
+  })
+
   document.getElementById('exportPNG').addEventListener('click', () => {
     setDropdownOpen('exportWrapper', false)
     exportPNG(2)
@@ -665,9 +673,25 @@ export function setupImportHandler() {
     const file = e.target.files[0]; if (!file) return
     const reader = new FileReader()
     reader.onload = ev => {
-      let data
-      try { data = JSON.parse(ev.target.result) }
-      catch(_) { showToast('Could not read file: invalid JSON', 'error'); return }
+      const text = ev.target.result
+      // One picker, three formats: pathfinder JSON, JSON Canvas (.canvas,
+      // an { nodes, edges } object), or a Mermaid flowchart. Converted
+      // formats go through the classifier, so their low-confidence types
+      // surface as the same correction chips Brain Dump shows.
+      const fmt = detectFormat(text)
+      if (!fmt) { showToast('Could not read file: not JSON, JSON Canvas, or a Mermaid flowchart', 'error'); return }
+      let data, low = []
+      if (fmt === 'mermaid') {
+        const r = parseMermaid(text)
+        if (!r.payload.blocks.length) { showToast('No flowchart nodes found in that file', 'warning'); return }
+        data = r.payload; low = r.lowConfidence
+      } else if (fmt === 'canvas') {
+        const r = fromJsonCanvas(JSON.parse(text))
+        if (!r.payload.blocks.length) { showToast('That canvas has no nodes in it', 'warning'); return }
+        data = r.payload; low = r.lowConfidence
+      } else {
+        data = JSON.parse(text)
+      }
 
       const hasContent = Object.keys(state.blocks).length > 0
       const mode = !hasContent
@@ -678,10 +702,15 @@ export function setupImportHandler() {
             'Cancel \u2192 Merge (add to existing canvas)'
           ) ? 'replace' : 'merge')
 
-      const { imported, dropped } = applyImport(data, mode)
+      const { imported, dropped, idMap } = applyImport(data, mode)
       collapseTemplatesAfterUse()
       refreshSituation(); refreshCardStyles(); refreshSpotlight()
       reportImport(imported, dropped)
+      if (low.length) {
+        window.dispatchEvent(new CustomEvent('pf:show-type-chips', {
+          detail: low.map(id => ({ id: (idMap && idMap[id]) || id, confidence: 'low' })),
+        }))
+      }
     }
     reader.onerror = () => showToast('Could not read file', 'error')
     reader.readAsText(file)

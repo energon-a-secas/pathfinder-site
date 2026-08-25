@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-08-24 (seventh pass)
+
+### Interop: JSON Canvas both ways, Mermaid in
+
+Tools get adopted when they read what people already have. The Import picker
+now takes three formats and tells them apart itself: pathfinder JSON as
+before, **JSON Canvas** (`.canvas`, the Obsidian format), and **Mermaid
+flowcharts** (fenced or bare). Canvas text nodes and Mermaid rectangles go
+through the same classifier Brain Dump uses, and its uncertain calls surface
+as the existing correction chips; Mermaid shapes that carry meaning keep it
+(rhombus becomes a decision, stadium and circle become start/end), subgraphs
+become groups, and positions come from the app's own layered layout rather
+than a guess.
+
+The way out too: **Export ▾ → Download JSON Canvas** writes the map as a
+`.canvas` file that opens in Obsidian and friends, with block types carried
+as preset colors, criteria as checklists, rationale inline, groups as group
+nodes, and pinned connection sides preserved. The plan can live in the
+user's own vault, which is a retention mechanism nobody has to run.
+
 ## 2026-08-24 (sixth pass)
 
 ### Plan lint: gap detection grows up

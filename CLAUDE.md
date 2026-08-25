@@ -39,6 +39,9 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
 
+**Key interactions added 2026-08-24 (interop):**
+- **JSON Canvas in and out, Mermaid in** (`js/interop.js`). The Import picker detects the format; converted nodes go through the Brain Dump classifier and surface correction chips via the `pf:show-type-chips` event (`applyImport` now returns `idMap` so chips survive a merge remap). Mermaid positions come from `layoutGraph`, not a guess.
+
 **Key interactions added 2026-08-24 (the round trip):**
 - **`pathfinder-patch`** (`js/patch.js`, spec in `llms.txt`): every prompt now ends with `## When you reply` plus a block-id map, asking the assistant to close with a fenced patch: answers into questions, assumptions verified/refuted **into decisions in place** (same id, arrows survive, evidence lands in `rationale`), status, criteria, new wired blocks. Prompt tab → "Bring the answer back" pastes the whole reply, previews every operation (fuzzy title matches labeled, ambiguity refused), applies as **one undo step**.
 
@@ -215,7 +218,8 @@ Accessed via "Export ▾" dropdown in the header:
 | Download JSON | `pathfinder.json`: full canvas (blocks + arrows + timestamp) |
 | Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of `order` silently drops those blocks), labelled connections, and a Mermaid graph of the same topology |
 | Download Spec bundle | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
-| Import JSON | File picker; replace or merge with existing canvas |
+| Download JSON Canvas | `<title>.canvas` (jsoncanvas.org): text nodes with type-mapped preset colors, criteria as checklists, groups as group nodes, edge sides from pinned ports (`js/interop.js`) |
+| Import JSON / Canvas / Mermaid | One picker, format-detected (`detectFormat`): pathfinder JSON, JSON Canvas (text nodes classified via `categorizeLine`, low-confidence typed calls get correction chips), or a Mermaid flowchart (shapes map to types, subgraphs to groups, positions from `layoutGraph`). Replace or merge as before |
 
 **Merge behavior:** existing blocks preserved; imported blocks get new IDs, arrow refs remapped.
 

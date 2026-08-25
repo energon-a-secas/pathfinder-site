@@ -30,6 +30,10 @@ Map your project visually. Export a structured prompt that front-loads everythin
 
 Pathfinder is a strategy canvas for planning tech projects before you write a single line of code. You place typed blocks (goals, problems, requirements, risks, questions, decisions, resources, outputs) on an infinite canvas, connect them with arrows, and watch the tool flag the gaps your plan hasn't addressed yet. When the picture looks right, one click collapses the whole diagram into a structured AI prompt that front-loads all that context, so the assistant can reason about your project rather than assume through it.
 
+It speaks other tools' formats too: JSON Canvas (Obsidian) imports and exports,
+and Mermaid flowcharts import, so a plan can arrive from a vault or a README
+and the result can live back in it.
+
 The core loop is: **diagram first, then generate a brief**. The canvas makes implicit relationships explicit. The prompt builder turns those relationships into a planning document you can hand to any AI.
 
 ---

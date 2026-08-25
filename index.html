@@ -96,6 +96,10 @@
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12C21.35 6 22 6.63 22 7.41v9.18c0 .78-.65 1.41-1.44 1.41zM6.81 15.19v-3.33l1.56 1.88 1.56-1.88v3.33h1.61V8.81H9.94L8.38 10.7 6.81 8.81H5.2v6.38h1.61zm7.26-3.81h-1.61V8.81h-1.61v2.57H9.24l2.9 3.64 2.9-3.64z"/></svg>
               Download Markdown
             </div>
+            <div class="export-item" id="exportJsonCanvas">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
+              Download JSON Canvas
+            </div>
             <div class="export-item" id="exportSpecBundle">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg>
               Download Spec bundle (zip)
@@ -121,11 +125,11 @@
             <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
             <div class="export-item" id="importJSON">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-              Import JSON
+              Import JSON / Canvas / Mermaid
             </div>
           </div>
         </div>
-        <input type="file" id="importFile" accept=".json" style="display:none">
+        <input type="file" id="importFile" accept=".json,.canvas,.mmd,.md,.txt" style="display:none">
 
         <div class="export-wrapper" id="shareWrapper" aria-haspopup="true">
           <button class="header-btn" id="shareBtn" aria-expanded="false" aria-label="Share canvas">Share</button>

@@ -94,7 +94,7 @@ export function applyImport(data, mode) {
   })
   saveState()
 
-  return { imported: cleanBlocks.length, dropped: clean.dropped }
+  return { imported: cleanBlocks.length, dropped: clean.dropped, idMap }
 }
 
 // ── Export JSON ───────────────────────────────────────────────
