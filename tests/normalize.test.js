@@ -328,3 +328,22 @@ describe('normalizePromptOpts()', () => {
     assert.eq(old.prompt.mode, 'plan')
   })
 })
+
+// ── criteria + rationale ─────────────────────────────────────
+
+import { normalizeBlock as _nbCrit } from '../js/normalize.js'
+
+describe('normalizeBlock() criteria and rationale', () => {
+  it('keeps trimmed criteria and drops empties', () => {
+    const b = _nbCrit({ id: 'x', type: 'requirement', criteria: [' fast ', '', 42, 'small'] })
+    assert.deepEq(b.criteria, ['fast', '42', 'small'])
+  })
+  it('defaults to empty when absent or junk', () => {
+    assert.deepEq(_nbCrit({ id: 'x', type: 'goal' }).criteria, [])
+    assert.deepEq(_nbCrit({ id: 'x', type: 'goal', criteria: 'nope' }).criteria, [])
+    assert.eq(_nbCrit({ id: 'x', type: 'decision' }).rationale, '')
+  })
+  it('keeps a decision rationale', () => {
+    assert.eq(_nbCrit({ id: 'x', type: 'decision', rationale: 'cheaper' }).rationale, 'cheaper')
+  })
+})

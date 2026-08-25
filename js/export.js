@@ -139,6 +139,12 @@ export function exportMarkdown() {
       if (b.status && b.status !== 'not-started') tags.push(b.status)
       md += `### ${b.title}${tags.length ? ' [' + tags.join(', ') + ']' : ''}\n`
       if (b.description) md += `${b.description}\n\n`
+      if (b.criteria?.length) {
+        md += `**Acceptance criteria:**\n`
+        b.criteria.forEach(c => { md += `- [ ] ${c}\n` })
+        md += '\n'
+      }
+      if (b.rationale?.trim()) md += `**Rationale:** ${b.rationale.trim()}\n\n`
       if (b.actions?.length) md += `**Actions:** ${b.actions.join(', ')}\n\n`
       if (b.docRef && (b.docRef.href || b.docRef.label)) {
         const ref = b.docRef.label || b.docRef.href
@@ -184,7 +190,7 @@ export function exportMarkdown() {
  * from it. The graph states the shape directly, and Mermaid renders natively
  * in GitHub, Obsidian and most Markdown viewers.
  */
-function mermaidBlock() {
+export function mermaidBlock() {
   const ids = new Map()
   const key = id => {
     if (!ids.has(id)) ids.set(id, 'n' + (ids.size + 1))

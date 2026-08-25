@@ -978,6 +978,16 @@ export function setupInspectorEvents() {
   inspNotes.addEventListener('input', () => {
     if (selection.blockId) mutateBlock(selection.blockId, { notes: inspNotes.value })
   })
+  const inspCriteria = $.inspCriteria()
+  inspCriteria?.addEventListener('input', () => {
+    if (!selection.blockId) return
+    const criteria = inspCriteria.value.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    mutateBlock(selection.blockId, { criteria })
+  })
+  const inspRationale = $.inspRationale()
+  inspRationale?.addEventListener('input', () => {
+    if (selection.blockId) mutateBlock(selection.blockId, { rationale: inspRationale.value })
+  })
 
   // Documentation reference: three inputs write one docRef object. An empty
   // href + empty label clears it back to null so no stray marker lingers.

@@ -499,3 +499,34 @@ describe('flowSection ordering (via generatePrompt)', () => {
     assert.lt(iRep, iEnd, 'step before the ending')
   })
 })
+
+// ── Acceptance criteria in the prompt ────────────────────────
+
+describe('Acceptance criteria in the prompt', () => {
+  it('lists criteria on a requirement in plan mode', () => {
+    resetPromptState()
+    addBlock('r1', 'requirement', 'Fast checkout', {})
+    state.blocks.r1.criteria = ['respond within 200ms']
+    const p = generatePrompt()
+    assert.includes(p, 'Acceptance criteria:')
+    assert.includes(p, '- respond within 200ms')
+  })
+  it('build mode uses real criteria and only falls back to NEEDS INPUT without them', () => {
+    resetPromptState()
+    devOpts.mode = 'build'
+    addBlock('r1', 'requirement', 'Fast checkout', {})
+    addBlock('r2', 'requirement', 'Bare one', {})
+    state.blocks.r1.criteria = ['respond within 200ms']
+    state.blocks.r2.criteria = []
+    const p = generatePrompt()
+    assert.includes(p, '- [ ] respond within 200ms')
+    assert.includes(p, '[NEEDS INPUT: acceptance criteria]')
+  })
+  it('carries a decision rationale', () => {
+    resetPromptState()
+    addBlock('d1', 'decision', 'Use Stripe', {})
+    state.blocks.d1.rationale = 'Fewer moving parts.'
+    const p = generatePrompt()
+    assert.includes(p, 'Rationale: Fewer moving parts.')
+  })
+})

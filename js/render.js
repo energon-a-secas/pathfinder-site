@@ -281,6 +281,20 @@ export function renderInspector() {
   inspDesc.value  = b.description
   inspNotes.value = b.notes || ''
 
+  // Acceptance criteria for the block types that can be "done"; rationale for
+  // decisions. Hidden everywhere else so the inspector stays short.
+  const criteriaSection = document.getElementById('criteriaSection')
+  if (criteriaSection) {
+    const wants = b.type === 'requirement' || b.type === 'goal' || b.type === 'output'
+    criteriaSection.style.display = wants ? '' : 'none'
+    if (wants) $.inspCriteria().value = (b.criteria || []).join('\n')
+  }
+  const rationaleSection = document.getElementById('rationaleSection')
+  if (rationaleSection) {
+    rationaleSection.style.display = b.type === 'decision' ? '' : 'none'
+    if (b.type === 'decision') $.inspRationale().value = b.rationale || ''
+  }
+
   // Documentation reference fields + "promote See:" nudge
   const docHref = document.getElementById('docRefHref')
   const docLabel = document.getElementById('docRefLabel')

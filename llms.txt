@@ -58,6 +58,7 @@ inlined.
       "x": 0, "y": 0,
       "actions": ["validate"],
       "questions": [{ "text": "Open question?", "answer": "" }],
+      "criteria": ["Returns within 200ms"],
       "priority": "high",
       "status": "in-progress",
       "highlight": "alert"
@@ -129,6 +130,10 @@ first and answer the second.
 - `meta.prompt.detail`: `standard`, `brief`, `detailed`
 - `meta.prompt.pre`: any of `tasks`, `edge`, `errors`, `docs`, `security`,
   `typescript`
+- `blocks[].criteria`: short strings, the block's definition of done
+  (meaningful on `requirement`, `goal`, `output`). They feed the prompt's
+  acceptance criteria, tasks.md and the EARS export
+- `blocks[].rationale`: why a decision was made (string, `decision` blocks)
 - `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
 - `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
 - `meta.situation.codebase`: `none`, `current`, `other`, `greenfield`

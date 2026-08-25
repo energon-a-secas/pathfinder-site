@@ -57,6 +57,11 @@ export function generatePrompt() {
     const tagStr = tags.length ? ` [${tags.join('] [')}]` : ''
     let s = `\u2022${tagStr} ${b.title || '(untitled)'}`
     if (b.description) s += `\n  ${b.description}`
+    if ((b.criteria || []).length) {
+      s += '\n  Acceptance criteria:'
+      b.criteria.forEach(c => { s += `\n    - ${c}` })
+    }
+    if (b.rationale?.trim()) s += `\n  Rationale: ${b.rationale.trim().replace(/\n/g, '\n  ')}`
     if (b.docRef && (b.docRef.href || b.docRef.label)) {
       const ref = b.docRef.label || b.docRef.href
       const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
@@ -94,7 +99,12 @@ export function generatePrompt() {
       const pri = b.priority ? ` [${PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority}]` : ''
       out += `- [ ]${pri} ${b.title || '(untitled)'}\n`
       if (b.description) out += `      ${b.description}\n`
-      out += `      Acceptance criteria: [NEEDS INPUT: acceptance criteria]\n`
+      if ((b.criteria || []).length) {
+        out += `      Acceptance criteria:\n`
+        b.criteria.forEach(c => { out += `      - [ ] ${c}\n` })
+      } else {
+        out += `      Acceptance criteria: [NEEDS INPUT: acceptance criteria]\n`
+      }
     })
     return out
   }

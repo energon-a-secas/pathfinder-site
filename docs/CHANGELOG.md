@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-08-24 (third pass)
+
+### Criteria, rationale, and the Spec bundle
+
+Requirements, goals and outputs gain **acceptance criteria** (one per line in
+the inspector), and decisions gain a **rationale**. Both feed the prompt (the
+Build checklist's `[NEEDS INPUT]` placeholder now only appears when criteria
+are genuinely missing), the Markdown export, and a new export:
+
+**Export ▾ → Download Spec bundle (zip)**: five Markdown files in the shape
+spec-driven development tools expect. `spec.md` (goals, requirements with
+criteria, `[NEEDS CLARIFICATION]` questions, assumptions, risks), `plan.md`
+(situation, decisions with rationale, resources, the Mermaid graph),
+`tasks.md` (dependency-ordered checklist, sequenced by the same layering Tidy
+uses), `requirements.md` (EARS form, "THE SYSTEM SHALL", for Kiro-style
+tooling), and a README saying what the bundle is. The zip is written by a
+zero-dependency STORE writer (`js/zip.js`); missing inputs are marked, never
+invented.
+
 ## 2026-08-24 (second pass)
 
 ### The mode travels with the canvas

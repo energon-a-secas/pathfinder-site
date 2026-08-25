@@ -44,6 +44,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **The floating copy pill can be hidden**: an × on hover collapses verdict + pill to a small chip (`pathfinder-pill`), and Zen (`Z`) hides the whole cluster for presenting.
 - **Maps** (header, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
 - `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
+- **Acceptance criteria + decision rationale + Spec bundle**: `block.criteria[]` (requirement/goal/output) and `block.rationale` (decision) edit in the inspector, feed the prompt (Build's `[NEEDS INPUT]` placeholder only appears when criteria are missing), the Markdown export, and **Export ▾ → Download Spec bundle (zip)**: spec/plan/tasks/EARS-requirements built by `spec-export.js`, zipped by `zip.js`.
 - **Prompt options travel with the canvas** (`meta.prompt`). `serializeCanvas()` in `state.js` is the single serializer (autosave, share, Maps, JSON export); `applyPromptOpts()` applies a load back into `devOpts`; the `pf:prompt-opts-changed` event resyncs the Prompt tab (`syncPromptOptControls`). Preset chips (Claude Code, Cursor + TS, PM clarify) set the bundle in one click. The tutorial example carries `mode: investigate`. `flowSection()` orders workflow steps by whole-graph layering and numbers only process steps.
 
 **Key interactions added 2026-08-14 (presentation highlights):**
@@ -113,6 +114,8 @@ state = {
       questions: [],                 // [{ text, answer?, askedAt? }] — see Living Documentation
       docRef: null,                  // { href, label, anchor } | null — see Living Documentation
       cardStyle: null,               // preset key | null = follow canvasMeta.cardStyle
+      criteria: [],                  // acceptance criteria (requirement/goal/output); feeds prompt, tasks.md, EARS
+      rationale: '',                 // why a decision was made (decision blocks)
       borderWidth: null,             // 1 | 1.5 | 2 | 3 | null = preset default
       highlight: null                // presentation emphasis | null. Never semantics
     }
@@ -192,6 +195,7 @@ Accessed via "Export ▾" dropdown in the header:
 | Copy Prompt | Clipboard: markdown AI prompt |
 | Download JSON | `pathfinder.json`: full canvas (blocks + arrows + timestamp) |
 | Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of `order` silently drops those blocks), labelled connections, and a Mermaid graph of the same topology |
+| Download Spec bundle | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
 | Import JSON | File picker; replace or merge with existing canvas |
 
 **Merge behavior:** existing blocks preserved; imported blocks get new IDs, arrow refs remapped.

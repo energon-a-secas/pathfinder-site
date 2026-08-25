@@ -104,6 +104,11 @@ export function normalizeBlock(raw) {
     borderWidth: BORDER_WIDTHS.includes(toFiniteNum(raw.borderWidth, null)) ? toFiniteNum(raw.borderWidth, null) : null,
     // Presentation only. null means "not highlighted", which is nearly always.
     highlight: VALID_HIGHLIGHTS.includes(raw.highlight) ? raw.highlight : null,
+    // Definition of done (requirement/goal/output) and the why of a decision.
+    criteria: Array.isArray(raw.criteria)
+      ? raw.criteria.map(c => toStr(c).trim()).filter(Boolean).slice(0, 30).map(c => c.slice(0, 300))
+      : [],
+    rationale: toStr(raw.rationale).slice(0, 2000),
   }
 }
 

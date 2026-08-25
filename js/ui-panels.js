@@ -12,6 +12,7 @@ import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from
 import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation } from './templates.js'
 import { refreshPrompt, markExported, generatePrompt, computeHealthScore, situationSection } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
+import { exportSpecBundle } from './spec-export.js'
 import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
@@ -571,6 +572,11 @@ export function setupExportDropdown() {
 
   document.getElementById('exportMarkdown').addEventListener('click', () => {
     exportMarkdown()
+  })
+
+  document.getElementById('exportSpecBundle').addEventListener('click', () => {
+    setDropdownOpen('exportWrapper', false)
+    exportSpecBundle()
   })
 
   document.getElementById('exportPNG').addEventListener('click', () => {
