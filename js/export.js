@@ -2,7 +2,7 @@
 //  export.js — JSON/Markdown export/import
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, ui, canvasMeta, saveState } from './state.js'
+import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts } from './state.js'
 import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, SVG_ICONS } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
@@ -36,6 +36,11 @@ export function applyImport(data, mode) {
     canvasMeta.cardStyle = clean.meta.cardStyle || DEFAULT_CARD_STYLE
     canvasMeta.spotlight = !!clean.meta.spotlight
     canvasMeta.situation = { ...SITUATION_DEFAULT, ...(clean.meta.situation || {}) }
+    // The prompt options are part of how a canvas is meant to be read, so a
+    // replace carries them. A merge leaves the existing framing alone, same
+    // rule as the situation. The event lets the Prompt tab controls resync.
+    applyPromptOpts(clean.meta.prompt)
+    window.dispatchEvent(new CustomEvent('pf:prompt-opts-changed'))
   }
 
   // Build ID remap (merge needs fresh IDs to avoid collisions)
@@ -94,7 +99,10 @@ export function applyImport(data, mode) {
 
 // ── Export JSON ───────────────────────────────────────────────
 export function exportJSON() {
-  const blob = new Blob([JSON.stringify({ blocks: Object.values(state.blocks), arrows: state.arrows, groups: state.groups, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' })
+  // Blocks go out as an array (the shape llms.txt documents); meta comes from
+  // the shared serializer so the file carries the prompt options too.
+  const payload = { blocks: Object.values(state.blocks), arrows: state.arrows, groups: state.groups, meta: serializeCanvas().meta, exportedAt: new Date().toISOString() }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
   a.download = 'pathfinder.json'; a.click(); URL.revokeObjectURL(a.href)
 }

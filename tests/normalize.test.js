@@ -300,3 +300,31 @@ describe('normalizeArrow() portsBy', () => {
     assert.eq(b.portsBy, undefined)
   })
 })
+
+// ── meta.prompt (mode + dev options) ─────────────────────────
+
+import { normalizePromptOpts as _npo, normalizeCanvas as _ncPrompt } from '../js/normalize.js'
+
+describe('normalizePromptOpts()', () => {
+  it('keeps valid options', () => {
+    const p = _npo({ mode: 'investigate', tone: 'technical', detail: 'brief', pre: ['tasks', 'typescript'] })
+    assert.eq(p.mode, 'investigate')
+    assert.eq(p.tone, 'technical')
+    assert.eq(p.detail, 'brief')
+    assert.deepEq(p.pre, ['tasks', 'typescript'])
+  })
+  it('falls back to defaults for junk and absence', () => {
+    const p = _npo({ mode: 'yolo', tone: 42, pre: ['tasks', 'evil', 'tasks'] })
+    assert.eq(p.mode, 'plan')
+    assert.eq(p.tone, 'auto')
+    assert.eq(p.detail, 'standard')
+    assert.deepEq(p.pre, ['tasks'])
+    assert.eq(_npo(null).mode, 'plan')
+  })
+  it('rides through normalizeCanvas meta', () => {
+    const { meta } = _ncPrompt({ blocks: [], arrows: [], meta: { prompt: { mode: 'clarify' } } })
+    assert.eq(meta.prompt.mode, 'clarify')
+    const { meta: old } = _ncPrompt({ blocks: [], arrows: [], meta: { title: 'old canvas' } })
+    assert.eq(old.prompt.mode, 'plan')
+  })
+})

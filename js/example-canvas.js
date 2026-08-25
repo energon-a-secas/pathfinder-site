@@ -96,6 +96,9 @@ export const EXAMPLE_CANVAS = {
         firstMove: 'read',
         repoHint: 'the checkout service',
         constraints: 'Reproduce before theorising\nDo not change behaviour while investigating\nNo dependency upgrades in the fix'
-      }
+      },
+      // The walkthrough teaches Investigate as the right mode for this case;
+      // the canvas now says so itself instead of arriving in Plan.
+      prompt: { mode: 'investigate' }
     }
   }

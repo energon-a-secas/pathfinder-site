@@ -44,6 +44,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **The floating copy pill can be hidden**: an × on hover collapses verdict + pill to a small chip (`pathfinder-pill`), and Zen (`Z`) hides the whole cluster for presenting.
 - **Maps** (header, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
 - `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
+- **Prompt options travel with the canvas** (`meta.prompt`). `serializeCanvas()` in `state.js` is the single serializer (autosave, share, Maps, JSON export); `applyPromptOpts()` applies a load back into `devOpts`; the `pf:prompt-opts-changed` event resyncs the Prompt tab (`syncPromptOptControls`). Preset chips (Claude Code, Cursor + TS, PM clarify) set the bundle in one click. The tutorial example carries `mode: investigate`. `flowSection()` orders workflow steps by whole-graph layering and numbers only process steps.
 
 **Key interactions added 2026-08-14 (presentation highlights):**
 - **`block.highlight`** (`alert` / `focus` / `go` / `hold` / `festive`) draws a ring *outside* the card, so it never disturbs the card border or the layout. `festive` is an animated candy-cane border built with the two-layer mask recipe, since a plain border cannot carry a repeating gradient and `border-image` cannot be animated. Registry: `HIGHLIGHTS` in `utils.js`.
@@ -127,7 +128,8 @@ state = {
 canvasMeta = {
   title, contextBrief, cardStyle,
   spotlight,                         // fade everything unhighlighted
-  situation: { codebase, runtime, firstMove, repoHint, constraints }
+  situation: { codebase, runtime, firstMove, repoHint, constraints },
+  prompt: { mode, tone, detail, pre: [] }  // serialized from devOpts by serializeCanvas(); applied back on load/import/switch
 }                                    // travels through save, share and import
 view = { panX, panY, zoom }          // zoom range: 0.18–2.6
 ```

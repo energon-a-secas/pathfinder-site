@@ -283,3 +283,29 @@ describe('State mutation isolation', () => {
     assert.ok(devOpts.prePrompts instanceof Set)
   })
 })
+
+// ── Prompt options round trip ────────────────────────────────
+
+import { serializeCanvas, applyPromptOpts } from '../js/state.js'
+
+describe('prompt options round trip', () => {
+  it('serializeCanvas carries devOpts as meta.prompt', () => {
+    devOpts.mode = 'investigate'; devOpts.tone = 'technical'
+    devOpts.detail = 'brief'; devOpts.prePrompts = new Set(['tasks'])
+    const out = serializeCanvas()
+    assert.eq(out.meta.prompt.mode, 'investigate')
+    assert.eq(out.meta.prompt.tone, 'technical')
+    assert.eq(out.meta.prompt.detail, 'brief')
+    assert.deepEq(out.meta.prompt.pre, ['tasks'])
+  })
+  it('saveState then loadState restores devOpts', () => {
+    devOpts.mode = 'clarify'; devOpts.prePrompts = new Set(['edge', 'errors'])
+    saveState()
+    devOpts.mode = 'plan'; devOpts.prePrompts = new Set()
+    loadState()
+    assert.eq(devOpts.mode, 'clarify')
+    assert.ok(devOpts.prePrompts.has('edge') && devOpts.prePrompts.has('errors'))
+    // reset for later suites
+    applyPromptOpts({ mode: 'plan', tone: 'auto', detail: 'standard', pre: [] })
+  })
+})

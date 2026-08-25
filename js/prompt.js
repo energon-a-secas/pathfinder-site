@@ -5,6 +5,7 @@
 import { state, ui, devOpts, promptState, canvasMeta } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml } from './utils.js'
 import { runGapDetection } from './gaps.js'
+import { breakCycles, assignLayers } from './layout.js'
 
 /**
  * The standing brief: what this document is, and where the reader is standing.
@@ -98,33 +99,34 @@ export function generatePrompt() {
     return out
   }
 
-  // Workflow section: process + terminator nodes rendered as an ordered
-  // step sequence. Ordering follows arrows between flow nodes (a light
-  // topological pass), falling back to canvas order for anything unlinked.
+  // Workflow section: process + terminator nodes as an ordered sequence.
+  // Ordering uses the whole graph, not just flow-to-flow arrows: two steps
+  // linked through a Problem between them still land in the right order,
+  // which the old flow-only walk got wrong ("Fixed and proven" printed
+  // before the step that reproduces). Start terminators lead, end
+  // terminators close, and only process steps carry numbers.
   const flowSection = () => {
     const flow = Object.values(state.blocks).filter(b => b.type === 'process' || b.type === 'terminator')
     if (!flow.length) return ''
-    const flowIds = new Set(flow.map(b => b.id))
-    const nextOf = id => state.arrows.filter(a => a.from === id && flowIds.has(a.to)).map(a => a.to)
-    const indeg = {}
-    flow.forEach(b => { indeg[b.id] = 0 })
-    state.arrows.forEach(a => { if (flowIds.has(a.from) && flowIds.has(a.to)) indeg[a.to]++ })
-    const ordered = []
-    const seen = new Set()
-    // Start from nodes with no incoming flow edge (natural entry points),
-    // preferring terminators so a "Start" leads. Then walk forward.
-    const roots = flow.filter(b => indeg[b.id] === 0)
-      .sort((a, b) => (a.type === 'terminator' ? -1 : 0) - (b.type === 'terminator' ? -1 : 0))
-    const walk = id => {
-      if (seen.has(id)) return
-      seen.add(id); ordered.push(state.blocks[id])
-      nextOf(id).forEach(walk)
-    }
-    roots.forEach(r => walk(r.id))
-    flow.forEach(b => { if (!seen.has(b.id)) walk(b.id) }) // cycles / islands
+    const ids = Object.keys(state.blocks)
+    const edges = state.arrows
+      .filter(a => state.blocks[a.from] && state.blocks[a.to])
+      .map(a => ({ from: a.from, to: a.to }))
+    const { acyclic } = breakCycles(ids, edges)
+    const { layer } = assignLayers(ids, acyclic)
+    const outDeg = {}
+    flow.forEach(b => { outDeg[b.id] = 0 })
+    state.arrows.forEach(a => { if (outDeg[a.from] != null && state.blocks[a.to]) outDeg[a.from]++ })
+    // Terminators with outgoing arrows open the flow; ones without close it.
+    const rank = b => b.type === 'terminator' ? (outDeg[b.id] ? -1 : 1) : 0
+    const ordered = [...flow].sort((a, b) =>
+      ((layer.get(a.id) ?? 0) - (layer.get(b.id) ?? 0)) ||
+      (rank(a) - rank(b)) ||
+      (a.title || '').localeCompare(b.title || ''))
     let out = '## Workflow (end-to-end)\n'
-    ordered.forEach((b, i) => {
-      const kind = b.type === 'terminator' ? '◆' : `${i + 1}.`
+    let step = 0
+    ordered.forEach(b => {
+      const kind = b.type === 'terminator' ? '◆' : `${++step}.`
       out += `${kind} ${b.title || '(untitled)'}\n`
       if (b.description) out += `      ${b.description.replace(/\n/g, '\n      ')}\n`
     })

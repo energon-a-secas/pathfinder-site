@@ -477,3 +477,25 @@ describe('computeHealthScore()', () => {
     assert.gt(connected, disconnected, 'Connected canvas should score higher')
   })
 })
+
+// ── Workflow ordering ────────────────────────────────────────
+
+describe('flowSection ordering (via generatePrompt)', () => {
+  it('orders steps through non-flow intermediaries, numbering only processes', () => {
+    resetPromptState()
+    addBlock('start', 'terminator', 'Report received')
+    addBlock('prob', 'problem', 'It breaks')
+    addBlock('rep', 'process', 'Reproduce it')
+    addBlock('end', 'terminator', 'Fixed and proven')
+    addArrow('start', 'prob'); addArrow('prob', 'rep'); addArrow('rep', 'end')
+    const p = generatePrompt()
+    const iStart = p.indexOf('◆ Report received')
+    const iRep = p.indexOf('1. Reproduce it')
+    const iEnd = p.indexOf('◆ Fixed and proven')
+    assert.ok(iStart > -1, 'start terminator present')
+    assert.ok(iRep > -1, 'process numbered 1')
+    assert.ok(iEnd > -1, 'end terminator present')
+    assert.lt(iStart, iRep, 'start before the step')
+    assert.lt(iRep, iEnd, 'step before the ending')
+  })
+})

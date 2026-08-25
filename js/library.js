@@ -13,7 +13,7 @@
 //  the undo stack, since undo must never cross canvases.
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, canvasMeta, saveState, saveHooks,
+import { state, ui, canvasMeta, saveState, saveHooks, serializeCanvas,
          getUndoHistory, getRedoFuture } from './state.js'
 import { genId, showToast } from './utils.js'
 import { applyImport } from './export.js'
@@ -51,7 +51,7 @@ function readSlot(id) {
   } catch (_) { return null }
 }
 function payloadOfState() {
-  return { blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta: canvasMeta }
+  return serializeCanvas()
 }
 function displayName(meta) {
   return (meta?.title || '').trim() || 'Untitled map'

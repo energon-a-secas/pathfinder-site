@@ -320,6 +320,7 @@ export function setupDevOptions() {
     document.querySelectorAll('#toneGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active'); devOpts.tone = btn.dataset.value
     syncRadioAria(document.getElementById('toneGroup'))
+    debouncedSave()
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
   document.getElementById('detailGroup').addEventListener('click', e => {
@@ -327,6 +328,7 @@ export function setupDevOptions() {
     document.querySelectorAll('#detailGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active'); devOpts.detail = btn.dataset.value
     syncRadioAria(document.getElementById('detailGroup'))
+    debouncedSave()
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
   document.getElementById('modeGroup').addEventListener('click', e => {
@@ -336,6 +338,7 @@ export function setupDevOptions() {
     devOpts.mode = btn.dataset.value
     syncRadioAria(document.getElementById('modeGroup'))
     refreshModeDesc()
+    debouncedSave()
     ui.promptDirty = true; refreshPrompt()
   })
   refreshModeDesc()
@@ -352,8 +355,51 @@ export function setupDevOptions() {
     btn.classList.toggle('active')
     btn.classList.contains('active') ? devOpts.prePrompts.add(btn.dataset.value)
                                      : devOpts.prePrompts.delete(btn.dataset.value)
+    debouncedSave()
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
+
+  // One-click presets: a bundle of mode + dev options for the common
+  // handovers. They set the same fields the controls below do, nothing more.
+  const PRESETS = {
+    'claude-code': { label: 'Claude Code', mode: 'build', tone: 'auto', detail: 'standard', pre: ['tasks', 'errors', 'edge'] },
+    'cursor-ts':   { label: 'Cursor + TS', mode: 'build', tone: 'technical', detail: 'standard', pre: ['typescript', 'tasks', 'docs'] },
+    'pm-clarify':  { label: 'PM clarify', mode: 'clarify', tone: 'formal', detail: 'standard', pre: [] },
+  }
+  document.getElementById('promptPresets')?.addEventListener('click', e => {
+    const btn = e.target.closest('.preset-opt'); if (!btn) return
+    const pz = PRESETS[btn.dataset.preset]; if (!pz) return
+    devOpts.mode = pz.mode; devOpts.tone = pz.tone; devOpts.detail = pz.detail
+    devOpts.prePrompts = new Set(pz.pre)
+    syncPromptOptControls()
+    debouncedSave()
+    showToast(`${pz.label}: ${pz.mode} mode${pz.pre.length ? `, ${pz.pre.length} extras` : ''}`, 'success', 1800)
+  })
+
+  // A replace (share link, import, Maps switch) can change the options under
+  // the controls; resync them. Also run once so a loaded canvas is reflected.
+  window.addEventListener('pf:prompt-opts-changed', syncPromptOptControls)
+  syncPromptOptControls()
+}
+
+/** Reflect devOpts into the Prompt tab controls (mode, tone, detail, pre). */
+export function syncPromptOptControls() {
+  syncModeButtons()
+  const setRadio = (groupId, val) => {
+    const g = document.getElementById(groupId); if (!g) return
+    g.querySelectorAll('.radio-opt').forEach(b => {
+      const on = b.dataset.value === val
+      b.classList.toggle('active', on)
+      b.setAttribute('aria-pressed', on ? 'true' : 'false')
+    })
+  }
+  setRadio('toneGroup', devOpts.tone)
+  setRadio('detailGroup', devOpts.detail)
+  document.querySelectorAll('#prePromptGroup .check-opt').forEach(b =>
+    b.classList.toggle('active', devOpts.prePrompts.has(b.dataset.value)))
+  refreshModeDesc()
+  ui.promptDirty = true
+  if (ui.activeTab === 'prompt') refreshPrompt()
 }
 
 // ── Copy prompt button ───────────────────────────────────────
@@ -1071,7 +1117,7 @@ export function setupTemplates() {
     // A template's framing only lands on a canvas that had nothing on it. On a
     // merge the existing situation is somebody's deliberate choice.
     const framed = wasEmpty && applyTemplateSituation(tpl, canvasMeta, devOpts)
-    if (framed) { refreshSituation(); refreshModeDesc(); syncModeButtons() }
+    if (framed) { refreshSituation(); syncPromptOptControls(); debouncedSave() }
     renderAllBlocks()
     renderArrows({ cheap: false })
     renderFrames()

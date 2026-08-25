@@ -72,6 +72,7 @@ inlined.
     "contextBrief": "One or two lines of framing",
     "cardStyle": "outline",
     "spotlight": false,
+    "prompt": { "mode": "investigate", "tone": "auto", "detail": "standard", "pre": [] },
     "situation": {
       "codebase": "current",
       "runtime": "code",
@@ -121,6 +122,13 @@ first and answer the second.
   `straight`, `elbow`, `dashed`, `dotted`
 - `arrows[].portsBy`: `tidy` marks connection sides written by auto-layout
   (released when a block moves). Omit it for sides a person chose
+- `meta.prompt.mode`: `plan`, `investigate`, `explore`, `build`, `clarify`.
+  Part of the canvas: set it so the recipient's export opens with the task
+  you intended
+- `meta.prompt.tone`: `auto`, `formal`, `casual`, `technical`
+- `meta.prompt.detail`: `standard`, `brief`, `detailed`
+- `meta.prompt.pre`: any of `tasks`, `edge`, `errors`, `docs`, `security`,
+  `typescript`
 - `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
 - `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
 - `meta.situation.codebase`: `none`, `current`, `other`, `greenfield`

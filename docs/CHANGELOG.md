@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-08-24 (second pass)
+
+### The mode travels with the canvas
+
+Prompt mode, tone, detail and the include-in-prompt extras are now part of the
+canvas (`meta.prompt`), so a reload, a share link, an import or a Maps switch
+keeps how the plan was meant to be read, not just what it says. One shared
+serializer feeds autosave, share links, the Maps library and the JSON file, so
+the copies cannot drift. The walkthrough example finally loads in Investigate,
+which is what the walkthrough teaches; old canvases without the field read as
+Plan with nothing extra, which is what they always were.
+
+Three preset chips in the Prompt tab (Claude Code, Cursor + TS, PM clarify)
+set the whole bundle in one click.
+
+The Workflow section now orders steps by the whole graph rather than only by
+arrows between flow nodes, so a step linked through a Problem in the middle
+stops printing after the ending. Only process steps carry numbers; start and
+end markers stay unnumbered.
+
 ## 2026-08-24
 
 ### Tidy stops vandalising arrows

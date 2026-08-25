@@ -117,6 +117,15 @@ export const SITUATION_DEFAULT = {
 }
 
 export const STORAGE_KEY    = 'pathfinder-v1'
+
+// Prompt options: the mode plus the dev options. Part of the canvas
+// (meta.prompt) since 2026-08-24, so a share, an import or a Maps switch
+// carries how the plan is meant to be read, not just what it says.
+export const PROMPT_MODES   = ['plan', 'investigate', 'explore', 'build', 'clarify']
+export const PROMPT_TONES   = ['auto', 'formal', 'casual', 'technical']
+export const PROMPT_DETAILS = ['standard', 'brief', 'detailed']
+export const PRE_PROMPTS    = ['tasks', 'edge', 'errors', 'docs', 'security', 'typescript']
+export const PROMPT_OPTS_DEFAULT = { mode: 'plan', tone: 'auto', detail: 'standard', pre: [] }
 export const DEFAULT_WIDTH  = 220
 export const MIN_ZOOM       = 0.18
 export const MAX_ZOOM       = 2.6

@@ -62,8 +62,26 @@ export function getRedoFuture()  { return redoFuture }
 // keeps zero knowledge of the library.
 export const saveHooks = []
 
+// One serializer for every copy of the canvas that leaves memory: autosave,
+// share links, the Maps library and file export all call this, so none of
+// them can drift. meta.prompt is derived from devOpts at write time; devOpts
+// stays the single live object every module already imports.
+export function serializeCanvas() {
+  return {
+    blocks: state.blocks, arrows: state.arrows, groups: state.groups,
+    meta: { ...canvasMeta, prompt: { mode: devOpts.mode, tone: devOpts.tone, detail: devOpts.detail, pre: [...devOpts.prePrompts] } },
+  }
+}
+
+/** Apply a normalized meta.prompt into the live devOpts. */
+export function applyPromptOpts(p) {
+  if (!p) return
+  devOpts.mode = p.mode; devOpts.tone = p.tone; devOpts.detail = p.detail
+  devOpts.prePrompts = new Set(p.pre || [])
+}
+
 export function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta: canvasMeta })) }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeCanvas())) }
   catch(_) {}
   saveHooks.forEach(fn => { try { fn() } catch (_) {} })
 }
@@ -81,6 +99,7 @@ export function loadState() {
     state.arrows = clean.arrows
     state.groups = clean.groups
     Object.assign(canvasMeta, clean.meta)
+    applyPromptOpts(clean.meta.prompt)
   } catch(_) {}
 }
 
@@ -109,7 +128,7 @@ export function loadView() {
 
 // ── Share URL encoding ───────────────────────────────────────
 export function encodeCanvas() {
-  return btoa(encodeURIComponent(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta: canvasMeta })))
+  return btoa(encodeURIComponent(JSON.stringify(serializeCanvas())))
 }
 
 export function buildShareUrl(viewOnly = false) {

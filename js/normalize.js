@@ -11,7 +11,8 @@
 
 import { TYPES, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
          CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS,
-         SITUATION_FIELDS, SITUATION_DEFAULT, HIGHLIGHTS } from './utils.js'
+         SITUATION_FIELDS, SITUATION_DEFAULT, HIGHLIGHTS,
+         PROMPT_MODES, PROMPT_TONES, PROMPT_DETAILS, PRE_PROMPTS, PROMPT_OPTS_DEFAULT } from './utils.js'
 
 const VALID_ACTIONS   = Object.keys(ACTION_DEFS)
 const VALID_STATUSES  = Object.keys(STATUS_DEFS)
@@ -151,6 +152,21 @@ export function normalizeSituation(raw) {
   return out
 }
 
+/**
+ * Coerce meta.prompt (mode + dev options). Unknown values fall back to the
+ * defaults rather than being dropped, so an old canvas simply reads as Plan
+ * mode with nothing extra, which is what it always was.
+ */
+export function normalizePromptOpts(raw) {
+  const out = { ...PROMPT_OPTS_DEFAULT, pre: [] }
+  if (!raw || typeof raw !== 'object') return out
+  if (PROMPT_MODES.includes(raw.mode)) out.mode = raw.mode
+  if (PROMPT_TONES.includes(raw.tone)) out.tone = raw.tone
+  if (PROMPT_DETAILS.includes(raw.detail)) out.detail = raw.detail
+  if (Array.isArray(raw.pre)) out.pre = [...new Set(raw.pre.filter(v => PRE_PROMPTS.includes(v)))]
+  return out
+}
+
 function normalizeGroup(raw) {
   if (!raw || typeof raw !== 'object') return null
   const id = toStr(raw.id).trim()
@@ -165,7 +181,7 @@ function normalizeGroup(raw) {
  */
 export function normalizeCanvas(data) {
   const dropped = { blocks: 0, arrows: 0, groups: 0 }
-  const result = { blocks: {}, arrows: [], groups: {}, meta: { title: '', contextBrief: '', cardStyle: DEFAULT_CARD_STYLE, spotlight: false, situation: { ...SITUATION_DEFAULT } } }
+  const result = { blocks: {}, arrows: [], groups: {}, meta: { title: '', contextBrief: '', cardStyle: DEFAULT_CARD_STYLE, spotlight: false, situation: { ...SITUATION_DEFAULT }, prompt: { ...PROMPT_OPTS_DEFAULT, pre: [] } } }
   if (!data || typeof data !== 'object') return { ...result, dropped }
 
   const rawBlocks = Array.isArray(data.blocks)
@@ -205,6 +221,7 @@ export function normalizeCanvas(data) {
       cardStyle: VALID_CARD_STYLES.includes(data.meta.cardStyle) ? data.meta.cardStyle : DEFAULT_CARD_STYLE,
       spotlight: !!data.meta.spotlight,
       situation: normalizeSituation(data.meta.situation),
+      prompt: normalizePromptOpts(data.meta.prompt),
     }
   }
 

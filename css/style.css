@@ -1808,6 +1808,8 @@
     .dev-row:last-child { margin-bottom: 0; }
 
     .dev-radio-group, .dev-check-group { display: flex; flex-wrap: wrap; gap: 5px; }
+    .preset-opt:hover { color: var(--text-primary); border-color: var(--border-strong); }
+    .preset-opt:active { background: var(--surface-2); }
 
     /* Connection-point pickers: a label column plus a row of side buttons, so
        "From" and "To" read as a pair rather than two unrelated toggle rows. */
@@ -1822,7 +1824,7 @@
     .port-pick .radio-opt { flex: 1; padding: 5px 0; text-align: center; }
     .port-pick .radio-opt[data-port-side=""] { flex: 1.5; }
 
-    .radio-opt, .check-opt {
+    .radio-opt, .check-opt, .preset-opt {
       font-size: var(--text-xs);
       padding: 4px 10px;
       border-radius: 20px;

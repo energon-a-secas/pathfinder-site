@@ -204,3 +204,13 @@ describe('example canvas (tutorial.html)', () => {
       assert.ok(types.has(t), `the walkthrough explains ${t}, so the example should show one`))
   })
 })
+
+// ── The example carries its mode ─────────────────────────────
+
+describe('EXAMPLE_CANVAS prompt options', () => {
+  it('carries the Investigate mode the walkthrough teaches', () => {
+    assert.eq(EXAMPLE_CANVAS.meta.prompt.mode, 'investigate')
+    const clean = normalizeCanvas({ blocks: [], arrows: [], meta: EXAMPLE_CANVAS.meta })
+    assert.eq(clean.meta.prompt.mode, 'investigate')
+  })
+})
