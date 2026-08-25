@@ -112,6 +112,8 @@ break embedding.
 
 **Required assets:** `index.html` · `css/style.css` · `js/*.js` · `favicon.ico` · `energon-classic-logo.png` · `og-preview.jpg` · `CNAME`
 
+**Pages:** `index.html` (the app) · `tutorial.html` (walkthrough; example loads via `js/tutorial-example.js`) · `examples.html` (gallery: the checkout example plus the three large templates, converted by `js/examples-page.js` `templateToPayload()` and loaded through the share hash, so gallery content can never drift from the app's own).
+
 **📖 Read `docs/references/internals.md` before changing code in** `doc-panel.js` (Living Documentation, docRef, fetch gating/CSP, "See:" promotion, live questions), `canvas.js` (pan/zoom, ports, Bézier routing), or `prompt.js` (per-mode prompt generation, Brain Dump classifier, dev options). It also holds the full **Key Functions Reference** (per-module function lookup).
 
 ---

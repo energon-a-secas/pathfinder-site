@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-24 (tenth pass)
+
+### The examples gallery
+
+examples.html: four finished maps, each loadable with one click through the
+same share-hash route a link takes. Three of the four ARE the large built-in
+templates (Investigate a Bug, Inherit a Codebase, Migrate a System),
+converted on the fly by templateToPayload(), so the gallery can never drift
+from what the app ships; the fourth is the walkthrough's checkout
+investigation. Each entry says who it is for and arrives framed: situation
+set, mode set, brief readable on the first export. Cross-linked from the
+walkthrough, llms.txt and the sitemap.
+
 ## 2026-08-24 (ninth pass)
 
 ### Your canvas, as a template

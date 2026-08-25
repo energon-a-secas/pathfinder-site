@@ -7,6 +7,7 @@
 - Live: https://pathfinder.neorgon.com/
 - Format spec: this file
 - Walkthrough: https://pathfinder.neorgon.com/tutorial.html
+- Examples (four loadable worked maps): https://pathfinder.neorgon.com/examples.html
 - Part of the Neorgon tool suite (free, no signup, runs in your browser): https://neorgon.com/
 - Keywords: strategy, canvas, ai-prompt, gap-detection, planning, investigation
 
