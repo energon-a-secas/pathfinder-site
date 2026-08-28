@@ -16,7 +16,7 @@ help:
 .PHONY: serve
 serve:
 	@echo "Serving → http://localhost:$(PORT)"
-	@python3 -m http.server $(PORT)
+	@if [ -f ../../scripts/serve.py ]; then python3 ../../scripts/serve.py $(PORT); else python3 -m http.server $(PORT); fi
 
 # ── Dev server (no caching) ───────────────────────────────────────────────────
 # `make serve` is fine for looking at the site. Use this one while editing:

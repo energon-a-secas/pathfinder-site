@@ -1,0 +1,440 @@
+trace:
+  title: A call from account A to a private service in account B fails
+  kind: tree
+  intent: >
+    Find where a cross-account call stops, in the order that costs least to check.
+    Every branch is something you can observe from the client host, not something
+    you have to reason about from a console.
+  status: documented
+  updated: 2026-08-25
+  root: symptom
+
+  nodes:
+
+    - id: symptom
+      kind: check
+      ask: What does the failure actually look like?
+      detail: |
+        Ask this first. It is the cheapest branch in the whole tree and it is
+        the one people skip, because "it cannot connect" feels like enough
+        information and is not. A timeout and a 403 have no troubleshooting
+        steps in common.
+      probe: curl -sv --max-time 10 https://svc.internal.example.com/health
+      branches:
+        - when: hangs, then times out
+          to: dns
+          note: Nothing is answering. Could be DNS, routing, or a security group.
+        - when: connection refused, immediately
+          to: refused
+          note: Something answered. You have an IP path.
+        - when: TLS or certificate error
+          to: tls
+        - when: HTTP 403, or AccessDenied
+          to: iam
+          note: You have a working network path. Stop looking at the network.
+
+    - id: iam
+      kind: deadend
+      title: This is not a network problem
+      detail: |
+        A 403 means the request arrived, was understood, and was refused. The
+        packets are fine. Go and read the resource policy, the role's trust
+        policy, and whether the caller assumed the role it thinks it did.
+      probe: aws sts get-caller-identity
+      ref: https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html
+
+    - id: tls
+      kind: check
+      ask: Does the certificate name match what you asked for?
+      detail: |
+        Common when traffic reaches a load balancer that terminates TLS for a
+        different hostname, or when a VPC endpoint is answering for a service
+        whose certificate was issued for the public name.
+      probe: openssl s_client -connect svc.internal.example.com:443 -servername svc.internal.example.com </dev/null 2>/dev/null | openssl x509 -noout -subject -ext subjectAltName
+      branches:
+        - when: the name is absent from the SANs
+          to: wrong-endpoint
+        - when: the name matches
+          to: refused
+
+    - id: wrong-endpoint
+      kind: cause
+      title: You are talking to the wrong endpoint
+      detail: |
+        The name resolves, and something terminates TLS, but it is not the
+        service you meant. Usually a shared load balancer, or private DNS on a
+        VPC endpoint shadowing the name you wanted.
+
+    # ── DNS ────────────────────────────────────────────────
+    - id: dns
+      kind: check
+      ask: Does the name resolve from the client host?
+      detail: |
+        Run this on the instance or in the task, never from your laptop. A
+        laptop answers from public DNS and will happily tell you the name is
+        fine when the VPC cannot see it at all.
+      probe: dig +short svc.internal.example.com
+      branches:
+        - when: a private address (10.x, 172.16-31.x, 192.168.x)
+          to: ip-path
+        - when: NXDOMAIN, or empty
+          to: zone-assoc
+        - when: a public address
+          to: split-horizon
+
+    - id: split-horizon
+      kind: cause
+      title: You are resolving the public name
+      detail: |
+        The private zone is not winning for this VPC, so you are being handed
+        the internet-facing address. The call then leaves through NAT, or dies
+        because there is no egress at all.
+      why: >
+        Private DNS on an interface VPC endpoint, and a Route 53 private hosted
+        zone for the same name, are two different mechanisms for the same
+        outcome. Whichever one you thought you had is the one to check.
+      next: which-dns-mechanism
+
+    - id: which-dns-mechanism
+      kind: check
+      ask: Which mechanism was supposed to give you the private name?
+      detail: |
+        The two have nothing in common to check, so answering this before
+        looking at anything saves opening the wrong console.
+      branches:
+        - when: an interface VPC endpoint
+          to: endpoint-dns
+        - when: a Route 53 private hosted zone
+          to: zone-assoc
+
+    - id: endpoint-dns
+      kind: check
+      ask: Is private DNS enabled on the interface endpoint?
+      probe: aws ec2 describe-vpc-endpoints --query 'VpcEndpoints[].{Id:VpcEndpointId,Svc:ServiceName,PrivateDns:PrivateDnsEnabled,State:State}' --output table
+      branches:
+        - when: PrivateDnsEnabled is false
+          to: fix-endpoint-dns
+        - when: it is true, and the name still resolves publicly
+          to: vpc-dns-attrs
+
+    - id: fix-endpoint-dns
+      kind: fix
+      title: Enable private DNS on the endpoint
+      detail: |
+        Turning it on makes the service's own hostname resolve to the endpoint's
+        private addresses inside this VPC. Note it can conflict with an existing
+        private hosted zone for the same name, and only one of them can win.
+      probe: aws ec2 modify-vpc-endpoint --vpc-endpoint-id vpce-EXAMPLE --private-dns-enabled
+
+    - id: vpc-dns-attrs
+      kind: check
+      ask: Does the VPC have DNS hostnames and DNS support enabled?
+      detail: |
+        Both must be true for private DNS and for private hosted zones to
+        resolve. enableDnsSupport off is the one that silently breaks
+        everything and is almost never looked at.
+      probe: aws ec2 describe-vpc-attribute --vpc-id vpc-EXAMPLE --attribute enableDnsSupport
+      branches:
+        - when: either is false
+          to: fix-vpc-dns
+        - when: both are true
+          to: resolver-rules
+
+    - id: fix-vpc-dns
+      kind: fix
+      title: Turn on enableDnsSupport and enableDnsHostnames
+      probe: aws ec2 modify-vpc-attribute --vpc-id vpc-EXAMPLE --enable-dns-support
+
+    - id: zone-assoc
+      kind: check
+      ask: Is the private hosted zone associated with the client's VPC?
+      detail: |
+        A private hosted zone lives in one account and resolves only in the VPCs
+        associated with it. Cross-account association is a two-step handshake and
+        the second step is the one that gets forgotten: the zone owner authorises,
+        then the VPC owner associates.
+      probe: aws route53 list-hosted-zones-by-vpc --vpc-id vpc-EXAMPLE --vpc-region us-east-1
+      branches:
+        - when: the zone is not listed
+          to: fix-zone-assoc
+        - when: it is listed and still does not resolve
+          to: resolver-rules
+
+    - id: fix-zone-assoc
+      kind: fix
+      title: Authorise, then associate, the hosted zone
+      detail: |
+        Both calls are required, and they run from different accounts. Running
+        only the first leaves a state that looks configured and resolves nothing.
+      probe:
+        - "# in the zone owner account:"
+        - aws route53 create-vpc-association-authorization --hosted-zone-id Z123 --vpc VPCRegion=us-east-1,VPCId=vpc-EXAMPLE
+        - "# in the VPC owner account:"
+        - aws route53 associate-vpc-with-hosted-zone --hosted-zone-id Z123 --vpc VPCRegion=us-east-1,VPCId=vpc-EXAMPLE
+
+    - id: resolver-rules
+      kind: check
+      ask: Is a Route 53 Resolver rule forwarding this domain somewhere else?
+      detail: |
+        A forwarding rule beats the private hosted zone for names it matches.
+        If queries are being sent to on-prem or to a central DNS account, that
+        is where the answer is coming from, and where it is going wrong.
+      probe: aws route53resolver list-resolver-rules --query 'ResolverRules[].{Name:Name,Domain:DomainName,Type:RuleType,Target:TargetIps}'
+      branches:
+        - when: a rule matches this domain
+          to: forwarder-cause
+        - when: no rule matches
+          to: dns-deadend
+
+    - id: forwarder-cause
+      kind: cause
+      title: A resolver rule is answering instead of the private zone
+      detail: |
+        Queries for this domain are being forwarded to a target that does not
+        know the record. Either narrow the rule, or make the forward target
+        authoritative for the name.
+
+    - id: dns-deadend
+      kind: deadend
+      title: DNS is configured and still not answering
+      detail: |
+        You have ruled out association, VPC attributes and resolver rules. Next
+        stop is a Resolver query log on the client VPC, which shows what was
+        actually asked and what came back.
+      probe: aws route53resolver list-resolver-query-log-configs
+
+    # ── L3 and L4 ──────────────────────────────────────────
+    - id: ip-path
+      kind: check
+      ask: Can you open a TCP connection to that address?
+      detail: |
+        The name is fine. This splits routing from filtering, and it is the
+        second-cheapest branch in the tree.
+      probe: nc -vz -w 5 10.20.30.40 443
+      branches:
+        - when: times out
+          to: routing
+        - when: refused
+          to: refused
+        - when: it connects
+          to: app-layer
+
+    - id: routing
+      kind: check
+      ask: Is there a route to the destination CIDR, and is it the one you think?
+      detail: |
+        Read the route table attached to the client's subnet, not the VPC's main
+        table. They differ more often than people expect.
+      probe: aws ec2 describe-route-tables --filters Name=association.subnet-id,Values=subnet-EXAMPLE --query 'RouteTables[].Routes'
+      branches:
+        - when: no route matches the destination
+          to: no-route
+        - when: a route exists via TGW or peering
+          to: return-path
+        - when: the CIDRs overlap
+          to: overlap
+
+    - id: overlap
+      kind: cause
+      title: Overlapping CIDRs
+      detail: |
+        Two VPCs with the same or overlapping ranges cannot be peered, and a
+        Transit Gateway cannot disambiguate them. This is a design problem, not
+        a configuration one. The usual escapes are PrivateLink, which needs no
+        route between the VPCs at all, or re-addressing one side.
+      ref: https://docs.aws.amazon.com/vpc/latest/peering/invalid-peering-configurations.html
+
+    - id: no-route
+      kind: check
+      ask: What connectivity is supposed to exist between these accounts?
+      detail: |
+        There is no route, so the question is which mechanism was meant to
+        provide one. Each has a different thing to check next.
+      branches:
+        - when: a Transit Gateway
+          to: tgw
+        - when: VPC peering
+          to: peering
+        - when: PrivateLink or a VPC endpoint
+          to: endpoint-check
+        - when: nothing yet, we are designing it
+          to: choose-path
+
+    - id: choose-path
+      kind: action
+      title: Pick a connectivity mechanism
+      detail: |
+        Only one of these lets you connect two VPCs with overlapping address
+        space, and it is the one people reach for last.
+      why: >
+        PrivateLink exposes a single service through an endpoint, so no routing
+        relationship exists between the VPCs and CIDRs are free to overlap.
+        Peering and Transit Gateway both join address spaces, so both need
+        distinct CIDRs. Peering is cheapest and does not transit; a Transit
+        Gateway is the right answer once there are more than a handful of VPCs.
+      next: tgw
+
+    - id: tgw
+      kind: check
+      ask: Is the VPC attached, and does the TGW route table carry the route both ways?
+      detail: |
+        Three separate things, and all three are commonly half-done: the
+        attachment exists, the TGW route table has a route to the destination,
+        and each VPC's own route table sends the destination CIDR at the TGW.
+      probe:
+        - aws ec2 describe-transit-gateway-attachments --query 'TransitGatewayAttachments[].{Id:TransitGatewayAttachmentId,Res:ResourceId,State:State}'
+        - aws ec2 search-transit-gateway-routes --transit-gateway-route-table-id tgw-rtb-EXAMPLE --filters Name=state,Values=active
+      branches:
+        - when: an attachment or route is missing
+          to: fix-tgw
+        - when: everything is present
+          to: return-path
+
+    - id: fix-tgw
+      kind: fix
+      title: Complete the attachment and both route tables
+      detail: |
+        Add the missing piece, then re-check from the client. A TGW route that
+        exists only in one direction produces exactly this symptom.
+
+    - id: peering
+      kind: check
+      ask: Is the peering active, and do both route tables point at it?
+      detail: |
+        A peering connection that was requested and never accepted sits in
+        pending-acceptance and looks, in a list, a lot like an active one.
+      probe: aws ec2 describe-vpc-peering-connections --query 'VpcPeeringConnections[].{Id:VpcPeeringConnectionId,Status:Status.Code}'
+      branches:
+        - when: pending, or routes are missing on one side
+          to: fix-peering
+        - when: active and routed both ways
+          to: return-path
+
+    - id: fix-peering
+      kind: fix
+      title: Accept the peering and add the reverse route
+      detail: |
+        Routes are not created for you. Both VPCs need a route for the other's
+        CIDR pointing at the peering connection.
+
+    - id: endpoint-check
+      kind: check
+      ask: Does the endpoint's own security group allow you in?
+      detail: |
+        An interface endpoint is an ENI in your subnet with its own security
+        group. It defaults to allowing nothing useful, and it is a separate
+        group from the service's.
+      probe: aws ec2 describe-vpc-endpoints --vpc-endpoint-ids vpce-EXAMPLE --query 'VpcEndpoints[].Groups'
+      branches:
+        - when: 443 is not allowed from the client
+          to: fix-endpoint-sg
+        - when: it is allowed
+          to: endpoint-policy
+
+    - id: fix-endpoint-sg
+      kind: fix
+      title: Allow 443 from the client security group on the endpoint ENI
+
+    - id: endpoint-policy
+      kind: check
+      ask: Does the endpoint policy allow this action and resource?
+      detail: |
+        An endpoint policy defaults to full access, so a restricted one is
+        deliberate and is usually the thing somebody added last. It produces a
+        403, not a timeout, so if you arrived here from a timeout the endpoint
+        policy is not your problem.
+      probe: aws ec2 describe-vpc-endpoints --vpc-endpoint-ids vpce-EXAMPLE --query 'VpcEndpoints[].PolicyDocument'
+      branches:
+        - when: the policy denies it
+          to: iam
+        - when: the policy allows it
+          to: return-path
+
+    - id: return-path
+      kind: check
+      ask: Do the security groups allow it, in both directions?
+      detail: |
+        Security groups are stateful, so the return traffic is allowed
+        automatically. Network ACLs are not, and a NACL that permits inbound
+        443 but not the ephemeral return range produces a clean timeout that
+        looks exactly like a missing route.
+      probe:
+        - aws ec2 describe-security-groups --group-ids sg-DESTINATION --query 'SecurityGroups[].IpPermissions'
+        - aws ec2 describe-network-acls --filters Name=association.subnet-id,Values=subnet-EXAMPLE --query 'NetworkAcls[].Entries'
+      branches:
+        - when: the destination SG does not allow the source
+          to: fix-sg
+        - when: a NACL blocks the ephemeral return range
+          to: fix-nacl
+        - when: both look correct
+          to: flow-logs
+
+    - id: fix-sg
+      kind: fix
+      title: Allow the source on the destination security group
+      detail: |
+        Referencing a security group by id across accounts only works over
+        peering or in a shared VPC. Across a Transit Gateway you must use the
+        CIDR instead, which is a limitation people rediscover every time.
+
+    - id: fix-nacl
+      kind: fix
+      title: Allow the ephemeral return range on the NACL
+      detail: |
+        1024 to 65535 outbound on the destination subnet, and inbound on the
+        source subnet. NACLs are stateless and this is the only reason most
+        people ever have to remember that.
+
+    - id: flow-logs
+      kind: action
+      title: Read the VPC flow logs
+      detail: |
+        Everything cheap has been ruled out. Flow logs settle whether packets
+        arrive at all, and REJECT versus no record tells you whether a security
+        group dropped them or they never got there.
+      probe: 'fields @timestamp, srcAddr, dstAddr, dstPort, action | filter dstAddr = "10.20.30.40" | sort @timestamp desc | limit 50'
+      next: escalate
+
+    - id: refused
+      kind: check
+      ask: Is the service actually listening on that port?
+      detail: |
+        A refusal is a real answer from a real host. You have a network path,
+        which rules out routing, security groups and NACLs entirely.
+      probe: ss -lntp | grep :443
+      branches:
+        - when: nothing is listening
+          to: not-listening
+        - when: it is listening on 127.0.0.1 only
+          to: loopback-bind
+        - when: it is listening on all interfaces
+          to: app-layer
+
+    - id: loopback-bind
+      kind: cause
+      title: The service is bound to loopback
+      detail: |
+        Listening on 127.0.0.1 rather than 0.0.0.0 refuses every connection
+        from outside the host while looking perfectly healthy to a local
+        health check.
+
+    - id: not-listening
+      kind: cause
+      title: The service is not running
+      detail: The target host is up. The process on it is not.
+
+    - id: app-layer
+      kind: deadend
+      title: The network is fine
+      detail: |
+        You have a TCP connection to the right host on the right port. Whatever
+        is wrong now is above the network: the application, its configuration,
+        or its own upstream dependencies.
+
+    - id: escalate
+      kind: deadend
+      title: Escalate with what you ruled out
+      detail: |
+        Bring the observed symptom, the resolved address, the flow log verdict,
+        and the list of branches you eliminated. That is a report somebody can
+        act on rather than reproduce.

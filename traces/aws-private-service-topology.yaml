@@ -1,0 +1,130 @@
+trace:
+  title: Orders API in account A calling the payments service in account B
+  kind: topology
+  intent: >
+    The same failure as the decision tree, drawn as a map. The point of a
+    topology is the boundaries: which account, which VPC, which subnet, and
+    which single hop is the one nobody has actually checked.
+  status: investigating
+  updated: 2026-08-25
+  direction: LR
+
+  nodes:
+
+    # ── account A ──────────────────────────────────────────
+    - id: acct-a
+      kind: account
+      label: "Account A: prod-app (1111 2222 3333)"
+
+    - id: vpc-a
+      kind: vpc
+      label: "vpc-app: 10.20.0.0/16"
+      in: acct-a
+
+    - id: sub-a
+      kind: subnet
+      label: "private subnet 10.20.1.0/24"
+      in: vpc-a
+
+    - id: orders
+      kind: compute
+      label: Orders API
+      detail: ECS task on Fargate. The caller.
+      in: sub-a
+
+    - id: r53
+      kind: dns
+      label: Private hosted zone
+      detail: "payments.internal.example.com. Associated with vpc-app, which is the part that was never confirmed."
+      probe: aws route53 list-hosted-zones-by-vpc --vpc-id vpc-app --vpc-region us-east-1
+      in: vpc-a
+
+    - id: tgw-a
+      kind: gateway
+      label: TGW attachment
+      detail: Attached, and the route table was checked.
+      in: vpc-a
+
+    # ── shared network ─────────────────────────────────────
+    - id: net
+      kind: zone
+      label: "Shared networking account"
+
+    - id: tgw
+      kind: gateway
+      label: Transit Gateway
+      detail: tgw-EXAMPLE. Route tables carry both directions.
+      probe: aws ec2 search-transit-gateway-routes --transit-gateway-route-table-id tgw-rtb-EXAMPLE --filters Name=state,Values=active
+      in: net
+
+    # ── account B ──────────────────────────────────────────
+    - id: acct-b
+      kind: account
+      label: "Account B: prod-payments (4444 5555 6666)"
+
+    - id: vpc-b
+      kind: vpc
+      label: "vpc-pay: 10.40.0.0/16"
+      in: acct-b
+
+    - id: sub-b
+      kind: subnet
+      label: "private subnet 10.40.1.0/24"
+      in: vpc-b
+
+    - id: tgw-b
+      kind: gateway
+      label: TGW attachment
+      in: vpc-b
+
+    - id: alb
+      kind: service
+      label: Internal ALB
+      detail: "Listener on 443. Security group sg-pay-alb."
+      probe: aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:EXAMPLE
+      in: sub-b
+
+    - id: payments
+      kind: compute
+      label: Payments service
+      detail: Behind the ALB, healthy in its own target group.
+      in: sub-b
+
+  links:
+    - from: orders
+      to: r53
+      label: resolves the name
+      state: broken
+      evidence: "dig from the task returns NXDOMAIN. This is the hop that is actually failing."
+      note: The zone exists in account B and the association with vpc-app was never completed.
+
+    - from: orders
+      to: tgw-a
+      label: "TCP 443"
+      state: ok
+      evidence: Route table sends 10.40.0.0/16 at the TGW attachment.
+
+    - from: tgw-a
+      to: tgw
+      state: ok
+
+    - from: tgw
+      to: tgw-b
+      state: ok
+      evidence: Reachability Analyzer reports the path found as far as the ALB ENI.
+
+    - from: tgw-b
+      to: alb
+      label: "443"
+      state: unknown
+      note: The ALB security group has not been read yet.
+
+    - from: alb
+      to: payments
+      state: ok
+
+    - from: orders
+      to: alb
+      label: "PrivateLink, if we stop using the zone"
+      state: proposed
+      note: An interface endpoint would remove the cross-account DNS problem entirely.

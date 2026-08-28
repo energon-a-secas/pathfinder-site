@@ -271,6 +271,160 @@ evidence in its description, and the assumption is either deleted or marked.
 A newly discovered unknown becomes a `question` block wired to what it affects.
 That way the canvas accumulates what was learned instead of resetting each time.
 
+---
+
+# Traces: troubleshooting trees and architecture maps
+
+A **trace** is Pathfinder's second document type, and it is a different tool
+from the canvas. The canvas is for reaching a decision with other people. A
+trace is for the moment something is broken: you write YAML, it renders a
+diagram, and the diagram is meant to be reused rather than discussed.
+
+- App: https://pathfinder.neorgon.com/trace.html
+- Validator: https://pathfinder.neorgon.com/validate-trace.mjs
+- Worked tree: https://pathfinder.neorgon.com/traces/aws-cross-account-connectivity.yaml
+- Worked map: https://pathfinder.neorgon.com/traces/aws-private-service-topology.yaml
+
+The YAML is the source of truth. There are no positions to author: the layout
+is computed, so a trace an assistant writes renders exactly as well as one a
+person writes. That is the difference from the canvas, where blocks carry `x`
+and `y`.
+
+## The shape
+
+```yaml
+trace:
+  title: A call from account A to a private service in account B fails
+  kind: tree              # tree | topology
+  intent: What this document is for
+  status: documented      # draft | investigating | resolved | documented
+  direction: LR           # LR (default) | TB
+  root: symptom           # trees: where a reader starts
+  nodes:
+    - id: symptom
+      kind: check
+      ask: What does the failure actually look like?
+      detail: |
+        Prose folds like Markdown: single newlines are joined, a blank line
+        starts a paragraph. Wrap the source file wherever you like.
+      probe: curl -sv --max-time 10 https://svc.internal.example.com/health
+      ref: https://docs.aws.amazon.com/...
+      branches:
+        - when: hangs, then times out
+          to: dns
+        - when: HTTP 403
+          to: iam
+    - id: dns
+      kind: action
+      title: Check resolution from the client host
+      next: done          # a single continuation, no decision
+```
+
+`id` is the only required field on a node; `kind` defaults from context and
+the headline may be written as `title`, `ask`, `do` or `label`. `probe` takes
+a string or a list. `nodes` may also be a mapping of id to body. Unknown
+fields and unknown enum values are reported and dropped rather than rejected,
+so a partial document still renders.
+
+### Tree node kinds
+
+| `kind` | Use for |
+|---|---|
+| `check` | A question with branches. The only kind that may carry `branches` |
+| `action` | Something to do. Continues to one `next` |
+| `cause` | The thing that was actually wrong |
+| `fix` | What resolves it |
+| `deadend` | Nothing more to try here. Escalate, or it is out of scope |
+| `note` | Context hanging off the flow |
+
+### Topology node kinds
+
+Containers, which hold others and draw as a labelled boundary: `account`,
+`region`, `vpc`, `subnet`, `zone`. Contents: `client`, `compute`, `service`,
+`gateway`, `endpoint`, `dns`, `store`, `identity`, `external`.
+
+Containment is **flat**, not nested: put `in: <container-id>` on a node.
+Containers nest without limit, so an account holds a VPC which holds a subnet.
+A flat list is what an agent can write and patch reliably.
+
+```yaml
+  nodes:
+    - { id: acct-a, kind: account, label: "Account A: prod-app" }
+    - { id: vpc-a,  kind: vpc,     label: "vpc-app 10.20.0.0/16", in: acct-a }
+    - { id: orders, kind: compute, label: Orders API,             in: vpc-a }
+  links:
+    - from: orders
+      to: alb
+      label: "TCP 443"
+      state: broken
+      evidence: dig from the task returns NXDOMAIN
+```
+
+### Link state
+
+| `state` | Meaning |
+|---|---|
+| `branch` | An outcome of a check. The default in a **tree**, and not a claim about anything |
+| `unknown` | Nobody has checked this hop. The default in a **topology** |
+| `ok` | Checked, and it works. Say how in `evidence` |
+| `broken` | Checked, and it fails |
+| `proposed` | A path that does not exist yet |
+
+`unknown` is deliberately the topology default. A format that defaults to `ok`
+invites a map that quietly claims every hop works, which is worse than no map.
+
+## What makes a trace worth reading
+
+The validator enforces the first two. The rest it cannot check, and they are
+what separates a runbook from a picture of one.
+
+1. **Branch on what can be observed.** "hangs, then times out" is a branch.
+   "the network is misconfigured" is not.
+2. **Only `check` makes decisions.** Anything else gets one `next:`.
+3. **Every check carries a `probe:`.** A check nobody can run is a check they
+   will guess at.
+4. **Order branches by what they cost to check.** The cheapest discriminating
+   test belongs at the root. In the AWS example that is "what does the failure
+   actually look like", because a timeout and a 403 share no next step.
+5. **Do not mark a hop `ok` you have not verified.**
+6. **Say `deadend` when a path leaves your control**, and say who owns it.
+
+## Arriving by URL, and embedding
+
+- **Share hash:** `https://pathfinder.neorgon.com/trace.html#t=<payload>` where
+  the payload is **base64url over the UTF-8 bytes** of the YAML: standard
+  base64 with `+`→`-`, `/`→`_`, padding stripped. Note this differs from the
+  canvas's `#s=`, which is `btoa(encodeURIComponent(json))`; the trace form is
+  about 45% shorter for the same document.
+- **`?src=`:** fetches YAML from an https URL. Allowed hosts are the same as
+  the canvas: GitHub raw and gist, and the site itself. 1 MB cap.
+- **Embed:** `?embed&readonly#t=<payload>` renders the diagram alone, with no
+  editor, header or footer. An embed never reads or writes the visitor's own
+  stored trace, and keeps its hash so it survives a reload. The app's
+  Export menu emits the whole `<iframe>` tag.
+
+## Validating before handing it over
+
+```bash
+curl -sO https://pathfinder.neorgon.com/validate-trace.mjs
+npm install js-yaml
+node validate-trace.mjs trace.yaml     # or a directory, or -, or a '#t=...' link
+```
+
+It runs the app's own `js/trace/parse.js`, fetched from this site when not
+local, so what it accepts is exactly what the page accepts. Exit **0** clean,
+**1** warnings only (it renders, something is off), **2** errors or unreadable.
+
+## Suggestions
+
+The app reads the trace's structure and words and offers things to check, from
+a pack of AWS connectivity knowledge (`js/trace/packs/aws.js`): run Reachability
+Analyzer, try the IP to take DNS out of the question, resolve from inside the
+VPC rather than a laptop, reach a host without SSH via Session Manager or the
+serial console, check the stateless NACL return path. They are suggestions
+against the document you wrote, not analysis of your account, and nothing about
+your trace leaves the browser.
+
 ## More Neorgon tools
 
 - [Neorgon hub](https://neorgon.com/): Browse and launch every tool from one page.

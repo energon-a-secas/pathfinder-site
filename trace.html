@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://esm.sh cdn.jsdelivr.net cdnjs.cloudflare.com https://challenges.cloudflare.com https://gc.zgo.at https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.neorgon.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.convex.cloud https://img.clerk.com https://cdn.neorgon.org https://i.ytimg.com https://yt3.ggpht.com https://neorgon.goatcounter.com; connect-src 'self' https://raw.githubusercontent.com https://gist.githubusercontent.com https://objects.githubusercontent.com https://*.convex.cloud https://*.clerk.accounts.dev https://*.accounts.dev https://clerk-telemetry.com https://api.clerk.com https://challenges.cloudflare.com https://*.workers.dev https://neorgon.goatcounter.com https://cloudflareinsights.com; frame-src 'self' https://challenges.cloudflare.com https://*.clerk.accounts.dev https://*.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>Pathfinder Trace | Troubleshooting diagrams</title>
+  <meta name="description" content="Write a troubleshooting decision tree or an architecture map as YAML, get a diagram you can embed, export and hand to an assistant">
+  <meta property="og:title" content="Pathfinder Trace: troubleshooting diagrams from text">
+  <meta property="og:description" content="Write a troubleshooting decision tree or an architecture map as YAML, get a diagram you can embed, export and hand to an assistant">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pathfinder.neorgon.com/trace.html">
+  <meta property="og:site_name" content="Neorgon">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta property="og:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://pathfinder.neorgon.com/trace.html">
+  <meta name="theme-color" content="#070b16">
+  <link rel="icon" type="image/x-icon" href="https://cdn.neorgon.org/v1.0.0/favicon.ico" />
+  <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/styles/base.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/trace.css">
+  <script>(function(){var m=location.search.match(/[?&]theme=([\w-]+)/)||document.cookie.match(/(?:^|;\s*)neo_theme=([\w-]+)/);if(m&&m[1]!=='default')document.documentElement.dataset.theme=decodeURIComponent(m[1]);})();</script>
+  <link rel="stylesheet" href="css/neorgon-header.css">
+  <link rel="stylesheet" href="css/neorgon-themes.css">
+  <link rel="stylesheet" href="css/neorgon-footer.css">
+  <meta name="neo-repo" content="https://github.com/energon-a-secas/pathfinder-site">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js" integrity="sha384-+pxiN6T7yvpryuJmE1gM9PX7yQit15auDb+ZwwvJOd/4be2Cie5/IuVXgQb/S9du" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<header class="header-bar" data-header-mode="app">
+  <div class="header-logo">
+    <a href="https://neorgon.com/" target="_blank" rel="noopener noreferrer">
+      <img src="energon-classic-logo.png" class="header-logo-img" alt="Logo">
+    </a>
+    <a href="./" class="header-title-link">
+      <h1>Pathfinder</h1>
+      <div class="header-subtitle" id="traceTitle">Trace</div>
+    </a>
+  </div>
+
+  <div class="header-right">
+    <div class="header-actions">
+      <div class="export-wrapper" id="traceExamplesWrap" aria-haspopup="true">
+        <button class="header-btn" id="traceExamplesBtn" aria-expanded="false">Examples &#9662;</button>
+        <div class="export-dropdown" id="traceExamplesMenu"></div>
+      </div>
+      <div class="header-btn-group" role="group" aria-label="Export and share" data-keep-mobile>
+        <div class="export-wrapper" id="traceExportWrap" aria-haspopup="true">
+          <button class="header-btn" id="traceExportBtn" aria-expanded="false">Export &#9662;</button>
+          <div class="export-dropdown">
+            <div class="export-item" id="trDownloadSvg">Download Vector (SVG)</div>
+            <div class="export-item" id="trDownloadPng">Download Image (PNG 2&times;)</div>
+            <div class="export-item" id="trDownloadYaml">Download source (YAML)</div>
+            <div class="export-item" id="trCopyShare">Copy share link</div>
+            <div class="export-item" id="trCopyEmbed">Copy embed &lt;iframe&gt;</div>
+            <div class="export-item" id="trCopyPrompt">Copy AI trace-builder prompt</div>
+          </div>
+        </div>
+      </div>
+      <a class="header-btn" href="./" title="Back to the canvas">Canvas</a>
+    </div>
+    <a href="https://neorgon.com/" class="header-home" target="_blank" rel="noopener noreferrer" aria-label="Neorgon home">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="trace-shell">
+  <section class="trace-editor" aria-label="Trace source">
+    <div class="trace-editor-head">
+      <strong>Source</strong>
+      <span id="traceCounts"></span>
+      <span class="spacer"></span>
+      <button class="trace-chip" id="traceFit" type="button">Fit</button>
+    </div>
+    <textarea id="traceSource" spellcheck="false" autocomplete="off"
+      placeholder="trace:&#10;  title: What broke&#10;  kind: tree&#10;  root: start&#10;  nodes:&#10;    - id: start&#10;      kind: check&#10;      ask: Does the name resolve?&#10;      branches:&#10;        - when: yes&#10;          to: reachable&#10;        - when: NXDOMAIN&#10;          to: dns"></textarea>
+    <div class="trace-suggest" id="traceSuggest"></div>
+    <div class="trace-diags" id="traceDiags"></div>
+  </section>
+
+  <section class="trace-view" id="traceView" aria-label="Diagram">
+    <div class="trace-stage" id="traceStage"></div>
+    <div class="trace-empty" id="traceEmpty" hidden>
+      <div>Nothing to draw yet.</div>
+      <div style="font-size:12px;opacity:.7">Pick an example, or start typing on the left.</div>
+    </div>
+    <div class="trace-tools">
+      <button id="trZoomOut" aria-label="Zoom out">&minus;</button>
+      <span class="trace-zoom" id="trZoomLabel">100%</span>
+      <button id="trZoomIn" aria-label="Zoom in">+</button>
+      <button id="trFitBtn">Fit</button>
+    </div>
+  </section>
+</div>
+
+<footer class="neo-footer" data-footer-mode="app" data-stick="off">
+  Your traces stay in this browser.
+</footer>
+
+<script src="js/neorgon-header.js" type="module"></script>
+<script src="js/neorgon-footer.js" type="module"></script>
+<script src="js/trace/app.js" type="module"></script>
+</body>
+</html>

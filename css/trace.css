@@ -1,0 +1,124 @@
+/* ════════════════════════════════════════════════════════════
+   trace.css: The trace page (text on the left, diagram on the right)
+
+   Deliberately its own stylesheet rather than more of style.css: a trace
+   shares the site's header, footer and tokens with the canvas and shares
+   none of its interaction model, so mixing the two would mean every canvas
+   rule needs a "not on the trace page" qualifier.
+   ════════════════════════════════════════════════════════════ */
+
+.trace-shell {
+  display: grid;
+  grid-template-columns: var(--editor-w, 460px) 1fr;
+  height: calc(100dvh - var(--header-h, 56px));
+  overflow: hidden;
+}
+body.trace-embed .trace-shell { grid-template-columns: 1fr; height: 100dvh; }
+body.trace-embed .trace-editor,
+body.trace-embed .header-bar,
+body.trace-embed .neo-footer { display: none; }
+
+/* ── editor ── */
+.trace-editor {
+  display: flex; flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,.09);
+  background: #080d19; min-width: 0;
+}
+.trace-editor-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.07);
+  font-size: 12px; color: rgba(255,255,255,.58); flex: none;
+}
+.trace-editor-head strong { color: rgba(255,255,255,.85); font-weight: 600; }
+.trace-editor-head .spacer { margin-left: auto; }
+
+#traceSource {
+  flex: 1; width: 100%; resize: none; border: 0; outline: none;
+  padding: 14px 16px; background: transparent; color: #dbe4f5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; line-height: 1.62; tab-size: 2;
+}
+#traceSource::placeholder { color: rgba(255,255,255,.26); }
+
+/* ── diagnostics ── */
+.trace-diags {
+  flex: none; max-height: 30vh; overflow: auto;
+  border-top: 1px solid rgba(255,255,255,.08); background: #05090f;
+}
+.trace-diags:empty { display: none; }
+.trace-diag {
+  display: flex; gap: 8px; padding: 7px 12px; font-size: 11.5px; line-height: 1.5;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.trace-diag:last-child { border-bottom: 0; }
+.trace-diag .tag {
+  flex: none; font-size: 9px; font-weight: 700; letter-spacing: .5px;
+  padding: 2px 6px; border-radius: 4px; height: fit-content; margin-top: 1px;
+}
+.trace-diag[data-level=error] .tag { background: rgba(248,113,113,.16); color: #f87171; }
+.trace-diag[data-level=warn]  .tag { background: rgba(251,191,36,.14);  color: #fbbf24; }
+.trace-diag[data-level=ok]    .tag { background: rgba(52,211,153,.14);  color: #34d399; }
+.trace-diag .msg { color: rgba(255,255,255,.72); }
+.trace-diag .at  { color: rgba(255,255,255,.4); font-family: ui-monospace, Menlo, monospace; }
+
+/* ── viewport ── */
+.trace-view {
+  position: relative; overflow: hidden; background: #070b16;
+  cursor: grab; min-width: 0;
+}
+.trace-view.panning { cursor: grabbing; }
+.trace-stage { position: absolute; transform-origin: 0 0; will-change: transform; }
+.trace-stage svg { display: block; }
+
+.trace-tools {
+  position: absolute; right: 14px; bottom: 14px; z-index: 5;
+  display: flex; gap: 6px; align-items: center;
+  background: rgba(8,13,25,.9); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px; padding: 5px; backdrop-filter: blur(8px);
+}
+.trace-tools button {
+  border: 0; background: transparent; color: rgba(255,255,255,.72);
+  font: inherit; font-size: 12px; padding: 5px 9px; border-radius: 6px; cursor: pointer;
+}
+.trace-tools button:hover { background: rgba(255,255,255,.09); color: #fff; }
+.trace-zoom { font-size: 11px; color: rgba(255,255,255,.5); padding: 0 4px; min-width: 40px; text-align: center; }
+
+.trace-empty {
+  position: absolute; inset: 0; display: grid; place-content: center; text-align: center;
+  color: rgba(255,255,255,.4); font-size: 13px; padding: 24px; gap: 6px;
+}
+/* A class setting `display` outranks the `hidden` attribute's UA rule, so
+   without this the placeholder stays painted over a finished diagram. */
+.trace-empty[hidden] { display: none; }
+
+/* ── examples ── */
+.trace-picker { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.trace-chip {
+  font-size: 11px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.76);
+}
+.trace-chip:hover { background: rgba(255,255,255,.1); color: #fff; }
+
+/* ── suggestions ── */
+.trace-suggest { flex: none; max-height: 34vh; overflow: auto; border-top: 1px solid rgba(255,255,255,.08); background: #070c17; }
+.trace-suggest:empty { display: none; }
+.trace-suggest-head {
+  position: sticky; top: 0; background: #070c17; padding: 8px 12px 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+  color: rgba(255,255,255,.42); border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.trace-sugg { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 12px; }
+.trace-sugg h4 { margin: 0 0 3px; font-size: 12.5px; font-weight: 620; color: #e8eefa; }
+.trace-sugg p  { margin: 0 0 5px; color: rgba(255,255,255,.6); line-height: 1.5; }
+.trace-sugg code {
+  display: block; font-size: 11px; padding: 4px 7px; margin: 3px 0;
+  background: rgba(0,0,0,.42); border-radius: 4px; color: #7dd3fc;
+  font-family: ui-monospace, Menlo, monospace; overflow-x: auto; white-space: pre;
+}
+.trace-sugg .why { color: rgba(255,255,255,.44); font-size: 11px; font-style: italic; }
+
+@media (max-width: 900px) {
+  .trace-shell { grid-template-columns: 1fr; grid-template-rows: 45% 55%; }
+  .trace-editor { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.09); }
+}

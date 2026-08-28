@@ -107,6 +107,58 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - Prompt pane shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
 - **Dark theme is the default** (no OS-preference opt-in); light mode only when explicitly saved.
 
+## Traces: the second document type (added 2026-08-25)
+
+`trace.html` is a **different tool in the same repo**, not a canvas mode. The canvas
+is free-position typed cards you drag toward a shared decision. A trace is a YAML
+document you write during an incident, and the diagram is computed from it.
+
+| File | Role |
+|---|---|
+| `trace.html` | Page shell: source pane, diagram pane, export menu |
+| `css/trace.css` | Page layout. Deliberately separate from `style.css` |
+| `js/trace/model.js` | Registries: node kinds, link states, box metrics. Data only |
+| `js/trace/parse.js` | YAML object to a normalized trace, plus diagnostics. Pure |
+| `js/trace/measure.js` | Box sizes computed from text. No DOM |
+| `js/trace/layout-trace.js` | Scene builder: containment, lanes, routing, label placement |
+| `js/trace/render-svg.js` | Scene to SVG. The only renderer |
+| `js/trace/suggest.js` | Rule engine over the trace's shape and words |
+| `js/trace/packs/aws.js` | AWS connectivity knowledge, as data. Extend this |
+| `js/trace/prompt-trace.js` | The AI trace-builder prompt, generated from the registries |
+| `js/trace/app.js` | Page wiring: parse loop, camera, export, examples |
+| `validate-trace.mjs` | CLI over `parse.js`. Exit 0 clean / 1 warnings / 2 errors |
+| `traces/*.yaml` | Worked examples, fetched by the page rather than inlined |
+
+**Things that will bite you here:**
+
+- **There is one renderer.** The screen, the SVG download and the iframe are the
+  same string from `renderSvg()`. This works only because nothing measures the
+  DOM: box sizes come from `measure.js`. Do not add a DOM measure pass. The canvas
+  needs `image-export.js` as a parallel exporter precisely because it does measure,
+  and the two can disagree.
+- **Paint order is load-bearing**: containers, then edge paths, then boxes, then
+  edge labels. Move labels back in with their edges and any label landing over a
+  box vanishes behind it.
+- **`branch` is not `unknown`.** A tree's edges default to `branch`, which makes no
+  claim. A topology's default to `unknown`, which asserts nobody checked. Sharing
+  one default drew 46 meaningless dashed lines.
+- **Prose folds, probes do not.** `wrap()` joins single newlines (Markdown's rule)
+  because YAML `|` preserves them and authors wrap the source file for width, not
+  for meaning. `fold: false` is passed for probe strings, which are line-per-command.
+- **Embed mode must never touch `localStorage`.** An embedded trace is someone
+  else's document on someone else's page; autosaving it overwrites the visitor's
+  own work. It also keeps its `#t=` hash, which is its only copy.
+- **`#t=` is base64url over UTF-8 bytes**, not the canvas's
+  `btoa(encodeURIComponent(...))`. About 45% shorter for the same document.
+- **`parse.js` takes the YAML loader as an argument.** That is what lets the browser
+  (CDN js-yaml) and `validate-trace.mjs` (npm js-yaml) run identical acceptance code.
+- Do not call `fit()` through `requestAnimationFrame`: rAF is throttled to nothing
+  in a background tab, and `fit()` never reads a painted frame.
+
+Format spec for agents lives in `llms.txt`, hand-authored like the canvas section.
+Tests: `tests/trace.test.js` (39), registered in `tests/run-tests.html`, which now
+loads js-yaml for them.
+
 **Embedding:** `?embed&readonly` is a supported mode (`buildEmbedUrl()`), so the CSP meta
 deliberately carries **no** `frame-ancestors`. It was there and did nothing: the directive is
 ignored when delivered via `<meta>`, and the browser logged an error on every page load. If
