@@ -287,6 +287,7 @@ describe('State mutation isolation', () => {
 // ── Prompt options round trip ────────────────────────────────
 
 import { serializeCanvas, applyPromptOpts } from '../js/state.js'
+import { normalizeCanvas } from '../js/normalize.js'
 
 describe('prompt options round trip', () => {
   it('serializeCanvas carries devOpts as meta.prompt', () => {
@@ -307,5 +308,32 @@ describe('prompt options round trip', () => {
     assert.ok(devOpts.prePrompts.has('edge') && devOpts.prePrompts.has('errors'))
     // reset for later suites
     applyPromptOpts({ mode: 'plan', tone: 'auto', detail: 'standard', pre: [] })
+  })
+  it('the share-link encoding carries meta.prompt through decode and normalize', () => {
+    devOpts.mode = 'investigate'; devOpts.tone = 'formal'
+    devOpts.detail = 'detailed'; devOpts.prePrompts = new Set(['docs'])
+    const decoded = JSON.parse(decodeURIComponent(atob(encodeCanvas())))
+    assert.eq(decoded.meta.prompt.mode, 'investigate')
+    assert.eq(decoded.meta.prompt.tone, 'formal')
+    assert.eq(decoded.meta.prompt.detail, 'detailed')
+    assert.deepEq(decoded.meta.prompt.pre, ['docs'])
+    // and through the receiving side's normalize, the path a share load takes
+    const clean = normalizeCanvas(decoded)
+    assert.eq(clean.meta.prompt.mode, 'investigate')
+    assert.deepEq(clean.meta.prompt.pre, ['docs'])
+    applyPromptOpts({ mode: 'plan', tone: 'auto', detail: 'standard', pre: [] })
+  })
+  it('a legacy saved canvas with no meta.prompt loads with the defaults', () => {
+    localStorage.setItem('pathfinder-v1', JSON.stringify({
+      blocks: { l1: { id: 'l1', type: 'goal', title: 'Old goal' } },
+      arrows: [], meta: { title: 'Old canvas' },
+    }))
+    devOpts.mode = 'build'; devOpts.prePrompts = new Set(['tasks'])
+    loadState()
+    assert.ok(state.blocks.l1, 'the legacy blocks still load')
+    assert.eq(devOpts.mode, 'plan')
+    assert.eq(devOpts.tone, 'auto')
+    assert.eq(devOpts.detail, 'standard')
+    assert.eq(devOpts.prePrompts.size, 0)
   })
 })

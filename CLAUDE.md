@@ -34,10 +34,11 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/route.js` | ~261 | Orthogonal router: A* over a lattice of block edges. Pure, no DOM |
 | `js/layout.js` | ~349 | Layered auto-layout (`tidyCanvas`). Pure `layoutGraph` + app wrapper |
 | `js/align.js` | ~138 | Drag guides, align, distribute |
+| `js/library.js` | ~411 | Maps library: per-map slots, write-through autosave, snapshots + diff, Maps menu |
 | `js/chrome.js` | ~73 | `H` / `Z` expanded view |
 | `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
 
-**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js`
+**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js` · `library.js` · `patch.js` · `interop.js` · `review.js` · `spec-export.js` · `zip.js`
 
 **Key interactions added 2026-08-24 (async review):**
 - **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into Bring the answer back; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
@@ -182,6 +183,16 @@ and `'pathfinder-view:<id>'` (per-map camera); `saveState()` write-through hooks
 (`saveHooks` in `state.js`, registered by `library.js`) mirror every autosave into
 the active map's slot. `'pathfinder-pill'` = '0' hides the floating copy pill.
 
+**Storage migration gotcha:** a pre-library browser (canvas under `'pathfinder-v1'`,
+no `'pathfinder-map-current'`) is adopted on first load: `ensureLibrary()` in
+`library.js` mints an id and mirrors the in-memory canvas (already loaded from
+`'pathfinder-v1'` by `loadState()`) into its slot via `writeThrough()`. So
+`setupLibrary()` must run **after** `loadState()`, or the migration captures an
+empty canvas. `'pathfinder-v1'` is never renamed or removed: it stays the live
+pointer every autosave writes first, which is what keeps share links, old sessions
+and the test harness working. Deleting a map also deletes its
+`'pathfinder-snaps-<id>'` and `'pathfinder-view:<id>'` keys.
+
 ```js
 state = {
   blocks: {
@@ -189,8 +200,8 @@ state = {
       id, type, title, description, notes,
       x, y,                          // pixel position in canvas world
       actions: [],                   // 'resolve' | 'prepare' | 'recollect' | 'reinforce' | 'validate'
-      questions: [],                 // [{ text, answer?, askedAt? }] — see Living Documentation
-      docRef: null,                  // { href, label, anchor } | null — see Living Documentation
+      questions: [],                 // [{ text, answer?, askedAt? }]: see Living Documentation
+      docRef: null,                  // { href, label, anchor } | null: see Living Documentation
       cardStyle: null,               // preset key | null = follow canvasMeta.cardStyle
       criteria: [],                  // acceptance criteria (requirement/goal/output); feeds prompt, tasks.md, EARS
       rationale: '',                 // why a decision was made (decision blocks)

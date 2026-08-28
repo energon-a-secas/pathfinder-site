@@ -137,7 +137,7 @@ export function restoreSnapshot(snapId) {
 }
 
 /** First run: adopt whatever canvas already exists as map number one. */
-function ensureLibrary() {
+export function ensureLibrary() {
   if (currentId()) return
   const id = genId()
   setCurrentId(id)
