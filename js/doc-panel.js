@@ -84,7 +84,7 @@ function renderMarkdown(src) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
-    // [text](href) — only http(s), rendered as a safe new-tab link
+    // [text](href): only http(s), rendered as a safe new-tab link
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
 
@@ -171,7 +171,7 @@ export function openDocPopup(blockId, anchorEl) {
       return
     }
     body.innerHTML = /html/.test(contentType)
-      ? `<div class="doc-popup-note">This is an HTML page — preview shows a link instead.<br><a href="${escHtml(resolved.url)}" target="_blank" rel="noopener noreferrer">Open it in a new tab ↗</a></div>`
+      ? `<div class="doc-popup-note">This is an HTML page, preview shows a link instead.<br><a href="${escHtml(resolved.url)}" target="_blank" rel="noopener noreferrer">Open it in a new tab ↗</a></div>`
       : `<div class="doc-md">${renderMarkdown(text)}</div>`
   })
 }
@@ -211,7 +211,7 @@ export function askQuestion(block, qIndex) {
   const prompt = buildQuestionPrompt(block, q)
   copyText(prompt).then(ok => {
     showToast(ok
-      ? 'Grounded question prompt copied — paste it into your assistant, then drop the answer back in'
-      : 'Copy failed — try again', ok ? 'success' : 'warning')
+      ? 'Grounded question prompt copied: paste it into your assistant, then drop the answer back in'
+      : 'Copy failed: try again', ok ? 'success' : 'warning')
   })
 }

@@ -166,10 +166,10 @@ export const TYPE_EXPLANATIONS = {
   decision:    'A choice that has already been made or needs to be made. Examples: "Use PostgreSQL over MongoDB", "Ship without feature X". Document the rationale in Notes.',
   resource:    'An available asset, tool, team, or budget. Examples: "Design team (3 people)", "AWS credits ($10K)", "Existing auth library". Connect to what it enables.',
   output:      'An expected deliverable or measurable result. Examples: "API documentation", "Staging environment", "User research report". Connect from the Resources and Requirements that produce it.',
-  process:     'A step or action in a workflow — something that gets done. Examples: "Update status to Ready for Review", "Generate the Google Doc", "Assign a reviewer". Chain these with arrows to show an end-to-end flow.',
+  process:     'A step or action in a workflow: something that gets done. Examples: "Update status to Ready for Review", "Generate the Google Doc", "Assign a reviewer". Chain these with arrows to show an end-to-end flow.',
   terminator:  'The start or end of a workflow. Examples: "Submission received", "PRD approved", "Done". Use it to bookend a process flow so the beginning and outcome are explicit.',
   context:     'Background information that frames the project. Examples: "Company is migrating to cloud", "Competitor launched similar feature last month". Helps AI understand constraints.',
-  custom:      'A free-form block for anything that doesn\'t fit the other types. Use sparingly — the structured types produce better AI prompts.',
+  custom:      'A free-form block for anything that doesn\'t fit the other types. Use sparingly. The structured types produce better AI prompts.',
 }
 
 export const SWATCH_COLORS = [

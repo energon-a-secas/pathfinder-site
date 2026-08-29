@@ -444,12 +444,12 @@ and the card-style round-trip through `normalize.js`.
 ## 2026-07-02
 
 ### Navigation (trackpad-first)
-- Two-finger scroll now **pans** the canvas (previously any wheel event zoomed) — you can move around without holding a drag
+- Two-finger scroll now **pans** the canvas (previously any wheel event zoomed). You can move around without holding a drag
 - **Pinch / Cmd+Ctrl+scroll zooms** toward the cursor
 - Dragging empty canvas still pans; shortcuts overlay documents all three
 
 ### Fixes
-- Fixed the right-click **Change type / Accent color** submenus rendering expanded/flat by default — they were built as `<button>`-inside-`<button>` (invalid HTML), so the parser hoisted the options out as flat menu items. Rebuilt those parents as focusable `<div role="menuitem">`; submenus now collapse and open on hover/focus as intended (menu height 589px → 196px)
+- Fixed the right-click **Change type / Accent color** submenus rendering expanded/flat by default. They were built as `<button>`-inside-`<button>` (invalid HTML), so the parser hoisted the options out as flat menu items. Rebuilt those parents as focusable `<div role="menuitem">`; submenus now collapse and open on hover/focus as intended (menu height 589px → 196px)
 - **Grid** button now has a visible effect: it immediately snaps all existing blocks to the 28px grid (with a toast) and the preference persists, instead of only affecting future drags
 - **Grid** and **Arrow text** toggles now persist across reloads
 
@@ -460,7 +460,7 @@ and the card-style round-trip through `normalize.js`.
 
 ### Editing & block interactions
 - Block descriptions now respect newlines (rendered with `<br>` + `white-space: pre-wrap`) on the card and in exports
-- Descriptions are directly editable on the card — double-click to edit inline; empty ones show an "Add description…" hint on hover/selection (Enter adds a line, Esc / Cmd+Enter commit)
+- Descriptions are directly editable on the card: double-click to edit inline; empty ones show an "Add description…" hint on hover/selection (Enter adds a line, Esc / Cmd+Enter commit)
 - Right-click any block for a quick-actions menu: Duplicate, Change type, Accent color, Collapse/Expand, Delete (also `Shift+F10` / ContextMenu key)
 - Right-click blank canvas to add a block where you click (Goal, Problem, Requirement, Decision, Process, Start/End)
 
@@ -490,7 +490,7 @@ and the card-style round-trip through `normalize.js`.
 - Removed the bulky bottom footer; **Back to Neorgon** and **Star on GitHub** now live as icons in the header (a new GitHub icon with a spring hover), freeing the full canvas height. Links kept crawlable via an sr-only nav
 
 ### Docs
-- Added `docs/ai-diagram-instructions.md` — copy-paste prompts for generating Pathfinder canvases with AI (JSON output + interview mode)
+- Added `docs/ai-diagram-instructions.md`: copy-paste prompts for generating Pathfinder canvases with AI (JSON output + interview mode)
 
 ### Tests
 - New `tests/events.test.js` and `tests/image-export.test.js`; extended normalize + utils suites for the new types, arrow notes, and flow nodes (216/218 passing; the 2 failures are pre-existing `snap()` tests)

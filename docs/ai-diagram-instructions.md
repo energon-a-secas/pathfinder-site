@@ -2,12 +2,12 @@
 
 Two ready-to-copy prompts. **Prompt A** asks an AI to hand you a finished canvas
 you can paste straight into Pathfinder (via Export ▾ → Import JSON, or by pasting
-the JSON into a file and importing it). **Prompt B** is the reverse — it primes an
+the JSON into a file and importing it). **Prompt B** is the reverse. It primes an
 AI with how Pathfinder thinks so it asks *you* the right questions first.
 
 ---
 
-## Prompt A — "Generate a Pathfinder canvas as JSON"
+## Prompt A: "Generate a Pathfinder canvas as JSON"
 
 Copy everything in the block below, then replace the last line with your topic.
 
@@ -69,7 +69,7 @@ skipped safely rather than breaking the canvas.
 
 ---
 
-## Prompt B — "Interview me, then draft the canvas"
+## Prompt B: "Interview me, then draft the canvas"
 
 Use this when you're not sure what the diagram should contain yet.
 
@@ -98,10 +98,10 @@ Once you've built or refined a canvas in Pathfinder, the **Copy AI-ready prompt*
 pill (bottom-right) exports the whole thing as a structured prompt. Pick the mode
 in the Prompt tab first:
 
-- **Explore** — surfaces gaps, assumptions, and missing links; asks questions.
-- **Plan** — turns the canvas into a phased implementation plan.
-- **Build** — treats requirements/outputs as a task checklist and asks for code.
-- **Clarify** — returns a prioritized list of clarifying questions, each tied to a
+- **Explore**: surfaces gaps, assumptions, and missing links; asks questions.
+- **Plan**: turns the canvas into a phased implementation plan.
+- **Build**: treats requirements/outputs as a task checklist and asks for code.
+- **Clarify**: returns a prioritized list of clarifying questions, each tied to a
   block. Best when you want gaps and useful questions before committing.
 
 Workflows (process + terminator blocks) are exported as a `## Workflow

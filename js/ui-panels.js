@@ -235,7 +235,7 @@ export function setupPanelTabs() {
 // shown under the mode selector so the choice isn't a guess.
 const MODE_DESCS = {
   investigate: 'Establishes what is actually true before anything changes. Findings must carry their evidence, unknowns stay marked as unknown, and disagreements between the canvas and reality get reported rather than smoothed over. Use it when you are picking up somebody else\'s system.',
-  explore: 'Surfaces gaps, risky assumptions, and missing links — asks questions instead of proposing solutions. Good for pressure-testing an early canvas.',
+  explore: 'Surfaces gaps, risky assumptions, and missing links, asks questions instead of proposing solutions. Good for pressure-testing an early canvas.',
   plan:    'Turns the canvas into a phased implementation plan with concrete outputs per phase. The default for "give me a roadmap".',
   build:   'Treats requirements and outputs as a task checklist and asks for working code. Use once the plan is settled.',
   clarify: 'Returns a prioritized list of clarifying questions (blocking → nice-to-have), each tied to a block, plus a readiness read. Best when you want gaps and useful questions before committing.',
@@ -481,11 +481,11 @@ export function setupCopyPill() {
     ui.promptDirty = true
     const text = generatePrompt()
     copyText(text).then(ok => {
-      if (!ok) { showToast('Copy failed — open the Prompt tab and copy manually', 'warning'); return }
+      if (!ok) { showToast('Copy failed: open the Prompt tab and copy manually', 'warning'); return }
       markExported()
       ui.promptDirty = true; refreshPrompt()
       const v = readiness()
-      showToast(v && !v.green ? `Copied — note: ${v.text}` : 'AI-ready prompt copied to clipboard', 'success')
+      showToast(v && !v.green ? `Copied: note: ${v.text}` : 'AI-ready prompt copied to clipboard', 'success')
       label.textContent = 'Copied!'; pill.classList.add('copied')
       setTimeout(() => { label.textContent = 'Copy AI-ready prompt'; pill.classList.remove('copied') }, 1800)
     })
@@ -560,7 +560,7 @@ export function setupExportDropdown() {
     if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
     ui.promptDirty = true
     copyText(generatePrompt()).then(ok => {
-      if (!ok) { showToast('Copy failed — open the Prompt tab and copy manually', 'warning'); return }
+      if (!ok) { showToast('Copy failed: open the Prompt tab and copy manually', 'warning'); return }
       markExported()
       ui.promptDirty = true; refreshPrompt()
       showToast('AI-ready prompt copied to clipboard', 'success')
@@ -571,8 +571,8 @@ export function setupExportDropdown() {
     setDropdownOpen('exportWrapper', false)
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {
       showToast(ok
-        ? 'AI diagram-builder prompt copied — paste it into Claude, add your topic, then Import the JSON'
-        : 'Copy failed — try again', ok ? 'success' : 'warning')
+        ? 'AI diagram-builder prompt copied: paste it into Claude, add your topic, then Import the JSON'
+        : 'Copy failed: try again', ok ? 'success' : 'warning')
     })
   })
 
@@ -593,7 +593,7 @@ export function setupExportDropdown() {
     setDropdownOpen('exportWrapper', false)
     if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
     downloadJsonCanvas()
-    showToast('JSON Canvas downloaded — it opens in Obsidian and friends', 'success')
+    showToast('JSON Canvas downloaded: it opens in Obsidian and friends', 'success')
   })
 
   document.getElementById('exportPNG').addEventListener('click', () => {
@@ -636,7 +636,7 @@ export function setupShareDropdown() {
     setDropdownOpen('shareWrapper', !isOpen); e.stopPropagation()
   })
   const shareCopy = (text, okMsg) => copyText(text).then(ok =>
-    showToast(ok ? okMsg : 'Copy failed — try again', ok ? 'success' : 'warning'))
+    showToast(ok ? okMsg : 'Copy failed: try again', ok ? 'success' : 'warning'))
   document.getElementById('shareCopyLink').addEventListener('click', () => {
     shareCopy(buildShareUrl(false), 'Link copied!')
     setDropdownOpen('shareWrapper', false)
@@ -1186,7 +1186,7 @@ export function setupTemplates() {
       if (!Object.keys(state.blocks).length) { showToast('Add blocks first, then save them as a template', 'warning'); return }
       const tpl = saveCurrentAsTemplate(canvasMeta.title, { state, canvasMeta, mode: devOpts.mode })
       renderTemplatesList()
-      showToast(tpl ? `"${tpl.name}" saved — it now lives in Templates` : 'No room to save the template', tpl ? 'success' : 'warning', 2400)
+      showToast(tpl ? `"${tpl.name}" saved: it now lives in Templates` : 'No room to save the template', tpl ? 'success' : 'warning', 2400)
       return
     }
     const item = e.target.closest('.template-item'); if (!item) return

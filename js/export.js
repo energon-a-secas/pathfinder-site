@@ -171,7 +171,7 @@ export function exportMarkdown() {
       const note  = (a.note  || '').trim().replace(/\s*\n\s*/g, ' ')
       const arrow = a.bidirectional ? '\u2194' : '\u2192'
       md += `- **${f.title}** ${arrow} **${t.title}**`
-      if (label) md += ` — _${label}_`
+      if (label) md += `: _${label}_`
       md += '\n'
       if (note) md += `  - ${note}\n`
     })

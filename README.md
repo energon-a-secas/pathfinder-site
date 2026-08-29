@@ -38,7 +38,7 @@ The core loop is: **diagram first, then generate a brief**. The canvas makes imp
 
 ---
 
-**New here?** [Take the walkthrough](https://pathfinder.neorgon.com/tutorial.html) — one worked example from a vague bug report to a brief a coding assistant can act on.
+**New here?** [Take the walkthrough](https://pathfinder.neorgon.com/tutorial.html). One worked example from a vague bug report to a brief a coding assistant can act on.
 
 ## Usage
 
@@ -55,7 +55,7 @@ Or open `index.html` directly in a browser.
 
 ## Workflow
 
-### Phase 1 — Build the map
+### Phase 1: Build the map
 
 Add blocks from the palette on the left. Each block type carries a specific semantic meaning (see table below). Place them on the canvas, then draw connections by dragging from the small port circles that appear on block edges when you hover.
 
@@ -76,7 +76,7 @@ first offender.
 
 The gap icons are not mandatory warnings. They are conversation starters: the canvas asking you to articulate things you might otherwise assume.
 
-### Phase 2 — Generate the brief
+### Phase 2: Generate the brief
 
 Switch to the **Prompt** tab in the right panel. The generated prompt assembles all blocks in a structured hierarchy, appends the connection graph, flags any remaining gaps, and applies any dev options you set (tone, detail level, acceptance criteria, security, TypeScript, etc.).
 
@@ -151,13 +151,13 @@ block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 
 Selecting a block opens its properties in the right panel:
 
-- **Type** — switch the block type with one click; the color and badge update immediately
-- **Title** — edit inline or in the inspector input
-- **Description** — a longer note shown on the canvas block
-- **Accent Color** and **Card style** — per-block overrides of the type colour and the canvas-wide card look
-- **Actions** — multi-select badges: Resolve, Prepare, Recollect, Reinforce, Validate
-- **Open Questions** — a list of specific unknowns attached to this block; each appears in the generated prompt
-- **Notes** — freeform annotation (not shown on the canvas block, for your reference only)
+- **Type**: switch the block type with one click; the color and badge update immediately
+- **Title**: edit inline or in the inspector input
+- **Description**: a longer note shown on the canvas block
+- **Accent Color** and **Card style**: per-block overrides of the type colour and the canvas-wide card look
+- **Actions**: multi-select badges: Resolve, Prepare, Recollect, Reinforce, Validate
+- **Open Questions**: a list of specific unknowns attached to this block; each appears in the generated prompt
+- **Notes**: freeform annotation (not shown on the canvas block, for your reference only)
 
 Delete and Duplicate buttons are at the bottom of the inspector.
 
@@ -244,9 +244,9 @@ Blocks flagged with unanchored assumptions get an inline `⚠ ASSUMPTION GAP` no
 | Action | How |
 |---|---|
 | Copy prompt | Prompt tab → **Copy Prompt**, or Export → Copy Prompt |
-| Download JSON | Export → **Download JSON** — full canvas state including block positions |
-| Download Markdown | Export → **Download Markdown** — clean structured document |
-| Import JSON | Export → **Import JSON** — choose Replace (clears canvas) or Merge (adds to existing) |
+| Download JSON | Export → **Download JSON**: full canvas state including block positions |
+| Download Markdown | Export → **Download Markdown**: clean structured document |
+| Import JSON | Export → **Import JSON**: choose Replace (clears canvas) or Merge (adds to existing) |
 
 The JSON export preserves everything: block positions, connections, actions, questions, notes. Use it to save snapshots, share canvases with a team, or resume planning sessions.
 

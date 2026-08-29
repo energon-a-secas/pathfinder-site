@@ -1,9 +1,9 @@
-# Pathfinder — Engagement & Canvas→AI Iteration Spec
+# Pathfinder: Engagement & Canvas→AI Iteration Spec
 
 **Date:** 2026-06-26
-**Method:** 17-agent orchestrated workflow — 5 user personas → 3 design lenses (UX/UI/Strategy) → 3-engineer dev iteration (Frontend/AI/Tech Lead) → persona re-validation → Head-of-Product synthesis.
+**Method:** 17-agent orchestrated workflow, 5 user personas → 3 design lenses (UX/UI/Strategy) → 3-engineer dev iteration (Frontend/AI/Tech Lead) → persona re-validation → Head-of-Product synthesis.
 **Constraint:** zero-backend (static + localStorage/URL state, no build, no framework, no dependencies).
-**Vision:** fastest path from the drawing board to an AI-ready, adjustable plan — the killer output is a high-quality AI prompt, not a diagram.
+**Vision:** fastest path from the drawing board to an AI-ready, adjustable plan. The killer output is a high-quality AI prompt, not a diagram.
 
 ---
 
@@ -11,9 +11,9 @@
 
 The highest-leverage wins are **honesty fixes to features that already claim to exist**, not new surface area. Three defects were verified in the actual code and recurred across every persona and dev review:
 
-1. **Prompt modes are theater** — `prompt.js:53-72` emits a byte-identical body for Explore/Plan/Build/Clarify; only the `## Task` header line changes.
-2. **Canvas title never reaches the prompt** — `prompt.js:117` hardcodes `# Project Canvas` and never imports `canvasMeta`.
-3. **Assumptions are a backwards CSS-class afterthought** — crammed into the `question` type, surfaced only via `gap-assumption`, which double-counts an isolated question as two gaps (`gaps.js:22-39`).
+1. **Prompt modes are theater**: `prompt.js:53-72` emits a byte-identical body for Explore/Plan/Build/Clarify; only the `## Task` header line changes.
+2. **Canvas title never reaches the prompt**, `prompt.js:117` hardcodes `# Project Canvas` and never imports `canvasMeta`.
+3. **Assumptions are a backwards CSS-class afterthought**, crammed into the `question` type, surfaced only via `gap-assumption`, which double-counts an isolated question as two gaps (`gaps.js:22-39`).
 
 Persona re-validation: **4/5 personas said "yes, I'd switch"** after the refined plan; the consultant stayed "promising" pending save-your-own templates (deferred, with reason).
 
@@ -42,10 +42,10 @@ Deletion is a verified data-loss regression: `normalize.js` drops any block whos
 **Assumption vs Open Question:** assumption = *believed-true-until-disproven* (an untested bet); question = a genuine unknown. The Assumption block defaults to a `validate` action and feeds a dedicated prompt section.
 
 **Gap-detection changes (`gaps.js`):**
-- De-dupe: gap branches become mutually exclusive — an isolated block reports exactly ONE gap (kills the `gap-isolated` + `gap-assumption` double-count).
+- De-dupe: gap branches become mutually exclusive: an isolated block reports exactly ONE gap (kills the `gap-isolated` + `gap-assumption` double-count).
 - Repoint `gap-assumption` to fire on an unlinked/unvalidated **assumption-type** block, not an unlinked question.
 - Remove the brittle DOM-class read in `prompt.js` (the gap section already lists gaps from `runGapDetection()` return data).
-- Coaching copy in `getGapFixes()` ("This goal has no requirements yet — add one?").
+- Coaching copy in `getGapFixes()` ("This goal has no requirements yet: add one?").
 
 **Prompt impact (`prompt.js`):**
 - New `## Assumptions (validate before building)` section between Risks and Open Questions.
@@ -83,7 +83,7 @@ Deletion is a verified data-loss regression: `normalize.js` drops any block whos
 **Files:** `js/prompt.js`
 **Acceptance:**
 - Clarify suppresses implementation dev-modules + Resources/Outputs/Custom; leads with Questions + Assumptions + Gaps.
-- Build emits a `- [ ]` task row per requirement/output; requirements lacking acceptance criteria emit `[NEEDS INPUT: acceptance criteria]` + "do not invent — ask first".
+- Build emits a `- [ ]` task row per requirement/output; requirements lacking acceptance criteria emit `[NEEDS INPUT: acceptance criteria]` + "do not invent, ask first".
 - Explore front-loads gap + assumption sections.
 - Plan keeps phased-prose framing.
 - Switching modes produces a visibly different body, not just a different header line; `generatePrompt()` still returns a string (all export paths intact).
@@ -95,8 +95,8 @@ Deletion is a verified data-loss regression: `normalize.js` drops any block whos
 **Acceptance:**
 - Persistent canvas-corner pill copies via the SAME path as `setupCopyPrompt` (incl. `markExported()` + `refreshPrompt()` so the diff tracker stays in sync).
 - `computeHealthScore` rebalanced: remove the `n>3` gate on the no-description penalty, raise per-empty penalty for goal/requirement/output, exclude empty-description blocks from the connectedness bonus set.
-- The four built-in templates land amber (50–79) on first apply — not red, not green.
-- Plain-language verdict: ≥80 "Looks solid — your AI has enough to plan"; 50–79 amber + top missing item; <50 "Add a goal and one requirement first" (friendly next-step, never a failing grade).
+- The four built-in templates land amber (50–79) on first apply, not red, not green.
+- Plain-language verdict: ≥80 "Looks solid: your AI has enough to plan"; 50–79 amber + top missing item; <50 "Add a goal and one requirement first" (friendly next-step, never a failing grade).
 - Non-green copy shows a non-blocking "Copy anyway?" confirm; verdict is a pure function of score + gap count with no new persisted state.
 
 ### 5. Sentence-level scoring classifier + Brain Dump empty state + type-fix chips `[M]`
@@ -113,21 +113,21 @@ Deletion is a verified data-loss regression: `normalize.js` drops any block whos
 
 ## Next batch (committed, with reasons)
 
-- **Acceptance-criteria[] sub-field** on requirement/goal/output + rationale on decision (model on the existing `questions[]` array; add to `normalizeBlock` or it's stripped on load). Replaces the Build `[NEEDS INPUT]` placeholder — eng-lead's committed item.
+- **Acceptance-criteria[] sub-field** on requirement/goal/output + rationale on decision (model on the existing `questions[]` array; add to `normalizeBlock` or it's stripped on load). Replaces the Build `[NEEDS INPUT]` placeholder, eng-lead's committed item.
 - **Persisted devOpts + one-click presets** (Cursor/TypeScript, Claude Code, PM Clarify, Consultant Proposal). MUST serialize `devOpts.prePrompts` (a Set) as `[...set]`. Promote the mode selector to a segmented control at the top of the prompt pane.
-- **Round-trip "Paste AI response" importer** — parse AI markdown (`## Questions`→question, `## Assumptions`→assumption, `- [ ]`→requirement) into linked blocks with a mandatory preview-and-confirm. Closes the "adjust the plan as usable" loop (founder + PM game-changer).
+- **Round-trip "Paste AI response" importer**: parse AI markdown (`## Questions`→question, `## Assumptions`→assumption, `- [ ]`→requirement) into linked blocks with a mandatory preview-and-confirm. Closes the "adjust the plan as usable" loop (founder + PM game-changer).
 - **Save-current-canvas-as-template** (localStorage) + template JSON export/import. Store positions normalized to `(0,0)`-relative. Consultant's blocker.
 - **Content-bearing + audience-shaped templates** (Validate an Idea, Build an MVP, Client Discovery). Change `applyTemplate` `description: ''` → `description: bd.description || ''` or new copy is ignored. (Guiding-text half is cheap; may pull forward.)
 - **Coaching gap callout bubbles** anchored on-canvas with one-click fix buttons.
 
 ## Deferred (with reasons)
 
-- **BYO-key in-browser AI fetch** — founder's dream one-button round-trip; large, depends on the paste-back importer.
-- **Folding Context/Output into sub-fields** — larger refactor with import/back-compat cost (`export.js` section ordering depends on Output; Context drives prompt framing).
-- **Gradient source→target arrows / type glyphs** — gradient arrows regenerate `linearGradient` defs every rAF frame and would jank a 30+ arrow canvas; needs a profiled spike.
-- **Structured "Copy as Jira/Linear task list" export** — only valuable after `acceptanceCriteria[]` + arrow-derived dependencies land.
-- **True topological Build ordering** — dumb priority+incoming-arrow ordering is enough to make modes feel real this round.
-- **Guided "first 60 seconds" walkthrough** — Brain Dump empty state covers most of the cold-start need.
+- **BYO-key in-browser AI fetch**: founder's dream one-button round-trip; large, depends on the paste-back importer.
+- **Folding Context/Output into sub-fields**: larger refactor with import/back-compat cost (`export.js` section ordering depends on Output; Context drives prompt framing).
+- **Gradient source→target arrows / type glyphs**: gradient arrows regenerate `linearGradient` defs every rAF frame and would jank a 30+ arrow canvas; needs a profiled spike.
+- **Structured "Copy as Jira/Linear task list" export**: only valuable after `acceptanceCriteria[]` + arrow-derived dependencies land.
+- **True topological Build ordering**: dumb priority+incoming-arrow ordering is enough to make modes feel real this round.
+- **Guided "first 60 seconds" walkthrough**: Brain Dump empty state covers most of the cold-start need.
 
 ## Success metrics
 

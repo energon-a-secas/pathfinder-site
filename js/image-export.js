@@ -243,11 +243,11 @@ export function exportPNG(scale = 2) {
     ctx.setTransform(scale, 0, 0, scale, 0, 0)
     ctx.drawImage(img, 0, 0)
     canvas.toBlob(blob => {
-      if (!blob) { showToast('PNG export failed — try SVG instead', 'warning'); return }
+      if (!blob) { showToast('PNG export failed: try SVG instead', 'warning'); return }
       download(blob, 'pathfinder-diagram.png')
       showToast('Diagram exported as PNG (2×)', 'success')
     }, 'image/png')
   }
-  img.onerror = () => showToast('PNG export failed — try SVG instead', 'warning')
+  img.onerror = () => showToast('PNG export failed: try SVG instead', 'warning')
   img.src = url
 }

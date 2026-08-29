@@ -35,7 +35,7 @@ export function highlightRowHtml(active) {
     Object.entries(HIGHLIGHTS).map(([key, h]) =>
       `<button class="hl-swatch${key === 'festive' ? ' hl-swatch-festive' : ''}${active === key ? ' active' : ''}"
                data-hl="${key}" style="--sw:${h.color}"
-               title="${escHtml(h.label)} — ${escHtml(h.hint)}" aria-label="${escHtml(h.label)}"></button>`
+               title="${escHtml(h.label)}: ${escHtml(h.hint)}" aria-label="${escHtml(h.label)}"></button>`
     ).join('')
 }
 

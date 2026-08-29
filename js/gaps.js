@@ -162,35 +162,35 @@ export function getGapFixes(b) {
   const el = getBlockEl(b.id); if (!el) return []
   const fixes = []
   if (el.classList.contains('gap-isolated')) {
-    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'This block floats alone — drag from a port ● to link it to the plan.' })
+    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'This block floats alone: drag from a port ● to link it to the plan.' })
   }
   if (el.classList.contains('gap-assumption')) {
-    fixes.push({ id: 'add-goal', icon: FIX_ICON['add-goal'], text: 'This assumption isn’t tied to anything yet — link it to the Goal or Requirement it underpins.', action: 'Create Goal' })
+    fixes.push({ id: 'add-goal', icon: FIX_ICON['add-goal'], text: 'This assumption isn’t tied to anything yet, link it to the Goal or Requirement it underpins.', action: 'Create Goal' })
   }
   if (el.classList.contains('gap-no-req')) {
-    fixes.push({ id: 'add-req', icon: FIX_ICON['add-req'], text: 'This goal has no requirements yet — add the first one?', action: 'Add Requirement' })
+    fixes.push({ id: 'add-req', icon: FIX_ICON['add-req'], text: 'This goal has no requirements yet: add the first one?', action: 'Add Requirement' })
   }
   if (el.classList.contains('gap-unaddressed')) {
-    fixes.push({ id: 'resolve', icon: FIX_ICON['resolve'], text: 'Nothing is addressing this problem yet — mark it resolved or link a fix.', action: 'Mark Resolved' })
+    fixes.push({ id: 'resolve', icon: FIX_ICON['resolve'], text: 'Nothing is addressing this problem yet: mark it resolved or link a fix.', action: 'Mark Resolved' })
     /* This one shipped with an empty string, so it rendered as an icon, a blank
        column and a button, with nothing saying what the button was for. */
     fixes.push({ id: 'add-decision', icon: FIX_ICON['add-decision'], text: 'Or record the call you already made, so the reasoning behind it survives.', action: 'Create Decision' })
   }
   if (el.classList.contains('gap-no-mitigation')) {
-    fixes.push({ id: 'prepare', icon: FIX_ICON['shield'], text: 'Nothing mitigates this risk yet — flag the prep work, or link what handles it.', action: 'Mark Prepare' })
+    fixes.push({ id: 'prepare', icon: FIX_ICON['shield'], text: 'Nothing mitigates this risk yet: flag the prep work, or link what handles it.', action: 'Mark Prepare' })
     fixes.push({ id: 'mitigate', icon: FIX_ICON['add-decision'], text: 'Or record the mitigation as a decision downstream of it.', action: 'Create Decision' })
   }
   if (el.classList.contains('gap-no-basis')) {
-    fixes.push({ id: 'rationale', icon: FIX_ICON['add-decision'], text: 'This decision records no basis — nothing leads to it and the why is empty.', action: 'Add rationale' })
+    fixes.push({ id: 'rationale', icon: FIX_ICON['add-decision'], text: 'This decision records no basis: nothing leads to it and the why is empty.', action: 'Add rationale' })
   }
   if (el.classList.contains('gap-no-producer')) {
-    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'Nothing on the canvas produces this output — link the work that yields it.' })
+    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'Nothing on the canvas produces this output, link the work that yields it.' })
   }
   if (el.classList.contains('gap-no-criteria')) {
-    fixes.push({ id: 'criteria', icon: FIX_ICON['criteria'], text: '"Done" is undefined here — add acceptance criteria, one per line.', action: 'Add criteria' })
+    fixes.push({ id: 'criteria', icon: FIX_ICON['criteria'], text: '"Done" is undefined here: add acceptance criteria, one per line.', action: 'Add criteria' })
   }
   if (el.classList.contains('gap-loose-step')) {
-    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'This step is in no flow — connect it to another step or a Start/End.' })
+    fixes.push({ id: 'connect', icon: FIX_ICON['connect'], text: 'This step is in no flow: connect it to another step or a Start/End.' })
   }
   return fixes
 }

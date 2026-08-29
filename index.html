@@ -284,7 +284,7 @@
             <div class="palette-item" data-type="process" role="button" tabindex="0" aria-label="Add Process block">
               <div class="palette-dot" style="background:var(--c-process)"></div>
               <div class="palette-item-text"><div class="palette-label">Process</div><div class="palette-desc">A workflow step or action</div></div>
-              <div class="palette-tooltip">A step or action in a workflow — something that gets done.<br><span class="palette-tooltip-example">e.g. "Update status to Ready for Review", "Generate the doc"</span><br><span class="palette-tooltip-tip">Chain these with arrows to show an end-to-end flow.</span></div>
+              <div class="palette-tooltip">A step or action in a workflow, something that gets done.<br><span class="palette-tooltip-example">e.g. "Update status to Ready for Review", "Generate the doc"</span><br><span class="palette-tooltip-tip">Chain these with arrows to show an end-to-end flow.</span></div>
             </div>
             <div class="palette-item" data-type="terminator" role="button" tabindex="0" aria-label="Add Start or End block">
               <div class="palette-dot" style="background:var(--c-terminator)"></div>
@@ -322,11 +322,11 @@
       Double-click a block to edit its title
     </div>
 
-    <!-- Brain Dump empty state — fastest on-ramp from messy text to a canvas -->
+    <!-- Brain Dump empty state: fastest on-ramp from messy text to a canvas -->
     <div class="brain-dump" id="brainDump">
       <div class="brain-dump-card">
         <h2>Start with a brain dump</h2>
-        <p>Paste or type your messy thoughts — one idea per line. We’ll turn them into typed, AI-ready blocks. Fix any mislabels with one click after.</p>
+        <p>Paste or type your messy thoughts: one idea per line. We’ll turn them into typed, AI-ready blocks. Fix any mislabels with one click after.</p>
         <textarea id="brainDumpInput" rows="6" spellcheck="false"
           placeholder="Ship the onboarding flow before the seed demo&#10;Build the PRD&#10;  - Overview &amp; summary&#10;  - Goals and success metrics&#10;  - Scope and requirements&#10;Users will pay for the pro tier&#10;Will SSO-only auth be acceptable?"></textarea>
         <label class="brain-dump-nest" for="brainDumpNest">
@@ -480,11 +480,11 @@
             <div class="color-swatches" id="colorSwatches"></div>
           </div>
           <div class="insp-section" id="appearanceSection">
-            <div class="insp-label">Card style <span class="insp-label-hint">— overrides the canvas default</span></div>
+            <div class="insp-label">Card style <span class="insp-label-hint">overrides the canvas default</span></div>
             <div class="dev-radio-group" id="cardStylePicker"></div>
             <div class="insp-label" style="margin-top:8px">Border</div>
             <div class="dev-radio-group" id="borderWidthPicker"></div>
-            <div class="insp-label" style="margin-top:8px">Highlight <span class="insp-label-hint">— for presenting, not for meaning</span></div>
+            <div class="insp-label" style="margin-top:8px">Highlight <span class="insp-label-hint">for presenting, not for meaning</span></div>
             <div class="hl-row" id="blockHighlightRow"></div>
           </div>
           <div class="insp-section">
@@ -504,7 +504,7 @@
             <textarea class="insp-textarea" id="inspRationale" placeholder="Chosen because… Rejected: X (too slow), Y (no budget)" rows="3"></textarea>
           </div>
           <div class="insp-section" id="docRefSection">
-            <div class="insp-label">Documentation <span class="insp-label-hint">— wire this block to a doc</span></div>
+            <div class="insp-label">Documentation <span class="insp-label-hint">wire this block to a doc</span></div>
             <button class="promote-assumption-btn" id="promoteSeeRef" type="button" style="display:none" title="Turn the 'See:' line in the description into a real documentation reference"></button>
             <input class="insp-input" id="docRefHref" type="url" placeholder="https://docs.example.com/page  (or /path)">
             <input class="insp-input" id="docRefLabel" type="text" placeholder="Label (optional)" style="margin-top:6px" maxlength="80">
@@ -554,7 +554,7 @@
         <div class="inspector-multi" id="inspectorMulti" style="display:none">
           <div class="inspector-multi-count" id="multiCount"></div>
           <div class="insp-section">
-            <div class="insp-label">Highlight <span class="insp-label-hint">— draw the eye when you share this</span></div>
+            <div class="insp-label">Highlight <span class="insp-label-hint">draw the eye when you share this</span></div>
             <div class="hl-row" id="multiHighlightRow"></div>
             <button class="radio-opt" id="spotlightBtn" style="width:100%;margin-top:8px"
                     title="Fade every block that is not highlighted, so the marked ones carry the canvas">Spotlight: off</button>
@@ -571,7 +571,7 @@
             </div>
           </div>
           <div class="insp-section">
-            <div class="insp-label">Distribute <span class="insp-label-hint">— needs three or more</span></div>
+            <div class="insp-label">Distribute <span class="insp-label-hint">needs three or more</span></div>
             <div class="dev-radio-group">
               <button class="radio-opt" data-distribute="h" style="flex:1" title="Even horizontal gaps">Horizontally</button>
               <button class="radio-opt" data-distribute="v" style="flex:1" title="Even vertical gaps">Vertically</button>
@@ -600,7 +600,7 @@
             <div class="arrow-label-presets" id="arrowLabelPresets"></div>
           </div>
           <div class="insp-section">
-            <div class="insp-label">Note <span class="insp-label-hint">— shown on hover / when selected</span></div>
+            <div class="insp-label">Note <span class="insp-label-hint">shown on hover / when selected</span></div>
             <textarea class="insp-textarea" id="arrowNoteInput" rows="2"
                       placeholder="Longer annotation for this connection…" maxlength="400"></textarea>
           </div>
@@ -636,7 +636,7 @@
             </div>
           </div>
           <div class="insp-section" id="arrowPortSection">
-            <div class="insp-label">Connection points <span class="insp-label-hint">— the side each end attaches to</span></div>
+            <div class="insp-label">Connection points <span class="insp-label-hint">the side each end attaches to</span></div>
             <div class="port-pick-row">
               <span class="port-pick-label">From</span>
               <div class="dev-radio-group port-pick" data-port-end="from">
@@ -685,18 +685,18 @@
         </div>
 
         <div class="insp-section situation-section" id="situationSection">
-          <div class="insp-label">Situation <span class="insp-label-hint">— where the tool is standing when it reads this</span></div>
+          <div class="insp-label">Situation <span class="insp-label-hint">where the tool is standing when it reads this</span></div>
           <div id="situationFields"></div>
           <input class="insp-input" id="situationRepoHint" type="text" maxlength="300"
                  placeholder="Which repo or path, if it helps (optional)">
-          <div class="insp-label" style="margin-top:8px">Boundaries <span class="insp-label-hint">— one per line</span></div>
+          <div class="insp-label" style="margin-top:8px">Boundaries <span class="insp-label-hint">one per line</span></div>
           <textarea class="insp-textarea" id="situationConstraints" rows="2" maxlength="1000"
             placeholder="Do not touch the auth module&#10;No new dependencies&#10;Ship behind a flag"></textarea>
           <div class="situation-preview" id="situationPreview"></div>
         </div>
 
         <div class="insp-section">
-          <div class="insp-label">Engagement Context <span class="insp-label-hint">— framing the AI sees first</span></div>
+          <div class="insp-label">Engagement Context <span class="insp-label-hint">framing the AI sees first</span></div>
           <textarea class="insp-textarea" id="contextBrief" rows="2"
             placeholder="One or two lines of framing: who this is for, the stack, constraints, the ask…"></textarea>
         </div>
@@ -757,7 +757,7 @@
               </div>
             </div>
             <div class="dev-row">
-              <div class="insp-label" style="margin-bottom:6px">Docs base URL <span class="insp-label-hint">— enables inline doc previews for pages under this URL</span></div>
+              <div class="insp-label" style="margin-bottom:6px">Docs base URL <span class="insp-label-hint">enables inline doc previews for pages under this URL</span></div>
               <input class="insp-input" id="docsBaseInput" type="url" placeholder="https://docs.yoursite.com/">
             </div>
           </div>
@@ -782,7 +782,7 @@
     </div>
     <div class="shortcut-grid" id="shortcutGrid"></div>
     <div class="shortcut-modal-footer">
-      New here? <a href="tutorial.html">Take the walkthrough</a> — one worked example, start to finish.
+      New here? <a href="tutorial.html">Take the walkthrough</a>. One worked example, start to finish.
     </div>
   </div>
 </div>
@@ -797,7 +797,7 @@
   <a href="https://github.com/energon-a-secas/pathfinder-site">Star on GitHub</a>
 </nav>
 
-<!-- data-stick="off": body is a 100vh overflow-hidden flex column — the app owns
+<!-- data-stick="off": body is a 100vh overflow-hidden flex column. The app owns
      layout, the footer takes its natural slot at the bottom of the flex. -->
 <footer class="neo-footer" data-footer-mode="app" data-stick="off">
   Your maps stay in this browser.

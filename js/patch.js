@@ -276,7 +276,7 @@ export function setupPatchUI() {
     if (ui.activeTab === 'prompt') refreshPrompt()
     input.value = ''; preview.innerHTML = ''; applyBtn.disabled = true
     panel.style.display = 'none'
-    showToast(`Applied ${n} change${n === 1 ? '' : 's'} — one Cmd+Z undoes them all`, 'success', 2600)
+    showToast(`Applied ${n} change${n === 1 ? '' : 's'}. One Cmd+Z undoes them all`, 'success', 2600)
   })
   document.getElementById('patchCancelBtn')?.addEventListener('click', () => {
     panel.style.display = 'none'

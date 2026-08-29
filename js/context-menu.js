@@ -40,7 +40,7 @@ function highlightSwatchList() {
   return `<button class="ctx-color-opt ctx-color-reset" role="menuitem" data-ctx-hl="" title="No highlight" aria-label="No highlight"></button>` +
     Object.entries(HIGHLIGHTS).map(([key, h]) =>
       `<button class="ctx-color-opt${key === 'festive' ? ' hl-swatch-festive' : ''}" role="menuitem" data-ctx-hl="${key}"` +
-      `${key === 'festive' ? '' : ` style="background:${h.color}"`} title="${h.label} — ${h.hint}" aria-label="${h.label}"></button>`
+      `${key === 'festive' ? '' : ` style="background:${h.color}"`} title="${h.label}: ${h.hint}" aria-label="${h.label}"></button>`
     ).join('')
 }
 

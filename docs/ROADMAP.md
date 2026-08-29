@@ -1,4 +1,4 @@
-# Pathfinder — Feature Roadmap
+# Pathfinder: Feature Roadmap
 
 ## Batch 1: Core Foundation ✅
 
@@ -75,7 +75,7 @@ Driven by a 17-agent persona→design→dev→re-validation workflow. See `docs/
 
 - ✅ Canvas title injected as prompt H1 + optional `## Engagement Context` framing (round-trips through save/import/share)
 - ✅ First-class **Assumption** block type (gold, `validate` action, dedicated pressure-test prompt section); palette re-tiered to Core 6 + Advanced expander; "Question" → "Open Question"; one-click "Promote to Assumption"
-- ✅ Gap engine de-duped (mutually exclusive — one gap per block) and `gap-assumption` repointed onto assumption-type blocks; coaching copy
+- ✅ Gap engine de-duped (mutually exclusive: one gap per block) and `gap-assumption` repointed onto assumption-type blocks; coaching copy
 - ✅ Prompt modes genuinely reshape the body (Clarify drops impl modules; Build emits `- [ ]` task checklists with `[NEEDS INPUT]` acceptance criteria; Explore front-loads gaps/assumptions)
 - ✅ Always-visible "Copy AI-ready prompt" pill + honest readiness verdict; health score rebalanced so hollow/title-only canvases no longer read "Healthy" (built-in templates now land amber)
 - ✅ Brain Dump empty state + sentence-level scoring classifier + post-import type-correction chips (fast on-ramp from messy prose → typed blocks)

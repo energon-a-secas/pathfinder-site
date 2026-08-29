@@ -87,7 +87,7 @@ export const EXAMPLE_CANVAS = {
     ],
     groups: [],
     meta: {
-      title: 'Checkout 500s — investigation',
+      title: 'Checkout 500s: investigation',
       contextBrief: 'Node service, Postgres, Stripe. Reported by a customer, not by monitoring, which is its own problem.',
       cardStyle: 'outline',
       situation: {

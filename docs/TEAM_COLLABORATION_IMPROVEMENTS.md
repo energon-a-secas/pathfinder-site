@@ -425,7 +425,7 @@ lokalStorage -> Socket.IO -> CRDTs (渐进增强)
 
 ## 🎬 Conclusion
 
-The current Pathfinder is excellent **personal strategy canvas** but lacks the **social infrastructure** for team meetings. The key insight: teams don't just need a shared canvas—they need a **facilitated process** with clear roles, phases, and outcomes.
+The current Pathfinder is excellent **personal strategy canvas** but lacks the **social infrastructure** for team meetings. The key insight: teams don't just need a shared canvas-they need a **facilitated process** with clear roles, phases, and outcomes.
 
 **Most impactful next step:** Implement real-time multiplayer + meeting mode + voting. This transforms Pathfinder from a tool teams use despite friction to a tool teams use because it makes meetings better.
 
