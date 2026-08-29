@@ -1,0 +1,362 @@
+{
+  "schema": "releve-repo/v1",
+  "generated": "2026-08-28T19:51:30Z",
+  "generator": "releve-repo.py",
+  "root": "pathfinder-site",
+  "discovery": "git ls-files",
+  "tokenizer": {
+    "mode": "calibrated",
+    "note": "Characters per token, per language. tiktoken is an OpenAI tokenizer and is wrong for Claude, so this file holds measured ratios instead. The factors in `measured` are measured on 15,354 real Claude Code responses that one language dominates, out of 28,678 usable ones on a single machine: an assistant response is written to the transcript as one entry per content block, so reassembling the blocks that share a message.id recovers exactly the characters that its output_tokens paid for. Two disjoint subsets agree to within 1% (2.10 and 2.11 chars per token overall), and responses whose thinking text the transcript did not keep are excluded rather than averaged in. Ubiquitous JSON tool-call scaffolding is measured first and subtracted, because fitting every language at once collapses on its collinearity. A language absent from `measured` carries the hand-set prior scaled by 0.784, the mean ratio of measured to prior across the ten languages that had both: a shape, not a measurement. Run releve-repo.py --calibrate to replace this table with your own machine's, or --tokenizer api for an exact count.",
+    "error_bar": 0.207,
+    "error_bar_note": "Median absolute percentage error of 20.7% predicting a whole response from this table, over 28,698 responses (p25 12.3%, p75 28.4%, p90 45.6%). What is not verified is the absolute level: every factor here is measured against output tokens, so a bias common to all of them would not show up in their agreement. Settle it with --tokenizer api, which counts exactly.",
+    "table_verified": "2026-08-28",
+    "measured_languages": [
+      "css",
+      "html",
+      "javascript",
+      "json",
+      "jsx",
+      "makefile",
+      "markdown",
+      "prose",
+      "python",
+      "shell",
+      "text",
+      "typescript"
+    ],
+    "table": "/Users/lucianoadonisvillarroel/dev/Personal/projects/pathfinder-site/tokenizer.json"
+  },
+  "totals": {
+    "files": 101,
+    "bytes": 1268779,
+    "chars": 1228871,
+    "tokens": 450394
+  },
+  "languages": [
+    {
+      "language": "javascript",
+      "files": 68,
+      "bytes": 748031,
+      "chars": 719774,
+      "tokens": 256148
+    },
+    {
+      "language": "css",
+      "files": 5,
+      "bytes": 195869,
+      "chars": 189570,
+      "tokens": 79319
+    },
+    {
+      "language": "markdown",
+      "files": 12,
+      "bytes": 162152,
+      "chars": 158187,
+      "tokens": 52905
+    },
+    {
+      "language": "html",
+      "files": 6,
+      "bytes": 93798,
+      "chars": 93415,
+      "tokens": 34218
+    },
+    {
+      "language": "svg",
+      "files": 1,
+      "bytes": 20480,
+      "chars": 20480,
+      "tokens": 9022
+    },
+    {
+      "language": "yaml",
+      "files": 2,
+      "bytes": 22105,
+      "chars": 21663,
+      "tokens": 8631
+    },
+    {
+      "language": "text",
+      "files": 3,
+      "bytes": 20436,
+      "chars": 20406,
+      "tokens": 7848
+    },
+    {
+      "language": "json",
+      "files": 2,
+      "bytes": 3090,
+      "chars": 3090,
+      "tokens": 1309
+    },
+    {
+      "language": "makefile",
+      "files": 1,
+      "bytes": 2152,
+      "chars": 1620,
+      "tokens": 701
+    },
+    {
+      "language": "xml",
+      "files": 1,
+      "bytes": 666,
+      "chars": 666,
+      "tokens": 293
+    }
+  ],
+  "files": [
+    {
+      "path": "css/style.css",
+      "language": "css",
+      "bytes": 119387,
+      "tokens": 48680
+    },
+    {
+      "path": "js/events.js",
+      "language": "javascript",
+      "bytes": 58740,
+      "tokens": 20523
+    },
+    {
+      "path": "index.html",
+      "language": "html",
+      "bytes": 56220,
+      "tokens": 20470
+    },
+    {
+      "path": "js/ui-panels.js",
+      "language": "javascript",
+      "bytes": 58445,
+      "tokens": 20059
+    },
+    {
+      "path": "css/neorgon-header.css",
+      "language": "css",
+      "bytes": 33329,
+      "tokens": 13282
+    },
+    {
+      "path": "js/utils.js",
+      "language": "javascript",
+      "bytes": 29549,
+      "tokens": 10193
+    },
+    {
+      "path": "CLAUDE.md",
+      "language": "markdown",
+      "bytes": 30195,
+      "tokens": 10072
+    },
+    {
+      "path": "js/render.js",
+      "language": "javascript",
+      "bytes": 29176,
+      "tokens": 10060
+    },
+    {
+      "path": "js/prompt.js",
+      "language": "javascript",
+      "bytes": 27231,
+      "tokens": 9454
+    },
+    {
+      "path": "docs/CHANGELOG.md",
+      "language": "markdown",
+      "bytes": 27748,
+      "tokens": 9270
+    },
+    {
+      "path": "docs/architecture.svg",
+      "language": "svg",
+      "bytes": 20480,
+      "tokens": 9022
+    },
+    {
+      "path": "js/templates.js",
+      "language": "javascript",
+      "bytes": 22991,
+      "tokens": 8078
+    },
+    {
+      "path": "css/neorgon-footer.css",
+      "language": "css",
+      "bytes": 18984,
+      "tokens": 7604
+    },
+    {
+      "path": "js/canvas.js",
+      "language": "javascript",
+      "bytes": 22330,
+      "tokens": 7599
+    },
+    {
+      "path": "css/neorgon-themes.css",
+      "language": "css",
+      "bytes": 18297,
+      "tokens": 7413
+    },
+    {
+      "path": "llms.txt",
+      "language": "text",
+      "bytes": 19067,
+      "tokens": 7322
+    },
+    {
+      "path": "traces/aws-cross-account-connectivity.yaml",
+      "language": "yaml",
+      "bytes": 18363,
+      "tokens": 7241
+    },
+    {
+      "path": "tests/prompt.test.js",
+      "language": "javascript",
+      "bytes": 19268,
+      "tokens": 6547
+    },
+    {
+      "path": "js/export.js",
+      "language": "javascript",
+      "bytes": 18550,
+      "tokens": 6335
+    },
+    {
+      "path": "docs/visual-changes.md",
+      "language": "markdown",
+      "bytes": 20670,
+      "tokens": 6137
+    },
+    {
+      "path": "js/library.js",
+      "language": "javascript",
+      "bytes": 16921,
+      "tokens": 5815
+    },
+    {
+      "path": "tutorial.html",
+      "language": "html",
+      "bytes": 15786,
+      "tokens": 5768
+    },
+    {
+      "path": "js/neorgon-header.js",
+      "language": "javascript",
+      "bytes": 16607,
+      "tokens": 5625
+    },
+    {
+      "path": "js/neorgon-footer.js",
+      "language": "javascript",
+      "bytes": 16841,
+      "tokens": 5584
+    },
+    {
+      "path": "tests/gaps.test.js",
+      "language": "javascript",
+      "bytes": 16191,
+      "tokens": 5533
+    },
+    {
+      "path": "js/layout.js",
+      "language": "javascript",
+      "bytes": 16041,
+      "tokens": 5473
+    },
+    {
+      "path": "tests/trace.test.js",
+      "language": "javascript",
+      "bytes": 14665,
+      "tokens": 5219
+    },
+    {
+      "path": "js/patch.js",
+      "language": "javascript",
+      "bytes": 14014,
+      "tokens": 4779
+    },
+    {
+      "path": "js/image-export.js",
+      "language": "javascript",
+      "bytes": 13512,
+      "tokens": 4718
+    },
+    {
+      "path": "js/trace/app.js",
+      "language": "javascript",
+      "bytes": 13789,
+      "tokens": 4646
+    },
+    {
+      "path": "tests/normalize.test.js",
+      "language": "javascript",
+      "bytes": 13321,
+      "tokens": 4488
+    },
+    {
+      "path": "tests/canvas.test.js",
+      "language": "javascript",
+      "bytes": 13182,
+      "tokens": 4445
+    },
+    {
+      "path": "js/context-menu.js",
+      "language": "javascript",
+      "bytes": 12558,
+      "tokens": 4358
+    },
+    {
+      "path": "js/trace/parse.js",
+      "language": "javascript",
+      "bytes": 12873,
+      "tokens": 4289
+    },
+    {
+      "path": "js/interop.js",
+      "language": "javascript",
+      "bytes": 12577,
+      "tokens": 4269
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "bytes": 12847,
+      "tokens": 4243
+    },
+    {
+      "path": "docs/TEAM_COLLABORATION_IMPROVEMENTS.md",
+      "language": "markdown",
+      "bytes": 12944,
+      "tokens": 4225
+    },
+    {
+      "path": "js/trace/layout-trace.js",
+      "language": "javascript",
+      "bytes": 12208,
+      "tokens": 4078
+    },
+    {
+      "path": "tests/state.test.js",
+      "language": "javascript",
+      "bytes": 11925,
+      "tokens": 4032
+    },
+    {
+      "path": "js/gaps.js",
+      "language": "javascript",
+      "bytes": 11960,
+      "tokens": 4025
+    }
+  ],
+  "skipped": {
+    "binary": 3,
+    "ignored": 0,
+    "too_large": 0,
+    "unknown": 4,
+    "unreadable": 0
+  },
+  "rates": {
+    "version": "2026-08-27",
+    "verified": "2026-08-27",
+    "source": "https://claude.com/pricing",
+    "provenance": "embedded"
+  }
+}
