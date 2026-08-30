@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  gaps.js — Gap detection logic
+//  gaps.js: Gap detection logic
 // ════════════════════════════════════════════════════════════
 
 import { state } from './state.js'
@@ -49,7 +49,7 @@ export function runGapDetection() {
     const inc = state.arrows.filter(a => a.to   === id)
     const out = state.arrows.filter(a => a.from === id)
 
-    // Isolated wins outright — one gap, no further checks.
+    // Isolated wins outright: one gap, no further checks.
     if (inc.length === 0 && out.length === 0) {
       el.classList.add('gap-isolated'); record(b, 'gap-isolated'); continue
     }
