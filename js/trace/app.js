@@ -296,12 +296,17 @@ async function init() {
   rebuild()
   fit()
 
-  // A share link's payload is now in the textarea; drop it from the URL so a
-  // reload does not silently reinstate an older copy over your edits. Not in
-  // an embed: there the hash is the only copy of the document, and stripping
-  // it means the iframe comes back empty the first time it reloads itself.
-  if (!state.embed && location.hash.includes('t=')) {
-    history.replaceState(null, '', location.pathname + location.search)
+  // The payload is now in the textarea; drop it from the URL so a reload does
+  // not silently reinstate an older copy over your edits. Both carriers need
+  // this, not just the hash: ?src= re-fetches from the remote on every reload,
+  // which is the same overwrite with a longer round trip. Not in an embed:
+  // there the URL is the only copy of the document, and stripping it means the
+  // iframe comes back empty the first time it reloads itself.
+  if (!state.embed && (location.hash.includes('t=') || new URLSearchParams(location.search).has('src'))) {
+    const keep = new URLSearchParams(location.search)
+    keep.delete('src')
+    const qs = keep.toString()
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''))
   }
 
   window.addEventListener('resize', debounce(fit, 200))
