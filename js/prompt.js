@@ -368,7 +368,7 @@ export function buildQuestionPrompt(block, question) {
   if (block.docRef && (block.docRef.href || block.docRef.label)) {
     const ref = block.docRef.label || block.docRef.href
     const anchor = block.docRef.anchor ? `#${block.docRef.anchor}` : ''
-    p += `\n## Referenced documentation\n${ref}${block.docRef.href && block.docRef.label ? ` — ${block.docRef.href}${anchor}` : anchor}\n`
+    p += `\n## Referenced documentation\n${ref}${block.docRef.href && block.docRef.label ? `, ${block.docRef.href}${anchor}` : anchor}\n`
     p += 'If you can access this document, ground your answer in it.\n'
   }
 

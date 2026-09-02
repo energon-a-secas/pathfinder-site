@@ -321,7 +321,7 @@ export function exportMeetingSummary() {
       md += `- ${b.title}`
       if (b.description) md += `: ${b.description}`
       if (b.questions?.length) {
-        md += `\n  - ${b.questions.map(q => q.text + (q.answer?.trim() ? ` — answered: ${q.answer.trim().replace(/\n/g, ' ')}` : '')).join('\n  - ')}`
+        md += `\n  - ${b.questions.map(q => q.text + (q.answer?.trim() ? `: answered: ${q.answer.trim().replace(/\n/g, ' ')}` : '')).join('\n  - ')}`
       }
       md += `\n`
     })
