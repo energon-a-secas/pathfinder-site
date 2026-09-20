@@ -1,3 +1,4 @@
+import { relationHint } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  render.js — DOM rendering, block creation, canvas layout,
 //              selection, mutations, undo/redo
@@ -186,6 +187,10 @@ export function renderInspector() {
       document.getElementById('arrowInfo').textContent =
         `${TYPES[f?.type]?.label||'?'} "${f?.title||'?'}" \u2192 ${TYPES[t?.type]?.label||'?'} "${t?.title||'?'}"`
       document.getElementById('arrowLabelInput').value = a.label || ''
+      const relationInput = document.getElementById('arrowRelation')
+      if (relationInput) relationInput.value = a.relation || ''
+      const hint = document.getElementById('arrowRelationHint')
+      if (hint) hint.textContent = relationHint(a, state.blocks)
       const arrowNoteEl = document.getElementById('arrowNoteInput')
       if (arrowNoteEl) arrowNoteEl.value = a.note || ''
       // Label presets

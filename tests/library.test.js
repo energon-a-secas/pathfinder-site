@@ -4,7 +4,7 @@
 // ============================================================
 
 import { describe, it, assert } from './test-utils.js'
-import { state, canvasMeta, saveState, saveHooks, applyPromptOpts } from '../js/state.js'
+import { state, view, canvasMeta, promptState, saveState, saveHooks, applyPromptOpts } from '../js/state.js'
 import { currentId, writeThrough, ensureLibrary, switchTo, newMap, duplicateCurrent, deleteMap } from '../js/library.js'
 
 // Remove every library key so each test starts from a browser that has
@@ -81,10 +81,15 @@ describe('newMap() / switchTo() / duplicateCurrent() / deleteMap()', () => {
     seedLegacyUser()
     ensureLibrary()
     const first = currentId()
+    promptState.lastSnapshot = 'previous map export'
     newMap()
     const second = currentId()
     assert.neq(second, first)
     assert.deepEq(state.blocks, {}, 'the new canvas is empty')
+    assert.eq(promptState.lastSnapshot, null, 'export tracking does not cross into the new map')
+    assert.eq(canvasMeta.title, '', 'new map has no inherited title')
+    assert.eq(JSON.parse(localStorage.getItem('pathfinder-v1')).meta.title, '', 'autosave has the same title')
+    assert.deepEq(view, { panX: 0, panY: 0, zoom: 1 }, 'new map starts with a clean camera')
     assert.eq(readIndex().length, 2)
     assert.ok(readSlot(first).blocks.m1, 'the first map kept its content')
   })
@@ -120,6 +125,31 @@ describe('newMap() / switchTo() / duplicateCurrent() / deleteMap()', () => {
     assert.eq(canvasMeta.title, 'Legacy plan copy')
     assert.ok(state.blocks.m1, 'the content came along')
     assert.eq(readIndex().length, 2)
+  })
+
+  it('switching immediately after panning preserves each map camera', async () => {
+    seedLegacyUser()
+    ensureLibrary()
+    const first = currentId()
+    newMap()
+    const second = currentId()
+    await new Promise(requestAnimationFrame)
+    Object.assign(view, { panX: 81, panY: 27, zoom: .7 })
+    switchTo(first)
+    await new Promise(requestAnimationFrame)
+    Object.assign(view, { panX: 900, panY: -10, zoom: 1.5 })
+    switchTo(second)
+    assert.deepEq(view, { panX: 81, panY: 27, zoom: .7 })
+    switchTo(first)
+    assert.deepEq(view, { panX: 900, panY: -10, zoom: 1.5 })
+  })
+
+  it('new maps do not inherit a legacy global camera', () => {
+    seedLegacyUser()
+    ensureLibrary()
+    localStorage.setItem('pathfinder-view', JSON.stringify({ panX: 999, panY: 888, zoom: 2 }))
+    newMap()
+    assert.deepEq(view, { panX: 0, panY: 0, zoom: 1 })
   })
 
   it('deleteMap removes the slot, its snapshots and its index row', () => {

@@ -6,7 +6,7 @@ import { describe, it, assert, mockLocalStorage } from './test-utils.js'
 import {
   state, view, ui, canvasMeta, devOpts, selection,
   snapshot, getUndoHistory, getRedoFuture,
-  saveState, loadState,
+  saveState, loadState, saveView, loadView, saveHooks,
   snap, toWorld, encodeCanvas
 } from '../js/state.js'
 
@@ -288,6 +288,43 @@ describe('State mutation isolation', () => {
 
 import { serializeCanvas, applyPromptOpts } from '../js/state.js'
 import { normalizeCanvas } from '../js/normalize.js'
+
+describe('Shared preview persistence', () => {
+  for (const mode of ['readOnly', 'embed']) {
+    it(`${mode} saves leave the visitor's canvas, camera and library hooks untouched`, () => {
+      resetState()
+      localStorage.setItem('pathfinder-map-current', 'private-map')
+      localStorage.setItem('pathfinder-v1', 'private canvas')
+      localStorage.setItem('pathfinder-view:private-map', 'private camera')
+      let calls = 0
+      const hook = () => calls++
+      saveHooks.push(hook)
+      ui[mode] = true
+      try {
+        state.blocks = { shared: { id: 'shared', type: 'goal', title: 'Shared' } }
+        saveState(); saveView()
+        assert.eq(localStorage.getItem('pathfinder-v1'), 'private canvas')
+        assert.eq(localStorage.getItem('pathfinder-view:private-map'), 'private camera')
+        assert.eq(calls, 0)
+      } finally {
+        ui[mode] = false
+        saveHooks.splice(saveHooks.indexOf(hook), 1)
+        localStorage.removeItem('pathfinder-map-current')
+        localStorage.removeItem('pathfinder-view:private-map')
+      }
+    })
+  }
+  it('clamps stored zoom so a bad camera cannot hide the canvas', () => {
+    localStorage.removeItem('pathfinder-map-current')
+    for (const [zoom, expected] of [[0, .18], [-1, .18], [90, 2.6]]) {
+      localStorage.setItem('pathfinder-view', JSON.stringify({ panX: 2, panY: 3, zoom }))
+      assert.ok(loadView())
+      assert.eq(view.zoom, expected)
+    }
+    localStorage.removeItem('pathfinder-view')
+    resetState()
+  })
+})
 
 describe('prompt options round trip', () => {
   it('serializeCanvas carries devOpts as meta.prompt', () => {

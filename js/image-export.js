@@ -1,3 +1,4 @@
+import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  image-export.js — Render the canvas to a crisp SVG / PNG
 //
@@ -125,12 +126,13 @@ export function buildSvg() {
       if (pts.d1 === 'left' || pts.d1 === 'right') my += spread
       else mx += spread
     }
-    if (a.label) {
-      parts.push(`<text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="middle" fill="${C.label}" stroke="${C.bg}" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${escHtml(a.label)}</text>`)
+    const label = connectionLabel(a)
+    if (label) {
+      parts.push(`<text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="middle" fill="${C.label}" stroke="${C.bg}" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${escHtml(label)}</text>`)
     }
     if (a.note?.trim()) {
       const lines = wrapText(a.note.trim(), 170, 6).slice(0, 4)
-      const startY = my + (a.label ? 15 : 4)
+      const startY = my + (label ? 15 : 4)
       const tspans = lines.map((ln, i) => `<tspan x="${mx.toFixed(1)}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
       parts.push(`<text x="${mx.toFixed(1)}" y="${startY.toFixed(1)}" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="${C.desc}" stroke="${C.bg}" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${tspans}</text>`)
     }

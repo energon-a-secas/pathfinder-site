@@ -1,5 +1,84 @@
 # Changelog
 
+## 2026-09-20
+
+### Quieter canvas layout
+
+Matching sidebar icons replace ambiguous directional arrows; collapsible
+sections use native plus/minus buttons and hide collapsed content from keyboard
+navigation. Detail tabs keep the attention count inline and support arrow keys.
+A single utility bar below the canvas holds zoom, local save status, and a
+plain Copy prompt action with a standard copy icon. Save recovery controls
+appear on failure. The optional timer moves below panel content, and resuming
+it no longer starts overlapping countdown intervals.
+
+### Save reliability and complete review workflow
+
+Save status is visible, including failed writes to the active map's library
+slot. Retry and live JSON backup controls protect work when browser storage is
+full. Map switches stop when outgoing work cannot be saved.
+
+AI reply review now has per-operation checkboxes and complete before/after
+details. New connections include their required blocks automatically, and
+criteria apply only from selected operations. The selection undoes in one step.
+
+Connections have an explicit meaning: comes before, depends on, blocks,
+informs, or related. Meaning drives task order and dependency cycle detection,
+and survives normalization, imports, templates, sharing, and exports.
+
+The Attention tab collects unanswered questions, unverified assumptions,
+blocked work, and missing criteria, with filters and direct editor navigation.
+Find blocks can search all saved maps, including unsaved current content,
+while shared views remain isolated from the private library.
+
+Snapshot comparison highlights added/changed blocks and removed outlines on
+the canvas, with full before/after details for content, connections, groups,
+and settings. Restoring requires a successful backup of the current work.
+
+### Search across the whole plan
+
+The canvas now has a visible **Find blocks** button alongside `Cmd/Ctrl+F`.
+Search includes descriptions, notes, criteria, rationale, questions, answers,
+and documentation labels. Type and status filters work together with the query;
+matching excerpts explain hidden-field hits. Every match remains available,
+with result counts, empty states, keyboard navigation, and screen-reader labels.
+The search surface adapts to mobile and both themes.
+
+### Shared views and saved maps
+
+View-only links and embeds no longer overwrite the visitor's saved canvas or
+camera, mix private blocks into a shared diagram, or discard their source URL.
+Both hash links and `?src=` documents remain reloadable. Editable shared imports
+fit to the incoming diagram instead of restoring an unrelated saved camera.
+
+New maps start with an empty title and a fresh camera. Switching maps flushes
+the outgoing view before changing the active map, so a recent pan is retained.
+Replacement imports preserve connection IDs. Snapshot comparisons now detect
+review notes, question answers, layout and styling changes, rewired or edited
+connections, groups, and map settings.
+
+Regression coverage exercises search, shared-view storage isolation, map
+switching, and snapshot comparisons in the existing browser test suite.
+
+### AI planning and reply imports
+
+Build mode and the spec bundle now share a dependency-ordered task checklist.
+Requirements and outputs can depend on one another across block types, priority
+breaks ties between available tasks, and cycles are explicitly flagged. Task
+status, notes, questions and answers, rationale, and documentation references
+survive export. Build mode also retains standalone questions, resources and
+context that used to disappear from the brief.
+
+Reply previews reject duplicate new block IDs, ambiguous question text,
+unsupported versions, and connections to rejected blocks. Repeated arrows and
+criteria are deduplicated, with criterion lengths matching saved-canvas limits.
+A preview becomes stale when the canvas or active map changes and must be
+reviewed again before applying; the whole reply still undoes in one step.
+
+The prompt's change summary now tracks answers, notes, criteria, status,
+connection text, groups, and prompt framing. Presentation-only edits do not
+count as prompt changes, and the export baseline resets when changing maps.
+
 ## 2026-08-24 (eleventh pass)
 
 ### Async review, not multiplayer

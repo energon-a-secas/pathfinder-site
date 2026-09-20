@@ -17,13 +17,16 @@ import { setupChrome } from './chrome.js'
 import { setupLibrary } from './library.js'
 import { setupPatchUI } from './patch.js'
 import { setupReview } from './review.js'
+import { setupPersistence } from './persistence-ui.js'
+import { setupAttention } from './attention.js'
+import { setupComparison } from './comparison-ui.js'
 import { checkSrcUrl } from './ui-panels.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
   setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
   setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme,
-  setupContextBrief, setupCopyPill, refreshReadinessVerdict, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation, setupGapBreakdown
+  setupContextBrief, setupQuickCopy, refreshQuickCopy, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation, setupGapBreakdown
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -34,9 +37,10 @@ function init() {
   if (ui.embed)    document.body.classList.add('embed-mode')
   if (ui.readOnly) document.body.classList.add('readonly-mode')
 
-  loadState()
-  checkShareUrl()
-  checkSrcUrl()
+  const fromLink = location.hash.startsWith('#s=') || params.has('src')
+  // View-only arrivals must never display or merge the visitor's private map.
+  if (!ui.embed && !(ui.readOnly && fromLink)) loadState()
+  if (!checkShareUrl()) checkSrcUrl()
   updateCanvasTitle()
 
   // Restore theme preference. Dark is the default identity — only switch to
@@ -68,8 +72,7 @@ function init() {
   }
   // Restore the camera. A share link brings its own canvas, so that case
   // still fits to the diagram rather than reusing wherever you last were.
-  const fromShare = location.hash.startsWith('#s=')
-  const restoredView = !fromShare && loadView()
+  const restoredView = !fromLink && !ui.embed && loadView()
   if (canvasMeta.spotlight) document.body.classList.add('spotlight')
   applyTransform()
 
@@ -99,7 +102,7 @@ function init() {
   setupPaletteSections()
   setupTemplates()
   setupContextBrief()
-  setupCopyPill()
+  setupQuickCopy()
   setupGapBreakdown()
   setupPanelCollapse()
   setupTidy()
@@ -107,7 +110,10 @@ function init() {
   setupSituation()
   setupChrome()
   setupLibrary()
+  setupPersistence()
   setupPatchUI()
+  setupAttention()
+  setupComparison()
   setupReview()
 
   renderAllBlocks()
@@ -119,7 +125,7 @@ function init() {
     if (!restoredView && Object.keys(state.blocks).length) fitView()
     renderInspector()
     refreshPrompt()
-    refreshReadinessVerdict()
+    refreshQuickCopy()
   })
 }
 

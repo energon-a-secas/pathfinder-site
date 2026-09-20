@@ -3,8 +3,8 @@
 // ============================================================
 
 import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls } from './test-utils.js'
-import { state, devOpts, ui } from '../js/state.js'
-import { generatePrompt, computeHealthScore } from '../js/prompt.js'
+import { state, devOpts, ui, canvasMeta, promptState } from '../js/state.js'
+import { generatePrompt, computeHealthScore, markExported, getPromptDiff } from '../js/prompt.js'
 
 // Helper: set up state for prompt tests
 function resetPromptState() {
@@ -504,6 +504,30 @@ describe('flowSection ordering (via generatePrompt)', () => {
 // ── Acceptance criteria in the prompt ────────────────────────
 
 describe('Acceptance criteria in the prompt', () => {
+  it('Build preserves task evidence and orders outputs before dependent requirements', () => {
+    resetPromptState()
+    devOpts.mode = 'build'
+    addBlock('r', 'requirement', 'Consume generated schema', { notes: 'Keep compatibility', questions: [{ text: 'Version?', answer: 'v2' }] })
+    state.blocks.r.priority = 'high'; state.blocks.r.status = 'blocked'
+    addBlock('o', 'output', 'Generate schema')
+    state.blocks.o.priority = 'low'; state.blocks.o.status = 'done'
+    addArrow('o', 'r')
+    const prompt = generatePrompt()
+    assert.lt(prompt.indexOf('- [x] [LOW] [DONE] Generate schema'), prompt.indexOf('- [ ] [HIGH] [BLOCKED] Consume generated schema'))
+    assert.includes(prompt, 'Notes: Keep compatibility')
+    assert.includes(prompt, 'Answer: v2')
+    assert.includes(prompt, 'rather than reimplementing')
+  })
+  it('Build retains standalone questions, context, resources and custom notes', () => {
+    resetPromptState()
+    devOpts.mode = 'build'
+    addBlock('q', 'question', 'Region?', { description: 'The residency decision is pending.' })
+    addBlock('c', 'context', 'Existing rollout', { description: 'Keep old clients working.' })
+    addBlock('r', 'resource', 'Reusable API', { description: 'Already deployed in staging.' })
+    addBlock('x', 'custom', 'Team note', { notes: 'Coordinate with support.' })
+    const prompt = generatePrompt()
+    for (const content of ['The residency decision is pending.', 'Keep old clients working.', 'Already deployed in staging.', 'Coordinate with support.']) assert.includes(prompt, content)
+  })
   it('lists criteria on a requirement in plan mode', () => {
     resetPromptState()
     addBlock('r1', 'requirement', 'Fast checkout', {})
@@ -529,5 +553,44 @@ describe('Acceptance criteria in the prompt', () => {
     state.blocks.d1.rationale = 'Fewer moving parts.'
     const p = generatePrompt()
     assert.includes(p, 'Rationale: Fewer moving parts.')
+  })
+})
+
+describe('Changes since prompt export', () => {
+  it('tracks answers, criteria, notes, priority and status changes', () => {
+    resetPromptState()
+    addBlock('r', 'requirement', 'Checkout')
+    for (const edit of [{ notes: 'Review: keep retries safe' }, { status: 'done' }, { priority: 'high' },
+      { criteria: ['Ready'] }, { questions: [{ text: 'Which region?', answer: 'Existing one' }] }]) {
+      markExported()
+      Object.assign(state.blocks.r, edit)
+      assert.deepEq(getPromptDiff().modified, ['Checkout'])
+    }
+  })
+  it('tracks connection notes and prompt framing', () => {
+    resetPromptState()
+    addBlock('a', 'goal', 'A'); addBlock('b', 'requirement', 'B'); addArrow('a', 'b')
+    markExported()
+    state.arrows[0].note = 'Only after approval'
+    assert.eq(getPromptDiff().modifiedArrows, 1)
+    markExported()
+    devOpts.mode = 'build'
+    assert.eq(getPromptDiff().framingChanged, true)
+    markExported()
+    canvasMeta.contextBrief += ' New constraint.'
+    assert.eq(getPromptDiff().framingChanged, true)
+  })
+  it('ignores presentation-only edits and resets when exported again', () => {
+    resetPromptState()
+    addBlock('a', 'goal', 'A'); addBlock('b', 'requirement', 'B'); addArrow('a', 'b')
+    markExported()
+    state.blocks.a.x = 900; state.blocks.a.highlight = 'focus'; state.blocks.a.color = '#abcdef'
+    state.arrows[0].style = 'routed'
+    assert.eq(getPromptDiff(), null)
+    state.blocks.a.title = 'Changed goal'
+    assert.ok(getPromptDiff())
+    markExported()
+    assert.eq(getPromptDiff(), null)
+    promptState.lastSnapshot = null
   })
 })

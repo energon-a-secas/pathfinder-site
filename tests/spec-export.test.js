@@ -5,6 +5,7 @@
 import { describe, it, assert } from './test-utils.js'
 import { state, canvasMeta } from '../js/state.js'
 import { buildSpecFiles } from '../js/spec-export.js'
+import { taskChecklist } from '../js/task-plan.js'
 
 function seedSpecState() {
   canvasMeta.title = 'Test spec'
@@ -55,6 +56,15 @@ describe('buildSpecFiles()', () => {
     assert.ok(iReq > -1 && iOut > -1)
     assert.lt(iReq, iOut, 'requirement precedes the output it produces')
     assert.includes(tasks, 'after: Fast checkout')
+  })
+  it('tasks.md uses the same complete checklist as the Build prompt', () => {
+    seedSpecState()
+    state.blocks.r1.status = 'done'
+    state.blocks.r2.notes = 'Confirm with the API owner'
+    const tasks = buildSpecFiles().find(f => f.name === 'tasks.md').data
+    assert.includes(tasks, taskChecklist(state.blocks, state.arrows))
+    assert.includes(tasks, '- [x] [HIGH] [DONE] Fast checkout')
+    assert.includes(tasks, 'Notes: Confirm with the API owner')
   })
 
   it('requirements.md uses EARS, keeping WHEN criteria verbatim', () => {

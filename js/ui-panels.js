@@ -5,13 +5,13 @@
 
 import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave, snapTo } from './state.js'
-import { $, TYPES, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
+import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
          clamp, escHtml, showToast, getBlockDims, getSmallIcon, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
          listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from './templates.js'
-import { refreshPrompt, markExported, generatePrompt, computeHealthScore, situationSection } from './prompt.js'
+import { refreshPrompt, markExported, generatePrompt, situationSection } from './prompt.js'
 import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportSpecBundle } from './spec-export.js'
 import { detectFormat, fromJsonCanvas, parseMermaid, downloadJsonCanvas } from './interop.js'
@@ -20,17 +20,13 @@ import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
 import { getDocsBase, setDocsBase } from './doc-panel.js'
 import { tidyCanvas } from './layout.js'
+import { searchBlocks } from './search.js'
+import { searchSavedMaps, switchTo, currentId } from './library.js'
 
 // ── Search ───────────────────────────────────────────────────
-function searchBlocks(query) {
-  if (!query.trim()) return []
-  const q = query.toLowerCase()
-  return Object.values(state.blocks)
-    .filter(b => (b.title||'').toLowerCase().includes(q) || b.type.includes(q))
-    .slice(0, 8)
-}
+let searchReturnFocus = null
 
-function focusBlock(id) {
+export function focusBlock(id) {
   const b = state.blocks[id]; if (!b) return
   const { w, h } = getBlockDims(id)
   const canvasViewport = $.canvasViewport()
@@ -60,71 +56,146 @@ function focusBlock(id) {
 }
 
 export function openSearch() {
-  ui.searchOpen = true; ui.searchFocusIdx = -1
+  if (!ui.searchOpen) searchReturnFocus = document.activeElement
+  ui.searchOpen = true
   $.searchOverlay().style.display = ''
-  $.searchInput().value = ''; $.searchResults().innerHTML = ''
-  $.searchResults().classList.remove('has-results')
+  document.getElementById('searchBtn')?.setAttribute('aria-expanded', 'true')
+  $.searchInput().setAttribute('aria-expanded', 'true')
+  refreshSearch()
   $.searchInput().focus()
+  $.searchInput().select()
 }
 
-export function closeSearch() {
+export function closeSearch({ restoreFocus = true } = {}) {
   ui.searchOpen = false
   $.searchOverlay().style.display = 'none'
+  $.searchInput().setAttribute('aria-expanded', 'false')
+  $.searchInput().removeAttribute('aria-activedescendant')
+  document.getElementById('searchBtn')?.setAttribute('aria-expanded', 'false')
+  if (restoreFocus) {
+    const target = searchReturnFocus?.isConnected && searchReturnFocus !== document.body
+      ? searchReturnFocus : document.getElementById('searchBtn')
+    target?.focus({ preventScroll: true })
+  }
 }
 
-function renderSearchResults(results) {
-  ui.searchFocusIdx = -1
-  const searchResults = $.searchResults()
-  if (!results.length) { searchResults.innerHTML = ''; searchResults.classList.remove('has-results'); return }
-  searchResults.classList.add('has-results')
-  searchResults.innerHTML = results.map((b, i) =>
-    `<div class="search-result" data-id="${b.id}" data-i="${i}">
-       <div class="search-result-dot" style="background:${TYPES[b.type]?.color||'#fff'}"></div>
-       <span class="search-result-title">${escHtml(b.title||'(untitled)')}</span>
-       <span class="search-result-type">${TYPES[b.type]?.label||b.type}</span>
-     </div>`
-  ).join('')
-  searchResults.querySelectorAll('.search-result').forEach(el =>
-    el.addEventListener('mousedown', ev => {
-      ev.preventDefault()
-      closeSearch(); focusBlock(el.dataset.id)
-    })
-  )
+function setSearchFocus(index, scroll = false) {
+  const items = $.searchResults().querySelectorAll('.search-result')
+  ui.searchFocusIdx = items.length ? (index + items.length) % items.length : -1
+  items.forEach((el, i) => {
+    const on = i === ui.searchFocusIdx
+    el.classList.toggle('focused', on)
+    el.setAttribute('aria-selected', String(on))
+  })
+  const active = items[ui.searchFocusIdx]
+  if (active) {
+    $.searchInput().setAttribute('aria-activedescendant', active.id)
+    if (scroll) active.scrollIntoView({ block: 'nearest' })
+  } else $.searchInput().removeAttribute('aria-activedescendant')
+}
+
+function refreshSearch() {
+  const allMaps = !ui.readOnly && !ui.embed && document.getElementById('searchScope')?.value === 'all'
+  const filters = {
+    type: document.getElementById('searchType')?.value || '',
+    status: document.getElementById('searchStatus')?.value || '',
+  }
+  const results = allMaps ? searchSavedMaps($.searchInput().value, filters) : searchBlocks(state.blocks, $.searchInput().value, filters)
+  $.searchResults().innerHTML = results.map(({ block: b, source, excerpt, mapId, mapName, current }, i) =>
+    `<div class="search-result" id="search-result-${i}" role="option" aria-selected="false" data-id="${escHtml(b.id)}" data-map="${escHtml(mapId || '')}">
+       <span class="search-result-dot" style="background:var(--c-${b.type})" aria-hidden="true"></span>
+       <span class="search-result-content">
+         <span class="search-result-title">${escHtml(b.title || '(untitled)')}</span>
+         ${allMaps ? `<span class="search-result-map">${escHtml(mapName)}${current ? ' · current map' : ''}</span>` : ''}
+         ${excerpt ? `<span class="search-result-excerpt">${source !== 'Description' ? escHtml(source) + ': ' : ''}${escHtml(excerpt)}</span>` : ''}
+       </span>
+       <span class="search-result-type">${escHtml(TYPES[b.type]?.label || b.type)}</span>
+     </div>`).join('')
+  const summary = document.getElementById('searchSummary')
+  if (summary) summary.textContent = allMaps
+    ? `${results.length} matching blocks across ${new Set(results.map(result => result.mapId)).size} maps`
+    : `${results.length} of ${Object.keys(state.blocks).length} blocks`
+  const empty = document.getElementById('searchEmpty')
+  if (empty) {
+    empty.hidden = results.length > 0
+    empty.textContent = allMaps || Object.keys(state.blocks).length
+      ? 'No matching blocks. Try different words or reset the filters.'
+      : 'This map has no blocks to search yet.'
+  }
+  $.searchResults().scrollTop = 0
+  setSearchFocus(0)
+}
+
+function chooseSearchResult(id, mapId) {
+  const switching = mapId && mapId !== currentId()
+  if (switching && !switchTo(mapId)) {
+    showToast('Could not open that map. Your current work is still open', 'warning')
+    return
+  }
+  closeSearch({ restoreFocus: false })
+  const reveal = () => {
+    focusBlock(id)
+    document.getElementById('b-' + id)?.focus({ preventScroll: true })
+  }
+  // Import may schedule a fit; reveal the result after that frame.
+  if (switching) requestAnimationFrame(reveal)
+  else reveal()
 }
 
 export function setupSearchEvents() {
   const overlay = $.searchOverlay()
-  overlay.setAttribute('role', 'dialog')
-  overlay.setAttribute('aria-modal', 'true')
-  overlay.addEventListener('keydown', e => trapFocus(overlay, e))
-
   const searchInput = $.searchInput()
-  searchInput.addEventListener('input', () =>
-    renderSearchResults(searchBlocks(searchInput.value))
-  )
-
-  searchInput.addEventListener('keydown', e => {
-    const items = $.searchResults().querySelectorAll('.search-result')
+  const scope = document.getElementById('searchScope')
+  if (scope) {
+    scope.closest('.search-scope').hidden = ui.readOnly || ui.embed
+    scope.addEventListener('change', refreshSearch)
+  }
+  document.getElementById('searchBtn')?.addEventListener('click', () => ui.searchOpen ? closeSearch() : openSearch())
+  document.getElementById('searchClose')?.addEventListener('click', () => closeSearch())
+  for (const [id, defs] of [['searchType', TYPES], ['searchStatus', STATUS_DEFS]]) {
+    const select = document.getElementById(id)
+    if (!select) continue
+    Object.entries(defs).forEach(([value, { label }]) => select.add(new Option(label, value)))
+    select.addEventListener('change', refreshSearch)
+  }
+  document.getElementById('searchReset')?.addEventListener('click', () => {
+    searchInput.value = ''
+    document.getElementById('searchType').value = ''
+    document.getElementById('searchStatus').value = ''
+    refreshSearch()
+    searchInput.focus()
+  })
+  searchInput.addEventListener('input', refreshSearch)
+  $.searchResults().addEventListener('click', e => {
+    const item = e.target.closest('.search-result')
+    if (item) chooseSearchResult(item.dataset.id, item.dataset.map)
+  })
+  // This is an inline search surface, so Tab can reach the filters or leave it.
+  overlay.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); closeSearch() }
-    else if (e.key === 'Enter') {
-      e.preventDefault()
-      const focused = $.searchResults().querySelector('.search-result.focused')
-      if (focused) { closeSearch(); focusBlock(focused.dataset.id) }
-      else if (items[0]) { closeSearch(); focusBlock(items[0].dataset.id) }
-    }
-    else if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      items.forEach(el => el.classList.remove('focused'))
-      ui.searchFocusIdx = Math.min(ui.searchFocusIdx + 1, items.length - 1)
-      items[ui.searchFocusIdx]?.classList.add('focused')
-    }
-    else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      items.forEach(el => el.classList.remove('focused'))
-      ui.searchFocusIdx = Math.max(ui.searchFocusIdx - 1, 0)
-      items[ui.searchFocusIdx]?.classList.add('focused')
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      e.preventDefault(); searchInput.focus(); searchInput.select()
     }
     e.stopPropagation()
+  })
+  overlay.addEventListener('dblclick', e => e.stopPropagation())
+  searchInput.addEventListener('keydown', e => {
+    if (e.isComposing) return
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const focused = $.searchResults().querySelector('.search-result.focused')
+      if (focused) chooseSearchResult(focused.dataset.id, focused.dataset.map)
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSearchFocus(ui.searchFocusIdx + (e.key === 'ArrowDown' ? 1 : -1), true)
+    }
+  })
+  document.addEventListener('pointerdown', e => {
+    if (ui.searchOpen && !overlay.contains(e.target) && !e.target.closest('#searchBtn')) closeSearch({ restoreFocus: false })
+  })
+  overlay.addEventListener('wheel', e => e.stopPropagation(), { passive: true })
+  window.addEventListener('pf:canvas-changed', () => {
+    if (ui.searchOpen) refreshSearch()
   })
 }
 
@@ -219,15 +290,42 @@ export function setupContextBrief() {
 
 // ── Panel tabs ───────────────────────────────────────────────
 export function setupPanelTabs() {
+  const tabs = [...document.querySelectorAll('.panel-tab')]
+  const tablist = document.querySelector('.panel-tabs')
+  tablist.setAttribute('role', 'tablist')
+  tablist.setAttribute('aria-label', 'Plan details')
+  tabs.forEach(button => {
+    const name = button.dataset.tab
+    button.id = 'tab-' + name
+    button.setAttribute('role', 'tab')
+    button.setAttribute('aria-controls', name + 'Pane')
+    const pane = document.getElementById(name + 'Pane')
+    pane.setAttribute('role', 'tabpanel')
+    pane.setAttribute('aria-labelledby', button.id)
+  })
   function showTab(tab) {
     ui.activeTab = tab
-    document.querySelectorAll('.panel-tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab))
+    tabs.forEach(button => {
+      const active = button.dataset.tab === tab
+      button.classList.toggle('active', active)
+      button.setAttribute('aria-selected', String(active))
+      button.tabIndex = active ? 0 : -1
+    })
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id===tab+'Pane'))
     if (tab === 'prompt') { ui.promptDirty = true; refreshPrompt() }
   }
   document.querySelectorAll('.panel-tab').forEach(btn =>
     btn.addEventListener('click', () => showTab(btn.dataset.tab))
   )
+  tablist.addEventListener('keydown', event => {
+    if (!event.target.matches('.panel-tab')) return
+    const index = tabs.indexOf(event.target)
+    const next = { ArrowRight: (index + 1) % tabs.length, ArrowLeft: (index + tabs.length - 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key]
+    if (next === undefined) return
+    event.preventDefault(); event.stopPropagation()
+    tabs[next].focus(); showTab(tabs[next].dataset.tab)
+  })
+  showTab(ui.activeTab)
 }
 
 // ── Prompt mode descriptions ─────────────────────────────────
@@ -426,37 +524,12 @@ export function setupCopyPrompt() {
 // copyText now lives in utils.js; re-exported so existing importers keep working.
 export { copyText }
 
-// \u2500\u2500 Readiness verdict (plain-language go/no-go) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-// Pure function of the health score + gap count \u2014 no new persisted state.
-function readiness() {
-  const score = computeHealthScore()
-  if (score === null) return null
-  const { count: gaps } = runGapDetection()
-  const blocks = Object.values(state.blocks)
-  const hasGoal = blocks.some(b => b.type === 'goal')
-  const hasReq  = blocks.some(b => b.type === 'requirement')
-
-  if (score >= 80) return { grade: 'a', green: true, text: 'Looks solid \u2014 your AI has enough to plan' }
-  if (score >= 50) {
-    let tip = 'add a bit more detail'
-    if (gaps) tip = `close ${gaps} gap${gaps > 1 ? 's' : ''}`
-    else if (!hasReq) tip = 'add a requirement'
-    else if (blocks.filter(b => !b.description?.trim()).length) tip = 'describe a few more blocks'
-    return { grade: 'b', green: false, text: `Almost ready \u2014 ${tip} for a stronger plan` }
-  }
-  const next = !hasGoal ? 'Add a goal' : !hasReq ? 'Add a requirement' : 'Describe your blocks'
-  return { grade: 'c', green: false, text: `${next} first for a useful plan` }
-}
-
-export function refreshReadinessVerdict() {
-  const wrap = document.getElementById('copyPillWrap')
-  if (!wrap) return
-  if (ui.readOnly) { wrap.style.display = 'none'; return }
-  const verdictEl = document.getElementById('copyPillVerdict')
-  const v = readiness()
-  if (!v) { verdictEl.textContent = ''; verdictEl.className = 'copy-pill-verdict'; return }
-  verdictEl.textContent = v.text
-  verdictEl.className = `copy-pill-verdict grade-${v.grade}`
+// Keep the quick action quiet; detailed readiness belongs in the Prompt pane.
+export function refreshQuickCopy() {
+  const button = document.getElementById('copyPromptPill')
+  if (!button) return
+  button.hidden = ui.readOnly || ui.embed
+  button.disabled = !Object.keys(state.blocks).length
 }
 
 /** Clicks on the gap breakdown jump to the first offending block. */
@@ -467,43 +540,29 @@ export function setupGapBreakdown() {
   })
 }
 
-export function setupCopyPill() {
-  const pill = document.getElementById('copyPromptPill')
-  if (!pill) return
-  if (ui.readOnly) { document.getElementById('copyPillWrap').style.display = 'none'; return }
+export function setupQuickCopy() {
+  const button = document.getElementById('copyPromptPill')
+  if (!button) return
   const label = document.getElementById('copyPillLabel')
-
-  // Always copy on click. The readiness verdict above the pill is the nudge for
-  // an incomplete canvas — we never gate the actual copy behind a second click
-  // (that made "I copied something else recently" look like a broken button).
-  pill.addEventListener('click', () => {
-    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
+  let resetLabel
+  button.addEventListener('click', async () => {
+    if (ui.readOnly || ui.embed || !Object.keys(state.blocks).length) return
+    const copied = await copyText(generatePrompt())
+    if (!copied) { showToast('Copy failed. Open the Prompt tab to copy manually', 'warning'); return }
+    markExported()
     ui.promptDirty = true
-    const text = generatePrompt()
-    copyText(text).then(ok => {
-      if (!ok) { showToast('Copy failed: open the Prompt tab and copy manually', 'warning'); return }
-      markExported()
-      ui.promptDirty = true; refreshPrompt()
-      const v = readiness()
-      showToast(v && !v.green ? `Copied: note: ${v.text}` : 'AI-ready prompt copied to clipboard', 'success')
-      label.textContent = 'Copied!'; pill.classList.add('copied')
-      setTimeout(() => { label.textContent = 'Copy AI-ready prompt'; pill.classList.remove('copied') }, 1800)
-    })
+    refreshPrompt()
+    clearTimeout(resetLabel)
+    label.textContent = 'Copied'
+    button.setAttribute('aria-label', 'Prompt copied')
+    resetLabel = setTimeout(() => {
+      label.textContent = 'Copy prompt'
+      button.setAttribute('aria-label', 'Copy prompt')
+    }, 1800)
   })
-  window.addEventListener('pf:canvas-changed', refreshReadinessVerdict)
-  refreshReadinessVerdict()
-
-  // Hide or show the whole cluster at will, and remember the choice. The ×
-  // appears on hover; the small chip is the way back. Zen (Z) hides everything
-  // regardless, via CSS, because a presentation wants none of it.
-  const wrap = document.getElementById('copyPillWrap')
-  const setMin = on => {
-    wrap.classList.toggle('minimized', on)
-    try { localStorage.setItem('pathfinder-pill', on ? '0' : '1') } catch (_) {}
-  }
-  document.getElementById('copyPillHide')?.addEventListener('click', () => setMin(true))
-  document.getElementById('copyPillMini')?.addEventListener('click', () => setMin(false))
-  try { if (localStorage.getItem('pathfinder-pill') === '0') wrap.classList.add('minimized') } catch (_) {}
+  window.addEventListener('pf:canvas-changed', refreshQuickCopy)
+  window.addEventListener('pf:save-status', refreshQuickCopy)
+  refreshQuickCopy()
 }
 
 // ── Export dropdown ──────────────────────────────────────────
@@ -927,10 +986,13 @@ export function setupPanelCollapse() {
 
   const setCollapsed = on => {
     panel.classList.toggle('collapsed', on)
+    collapse.setAttribute('aria-expanded', String(!on))
+    if (on) reopen.focus({ preventScroll: true })
+    else collapse.focus({ preventScroll: true })
     try { localStorage.setItem('pathfinder-panel-collapsed', on ? '1' : '0') } catch(_) {}
   }
   // Restore persisted state (embed/readonly hides the panel entirely already).
-  try { if (localStorage.getItem('pathfinder-panel-collapsed') === '1') panel.classList.add('collapsed') } catch(_) {}
+  try { if (localStorage.getItem('pathfinder-panel-collapsed') === '1') { panel.classList.add('collapsed'); collapse.setAttribute('aria-expanded', 'false') } } catch(_) {}
 
   collapse.addEventListener('click', () => setCollapsed(true))
   reopen.addEventListener('click', () => setCollapsed(false))
@@ -946,12 +1008,17 @@ export function setupPanelCollapse() {
 export function setPaletteSection(sectionId, open) {
   const section = document.getElementById(sectionId); if (!section) return
   section.classList.toggle('collapsed', !open)
+  const content = section.querySelector('.palette-section-body')
+  if (content) content.inert = !open && !window.matchMedia('(max-width: 768px)').matches
   section.querySelector('.palette-section-toggle')?.setAttribute('aria-expanded', open ? 'true' : 'false')
-  try { localStorage.setItem('pathfinder-pal-' + sectionId, open ? '1' : '0') } catch (_) {}
+  if (!ui.readOnly) {
+    try { localStorage.setItem('pathfinder-pal-' + sectionId, open ? '1' : '0') } catch (_) {}
+  }
 }
 
 /** Fold Templates away, but only if the user has not already opened it by hand. */
 export function collapseTemplatesAfterUse() {
+  if (ui.readOnly) return
   let pinned = null
   try { pinned = localStorage.getItem('pathfinder-pal-templatesSection') } catch (_) {}
   if (pinned === '1') return
@@ -960,6 +1027,11 @@ export function collapseTemplatesAfterUse() {
 }
 
 export function setupPaletteSections() {
+  window.matchMedia('(max-width: 768px)').addEventListener('change', e => {
+    document.querySelectorAll('.palette-section').forEach(section => {
+      section.querySelector('.palette-section-body').inert = !e.matches && section.classList.contains('collapsed')
+    })
+  })
   // Section toggles (Templates, Blocks)
   document.querySelectorAll('.palette-section-toggle').forEach(toggle => {
     toggle.addEventListener('click', () => {
@@ -977,18 +1049,20 @@ export function setupPaletteSections() {
     try { saved = localStorage.getItem('pathfinder-pal-' + id) } catch (_) {}
     if (saved !== null) { setPaletteSection(id, saved === '1'); return }
     if (id === 'templatesSection' && Object.keys(state.blocks).length) {
-      document.getElementById(id)?.classList.add('collapsed')
-      document.querySelector('#' + id + ' .palette-section-toggle')?.setAttribute('aria-expanded', 'false')
+      setPaletteSection(id, false)
     }
   })
 
   // Advanced types sub-section toggle (nested inside Blocks)
   const advToggle = document.getElementById('advancedBlocksToggle')
   if (advToggle) {
+    document.querySelector('#advancedBlocks .palette-subsection-body').inert = true
     advToggle.addEventListener('click', () => {
       const sub = document.getElementById('advancedBlocks')
       sub.classList.toggle('collapsed')
-      advToggle.setAttribute('aria-expanded', !sub.classList.contains('collapsed'))
+      const open = !sub.classList.contains('collapsed')
+      advToggle.setAttribute('aria-expanded', open)
+      sub.querySelector('.palette-subsection-body').inert = !open
     })
   }
 
@@ -998,7 +1072,8 @@ export function setupPaletteSections() {
   if (collapseBtn && palette) {
     const reflect = () => {
       const on = palette.classList.contains('collapsed')
-      collapseBtn.title = on ? 'Expand palette' : 'Collapse palette'
+      collapseBtn.title = on ? 'Show palette' : 'Hide palette'
+      collapseBtn.setAttribute('aria-label', collapseBtn.title)
       collapseBtn.setAttribute('aria-expanded', on ? 'false' : 'true')
     }
     try { if (localStorage.getItem('pathfinder-palette-collapsed') === '1') palette.classList.add('collapsed') } catch (_) {}
@@ -1026,6 +1101,7 @@ export function setupTimer() {
   let timeRemaining = 0
   let isPaused = false
   let originalTime = 0
+  let hasStarted = false
 
   const beepEmbed = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmFgU7k9n1unEiBC13yO/eizEIHWq+8+OWTAkZYLTo6aZVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmFgU7k9n1unEiBC13yO/eizEIHWq+8+OWTQ=='
 
@@ -1038,10 +1114,10 @@ export function setupTimer() {
   function updateWarningClass() {
     const minsLeft = timeRemaining / 60
     display.classList.remove('warning', 'critical')
-    widget.classList.remove('active')
+    widget.classList.toggle('active', hasStarted && !isPaused && timeRemaining > 0)
+    widget.classList.toggle('started', hasStarted)
 
-    if (timeRemaining > 0) {
-      widget.classList.add('active')
+    if (hasStarted && timeRemaining > 0) {
       if (minsLeft <= 1) {
         display.classList.add('critical')
       } else if (minsLeft <= 3) {
@@ -1080,12 +1156,8 @@ export function setupTimer() {
     const isVisible = controls.style.display === 'flex'
     controls.style.display = isVisible ? 'none' : 'flex'
     toggleBtn.classList.toggle('active', !isVisible)
-    // Update icon based on state
-    toggleBtn.innerHTML = isVisible ? getSmallIcon('clock') : getSmallIcon('timer')
+    toggleBtn.setAttribute('aria-expanded', String(!isVisible))
   })
-
-  // Initialize with clock icon
-  toggleBtn.innerHTML = getSmallIcon('clock')
 
   startBtn.addEventListener('click', () => {
     if (timeRemaining === 0) {
@@ -1095,6 +1167,8 @@ export function setupTimer() {
     }
 
     isPaused = false
+    hasStarted = true
+    if (interval) clearInterval(interval)
     startBtn.style.display = 'none'
     pauseBtn.style.display = ''
 
@@ -1104,6 +1178,7 @@ export function setupTimer() {
         updateDisplay()
       }
     }, 1000)
+    updateDisplay()
   })
 
   pauseBtn.addEventListener('click', () => {
@@ -1111,6 +1186,7 @@ export function setupTimer() {
     startBtn.style.display = ''
     pauseBtn.style.display = 'none'
     startBtn.textContent = 'Resume'
+    updateWarningClass()
   })
 
   resetBtn.addEventListener('click', () => {
@@ -1119,6 +1195,7 @@ export function setupTimer() {
       interval = null
     }
     isPaused = false
+    hasStarted = false
     const mins = parseInt(minutesInput.value, 10) || 10
     timeRemaining = mins * 60
     originalTime = timeRemaining
@@ -1240,10 +1317,15 @@ export function checkShareUrl() {
   try {
     const data = JSON.parse(decodeURIComponent(atob(hash.slice(3))))
     if (!data.blocks) return
-    const qsParts = []; if (ui.embed) qsParts.push('embed'); if (ui.readOnly) qsParts.push('readonly')
-    history.replaceState(null, '', location.pathname + (qsParts.length ? '?' + qsParts.join('&') : ''))
+    // Read-only documents live in the URL, so retain it for reloads and copies.
+    if (!ui.readOnly) {
+      const params = new URLSearchParams(location.search)
+      params.delete('src') // the hash takes precedence over a competing URL source
+      const query = params.toString()
+      history.replaceState(null, '', location.pathname + (query ? '?' + query : ''))
+    }
     const isEmpty = Object.keys(state.blocks).length === 0
-    const mode = (isEmpty || ui.embed) ? 'replace'
+    const mode = (isEmpty || ui.readOnly) ? 'replace'
       : (confirm('Load shared canvas?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
     const { dropped } = applyImport(data, mode)
     collapseTemplatesAfterUse()
@@ -1252,6 +1334,7 @@ export function checkShareUrl() {
     syncContextBrief()
     const skipped = dropped.blocks + dropped.arrows + dropped.groups
     if (skipped) showToast(`Loaded shared canvas, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`, 'warning')
+    return true
   } catch(_) { /* malformed hash -- silently ignore */ }
 }
 
@@ -1270,12 +1353,12 @@ export async function checkSrcUrl() {
   if (!/^https:\/\//.test(src) && !src.startsWith('/')) {
     showToast('?src= must be an https URL', 'warning'); return
   }
-  // Drop src from the URL either way, keeping embed/readonly flags: reloads
-  // should not re-fetch, and a failed fetch should not look retryable-by-F5.
-  const keep = []
-  if (ui.embed) keep.push('embed')
-  if (ui.readOnly && !ui.embed) keep.push('readonly')
-  history.replaceState(null, '', location.pathname + (keep.length ? '?' + keep.join('&') : '') + location.hash)
+  // Editable imports autosave. Read-only documents need their source on reload.
+  if (!ui.readOnly) {
+    params.delete('src')
+    const query = params.toString()
+    history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash)
+  }
   try {
     const res = await fetch(src, { credentials: 'omit' })
     if (!res.ok) { showToast(`Could not load ?src= (HTTP ${res.status})`, 'warning'); return }
@@ -1284,7 +1367,7 @@ export async function checkSrcUrl() {
     const data = JSON.parse(text)
     if (!data || (!data.blocks && !data.arrows)) { showToast('That URL has no canvas in it', 'warning'); return }
     const isEmpty = Object.keys(state.blocks).length === 0
-    const mode = (isEmpty || ui.embed) ? 'replace'
+    const mode = (isEmpty || ui.readOnly) ? 'replace'
       : (confirm('Load canvas from the link?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
     const { imported, dropped } = applyImport(data, mode)
     collapseTemplatesAfterUse()

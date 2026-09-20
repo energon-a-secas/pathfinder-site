@@ -7,8 +7,8 @@
 //
 //  Everything is built from the canvas: acceptance criteria come
 //  from block.criteria, decision rationale from block.rationale,
-//  ordering from the connections (the same layering Tidy and the
-//  Workflow section use). Nothing is invented; a missing input
+//  ordering from the connections (shared with the Build prompt).
+//  Nothing is invented; a missing input
 //  is marked [NEEDS INPUT] rather than filled with a guess.
 // ════════════════════════════════════════════════════════════
 
@@ -16,7 +16,7 @@ import { state, canvasMeta } from './state.js'
 import { PRIORITY_DEFS, showToast } from './utils.js'
 import { situationSection } from './prompt.js'
 import { mermaidBlock } from './export.js'
-import { breakCycles, assignLayers } from './layout.js'
+import { taskChecklist } from './task-plan.js'
 
 const byType = () => {
   const m = {}
@@ -27,18 +27,6 @@ const byType = () => {
 const title = () => (canvasMeta.title || '').trim() || 'Untitled canvas'
 
 const priTag = b => b.priority ? ` [${(PRIORITY_DEFS[b.priority]?.label || b.priority).toUpperCase()}]` : ''
-
-/** Layer index per block over the whole graph, for dependency ordering. */
-function layerMap() {
-  const ids = Object.keys(state.blocks)
-  const edges = state.arrows
-    .filter(a => state.blocks[a.from] && state.blocks[a.to])
-    .map(a => ({ from: a.from, to: a.to }))
-  const { acyclic } = breakCycles(ids, edges)
-  return assignLayers(ids, acyclic).layer
-}
-
-const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
 
 function criteriaChecklist(b, indent = '') {
   if (!(b.criteria || []).length) return `${indent}- [ ] [NEEDS INPUT: acceptance criteria]\n`
@@ -177,29 +165,14 @@ function planMd() {
 }
 
 function tasksMd() {
-  const t = byType()
-  const items = [...(t.requirement || []), ...(t.output || [])]
+  const checklist = taskChecklist(state.blocks, state.arrows)
   let md = `# ${title()}: tasks\n\n`
-  md += `> Sequenced by the dependency order drawn on the canvas. Work top to\n> bottom; a task's criteria are its definition of done.\n\n`
-  if (!items.length) {
+  md += `> Sequenced by the dependency order drawn on the canvas. Priorities break\n> ties between available tasks. Checked tasks are marked done, not independently\n> verified. Resolve blockers and missing inputs before implementing affected tasks.\n\n`
+  if (!checklist) {
     md += `No requirement or output blocks on the canvas yet, so there are no\ntasks to list. Add them in Pathfinder and export again.\n`
     return md
   }
-  const layer = layerMap()
-  const ordered = items.sort((a, b) =>
-    ((layer.get(a.id) ?? 0) - (layer.get(b.id) ?? 0)) ||
-    ((PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3)))
-  const taskIds = new Set(items.map(b => b.id))
-  ordered.forEach(b => {
-    md += `- [ ]${priTag(b)} ${b.title || '(untitled)'}\n`
-    if (b.description) md += `      ${b.description.replace(/\n/g, '\n      ')}\n`
-    const after = state.arrows
-      .filter(a => a.to === b.id && taskIds.has(a.from))
-      .map(a => state.blocks[a.from]?.title).filter(Boolean)
-    if (after.length) md += `      after: ${after.join('; ')}\n`
-    md += criteriaChecklist(b, '      ')
-  })
-  return md
+  return md + checklist
 }
 
 // A criterion that already opens with an EARS keyword is kept verbatim; the

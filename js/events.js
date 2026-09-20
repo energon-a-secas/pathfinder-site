@@ -1,3 +1,4 @@
+import { relationHint } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  events.js — Core canvas interactions: pointer events, keyboard
 //              shortcuts, palette, inspector panel, canvas title, hover
@@ -69,7 +70,7 @@ export function setupCanvasPointerEvents() {
     // Overlay UI (Brain Dump card, copy pill, search box, zoom indicator) lives
     // inside the viewport. Don't capture the pointer for clicks that land on it —
     // capturing steals the follow-up `click` from the button and pans the canvas.
-    if (e.target.closest('.brain-dump, .copy-pill-wrap, .search-overlay, .zoom-indicator')) return
+    if (e.target.closest('[data-canvas-ui], .brain-dump, .copy-pill-wrap, .search-overlay, .canvas-search-toggle, .zoom-indicator')) return
     canvasViewport.setPointerCapture(e.pointerId)
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
@@ -362,6 +363,7 @@ export function setupCanvasPointerEvents() {
   // cursor. This matches Figma/Miro/tldraw so "just move to pan" works on a
   // trackpad without holding a drag.
   canvasViewport.addEventListener('wheel', e => {
+    if (e.target.closest('[data-canvas-ui]')) return
     e.preventDefault()
     const r  = canvasViewport.getBoundingClientRect()
     const vx = e.clientX - r.left, vy = e.clientY - r.top
@@ -385,6 +387,7 @@ export function setupCanvasPointerEvents() {
   // Double-click: edit the field under the cursor (title or description),
   // or fit view on empty canvas.
   canvasViewport.addEventListener('dblclick', e => {
+    if (e.target.closest('[data-canvas-ui]')) return
     const block = e.target.closest('.block')
     if (block) {
       if (ui.readOnly) return
@@ -526,7 +529,7 @@ export function setupKeyboardShortcuts() {
     // Nothing below this line may fire while the user is typing. `?` used to
     // sit above it, so a question mark in a description opened the help sheet.
     const tag = document.activeElement?.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.contentEditable === 'true') return
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.contentEditable === 'true') return
 
     if (e.key === '?') { e.preventDefault(); openShortcuts(); return }
     if (e.altKey && e.key === 'h') { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
@@ -822,6 +825,7 @@ export function setupTypeChips() {
 export function setupTabNavigation() {
   // Tab / Shift+Tab cycles through blocks in visual order
   $.canvasViewport().addEventListener('keydown', e => {
+    if (e.target.closest('[data-canvas-ui]')) return
     if (e.key !== 'Tab') return
     const ids = Object.keys(state.blocks); if (!ids.length) return
     const sorted = [...ids].sort((a, b) => {
@@ -1077,9 +1081,20 @@ export function setupInspectorEvents() {
     deleteBlocksBatch([...selection.ids])
   )
 
+  document.getElementById('arrowRelation')?.addEventListener('change', e => {
+    const a = state.arrows.find(arr => arr.id === selection.arrowId)
+    if (!a || ui.readOnly) return
+    snapshot()
+    a.relation = e.target.value || null
+    renderArrows(); renderInspector(); runGapDetection(); debouncedSave(); ui.promptDirty = true
+    window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
+  })
+
   document.getElementById('arrowLabelInput').addEventListener('input', () => {
     const a = state.arrows.find(arr => arr.id === selection.arrowId); if (!a) return
     a.label = document.getElementById('arrowLabelInput').value.trim()
+    document.getElementById('arrowRelationHint').textContent = relationHint(a, state.blocks)
+    runGapDetection()
     renderArrows(); debouncedSave(); ui.promptDirty = true
   })
 

@@ -31,9 +31,10 @@ export function templateToPayload(tpl) {
       status: bd.status || null,
     }
   })
-  const arrows = tpl.arrows.map(([fi, ti, label], i) => {
+  const arrows = tpl.arrows.map(([fi, ti, label, relation], i) => {
     const a = { id: 'ea' + i, from: ids[fi], to: ids[ti], style: 'routed' }
     if (label) a.label = label
+    if (relation) a.relation = relation
     return a
   })
   const meta = { title: tpl.name }

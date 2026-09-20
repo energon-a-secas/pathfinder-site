@@ -12,7 +12,7 @@ Return ONLY a single valid JSON object (no prose, no markdown fences) in exactly
     { "id": "b1", "type": "goal", "title": "Short label", "description": "1-4 lines. Use \\n for line breaks.", "x": 0, "y": 0 }
   ],
   "arrows": [
-    { "from": "b1", "to": "b2", "label": "requires", "note": "optional longer explanation" }
+    { "from": "b1", "to": "b2", "relation": "depends-on", "label": "requires", "note": "optional longer explanation" }
   ],
   "meta": { "title": "Diagram name", "contextBrief": "One line of framing" }
 }
@@ -38,7 +38,9 @@ RULES
   requirement is meant, or vice-versa.
 - Lay blocks out left-to-right in reading / flow order. Space them ~320px apart on x and
   ~140px apart on y so they do not overlap. Give x / y as plain numbers.
-- Arrows point from cause -> effect (or step -> next step). "label" is 1-3 words
+- Set arrow "relation" to "precedes" (step -> next step), "depends-on" (source needs target first),
+  "blocks" (source must finish before target), "informs", or "related" (context, no task ordering).
+  "label" is optional, 1-3 words
   ("requires", "blocks", "enables", "yes", "no", "approved"). Put any longer reasoning in "note".
 - Keep titles short; put detail in "description" using \\n between lines.
 - Aim for 6-14 blocks unless I ask for more.

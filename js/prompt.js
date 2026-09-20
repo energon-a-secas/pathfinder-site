@@ -1,11 +1,13 @@
+import { dependencyEdges, connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  prompt.js — AI prompt export generation
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, devOpts, promptState, canvasMeta } from './state.js'
+import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml } from './utils.js'
 import { runGapDetection, GAP_META } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
+import { taskChecklist } from './task-plan.js'
 
 /**
  * The standing brief: what this document is, and where the reader is standing.
@@ -48,8 +50,6 @@ export function generatePrompt() {
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
 
-  const incomingCount = id => state.arrows.filter(a => a.to === id).length
-
   const fmt = b => {
     const tags = []
     if (b.priority) tags.push(PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority)
@@ -84,29 +84,9 @@ export function generatePrompt() {
     return `## ${heading}\n${items.map(fmt).join('\n')}\n`
   }
 
-  // Build mode renders requirements + outputs as an actionable task checklist,
-  // ordered by priority then by how many things depend on them.
-  const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
-  const taskSection = (heading, type) => {
-    const items = byType[type]; if (!items?.length) return ''
-    const ordered = [...items].sort((a, b) => {
-      const pr = (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3)
-      if (pr !== 0) return pr
-      return incomingCount(b.id) - incomingCount(a.id)
-    })
-    let out = `## ${heading}\n`
-    ordered.forEach(b => {
-      const pri = b.priority ? ` [${PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority}]` : ''
-      out += `- [ ]${pri} ${b.title || '(untitled)'}\n`
-      if (b.description) out += `      ${b.description}\n`
-      if ((b.criteria || []).length) {
-        out += `      Acceptance criteria:\n`
-        b.criteria.forEach(c => { out += `      - [ ] ${c}\n` })
-      } else {
-        out += `      Acceptance criteria: [NEEDS INPUT: acceptance criteria]\n`
-      }
-    })
-    return out
+  const taskSection = () => {
+    const checklist = taskChecklist(state.blocks, state.arrows)
+    return checklist ? `## Implementation checklist\n${checklist}` : ''
   }
 
   // Workflow section: process + terminator nodes as an ordered sequence.
@@ -119,14 +99,12 @@ export function generatePrompt() {
     const flow = Object.values(state.blocks).filter(b => b.type === 'process' || b.type === 'terminator')
     if (!flow.length) return ''
     const ids = Object.keys(state.blocks)
-    const edges = state.arrows
-      .filter(a => state.blocks[a.from] && state.blocks[a.to])
-      .map(a => ({ from: a.from, to: a.to }))
+    const edges = dependencyEdges(state.blocks, state.arrows)
     const { acyclic } = breakCycles(ids, edges)
     const { layer } = assignLayers(ids, acyclic)
     const outDeg = {}
     flow.forEach(b => { outDeg[b.id] = 0 })
-    state.arrows.forEach(a => { if (outDeg[a.from] != null && state.blocks[a.to]) outDeg[a.from]++ })
+    edges.forEach(a => { if (outDeg[a.from] != null) outDeg[a.from]++ })
     // Terminators with outgoing arrows open the flow; ones without close it.
     const rank = b => b.type === 'terminator' ? (outDeg[b.id] ? -1 : 1) : 0
     const ordered = [...flow].sort((a, b) =>
@@ -149,25 +127,24 @@ export function generatePrompt() {
     goals:        () => sec('Project Goals', 'goal'),
     problems:     () => sec('Problems / Blockers', 'problem'),
     requirements: () => sec('Requirements', 'requirement'),
-    reqTasks:     () => taskSection('Requirements (as tasks)', 'requirement'),
+    tasks:        () => taskSection(),
     assumptions:  () => sec('Assumptions (validate before building)', 'assumption'),
     risks:        () => sec('Risks', 'risk'),
     questions:    () => sec('Open Questions (Review Before Assuming)', 'question'),
     decisions:    () => sec('Decisions', 'decision'),
     resources:    () => sec('Resources Available', 'resource'),
     outputs:      () => sec('Expected Outputs', 'output'),
-    outputTasks:  () => taskSection('Expected Outputs (as deliverables)', 'output'),
     flow:         () => flowSection(),
     custom:       () => sec('Custom / Other', 'custom'),
   }
 
   // Per-mode section order. Explore/Clarify front-load the unknowns; Build
-  // turns requirements/outputs into checklists and drops framing-only types.
+  // combines requirements/outputs so dependencies can cross between types.
   const ORDERS = {
     plan:    ['context','goals','problems','requirements','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
     investigate: ['context','problems','questions','assumptions','goals','requirements','risks','decisions','resources','flow','outputs','custom'],
     explore: ['assumptions','questions','goals','problems','requirements','risks','context','decisions','resources','outputs','flow','custom'],
-    build:   ['goals','reqTasks','assumptions','problems','risks','decisions','flow','outputTasks'],
+    build:   ['context','goals','tasks','assumptions','problems','risks','questions','decisions','resources','flow','custom'],
     clarify: ['questions','assumptions','goals','problems','requirements','risks','decisions','context','flow'],
   }
   const order = ORDERS[mode] || ORDERS.plan
@@ -194,8 +171,11 @@ export function generatePrompt() {
       'Break work into concrete phases with clear outputs for each. Flag any assumptions you are making.\n',
     build:
       '## Task\nImplement the plan described in this canvas. Produce working code. ' +
-      'Work through the Requirements checklist below in order. For each requirement, include acceptance criteria \u2014 ' +
-      'where they are marked [NEEDS INPUT], do NOT invent them; ask first. Use the dependency connections to order your work.\n',
+      'Work through the Implementation checklist below in dependency order. Priorities break ties between available tasks. ' +
+      'Checked tasks are already marked done on the canvas; verify their claims against the code rather than reimplementing them. ' +
+      'Do not treat blocked tasks as ready: resolve their blockers first. For each requirement, include acceptance criteria; ' +
+      'where they are marked [NEEDS INPUT], do NOT invent them; ask first. ' +
+      'Resolve blocking questions and circular dependencies before implementing the affected work.\n',
     clarify:
       '## Task\nDo NOT implement or plan yet. Identify what is ambiguous, missing, or contradictory ' +
       'and return a prioritized list of clarifying questions.\n\n' +
@@ -279,7 +259,8 @@ export function generatePrompt() {
     state.arrows.forEach(a => {
       const f = state.blocks[a.from], t = state.blocks[a.to]
       if (f && t) {
-        const via = a.label ? ` [${a.label}]` : ''
+        const label = connectionLabel(a)
+        const via = label ? ` [${label}]` : ''
         prompt += `\u2022 ${TYPES[f.type]?.label} "${f.title}"${via} \u2192 ${TYPES[t.type]?.label} "${t.title}"\n`
         if (a.note?.trim()) prompt += `    ${a.note.trim().replace(/\n/g, '\n    ')}\n`
       }
@@ -328,7 +309,7 @@ export function generatePrompt() {
     'https://pathfinder.neorgon.com/llms.txt) carrying: answers to the open questions, each ' +
     'assumption marked verified or refuted with its evidence, status changes, new acceptance ' +
     'criteria, and any new blocks wired to existing ones. Address blocks by the ids below; ' +
-    'do not invent answers you do not have.\n'
+    'do not invent answers you do not have. For new arrows, set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n'
   prompt += '\n### Block ids\n'
   Object.values(state.blocks).forEach(b => {
     prompt += `\u2022 ${b.id}: ${(b.title || '(untitled)').slice(0, 60)}\n`
@@ -355,8 +336,8 @@ export function buildQuestionPrompt(block, question) {
 
   const neighbors = []
   state.arrows.forEach(a => {
-    if (a.from === block.id && state.blocks[a.to]) neighbors.push({ b: state.blocks[a.to], dir: '→', label: a.label })
-    if (a.to === block.id && state.blocks[a.from]) neighbors.push({ b: state.blocks[a.from], dir: '←', label: a.label })
+    if (a.from === block.id && state.blocks[a.to]) neighbors.push({ b: state.blocks[a.to], dir: '→', label: connectionLabel(a) })
+    if (a.to === block.id && state.blocks[a.from]) neighbors.push({ b: state.blocks[a.from], dir: '←', label: connectionLabel(a) })
   })
 
   let p = '## Task\n'
@@ -435,31 +416,48 @@ export function computeHealthScore() {
 }
 
 // ── Prompt diff ───────────────────────────────────────────────
-export function markExported() {
-  promptState.lastSnapshot = JSON.stringify({
-    blocks: Object.fromEntries(Object.entries(state.blocks).map(([id, b]) => [id, { title: b.title, type: b.type, description: b.description }])),
-    arrowPairs: state.arrows.map(a => `${a.from}→${a.to}`)
-  })
+function promptSnapshot() {
+  const blocks = Object.fromEntries(Object.entries(state.blocks).map(([id, b]) => [id, {
+    title: b.title || '', type: b.type, description: b.description || '', notes: b.notes || '',
+    status: b.status || 'not-started', priority: b.priority || null,
+    actions: b.actions || [], criteria: b.criteria || [], questions: b.questions || [],
+    rationale: b.rationale || '', docRef: b.docRef || null, groupId: b.groupId || null,
+  }]))
+  const arrows = Object.fromEntries(state.arrows.map(a => [JSON.stringify([a.from, a.to]), {
+    relation: a.relation || null, label: a.label || '', note: a.note || '', bidirectional: !!a.bidirectional,
+  }]))
+  const { title, contextBrief, situation, prompt } = serializeCanvas().meta
+  const groups = Object.values(state.groups || {}).map(g => ({ id: g.id, label: g.label || '' }))
+    .sort((a, b) => a.id.localeCompare(b.id))
+  return { blocks, arrows, groups, meta: { title, contextBrief, situation, prompt } }
 }
 
-function getPromptDiff() {
+export function markExported() {
+  promptState.lastSnapshot = JSON.stringify(promptSnapshot())
+}
+
+export function getPromptDiff() {
   if (!promptState.lastSnapshot) return null
   const prev = JSON.parse(promptState.lastSnapshot)
+  const curr = promptSnapshot()
   const prevBlocks = prev.blocks || {}
-  const currBlocks = state.blocks
-  const prevPairs  = new Set(prev.arrowPairs || [])
-  const currPairs  = new Set(state.arrows.map(a => `${a.from}→${a.to}`))
+  const currBlocks = curr.blocks
+  const prevPairs = new Set(Object.keys(prev.arrows || {}))
+  const currPairs = new Set(Object.keys(curr.arrows))
 
   const added    = Object.keys(currBlocks).filter(id => !prevBlocks[id]).map(id => currBlocks[id].title || '(untitled)')
   const removed  = Object.keys(prevBlocks).filter(id => !currBlocks[id]).map(id => prevBlocks[id].title || '(untitled)')
   const modified = Object.keys(currBlocks).filter(id =>
-    prevBlocks[id] && (currBlocks[id].title !== prevBlocks[id].title || currBlocks[id].description !== prevBlocks[id].description || currBlocks[id].type !== prevBlocks[id].type)
+    prevBlocks[id] && JSON.stringify(currBlocks[id]) !== JSON.stringify(prevBlocks[id])
   ).map(id => currBlocks[id].title || '(untitled)')
   const addedArrows   = [...currPairs].filter(p => !prevPairs.has(p)).length
   const removedArrows = [...prevPairs].filter(p => !currPairs.has(p)).length
+  const modifiedArrows = [...currPairs].filter(p => prevPairs.has(p) && JSON.stringify(curr.arrows[p]) !== JSON.stringify(prev.arrows[p])).length
+  const framingChanged = JSON.stringify(curr.meta) !== JSON.stringify(prev.meta)
+  const groupsChanged = JSON.stringify(curr.groups) !== JSON.stringify(prev.groups)
 
-  if (!added.length && !removed.length && !modified.length && !addedArrows && !removedArrows) return null
-  return { added, removed, modified, addedArrows, removedArrows }
+  if (!added.length && !removed.length && !modified.length && !addedArrows && !removedArrows && !modifiedArrows && !framingChanged && !groupsChanged) return null
+  return { added, removed, modified, addedArrows, removedArrows, modifiedArrows, framingChanged, groupsChanged }
 }
 
 // ── Refresh prompt panel ─────────────────────────────────────
@@ -531,6 +529,9 @@ export function refreshPrompt() {
       if (diff.modified.length) parts.push(`<span class="diff-changed">~${diff.modified.length} modified</span>`)
       if (diff.addedArrows)     parts.push(`<span class="diff-added">+${diff.addedArrows} connection${diff.addedArrows>1?'s':''}</span>`)
       if (diff.removedArrows)   parts.push(`<span class="diff-removed">\u2212${diff.removedArrows} connection${diff.removedArrows>1?'s':''} removed</span>`)
+      if (diff.modifiedArrows)  parts.push(`<span class="diff-changed">${diff.modifiedArrows} connection${diff.modifiedArrows>1?'s':''} modified</span>`)
+      if (diff.framingChanged)  parts.push('<span class="diff-changed">Brief or prompt options changed</span>')
+      if (diff.groupsChanged)   parts.push('<span class="diff-changed">Groups changed</span>')
       diffEl.style.display = ''
       diffEl.innerHTML = `<div class="prompt-diff-title">Changes since last export</div>${parts.join(' \u00B7 ')}`
     }

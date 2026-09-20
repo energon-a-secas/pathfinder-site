@@ -65,7 +65,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **Key interactions added 2026-08-24 (tidy pins, pill, maps):**
 - **Tidy port pins carry provenance** (`portsBy: 'tidy'`). Tidy never overwrites a hand-pinned side; a same-layer edge gets perpendicular geometry ports (not bottom→bottom); a backward edge keeps the under-detour only when `routed`, other styles go back to auto; dragging a block releases tidy pins on its arrows (`releaseTidyPins` in `layout.js`, called from the drag pointerup). Pins matching the pre-provenance scheme are adopted and healed on the next Tidy.
-- **The floating copy pill can be hidden**: an × on hover collapses verdict + pill to a small chip (`pathfinder-pill`), and Zen (`Z`) hides the whole cluster for presenting.
+- **Copy prompt** lives in the bottom canvas utility bar alongside zoom and save status. It uses a standard copy icon with inline confirmation. Zen (`Z`) hides the bar. The older floating pill and its `pathfinder-pill` setting have been retired.
 - **Maps** (header, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
 - `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
 - **Acceptance criteria + decision rationale + Spec bundle**: `block.criteria[]` (requirement/goal/output) and `block.rationale` (decision) edit in the inspector, feed the prompt (Build's `[NEEDS INPUT]` placeholder only appears when criteria are missing), the Markdown export, and **Export ▾ → Download Spec bundle (zip)**: spec/plan/tasks/EARS-requirements built by `spec-export.js`, zipped by `zip.js`.
@@ -181,7 +181,7 @@ break embedding.
 `'pathfinder-map-current'` (active id), `'pathfinder-snaps-<id>'` (snapshots, max 8)
 and `'pathfinder-view:<id>'` (per-map camera); `saveState()` write-through hooks
 (`saveHooks` in `state.js`, registered by `library.js`) mirror every autosave into
-the active map's slot. `'pathfinder-pill'` = '0' hides the floating copy pill.
+the active map's slot. The legacy `'pathfinder-pill'` setting is no longer used.
 
 **Storage migration gotcha:** a pre-library browser (canvas under `'pathfinder-v1'`,
 no `'pathfinder-map-current'`) is adopted on first load: `ensureLibrary()` in

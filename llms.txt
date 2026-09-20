@@ -120,6 +120,11 @@ first and answer the second.
 - `actions`: `resolve`, `prepare`, `recollect`, `reinforce`, `validate`
 - `priority`: `high`, `medium`, `low`
 - `status`: `not-started`, `in-progress`, `done`, `blocked`
+- `arrows[].relation`: `precedes`, `depends-on`, `blocks`, `informs`, `related`.
+  `depends-on` means the target must precede the source. `precedes` and `blocks`
+  order the source first. `informs` and `related` provide context without task
+  ordering. Explicit meaning overrides label text. When omitted, recognized
+  old labels infer their meaning; other arrows keep source-to-target ordering.
 - `arrows[].style`: `routed` (default, steers around blocks), `curved`,
   `straight`, `elbow`, `dashed`, `dotted`
 - `arrows[].portsBy`: `tidy` marks connection sides written by auto-layout
@@ -213,21 +218,31 @@ fuzzy match is labeled, ambiguity is refused).
 
 Semantics:
 
-- `answers`: fills a question's `answer` field. `question` is the index or the
-  question text; omit it when the block has exactly one question.
+- `answers`: fills a question's `answer` field. `question` is the zero-based
+  index or unique question text; omit it when the block has exactly one
+  question. If two questions have the same text, use the index.
 - `verify`: an `assumption` becomes a `decision` **in place** (same id, so its
   arrows survive); `verdict` is `verified` or `refuted`, and `evidence` is
   required, because a verdict without evidence is still a guess.
 - `status`: `not-started`, `in-progress`, `done`, `blocked`.
-- `criteria`: appends acceptance criteria (deduplicated, capped at 30).
+- `criteria`: appends acceptance criteria (case-insensitively deduplicated
+  within and across operations, capped at 30, each at most 300 characters).
 - `notes`: appends to the block's freeform notes, prefixed "Review:". The
   view-only link's review bar emits these; the author applies them with the
   same preview as any patch.
 - `blocks` / `arrows`: the canvas JSON shapes above; new blocks may reference
   each other and existing ids. Omitted positions are placed beside the canvas;
-  Tidy arranges them.
+  Tidy arranges them. Each new block must have a unique id within the patch.
+  Duplicate ids and arrows to rejected new blocks are refused. Repeated
+  connections are deduplicated.
 
 Do not put answers you do not have in a patch. An empty patch is a valid reply.
+Only version 1 is supported (an omitted version is treated as version 1).
+If the map changes after preview, the user must review a refreshed preview
+before applying. A single preview cannot be applied twice.
+Each operation can be selected independently with full before/after details.
+Selecting a new connection also selects its new blocks; deselecting a new block
+deselects dependent connections. Only the selected operations apply.
 
 ## Prompt modes
 

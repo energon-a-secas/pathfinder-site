@@ -2,7 +2,7 @@
 //  state.js — State management, localStorage load/save, undo/redo
 // ════════════════════════════════════════════════════════════
 
-import { STORAGE_KEY, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, debounce } from './utils.js'
+import { STORAGE_KEY, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, MIN_ZOOM, MAX_ZOOM, clamp, debounce } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 
 // ── App state (mutable, shared by all modules) ──────────────
@@ -61,6 +61,13 @@ export function getRedoFuture()  { return redoFuture }
 // own per-map slot on every save. Registered from library.js, so this module
 // keeps zero knowledge of the library.
 export const saveHooks = []
+export const saveStatus = { phase: 'idle', savedAt: null, message: '' }
+
+function setSaveStatus(phase, message = '') {
+  Object.assign(saveStatus, { phase, message })
+  if (phase === 'saved') saveStatus.savedAt = Date.now()
+  window.dispatchEvent(new CustomEvent('pf:save-status'))
+}
 
 // One serializer for every copy of the canvas that leaves memory: autosave,
 // share links, the Maps library and file export all call this, so none of
@@ -81,11 +88,26 @@ export function applyPromptOpts(p) {
 }
 
 export function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeCanvas())) }
-  catch(_) {}
-  saveHooks.forEach(fn => { try { fn() } catch (_) {} })
+  // A shared preview is a separate document, never the visitor's active map.
+  if (ui.readOnly || ui.embed) return true
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeCanvas()))
+    for (const fn of saveHooks) {
+      if (fn() === false) throw new Error('Map library write failed')
+    }
+    setSaveStatus('saved')
+    return true
+  } catch (_) {
+    setSaveStatus('error', 'Changes are only in this tab. Download a backup or free browser storage, then retry.')
+    return false
+  }
 }
-export const debouncedSave = debounce(saveState, 300)
+const queueSave = debounce(saveState, 300)
+export function debouncedSave() {
+  if (ui.readOnly || ui.embed) return
+  if (saveStatus.phase !== 'error') setSaveStatus('pending')
+  queueSave()
+}
 
 export function loadState() {
   try {
@@ -117,19 +139,20 @@ const viewKey = () => {
 }
 
 export function saveView() {
+  if (ui.readOnly || ui.embed) return
   try { localStorage.setItem(viewKey(), JSON.stringify({ panX: view.panX, panY: view.panY, zoom: view.zoom })) }
   catch (_) {}
 }
 export const debouncedSaveView = debounce(saveView, 400)
 
 /** Restore the saved camera. Returns false when there was nothing to restore. */
-export function loadView() {
+export function loadView({ legacy = true } = {}) {
   try {
-    const raw = localStorage.getItem(viewKey()) || localStorage.getItem(VIEW_KEY)
+    const raw = localStorage.getItem(viewKey()) || (legacy && localStorage.getItem(VIEW_KEY))
     if (!raw) return false
     const v = JSON.parse(raw)
     if (![v.panX, v.panY, v.zoom].every(Number.isFinite)) return false
-    view.panX = v.panX; view.panY = v.panY; view.zoom = v.zoom
+    view.panX = v.panX; view.panY = v.panY; view.zoom = clamp(v.zoom, MIN_ZOOM, MAX_ZOOM)
     return true
   } catch (_) { return false }
 }

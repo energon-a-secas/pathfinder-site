@@ -1,3 +1,4 @@
+import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  export.js — JSON/Markdown export/import
 // ════════════════════════════════════════════════════════════
@@ -32,7 +33,7 @@ export function applyImport(data, mode, opts = {}) {
     // resolves each card against canvasMeta.cardStyle. A merge deliberately
     // keeps the existing framing: the canvas being merged into is the one
     // somebody set up.
-    if (clean.meta.title) canvasMeta.title = clean.meta.title
+    canvasMeta.title = clean.meta.title || ''
     canvasMeta.contextBrief = clean.meta.contextBrief || ''
     canvasMeta.cardStyle = clean.meta.cardStyle || DEFAULT_CARD_STYLE
     canvasMeta.spotlight = !!clean.meta.spotlight
@@ -73,6 +74,7 @@ export function applyImport(data, mode, opts = {}) {
     if (state.blocks[fId] && state.blocks[tId] && fId !== tId &&
         !state.arrows.some(x => x.from === fId && x.to === tId)) {
       const extra = {}
+      if (a.relation) extra.relation = a.relation
       if (a.label) extra.label = a.label
       if (a.note) extra.note = a.note
       if (a.style && a.style !== 'curved') extra.style = a.style
@@ -82,7 +84,8 @@ export function applyImport(data, mode, opts = {}) {
       if (a.fromPort) extra.fromPort = a.fromPort
       if (a.toPort) extra.toPort = a.toPort
       if (a.portsBy) extra.portsBy = a.portsBy
-      state.arrows.push({ id: genId(), from: fId, to: tId, ...extra })
+      const id = mode === 'replace' && a.id && !state.arrows.some(x => x.id === a.id) ? a.id : genId()
+      state.arrows.push({ id, from: fId, to: tId, ...extra })
     }
   })
 
@@ -167,7 +170,7 @@ export function exportMarkdown() {
       if (!f || !t) return
       // Labels and notes round-trip through JSON but used to be thrown away
       // here, so the exported list said what connected to what and never why.
-      const label = (a.label || '').trim()
+      const label = connectionLabel(a)
       const note  = (a.note  || '').trim().replace(/\s*\n\s*/g, ' ')
       const arrow = a.bidirectional ? '\u2194' : '\u2192'
       md += `- **${f.title}** ${arrow} **${t.title}**`
@@ -202,7 +205,7 @@ export function mermaidBlock() {
   state.arrows.forEach(a => {
     const f = state.blocks[a.from], t = state.blocks[a.to]
     if (!f || !t) return
-    const label = (a.label || '').trim()
+    const label = connectionLabel(a)
     const edge = a.bidirectional ? '<-->' : '-->'
     lines.push(`  ${key(a.from)}["${clean(f.title)}"] ${edge}${label ? `|${clean(label)}|` : ''} ${key(a.to)}["${clean(t.title)}"]`)
   })

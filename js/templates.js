@@ -270,11 +270,12 @@ export function applyTemplate(tpl) {
     return id
   })
 
-  tpl.arrows.forEach(([fi, ti, label]) => {
+  tpl.arrows.forEach(([fi, ti, label, relation]) => {
     const fId = ids[fi], tId = ids[ti]
     if (fId && tId && fId !== tId) {
       const arrow = { id: genId(), from: fId, to: tId, style: 'routed', bidirectional: false, color: null, weight: 2, fromPort: null, toPort: null }
       if (label) arrow.label = label
+      if (relation) arrow.relation = relation
       state.arrows.push(arrow)
     }
   })
@@ -334,7 +335,7 @@ export function saveCurrentAsTemplate(name, deps) {
     })),
     arrows: st.arrows
       .filter(a => index.has(a.from) && index.has(a.to))
-      .map(a => [index.get(a.from), index.get(a.to), a.label || undefined]),
+      .map(a => [index.get(a.from), index.get(a.to), a.label || undefined, ...(a.relation ? [a.relation] : [])]),
   }
   if (meta?.situation) tpl.situation = { ...meta.situation }
   if (mode) tpl.mode = mode

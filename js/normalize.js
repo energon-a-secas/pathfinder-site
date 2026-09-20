@@ -13,6 +13,7 @@ import { TYPES, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
          CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS,
          SITUATION_FIELDS, SITUATION_DEFAULT, HIGHLIGHTS,
          PROMPT_MODES, PROMPT_TONES, PROMPT_DETAILS, PRE_PROMPTS, PROMPT_OPTS_DEFAULT } from './utils.js'
+import { RELATIONS } from './relations.js'
 
 const VALID_ACTIONS   = Object.keys(ACTION_DEFS)
 const VALID_STATUSES  = Object.keys(STATUS_DEFS)
@@ -57,7 +58,7 @@ export function normalizeBlock(raw) {
   if (!raw || typeof raw !== 'object') return null
   const id = toStr(raw.id).trim()
   if (!id) return null
-  if (!TYPES[raw.type]) return null
+  if (typeof raw.type !== 'string' || !Object.hasOwn(TYPES, raw.type)) return null
 
   const actions = Array.isArray(raw.actions)
     ? [...new Set(raw.actions.filter(a => VALID_ACTIONS.includes(a)))]
@@ -127,6 +128,7 @@ export function normalizeArrow(raw) {
     id: toStr(raw.id).trim() || null,
     from,
     to,
+    relation: Object.hasOwn(RELATIONS, raw.relation) ? raw.relation : null,
     style: VALID_ARROW_STYLES.includes(raw.style) ? raw.style : 'curved',
     bidirectional: !!raw.bidirectional,
     color: toColor(raw.color),

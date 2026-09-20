@@ -1,3 +1,4 @@
+import { dependencyEdges } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  gaps.js: Gap detection logic
 // ════════════════════════════════════════════════════════════
@@ -98,9 +99,7 @@ export function runGapDetection() {
   const canvasFindings = []
   const ids = Object.keys(state.blocks)
   if (ids.length) {
-    const edges = state.arrows
-      .filter(a => state.blocks[a.from] && state.blocks[a.to] && a.from !== a.to)
-      .map(a => ({ from: a.from, to: a.to }))
+    const edges = dependencyEdges(state.blocks, state.arrows)
     const { reversed } = breakCycles(ids, edges)
     if (reversed.size) {
       canvasFindings.push(`${reversed.size} connection${reversed.size === 1 ? '' : 's'} close a cycle: the dependency order is circular somewhere`)

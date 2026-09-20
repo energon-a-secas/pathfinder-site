@@ -129,6 +129,7 @@ block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 | Add block | Click any item in the palette |
 | Move block | Drag the block body |
 | Select block | Click once |
+| Find a block | **Find blocks** on the canvas, or `Cmd/Ctrl + F`. Search content, then narrow by type or status |
 | Edit title | Double-click the block title |
 | Draw arrow | Drag from a port circle on a block edge |
 | Change where an arrow attaches | Select it, then pick a side under **Connection points**, or drag either endpoint handle |
@@ -144,6 +145,11 @@ block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 | Zoom | Scroll wheel (centered on cursor) |
 | Fit all blocks | Double-click empty canvas, or click **Fit** in the header |
 | Deselect | Click empty canvas |
+
+Search includes descriptions, notes, acceptance criteria, decision rationale,
+questions, answers, and documentation labels. It shows matching excerpts, ranks
+title matches first, and keeps every result available in a scrollable list.
+Use the arrow keys and Enter to jump to a block, or Escape to close search.
 
 ---
 
@@ -237,6 +243,23 @@ The generated prompt follows this structure:
 
 Blocks flagged with unanchored assumptions get an inline `⚠ ASSUMPTION GAP` note in the prompt so the AI can reason about them explicitly rather than gloss over them.
 
+**Build mode** combines requirements and outputs into one dependency-ordered
+checklist, including connections through other block types. Priority chooses
+between tasks whose prerequisites are already listed. Completed tasks remain
+checked, blocked tasks remain labeled, and each task carries its notes,
+questions and answers, criteria, and documentation reference. The spec bundle's
+`tasks.md` uses the same checklist. Circular connections are flagged for review.
+
+**Bring the answer back.** Paste an assistant's reply into the Prompt tab to
+preview its `pathfinder-patch`. Expand full before/after details and choose each
+operation independently. Accepting a connection includes its new endpoint blocks;
+excluding a new block excludes its connections. Apply the selection as one undo step.
+Duplicate new block IDs and ambiguous references are rejected; repeated arrows
+and criteria are deduplicated. If the canvas or active map changes after the
+preview, review the refreshed preview before applying. The prompt's change
+summary tracks answers, notes, criteria, status, connection text, and framing
+since the last copy.
+
 ---
 
 ## Export and import
@@ -249,6 +272,40 @@ Blocks flagged with unanchored assumptions get an inline `⚠ ASSUMPTION GAP` no
 | Import JSON | Export → **Import JSON**: choose Replace (clears canvas) or Merge (adds to existing) |
 
 The JSON export preserves everything: block positions, connections, actions, questions, notes. Use it to save snapshots, share canvases with a team, or resume planning sessions.
+
+View-only links and embeds load separately from your saved maps. They retain
+their shared URL on reload, and viewing or panning them does not overwrite your
+canvas or its saved camera.
+
+The **Maps** menu keeps separate canvases and remembers each map's view. In
+**Find blocks**, choose **All saved maps** to search across the library. Results
+show their map name and open the matching block; the current map's unsaved edits
+are included. Shared views search only the shared map.
+
+**Attention** lists unanswered questions, unverified assumptions, blocked work,
+and missing acceptance criteria. Filter by issue and open a block to resolve it.
+
+Select a connection and set its **Meaning**: comes before, depends on, blocks,
+informs, or related. Task checklists and cycle detection use this meaning.
+“Depends on” orders the target first; informational links do not impose an order.
+Older labeled connections infer their meaning; other older arrows retain their
+drawn order. An explicit meaning takes precedence over a custom label.
+
+**Maps → Snapshots → Compare** highlights added and changed blocks and draws
+removed blocks as dashed outlines. The Changes list includes full before/after
+content, connections, groups, and map settings. Comparison does not edit the map.
+Restoring first saves a backup snapshot of the current work.
+
+Zoom, save status, and **Copy prompt** share a compact bar below the canvas.
+The copy action uses a standard copy icon and copies immediately. If browser
+storage fails, the current
+work stays open with **Retry save** and **Download backup** controls. Switching
+maps waits for a successful save; the backup downloads the live content. The
+backup control appears when saving fails; JSON export remains in Export.
+
+Both sidebars use matching panel controls. Sections use plus/minus buttons
+with keyboard support. The optional session timer lives at the bottom of the
+details panel, and its countdown appears after you start it.
 
 ---
 
@@ -275,7 +332,11 @@ pathfinder-site/
 └── CNAME                   # pathfinder.neorgon.com
 ```
 
-State autosaves to `localStorage` key `pathfinder-v1` on every change (debounced 300 ms). The canvas view (pan and zoom) resets on reload; block positions and connections are always restored.
+State autosaves to `localStorage` key `pathfinder-v1` on every change (debounced 300 ms), with a copy in the active map's library slot. Each map's pan and zoom are saved separately and restored on reload or when switching maps. Shared links fit to their own content.
+
+To run the browser test suite, start the local server and open
+`/tests/run-tests.html`. The runner restores the browser's existing Pathfinder
+storage after the tests finish.
 
 ---
 

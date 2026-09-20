@@ -1,3 +1,4 @@
+import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  canvas.js — Canvas connections/lines drawing (SVG), drag behavior
 // ════════════════════════════════════════════════════════════
@@ -392,8 +393,9 @@ export function renderArrows(opts = {}) {
     }
     lbl.setAttribute('x', mx)
     lbl.setAttribute('y', my)
-    lbl.textContent = a.label || ''
-    lbl.style.display = a.label ? '' : 'none'
+    const label = connectionLabel(a)
+    lbl.textContent = label
+    lbl.style.display = label ? '' : 'none'
     lbl.classList.toggle('selected', sel)
 
     // Arrow note: richer annotation. Content is always rendered when present;
@@ -403,7 +405,7 @@ export function renderArrows(opts = {}) {
     const noteText = (a.note || '').trim()
     if (noteText) {
       const lines = wrapNote(noteText)
-      const startY = my + (a.label ? 15 : 4)
+      const startY = my + (label ? 15 : 4)
       noteEl.setAttribute('y', startY)
       noteEl.innerHTML = lines.map((ln, i) =>
         `<tspan x="${mx}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')

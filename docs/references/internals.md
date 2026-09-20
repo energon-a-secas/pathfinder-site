@@ -60,12 +60,19 @@ Two constraints the layout has to live with: **block heights are never stored** 
 **Section order is per-mode** (`ORDERS` in `prompt.js`). The four modes now produce genuinely different bodies:
 - **Plan**: Context → Goals → Problems → Requirements → Assumptions → Risks → Questions → Decisions → Resources → Outputs → Custom
 - **Explore**: front-loads Assumptions + Questions before everything else
-- **Build**: renders Requirements and Outputs as `- [ ]` task checklists (priority then incoming-arrow ordering); requirements without acceptance criteria emit `[NEEDS INPUT: acceptance criteria]` + a "do not invent, ask first" rule; drops framing-only types
+- **Build**: combines Requirements and Outputs into one dependency-ordered checklist via `task-plan.js`, shared with the spec bundle's `tasks.md`. Whole-graph ordering includes paths through non-task blocks; priority breaks ties between available nodes. Cycles are flagged rather than silently reversed. Completed tasks emit `[x]`, blocked tasks stay labeled, and task notes, answers, criteria, rationale and documentation references are retained. Context, resources and standalone questions remain in the prompt. Missing criteria emit `[NEEDS INPUT: acceptance criteria]` with a "do not invent, ask first" rule.
 - **Clarify**: leads with Questions + Assumptions; suppresses the implementation dev-option modules
 
 An **Assumptions** section ("validate before building") carries a standing directive telling the AI to treat each assumption as believed-true-until-disproven. Trailing: Connections → Groups → Action Labels → Gap summary.
 
-**Always-visible pill:** a "Copy AI-ready prompt" pill + plain-language readiness verdict sit in the canvas bottom-right (`#copyPillWrap`). The verdict is a pure function of `computeHealthScore()` + gap count; non-green copies prompt "Copy anyway?". The pill copies via the same `markExported()` path as the panel button so the diff tracker stays in sync, and refreshes on the `pf:canvas-changed` event.
+**Canvas utility bar:** `.canvas-workspace` wraps the pan/zoom viewport and a
+separate `#canvasStatusbar` containing zoom, local save status, and a neutral
+Copy prompt button. `setupQuickCopy()` uses `markExported()` and gives inline
+confirmation; `refreshQuickCopy()` handles empty/read-only states. Readiness
+stays in the Prompt pane. Save failures reveal retry and live backup controls.
+Panel toggles share one icon style; native section buttons use plus/minus and
+`inert` content. Panel tabs use arrow-key navigation. The timer sits below panel
+content and remains compact until opened or started.
 
 **Brain Dump empty state:** when the canvas is empty (and not read-only/embed), a Brain Dump card replaces the text hint. `createBlocksFromText()` (shared by paste + Brain Dump) runs a sentence-level scoring classifier (`categorizeLine` in `events.js`) that strips a leading first-person/article prefix and scores against weighted keyword sets, so natural prose lands on a real type. Each imported block gets a sibling type-correction chip in `canvasRoot` (low-confidence blocks flagged with an amber dashed outline); chips dismiss on the next canvas pointerdown.
 
@@ -79,6 +86,32 @@ Prompt is cached; `promptDirty` flag triggers re-generation only when canvas cha
 ---
 
 ## Key Functions Reference
+
+`saveState()` returns a boolean and publishes `pf:save-status`; `saveStatus`
+tracks pending/saved/error and the last successful timestamp. Library hooks
+return false when a write fails. `persistence-ui.js` owns retry, live backup,
+and flushing pending changes before navigation. Shared/embed views never write.
+
+`relations.js` defines explicit connection meaning and `dependencyEdges()`.
+Only dependency edges influence task order and cycle checks; drawing/layout
+continues to follow the visible arrows. Missing relation values infer known
+legacy labels, falling back to arrow direction. `connectionLabel()` keeps
+explicit meaning visible alongside custom labels in prompts and exports.
+
+Patch operations carry `selected`, `requires`, `read(graph)` and `apply(graph)`.
+`previewPlan()` applies selected operations to a copy for full before/after
+details. `setPlanSelected()` maintains endpoint dependencies. `applyPlan()`
+checks the original map/content baseline and applies the selection in one undo.
+
+`attentionItems()` returns independent unresolved issues. The Attention pane
+refreshes on mutations and save-status events, including debounced input edits.
+`searchSavedMaps()` reads normalized slots, substitutes live state for the
+current map, and refuses private-library access in shared/embed views.
+
+`compareCanvases()` is shared by snapshot summaries and the comparison UI.
+`comparison-ui.js` uses temporary DOM marks and removed-item outlines, leaving
+state and exports unchanged. Comparison closes on map switches. Snapshot
+restore first flushes the live map and requires a successful backup snapshot.
 
 **`js/state.js`:** `genId()` · `saveState()` · `loadState()` · `mutateBlock(id, changes)` · `createBlock(type, wx, wy)` · `deleteBlock(id)` · `duplicateBlock(id)`
 

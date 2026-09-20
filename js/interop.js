@@ -1,3 +1,4 @@
+import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  interop.js: other tools' canvases, in and out.
 //
@@ -160,7 +161,7 @@ export function toJsonCanvas() {
       const e = { id: a.id, fromNode: a.from, toNode: a.to }
       if (a.fromPort) e.fromSide = a.fromPort
       if (a.toPort) e.toSide = a.toPort
-      if (a.label) e.label = a.label
+      if (connectionLabel(a)) e.label = connectionLabel(a)
       if (a.bidirectional) e.fromEnd = 'arrow'
       return e
     })

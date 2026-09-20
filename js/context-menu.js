@@ -207,7 +207,7 @@ export function setupContextMenu() {
   // stops those from reaching here via its own preventDefault + return.
   canvasViewport.addEventListener('contextmenu', e => {
     if (e.target.closest('.block')) return
-    if (e.target.closest('.brain-dump, .copy-pill-wrap, .search-overlay')) return
+    if (e.target.closest('[data-canvas-ui], .brain-dump, .copy-pill-wrap, .search-overlay, .canvas-search-toggle')) return
     if (ui.readOnly) return
     e.preventDefault()
     openAddMenu(e.clientX, e.clientY)

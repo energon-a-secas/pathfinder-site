@@ -211,26 +211,26 @@
          the foot of the list, so every control that shrinks a panel is at its top. -->
     <div class="palette-head">
       <span class="palette-head-title">Palette</span>
-      <button class="palette-collapse-btn" id="paletteCollapseBtn" title="Collapse palette" aria-label="Toggle palette width" aria-expanded="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      <button class="palette-collapse-btn" id="paletteCollapseBtn" title="Hide palette" aria-label="Hide palette" aria-controls="templatesSection blocksSection" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5 6h2v12H5" fill="currentColor" stroke="none" opacity=".35"/></svg>
       </button>
     </div>
 
     <!-- Templates (collapsible; folds itself away once the canvas has content) -->
     <div class="palette-section" id="templatesSection">
-      <div class="palette-section-toggle" id="templatesToggle" role="button" tabindex="0" aria-expanded="true">
+      <button class="palette-section-toggle" id="templatesToggle" type="button" aria-label="Templates" title="Templates" aria-expanded="true" aria-controls="templatesList">
         <span>Templates</span>
-        <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-      </div>
+        <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+      </button>
       <div class="palette-section-body" id="templatesList"></div>
     </div>
 
     <!-- Blocks -->
     <div class="palette-section" id="blocksSection">
-      <div class="palette-section-toggle" id="blocksToggle" role="button" tabindex="0" aria-expanded="true">
+      <button class="palette-section-toggle" id="blocksToggle" type="button" aria-label="Blocks" title="Blocks" aria-expanded="true" aria-controls="blocksList">
         <span>Blocks</span>
-        <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-      </div>
+        <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+      </button>
       <div class="palette-section-body" id="blocksList">
         <div class="palette-item" data-type="goal" role="button" tabindex="0" aria-label="Add Goal block">
           <div class="palette-dot" style="background:var(--c-goal)"></div>
@@ -265,11 +265,11 @@
 
         <!-- Advanced types (collapsible) -->
         <div class="palette-subsection collapsed" id="advancedBlocks">
-          <div class="palette-subsection-toggle" id="advancedBlocksToggle" role="button" tabindex="0" aria-expanded="false">
+          <button class="palette-subsection-toggle" id="advancedBlocksToggle" type="button" aria-label="Advanced types" title="Advanced types" aria-expanded="false" aria-controls="advancedBlocksList">
             <span>Advanced types</span>
-            <svg class="palette-chevron" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-          </div>
-          <div class="palette-subsection-body">
+            <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+          </button>
+          <div class="palette-subsection-body" id="advancedBlocksList">
             <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Open Question block">
               <div class="palette-dot" style="background:var(--c-question)"></div>
               <div class="palette-item-text"><div class="palette-label">Open Question</div><div class="palette-desc">A genuine unknown</div></div>
@@ -313,6 +313,7 @@
   </aside>
 
   <!-- Canvas viewport -->
+  <section class="canvas-workspace" aria-label="Planning canvas">
   <div class="canvas-viewport" id="canvasViewport"
        role="application"
        aria-label="Strategy canvas. Tab to navigate blocks, Enter to select, arrow keys to pan."
@@ -347,17 +348,38 @@
     <!-- Rubber-band select -->
     <div class="select-box" id="selectBox"></div>
 
-    <!-- Block search overlay -->
-    <div class="search-overlay" id="searchOverlay" style="display:none">
-      <input class="search-input" id="searchInput" type="text"
-             placeholder="Search blocks…" autocomplete="off" spellcheck="false">
-      <div class="search-results" id="searchResults"></div>
+    <!-- Search remains reachable on touch screens and in view-only links. -->
+    <button class="canvas-search-toggle" id="searchBtn" aria-controls="searchOverlay" aria-expanded="false" title="Find blocks (Ctrl or Cmd + F)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+      Find blocks
+    </button>
+    <section class="search-overlay" id="searchOverlay" role="search" aria-label="Find blocks" style="display:none">
+      <div class="search-heading">
+        <input class="search-input" id="searchInput" type="text" role="combobox"
+               aria-label="Search block content" aria-autocomplete="list" aria-controls="searchResults" aria-expanded="false"
+               placeholder="Search titles, notes, questions…" autocomplete="off" spellcheck="false">
+        <button class="search-close" id="searchClose" aria-label="Close search" title="Close search (Esc)">×</button>
+      </div>
+      <div class="search-filters">
+        <select id="searchType" aria-label="Filter by block type"><option value="">All types</option></select>
+        <select id="searchStatus" aria-label="Filter by status"><option value="">All statuses</option></select>
+        <button id="searchReset" type="button">Reset</button>
+      </div>
+      <label class="search-scope" for="searchScope">Search in
+        <select id="searchScope"><option value="current">This map</option><option value="all">All saved maps</option></select>
+      </label>
+      <p class="search-summary" id="searchSummary" role="status" aria-live="polite"></p>
+      <div class="search-results" id="searchResults" role="listbox" aria-label="Matching blocks"></div>
+      <p class="search-empty" id="searchEmpty" hidden></p>
+    </section>
+
+    <div class="comparison-bar" id="comparisonBar" data-canvas-ui hidden>
+      <span>Comparing with a snapshot</span>
+      <button id="comparisonFit">Fit changes</button>
+      <button id="comparisonBarClose">Close comparison</button>
     </div>
 
-    <!-- Zoom indicator -->
-    <div class="zoom-indicator" id="zoomIndicator">100%</div>
-
-    <!-- Review bar: view-only links let a reviewer collect notes per block
+<!-- Review bar: view-only links let a reviewer collect notes per block
          and copy them out as a pathfinder-patch. Hidden outside readonly. -->
     <div class="review-bar" id="reviewBar">
       <input class="review-input" id="reviewInput" type="text" maxlength="500"
@@ -365,21 +387,6 @@
       <button class="review-btn" id="reviewAddBtn">Add note</button>
       <button class="review-btn review-copy" id="reviewCopyBtn" style="display:none">
         Copy review patch <span class="review-count" id="reviewCount"></span>
-      </button>
-    </div>
-
-    <!-- Always-visible AI-ready prompt pill + readiness verdict -->
-    <div class="copy-pill-wrap" id="copyPillWrap">
-      <div class="copy-pill-verdict" id="copyPillVerdict"></div>
-      <div class="copy-pill-row">
-      <button class="copy-pill-hide" id="copyPillHide" title="Hide this button" aria-label="Hide the copy prompt button">×</button>
-      <button class="copy-pill" id="copyPromptPill" aria-label="Copy AI-ready prompt">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 2H9c-1.1 0-2 .9-2 2v2H3c-.55 0-1 .45-1 1s.45 1 1 1h4v6H3c-.55 0-1 .45-1 1s.45 1 1 1h4v4c0 1.1.9 2 2 2h2v1c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-1h2c1.1 0 2-.9 2-2v-4h4c.55 0 1-.45 1-1s-.45-1-1-1h-4V8h4c.55 0 1-.45 1-1s-.45-1-1-1h-4V4c0-1.1-.9-2-2-2h-2V1h-2v1h-2z"/></svg>
-        <span id="copyPillLabel">Copy AI-ready prompt</span>
-      </button>
-      </div>
-      <button class="copy-pill-mini" id="copyPillMini" title="Show Copy AI-ready prompt" aria-label="Show the copy prompt button">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 2H9c-1.1 0-2 .9-2 2v2H3c-.55 0-1 .45-1 1s.45 1 1 1h4v6H3c-.55 0-1 .45-1 1s.45 1 1 1h4v4c0 1.1.9 2 2 2h2v1c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-1h2c1.1 0 2-.9 2-2v-4h4c.55 0 1-.45 1-1s-.45-1-1-1h-4V8h4c.55 0 1-.45 1-1s-.45-1-1-1h-4V4c0-1.1-.9-2-2-2h-2V1h-2v1h-2z"/></svg>
       </button>
     </div>
 
@@ -433,38 +440,59 @@
     </div>
   </div>
 
+  <div class="canvas-statusbar" id="canvasStatusbar" data-canvas-ui>
+    <span class="zoom-indicator" id="zoomIndicator" title="Canvas zoom" aria-label="Canvas zoom">100%</span>
+    <div class="save-status-bar" id="saveStatusBar">
+      <span id="saveStatusText" role="status" aria-live="polite">Saved locally</span>
+      <button id="saveRetry" hidden>Retry save</button>
+      <button id="saveBackup" hidden>Download backup</button>
+      <span id="saveStatusDetail" hidden></span>
+    </div>
+    <button class="quick-copy" id="copyPromptPill" aria-label="Copy prompt" title="Copy this map as a planning prompt">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
+      <span id="copyPillLabel">Copy prompt</span>
+    </button>
+  </div>
+  </section>
+
   <!-- Right panel -->
   <aside class="right-panel" id="rightPanel">
-    <button class="panel-reopen" id="panelReopenBtn" title="Show panel" aria-label="Show inspector panel">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    <button class="panel-reopen" id="panelReopenBtn" title="Show details panel" aria-label="Show details panel" aria-controls="panelContent" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
     </button>
     <div class="panel-tabs">
       <button class="panel-tab active" data-tab="inspector">Inspector</button>
       <button class="panel-tab"        data-tab="prompt">Prompt</button>
-      <button class="panel-collapse-btn" id="panelCollapseBtn" title="Collapse panel" aria-label="Collapse panel">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      <button class="panel-tab" data-tab="attention" title="Needs attention">Attention<span class="tab-count" id="attentionCount" hidden></span></button>
+      <button class="panel-collapse-btn" id="panelCollapseBtn" title="Hide details panel" aria-label="Hide details panel" aria-controls="panelContent" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
       </button>
     </div>
-
-    <!-- Timer Widget -->
-    <div class="timer-widget" id="timerWidget">
-      <div class="timer-header">
-        <div class="timer-display" id="timerDisplay">00:00</div>
-        <button class="timer-toggle" id="timerToggleBtn" title="Toggle timer" aria-label="Toggle timer">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15,1H9V3H15V1M11,14H13V8H11V14M19,7H20V19A2,2 0 0,1 18,21H6A2,2 0 0,1 4,19V7H5V5A2,2 0 0,1 7,3H17A2,2 0 0,1 19,5V7Z"/></svg>
-        </button>
-      </div>
-      <div class="timer-controls" id="timerControls" style="display:none">
-        <input class="timer-input" id="timerMinutes" type="number" min="1" max="99" value="10" placeholder="min" />
-        <div class="timer-btn-group">
-          <button class="timer-btn" id="timerStartBtn">Start</button>
-          <button class="timer-btn" id="timerPauseBtn" style="display:none">Pause</button>
-          <button class="timer-btn" id="timerResetBtn">Reset</button>
-        </div>
-      </div>
+    <div class="comparison-header" id="comparisonHeader" hidden>
+      <strong>Snapshot comparison</strong>
+      <button id="comparisonClose" aria-label="Close snapshot comparison">×</button>
     </div>
 
-    <div class="panel-content">
+    <div class="panel-content" id="panelContent">
+
+      <div class="tab-pane" id="comparisonPane">
+        <h2 class="attention-heading" id="comparisonName"></h2>
+        <p class="attention-summary" id="comparisonDate"></p>
+        <p class="attention-intro">Changes from this snapshot to the current map. Dashed outlines show removed items.</p>
+        <p class="attention-summary" id="comparisonSummary" role="status"></p>
+        <div class="comparison-legend"><span class="added">Added</span><span class="changed">Changed</span><span class="removed">Removed</span></div>
+        <button class="copy-btn" id="comparisonRestore">Restore this snapshot</button>
+        <p class="attention-summary">Your current map will be kept as a backup snapshot.</p>
+        <ul class="attention-list" id="comparisonList"></ul>
+      </div>
+
+      <div class="tab-pane" id="attentionPane">
+        <h2 class="attention-heading">Needs attention</h2>
+        <label class="sr-only" for="attentionFilter">Filter attention items</label>
+        <select class="insp-input" id="attentionFilter"><option value="">All items</option></select>
+        <p class="attention-summary" id="attentionSummary" role="status"></p>
+        <ul class="attention-list" id="attentionList"></ul>
+      </div>
 
       <!-- Inspector pane -->
       <div class="tab-pane active" id="inspectorPane">
@@ -598,6 +626,18 @@
             <div class="inspector-arrow-info" id="arrowInfo"></div>
           </div>
           <div class="insp-section">
+            <label class="insp-label" for="arrowRelation">Meaning</label>
+            <select class="insp-input" id="arrowRelation" aria-describedby="arrowRelationHint">
+              <option value="">From label or arrow direction</option>
+              <option value="precedes">Comes before</option>
+              <option value="depends-on">Depends on</option>
+              <option value="blocks">Blocks</option>
+              <option value="informs">Informs</option>
+              <option value="related">Related</option>
+            </select>
+            <p class="insp-label-hint" id="arrowRelationHint"></p>
+          </div>
+          <div class="insp-section">
             <div class="insp-label">Label</div>
             <input class="insp-input" id="arrowLabelInput" type="text"
                    placeholder="e.g. depends on, enables, blocks…" maxlength="40">
@@ -680,6 +720,7 @@
           <div id="patchPanel" style="display:none">
             <textarea class="insp-textarea" id="patchInput" rows="5"
               placeholder="Paste the whole reply. The ```pathfinder-patch``` block inside is found automatically."></textarea>
+            <p class="attention-summary">Choose the changes to include. Expand each one to review its full before and after.</p>
             <div class="patch-preview" id="patchPreview"></div>
             <div class="patch-actions">
               <button class="add-btn" id="patchApplyBtn" disabled>Apply to canvas</button>
@@ -773,6 +814,25 @@
       </div>
 
     </div><!-- /panel-content -->
+
+    <div class="timer-widget" id="timerWidget">
+      <button class="timer-toggle" id="timerToggleBtn" aria-expanded="false" aria-controls="timerControls">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+        <span>Session timer</span>
+        <span class="timer-display" id="timerDisplay">10:00</span>
+        <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+      </button>
+      <div class="timer-controls" id="timerControls" style="display:none">
+        <label for="timerMinutes">Minutes</label>
+        <input class="timer-input" id="timerMinutes" type="number" min="1" max="99" value="10">
+        <div class="timer-btn-group">
+          <button class="timer-btn" id="timerStartBtn">Start</button>
+          <button class="timer-btn" id="timerPauseBtn" style="display:none">Pause</button>
+          <button class="timer-btn" id="timerResetBtn">Reset</button>
+        </div>
+      </div>
+    </div>
+
   </aside>
 
 </main><!-- /app-body -->
