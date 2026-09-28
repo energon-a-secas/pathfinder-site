@@ -99,10 +99,10 @@
     /* Export dropdown */
     .export-wrapper { position: relative; }
     /* The wrapper sits inside .header-btn-group, one level deeper than the
-       header kit's uniform-control-row rules reach — deliberately, since the
-       kit must not stretch dropdown items. Carry the height across the
-       wrapper ourselves so Export/Share match the 40px row instead of
-       standing 3px short of it. */
+       header kit's uniform-control-row rules reach (deliberately, since the
+       kit must not stretch dropdown items). Carry the height across the
+       wrapper ourselves so the buttons match the 40px row instead of
+       standing 3px short of it. The trace page still groups them this way. */
     .header-btn-group > .export-wrapper { display: flex; }
     .header-btn-group > .export-wrapper > .header-btn {
       height: var(--header-control-h);
@@ -672,12 +672,15 @@
        needs no stacking games and never covers the card's own edge. */
     .block[data-type=terminator][data-highlight]::before { border-radius: 28px; }
 
-    /* Alert breathes. Slow enough to read past, fast enough to notice. */
+    /* Alert breathes, but only on the card you are looking at: the ring is
+       static at rest, and the motion runs on hover, selection or keyboard
+       focus once View > Animate highlights is on (body.motion-on). The block
+       names its motion in --hl-anim and never sets `animation` itself. */
     @keyframes hlPulse {
       0%, 100% { opacity: 1;   box-shadow: 0 0 22px -2px color-mix(in srgb, var(--hl) 55%, transparent); }
       50%      { opacity: .55; box-shadow: 0 0 34px 2px color-mix(in srgb, var(--hl) 70%, transparent); }
     }
-    .block[data-highlight=alert]::before { animation: hlPulse 1.9s ease-in-out infinite; }
+    .block[data-highlight=alert] { --hl-anim: hlPulse 1.9s ease-in-out infinite; }
 
     /* Festive: a candy-cane border that actually travels. The two-layer mask is
        the standard gradient-border recipe -- a plain border cannot carry a
@@ -692,9 +695,15 @@
               mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
               mask-composite: exclude;
-      animation: hlMarch 1.6s linear infinite;
     }
+    /* At rest it is a still candy-cane dash; it marches only under the same
+       opt-in rule as the alert pulse. */
     @keyframes hlMarch { to { background-position: 56.57px 0; } }
+    .block[data-highlight=festive] { --hl-anim: hlMarch 1.6s linear infinite; }
+    body.motion-on .block[data-highlight]:hover::before,
+    body.motion-on:not(.readonly-mode) .block[data-highlight]:is(.selected, :focus-visible)::before {
+      animation: var(--hl-anim, none);
+    }
 
     /* Spotlight: the emphasis is the contrast, so everything unmarked recedes.
        Higher specificity than the hover-dim rule, which is a different job. */
@@ -705,11 +714,11 @@
     }
     body.spotlight .canvas-root .block:not([data-highlight]):hover { opacity: .7; filter: none; }
 
-    /* Motion is decoration here; the ring carries the whole message without it. */
+    /* Motion is decoration here; the ring carries the whole message without it.
+       !important because the motion-on rule above is more specific, and
+       reduced motion has to win over the preference. */
     @media (prefers-reduced-motion: reduce) {
-      .block[data-highlight=alert]::before,
-      .block[data-highlight=festive]::before { animation: none; }
-      .block[data-highlight=festive]::before { background-position: 0 0; }
+      .block[data-highlight]::before { animation: none !important; background-position: 0 0; }
     }
 
     /* Swatch used by the highlight pickers. */
@@ -1147,17 +1156,18 @@
     .port-bottom:hover { transform: translateX(-50%) scale(1.3); }
 
     /* ── Gap glows ──────────────────────────────────────────── */
-    @keyframes pulseRed {
-      0%,100% { box-shadow: 0 0 0   0 rgba(248,113,113,0); }
-      50%      { box-shadow: 0 0 18px 4px rgba(248,113,113,.35); }
+    /* A gap is a static ring at rest. The glow moves only on the card you are
+       looking at (hover, selection, keyboard focus), and only once View >
+       Animate highlights is on (body.motion-on). Each gap class names its
+       colour in --gap and its motion in --gap-anim and never sets `animation`
+       itself. The keyframes repeat the ring, so it never fades mid-breath. */
+    @keyframes gapPulse {
+      0%, 100% { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 0 0 transparent; }
+      50%      { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 18px 4px color-mix(in srgb, var(--gap) 38%, transparent); }
     }
-    @keyframes glowAmber {
-      0%,100% { box-shadow: 0 0 8px  2px rgba(251,191,36,.22); }
-      50%      { box-shadow: 0 0 20px 5px rgba(251,191,36,.45); }
-    }
-    @keyframes glowYellow {
-      0%,100% { box-shadow: 0 0 6px  2px rgba(250,204,21,.18); }
-      50%      { box-shadow: 0 0 16px 4px rgba(250,204,21,.4); }
+    @keyframes gapGlow {
+      0%, 100% { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 8px 2px color-mix(in srgb, var(--gap) 20%, transparent); }
+      50%      { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 20px 5px color-mix(in srgb, var(--gap) 42%, transparent); }
     }
 
     /* An unconnected block reads as provisional. The accent-bar preset keeps
@@ -1165,14 +1175,51 @@
     .block.gap-isolated { border-style: dashed; --card-edge: rgba(255,255,255,.2); }
     .block[data-card="bar"].gap-isolated { border-left-style: solid; }
 
-    .block.gap-assumption  { animation: glowAmber  2s ease-in-out infinite; }
-    .block.gap-no-req      { animation: glowYellow 2.5s ease-in-out infinite; }
-    .block.gap-unaddressed { animation: pulseRed   1.8s ease-in-out infinite; }
-    .block.gap-no-mitigation { animation: glowAmber  2.2s ease-in-out infinite; }
-    .block.gap-no-basis      { animation: glowYellow 2.4s ease-in-out infinite; }
-    .block.gap-no-producer   { animation: glowYellow 2.6s ease-in-out infinite; }
-    .block.gap-no-criteria   { animation: glowAmber  2.8s ease-in-out infinite; }
-    .block.gap-loose-step    { animation: glowYellow 2.2s ease-in-out infinite; }
+    /* Every gap except isolation (which is the dashed edge above) gets the
+       ring, including rules added after this was written: the defaults sit
+       in a zero-specificity :where() so each class below can recolour it.
+       --gap uses the --c-* type tokens, which light mode already redefines,
+       so there is no separate light-mode tint to keep in step. */
+    :where(.block[class*=" gap-"]) {
+      --gap: var(--c-requirement);
+      --gap-anim: gapGlow 2.4s ease-in-out infinite;
+      --gap-ring-shadow: 0 0 0 2px color-mix(in srgb, var(--gap) 55%, transparent);
+      --gap-state: 0 0 #0000;
+    }
+    .block[class*=" gap-"]:not(.gap-isolated),
+    body.light-mode .block[class*=" gap-"]:not(.gap-isolated) { box-shadow: var(--gap-ring-shadow), var(--gap-state); }
+
+    /* The ring outranks the card's own state shadows (.block:hover, .selected,
+       :focus-visible, .dragging), so each state's shadow is repeated here as
+       --gap-state and stacked under the ring rather than replacing it. Without
+       this a selected gap card lost its lift in the dark theme and its ring in
+       the light one (whose own .selected and :focus-visible rules set a
+       box-shadow outright, hence the light-mode twin of the rule above).
+       Same order as the plain rules: dragging wins. */
+    .block[class*=" gap-"]:not(.gap-isolated):hover         { --gap-state: 0 4px 20px rgba(0,0,0,.45); }
+    .block[class*=" gap-"]:not(.gap-isolated).selected      { --gap-state: 0 4px 24px rgba(0,0,0,.5); }
+    .block[class*=" gap-"]:not(.gap-isolated):focus-visible { --gap-state: 0 0 0 4px rgba(255,255,255,.15); }
+    .block[class*=" gap-"]:not(.gap-isolated).dragging      { --gap-state: 0 10px 36px rgba(0,0,0,.55); }
+    body.light-mode .block[class*=" gap-"]:not(.gap-isolated):hover         { --gap-state: 0 2px 4px rgba(15,23,42,.1), 0 8px 24px rgba(15,23,42,.12); }
+    body.light-mode .block[class*=" gap-"]:not(.gap-isolated).selected      { --gap-state: 0 4px 24px rgba(15,23,42,.16); }
+    body.light-mode .block[class*=" gap-"]:not(.gap-isolated):focus-visible { --gap-state: 0 0 0 4px rgba(0,0,0,.08); }
+
+    .block.gap-unaddressed   { --gap: var(--c-problem);    --gap-anim: gapPulse 1.8s ease-in-out infinite; }
+    .block.gap-assumption    { --gap: var(--c-assumption); --gap-anim: gapGlow 2s ease-in-out infinite; }
+    .block.gap-no-mitigation { --gap: var(--c-risk);       --gap-anim: gapGlow 2.2s ease-in-out infinite; }
+    .block.gap-no-req        { --gap-anim: gapGlow 2.5s ease-in-out infinite; }
+    .block.gap-no-basis      { --gap-anim: gapGlow 2.4s ease-in-out infinite; }
+    .block.gap-no-producer   { --gap-anim: gapGlow 2.6s ease-in-out infinite; }
+    .block.gap-no-criteria   { --gap-anim: gapGlow 2.8s ease-in-out infinite; }
+    .block.gap-loose-step    { --gap-anim: gapGlow 2.2s ease-in-out infinite; }
+
+    /* Opt-in, and only on the card in front of you. Nothing moves at rest.
+       A view-only link or an embed is someone reading: a card they clicked
+       stays still, and only the one under the pointer moves. */
+    body.motion-on .block[class*=" gap-"]:not(.gap-isolated):hover,
+    body.motion-on:not(.readonly-mode) .block[class*=" gap-"]:not(.gap-isolated):is(.selected, :focus-visible) {
+      animation: var(--gap-anim, none);
+    }
 
     /* Prompt tab: per-rule lint breakdown */
     .gap-breakdown { display: grid; gap: 4px; margin: 8px 0 2px; }
@@ -1733,10 +1780,10 @@
       border-radius: var(--radius-sm); padding: 3px 9px; flex-shrink: 0;
     }
     .readonly-mode .palette { display: none; }
-    .readonly-mode #snapBtn,
-    .readonly-mode #clearBtn,
+    /* View-only header: File stays, since a reviewer can download the image
+       or Markdown (view-menu.js keeps only those rows); Tidy cannot run. */
     .readonly-mode #shareWrapper,
-    .readonly-mode #exportWrapper { display: none; }
+    .readonly-mode #tidyGroup { display: none; }
     .readonly-mode #readonlyBadge { display: block !important; }
     .readonly-mode .insp-input,
     .readonly-mode .insp-textarea,
@@ -2186,16 +2233,6 @@
 
 
 
-    /* Light-mode gap glows (static tints) */
-    body.light-mode .block.gap-assumption  { box-shadow: 0 0 12px 3px rgba(202,144,8,.25); }
-    body.light-mode .block.gap-no-req      { box-shadow: 0 0 10px 3px rgba(196,144,8,.2); }
-    body.light-mode .block.gap-unaddressed { box-shadow: 0 0 12px 3px rgba(217,68,68,.25); }
-    body.light-mode .block.gap-no-mitigation,
-    body.light-mode .block.gap-no-criteria { box-shadow: 0 0 12px 3px rgba(202,144,8,.22); }
-    body.light-mode .block.gap-no-basis,
-    body.light-mode .block.gap-no-producer,
-    body.light-mode .block.gap-loose-step  { box-shadow: 0 0 10px 3px rgba(196,144,8,.18); }
-
     body.light-mode .select-box {
       border-color: rgba(0,0,0,.4);
       background: rgba(0,0,0,.04);
@@ -2282,7 +2319,6 @@
     /* ── Responsive: Mobile (<=768px) ────────────────────────────── */
     @media (max-width: 768px) {
       /* Mobile header geometry/overflow is handled by the Neorgon Header Kit */
-      .header-github { display: none; }
       .header-btn { padding: 5px 10px; font-size: var(--text-xs); }
       .header-btn-group { gap: 3px; padding-left: 6px; }
 
@@ -2336,7 +2372,6 @@
 
     /* ── Responsive: Small mobile (<=480px) ──────────────────────── */
     @media (max-width: 480px) {
-      .header-btn-group:has(#themeBtn) { display: none; }
       .header-logo { gap: 6px; }
       .header-logo h1 { font-size: 0.9em; }
       .right-panel { height: 200px; }
@@ -2412,15 +2447,16 @@
     body.light-mode .actions-info-btn { border-color: rgba(0,0,0,.15); color: #64748b; }
 
 
+    /* Reduced motion always wins, over View > Animate highlights too. The old
+       rule only shortened durations to 0.01ms, which left every infinite
+       animation running (and beating the static rings it was meant to show).
+       `animation: none` stops them; the rings are static already. */
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-      /* Static gap indicators when motion is disabled */
-      .block.gap-isolated    { outline: 2px dashed rgba(255,255,255,.35); outline-offset: 2px; }
-      .block.gap-assumption  { box-shadow: 0 0 0 3px rgba(251,191,36,.4); }
-      .block.gap-no-req      { box-shadow: 0 0 0 3px rgba(250,204,21,.35); }
-      .block.gap-unaddressed { box-shadow: 0 0 0 3px rgba(248,113,113,.4); }
-      .block.gap-no-mitigation, .block.gap-no-criteria { box-shadow: 0 0 0 3px rgba(251,191,36,.35); }
-      .block.gap-no-basis, .block.gap-no-producer, .block.gap-loose-step { box-shadow: 0 0 0 3px rgba(250,204,21,.3); }
+      *, *::before, *::after {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
 
 /* ── Template alignment (header title link) ── */
@@ -3359,6 +3395,130 @@ body.light-mode .arrow-edit-input { box-shadow: 0 6px 20px rgba(15,23,42,.14); }
 
 
 /* ════ [chrome] ════ */
+/* Header: Maps, File, Share, Tidy (split), View, Help, GitHub. The menus
+   are menu.js dropdowns (js/view-menu.js); these rules only shape the bar,
+   and the in-place lists the same menus become in the phone panel. */
+
+/* The File and Share rows are their menus' source, never shown in place. */
+.file-actions, .hdr-menu-source { display: none; }
+
+/* Labels that only one context needs: "?" in the bar, "Help" in the kit's
+   overflow panel on phones (and the same for the Tidy caret and GitHub). */
+.hdr-when-menu { display: none; }
+.header-overflow-menu .hdr-when-menu { display: inline; }
+.header-overflow-menu .hdr-when-bar { display: none; }
+
+/* The dropdown caret after a label. A margin, not a space: the kit lays the
+   bar's direct controls out as inline-flex, which drops a trailing space. */
+.hdr-caret { margin-left: .35em; }
+
+/* Tidy as a split button in the bar: one control with two targets. In the
+   kit's overflow panel the two halves are ordinary rows again. */
+.header-actions > .header-split { gap: 0; padding-left: 0; border-left: none; }
+.header-actions > .header-split > #tidyBtn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* The caret is flush against Tidy, so it has to be a full 24px target on its
+   own (WCAG 2.2 SC 2.5.8): a slip lands on Tidy, which re-lays the map. */
+.header-actions > .header-split > .header-split-caret {
+  min-width: 28px;
+  padding-inline: 8px;
+  justify-content: center;
+  margin-left: -1px;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+
+/* Icon-only GitHub keeps its square in the bar even with a (hidden) label.
+   The bar has room for it down to the kit's 700px breakpoint, where it moves
+   into the overflow panel as a labelled row; it is hidden only for the moment
+   before the kit has moved it. */
+.header-actions > .header-github { width: var(--header-control-h); padding: 0; justify-content: center; }
+@media (max-width: 700px) {
+  .header-actions > .header-github { display: none; }
+}
+
+/* Header menus: wider than a context menu, so File's longest row and the
+   View menu's hints fit without truncating. Above toasts, which sit just
+   under the bar: an open header menu is what the person is using. */
+.pf-header-menu { min-width: 240px; max-width: min(380px, calc(100vw - 16px)); z-index: 10001; }
+
+/* Toasts are status, not controls: below the header rather than over View,
+   Help and GitHub, and never catching a click meant for what is under them.
+   On phones they go to the bottom, clear of the kit's overflow panel. */
+.toast-notification { top: calc(var(--header-h-app, 56px) + 12px); pointer-events: none; }
+.toast-notification :is(a, button) { pointer-events: auto; }
+body[data-chrome="off"] .toast-notification,
+.embed-mode .toast-notification { top: 24px; }
+@media (max-width: 700px) {
+  .toast-notification,
+  body[data-chrome="off"] .toast-notification,
+  .embed-mode .toast-notification { top: auto; bottom: 16px; left: 16px; right: 16px; max-width: none; }
+}
+
+/* In the kit's overflow panel, a site dropdown (Maps) opens in place: an
+   absolute panel would be clipped by the overflow panel's own scroll box.
+   The panel is dark in both themes, so the list takes the kit's colours; the
+   light-mode twin outranks body.light-mode .export-dropdown. */
+.header-overflow-menu .export-dropdown,
+body.light-mode .header-overflow-menu .export-dropdown {
+  position: static;
+  min-width: 0;
+  margin: 2px 0 4px;
+  padding: 2px 0 2px 12px;
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+.header-overflow-menu .export-dropdown .export-item { color: var(--header-text-dim); }
+.header-overflow-menu .export-dropdown .export-item:is(:hover, :focus) {
+  background: var(--header-menu-hover); color: var(--header-text);
+}
+.header-overflow-menu .export-dropdown .export-item.map-row.active .map-item-name { color: var(--header-text); }
+.header-overflow-menu .export-dropdown .map-item-meta { color: var(--header-text-dim); }
+/* The kit stretches every button in its panel into a 44px full-width row;
+   the Maps list's small delete button is not a row. */
+.header-overflow-menu .export-dropdown .map-del {
+  flex: 0 0 24px; width: 24px; height: 24px; min-height: 0;
+  padding: 0; justify-content: center; border-radius: 50%;
+  color: var(--header-text-dim);
+}
+.header-overflow-menu .export-dropdown .map-item-text { flex: 1; min-width: 0; }
+
+/* File, Tidy, View and Help from the overflow panel: the same items as the
+   floating menus, as rows in place under their button (view-menu.js). The
+   kit's own panel rules give each row its 44px touch height and colours. */
+.hdr-inline-menu { display: none; }
+.header-overflow-menu .hdr-inline-menu {
+  display: block;
+  margin: 0 0 4px 12px;
+  padding: 0 0 0 8px;
+  border-left: 2px solid var(--header-border-strong, rgba(255,255,255,.22));
+}
+.header-overflow-menu .hdr-inline-sub { margin: 0 0 4px 16px; }
+.header-overflow-menu .hdr-inline-item { gap: 8px; padding: 6px 10px; white-space: normal; }
+.header-overflow-menu .hdr-inline-item:disabled { opacity: .45; cursor: default; }
+.header-overflow-menu .hdr-inline-danger { color: #fca5a5; }
+.hdr-inline-check { display: inline-flex; flex: 0 0 14px; width: 14px; }
+.hdr-inline-check svg { width: 14px; height: 14px; }
+.hdr-inline-icon { display: inline-flex; flex: 0 0 16px; }
+.hdr-inline-icon svg { width: 16px; height: 16px; opacity: .7; }
+.hdr-inline-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.hdr-inline-hint { font-size: 11.5px; font-weight: 400; line-height: 1.35; color: var(--header-text-dim); }
+.hdr-inline-caret { margin-left: auto; opacity: .7; }
+.hdr-inline-item[aria-expanded="true"] .hdr-inline-caret { transform: rotate(180deg); }
+.hdr-inline-heading {
+  padding: 8px 10px 4px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--header-text-dim);
+}
+.hdr-inline-divider { height: 1px; margin: 4px 0; background: var(--header-border, rgba(255,255,255,.07)); }
+
+/* Card style previews: a dark mini-card vanishes into nothing on a white menu. */
+body.light-mode .card-swatch { background: #fff; }
+body.light-mode .card-swatch-bar,
+body.light-mode .card-swatch-header,
+body.light-mode .card-swatch-plain { border-color: rgba(15,23,42,.3); }
+body.light-mode .card-swatch-bar { border-left-color: var(--accent-bright); }
+body.light-mode .card-swatch-header { background: linear-gradient(var(--accent-bright) 0 4px, #fff 4px 100%); }
+body.light-mode .card-swatch-tint { background: color-mix(in srgb, var(--accent-bright) 18%, #fff); }
 
 
 

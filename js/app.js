@@ -53,7 +53,7 @@ function init() {
   if (!checkShareUrl()) checkSrcUrl()
   updateCanvasTitle()
 
-  // Restore theme preference. Dark is the default identity — only switch to
+  // Restore theme preference. Dark is the default identity: only switch to
   // light when the user has explicitly chosen it before (no OS-preference opt-in).
   try {
     if (localStorage.getItem('pathfinder-theme') === 'light') ui.lightMode = true
@@ -69,17 +69,14 @@ function init() {
 
   // Restore grid-snap preference (default OFF)
   try { ui.snapToGrid = localStorage.getItem('pathfinder-snap') === '1' } catch(_) {}
-  if (ui.snapToGrid) {
-    document.body.classList.add('snap-grid')
-    document.getElementById('snapBtn')?.classList.add('active')
-  }
+  if (ui.snapToGrid) document.body.classList.add('snap-grid')
 
-  // Restore tint preference
+  // Legacy tint: the Tinted card preset replaced its toggle, which has no row
+  // of its own any more. A browser that still has it on keeps the look (View
+  // names it beside the card style) until the next Card style pick clears it.
   try { ui.tintedBlocks = !!localStorage.getItem('pathfinder-tint') } catch(_) {}
-  if (ui.tintedBlocks) {
-    document.body.classList.add('tinted-blocks')
-    document.getElementById('tintBtn')?.classList.add('active')
-  }
+  if (ui.tintedBlocks) document.body.classList.add('tinted-blocks')
+
   // Restore the camera. A share link brings its own canvas, so that case
   // still fits to the diagram rather than reusing wherever you last were.
   const restoredView = !fromLink && !ui.embed && loadView()

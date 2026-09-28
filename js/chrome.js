@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  chrome.js — Give the canvas the whole window.
+//  chrome.js: give the canvas the whole window.
 //
 //  `H` hides the site frame (header + footer). `Z` goes further and
 //  hides the panels too, leaving nothing but the diagram.
@@ -12,6 +12,7 @@
 //  header kit into 50 other sites.
 // ════════════════════════════════════════════════════════════
 
+import { ui } from './state.js'
 import { showToast } from './utils.js'
 
 const KEY = 'pathfinder-chrome'
@@ -29,7 +30,10 @@ function setHidden(selectors, hidden) {
 
 export const chrome = { frame: true, panels: true }
 
+// An embedded canvas is someone else's page: H and Z work there for the
+// visit, but never become the visitor's own layout in the full app.
 function persist() {
+  if (ui.embed) return
   try {
     localStorage.setItem(KEY, (chrome.frame ? 'f' : '') + (chrome.panels ? 'p' : ''))
   } catch (_) {}
@@ -71,7 +75,11 @@ export function showPanels() {
 
 export function setupChrome() {
   let saved = null
-  try { saved = localStorage.getItem(KEY) } catch (_) {}
+  // Nor does the app's saved layout reach into an embed: it shows the
+  // diagram with its frame, whatever the visitor last did in the app.
+  if (!ui.embed) {
+    try { saved = localStorage.getItem(KEY) } catch (_) {}
+  }
   if (saved !== null) {
     chrome.frame  = saved.includes('f')
     chrome.panels = saved.includes('p')

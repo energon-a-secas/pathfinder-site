@@ -568,9 +568,12 @@ export function setupQuickCopy() {
   refreshQuickCopy()
 }
 
-// ── Export dropdown ──────────────────────────────────────────
+// ── Header dropdowns (Maps) ──────────────────────────────────
+// Maps (library.js) still uses the .export-wrapper pattern; the File, Share,
+// Tidy, View and Help menus are menu.js dropdowns (js/view-menu.js).
 export function setDropdownOpen(wrapperId, open) {
   const el = document.getElementById(wrapperId)
+  if (!el) return
   el.classList.toggle('open', open)
   el.querySelector('.header-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false')
   if (open) {
@@ -581,7 +584,7 @@ export function setDropdownOpen(wrapperId, open) {
 
 export function setupDropdownKeyboard(wrapperId) {
   const wrapper = document.getElementById(wrapperId)
-  const dropdown = wrapper.querySelector('.export-dropdown')
+  const dropdown = wrapper?.querySelector('.export-dropdown')
   if (!dropdown) return
   dropdown.setAttribute('role', 'menu')
   dropdown.querySelectorAll('.export-item').forEach(item => {
@@ -591,6 +594,11 @@ export function setupDropdownKeyboard(wrapperId) {
   dropdown.addEventListener('keydown', e => {
     const items = [...dropdown.querySelectorAll('.export-item')]
     const idx = items.indexOf(document.activeElement)
+    const handled = ['ArrowDown', 'ArrowUp', 'Enter', ' ', 'Escape'].includes(e.key)
+    // Inside the header kit's overflow panel on phones, the kit's own
+    // document-level keys would act on the same press: every arrow would
+    // move focus twice, and Escape would close the panel with the list.
+    if (handled) e.stopPropagation()
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length
@@ -605,20 +613,16 @@ export function setupDropdownKeyboard(wrapperId) {
   })
 }
 
+/**
+ * The File menu's actions. Each row in #fileActions is wired here by id. The
+ * menu itself (fileMenuItems in js/view-menu.js) renders those rows through
+ * menu.js and clicks the one you pick, so these listeners stay the one place
+ * each export runs, whoever triggers it.
+ */
 export function setupExportDropdown() {
-  setupDropdownKeyboard('exportWrapper')
-  setupDropdownKeyboard('shareWrapper')
-  document.getElementById('exportBtn').addEventListener('click', e => {
-    const isOpen = document.getElementById('exportWrapper').classList.contains('open')
-    setDropdownOpen('exportWrapper', !isOpen); e.stopPropagation()
-  })
-  document.addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
-    setDropdownOpen('shareWrapper', false)
-  })
+  const on = (id, fn) => document.getElementById(id)?.addEventListener('click', fn)
 
-  document.getElementById('exportCopyPrompt').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
+  on('exportCopyPrompt', () => {
     if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
     ui.promptDirty = true
     copyText(generatePrompt()).then(ok => {
@@ -629,8 +633,7 @@ export function setupExportDropdown() {
     })
   })
 
-  document.getElementById('copyDiagramInstructions').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
+  on('copyDiagramInstructions', () => {
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {
       showToast(ok
         ? 'AI diagram-builder prompt copied: paste it into Claude, add your topic, then Import the JSON'
@@ -638,80 +641,53 @@ export function setupExportDropdown() {
     })
   })
 
-  document.getElementById('exportJSON').addEventListener('click', () => {
-    exportJSON()
-  })
+  on('exportJSON', () => exportJSON())
+  on('exportMarkdown', () => exportMarkdown())
+  on('exportSpecBundle', () => exportSpecBundle())
 
-  document.getElementById('exportMarkdown').addEventListener('click', () => {
-    exportMarkdown()
-  })
-
-  document.getElementById('exportSpecBundle').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
-    exportSpecBundle()
-  })
-
-  document.getElementById('exportJsonCanvas').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
+  on('exportJsonCanvas', () => {
     if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
     downloadJsonCanvas()
     showToast('JSON Canvas downloaded: it opens in Obsidian and friends', 'success')
   })
 
-  document.getElementById('exportPNG').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
-    exportPNG(2)
-  })
+  on('exportPNG', () => exportPNG(2))
+  on('exportSVG', () => exportSVG())
 
-  document.getElementById('exportSVG').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
-    exportSVG()
-  })
-
-  document.getElementById('exportMeetingSummary').addEventListener('click', () => {
+  // The File button used to flash "Exported!" in place of its own label,
+  // which clobbered the label's markup. A toast says the same thing.
+  on('exportMeetingSummary', () => {
     exportMeetingSummary()
-    const btn = document.getElementById('exportBtn')
-    setDropdownOpen('exportWrapper', false)
-    const originalText = btn.textContent
-    btn.textContent = 'Exported!'
-    setTimeout(() => {
-      btn.textContent = originalText
-    }, 1500)
+    showToast('Meeting summary exported', 'success', 1500)
   })
 
-  document.getElementById('exportToPresentationSage').addEventListener('click', () => {
-    exportToPresentationSage()
-    setDropdownOpen('exportWrapper', false)
-  })
+  on('exportToPresentationSage', () => exportToPresentationSage())
 
-  document.getElementById('importJSON').addEventListener('click', () => {
-    setDropdownOpen('exportWrapper', false)
-    document.getElementById('importFile').value = ''
-    document.getElementById('importFile').click()
+  on('importJSON', () => {
+    if (ui.readOnly) return
+    const input = document.getElementById('importFile')
+    if (!input) return
+    input.value = ''
+    input.click()
   })
 }
 
-// ── Share dropdown ───────────────────────────────────────────
+// ── Share menu ───────────────────────────────────────────────
+// The rows' actions. The Share button opens them through menu.js
+// (shareMenuItems in js/view-menu.js), which clicks the row you pick.
 export function setupShareDropdown() {
-  document.getElementById('shareBtn').addEventListener('click', e => {
-    const isOpen = document.getElementById('shareWrapper').classList.contains('open')
-    setDropdownOpen('shareWrapper', !isOpen); e.stopPropagation()
-  })
   const shareCopy = (text, okMsg) => copyText(text).then(ok =>
     showToast(ok ? okMsg : 'Copy failed: try again', ok ? 'success' : 'warning'))
-  document.getElementById('shareCopyLink').addEventListener('click', () => {
+  document.getElementById('shareCopyLink')?.addEventListener('click', () => {
     shareCopy(buildShareUrl(false), 'Link copied!')
-    setDropdownOpen('shareWrapper', false)
   })
-  document.getElementById('shareCopyReadOnly').addEventListener('click', () => {
+  document.getElementById('shareCopyReadOnly')?.addEventListener('click', () => {
     shareCopy(buildShareUrl(true), 'View-only link copied!')
-    setDropdownOpen('shareWrapper', false)
   })
-  document.getElementById('shareCopyEmbed').addEventListener('click', () => {
+  document.getElementById('shareCopyEmbed')?.addEventListener('click', () => {
     const src = buildEmbedUrl()
     const snippet = `<iframe src="${src}" width="800" height="500" style="border:none;border-radius:12px" allowfullscreen></iframe>`
     shareCopy(snippet, 'Embed code copied!')
-    setDropdownOpen('shareWrapper', false)
   })
 }
 
@@ -780,49 +756,31 @@ export function setupImportHandler() {
   })
 }
 
-// ── Header buttons ───────────────────────────────────────────
 // ── Canvas-wide card style ───────────────────────────────────
 
 /**
  * The default look for every block that has not overridden it. Lives on the
  * canvas (not in ui) so it travels with a share link and an exported JSON:
  * a diagram someone else opens should look like the one you sent.
+ * The control is View > Card style (js/view-menu.js).
  */
-export function setupCardStyles() {
-  const wrapper = document.getElementById('cardsWrapper')
-  const menu = document.getElementById('cardsDropdown')
-  if (!wrapper || !menu) return
-
-  const paint = () => {
-    menu.innerHTML = Object.entries(CARD_STYLES).map(([k, v]) => {
-      const on = (canvasMeta.cardStyle || DEFAULT_CARD_STYLE) === k
-      return `<div class="export-item${on ? ' active' : ''}" data-canvas-card="${k}" title="${escHtml(v.hint)}">` +
-             `<span class="card-swatch card-swatch-${k}"></span>${escHtml(v.label)}</div>`
-    }).join('')
-  }
-  paint()
-  syncCardStyles = paint
-
-  document.getElementById('cardsBtn').addEventListener('click', e => {
-    e.stopPropagation()
-    const open = wrapper.classList.toggle('open')
-    document.getElementById('cardsBtn').setAttribute('aria-expanded', open ? 'true' : 'false')
-  })
-  menu.addEventListener('click', e => {
-    const item = e.target.closest('[data-canvas-card]'); if (!item) return
-    canvasMeta.cardStyle = item.dataset.canvasCard
-    paint()
-    wrapper.classList.remove('open')
-    renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
-    renderInspector()
-    saveState()
-    showToast(`Cards set to ${CARD_STYLES[canvasMeta.cardStyle].label}`, 'success', 1500)
-  })
-  document.addEventListener('click', () => wrapper.classList.remove('open'))
+export function setCanvasCardStyle(key) {
+  if (!CARD_STYLES[key] || ui.readOnly) return false
+  canvasMeta.cardStyle = key
+  renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
+  renderInspector()
+  saveState()
+  showToast(`Cards set to ${CARD_STYLES[key].label}`, 'success', 1500)
+  return true
 }
 
-let syncCardStyles = () => {}
-export function refreshCardStyles() { syncCardStyles() }
+/** The current canvas-wide preset, falling back to the default. */
+export function canvasCardStyle() { return canvasMeta.cardStyle || DEFAULT_CARD_STYLE }
+
+// The View menu reads canvasMeta each time it opens, so there is no header
+// control left to wire or repaint. Both stay exported for their callers.
+export function setupCardStyles() {}
+export function refreshCardStyles() {}
 
 /** Spotlight rides on the canvas, so an imported one arrives already on. */
 export function refreshSpotlight() {
@@ -835,12 +793,28 @@ const DIR_KEY = 'pathfinder-layout-dir'
 let layoutDir = 'LR'
 try { const d = localStorage.getItem(DIR_KEY); if (d === 'LR' || d === 'TB') layoutDir = d } catch (_) {}
 
+// The caret names the direction Tidy will use. It no longer flips it on
+// click: a preference that silently re-laid the map was an action in disguise.
 function refreshDirButton() {
-  const btn = document.getElementById('tidyDirBtn'); if (!btn) return
-  const label = layoutDir === 'LR' ? 'Left to right' : 'Top to bottom'
-  btn.title = 'Layout direction: ' + label + '. Click to switch.'
-  btn.setAttribute('aria-label', 'Layout direction: ' + label)
-  btn.style.transform = layoutDir === 'LR' ? '' : 'rotate(90deg)'
+  const label = layoutDir === 'LR' ? 'left to right' : 'top to bottom'
+  const caret = document.getElementById('tidyMenuBtn')
+  if (caret) {
+    caret.title = 'Tidy direction: ' + label
+    caret.setAttribute('aria-label', 'Tidy direction, now ' + label)
+  }
+  const main = document.getElementById('tidyBtn')
+  if (main) main.title = `Arrange the map ${label} and re-point every connection along the flow (L)`
+}
+
+export function getLayoutDir() { return layoutDir }
+
+/** Remember the direction Tidy lays out in ('LR' or 'TB'). Does not run it. */
+export function setLayoutDir(dir) {
+  if (dir !== 'LR' && dir !== 'TB') return false
+  layoutDir = dir
+  try { localStorage.setItem(DIR_KEY, layoutDir) } catch (_) {}
+  refreshDirButton()
+  return true
 }
 
 /**
@@ -883,94 +857,52 @@ export function runTidy() {
 export function setupTidy() {
   refreshDirButton()
   document.getElementById('tidyBtn')?.addEventListener('click', runTidy)
-  document.getElementById('tidyDirBtn')?.addEventListener('click', () => {
-    layoutDir = layoutDir === 'LR' ? 'TB' : 'LR'
-    try { localStorage.setItem(DIR_KEY, layoutDir) } catch (_) {}
-    refreshDirButton()
-    runTidy()
-  })
+  // The caret's direction menu is wired with the other header menus in
+  // js/view-menu.js (setupViewMenu).
 }
 
+/** The undo shortcut as this platform spells it, for copy that names it. */
+export function undoKeyLabel(platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '') {
+  return /mac|iphone|ipad|ipod/i.test(platform) ? 'Cmd+Z' : 'Ctrl+Z'
+}
+
+/**
+ * Clear the active map: every block, connection and group, as one undo step.
+ * Group frames are .frame elements in their own layer, which renderFrames()
+ * prunes once the groups are gone; the old code removed .group-frame, which
+ * never existed, so the frames stayed on screen.
+ */
+export function clearCanvas({ ask = true } = {}) {
+  if (ui.readOnly) return false
+  // Nothing to clear: no question to answer, and no undo step that would
+  // make the next Cmd+Z look like it did nothing.
+  if (!Object.keys(state.blocks).length && !state.arrows.length && !Object.keys(state.groups || {}).length) {
+    showToast('This map is already empty', 'info', 1500)
+    return false
+  }
+  if (ask && !confirm(`Clear this map? Every block, connection and group on it goes. Undo (${undoKeyLabel()}) brings it back.`)) return false
+  snapshot()
+  state.blocks = {}; state.arrows = []; state.groups = {}
+  selection.ids.clear(); selection.blockId = null; selection.arrowId = null; selection.groupId = null
+  renderAllBlocks()
+  renderFrames()
+  renderArrows({ cheap: false })
+  runGapDetection()
+  renderInspector(); updateHint(); saveState()
+  ui.promptDirty = true; if (ui.activeTab === 'prompt') refreshPrompt()
+  window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
+  return true
+}
+
+// Theme, snapping, pinned ports, connection notes, motion and card style all
+// live in View now (js/view-menu.js); Fit moved to the status bar. What is left
+// here is the File menu's Clear row.
 export function setupHeaderButtons() {
-  document.getElementById('clearBtn').addEventListener('click', () => {
-    if (!confirm('Clear the entire canvas? All blocks and connections will be lost.')) return
-    snapshot()
-    state.blocks = {}; state.arrows = []; state.groups = {}
-    $.canvasRoot().querySelectorAll('.block').forEach(el => el.remove())
-    $.canvasRoot().querySelectorAll('.group-frame').forEach(el => el.remove())
-    $.arrowsGroup().innerHTML = ''
-    selection.ids.clear(); selection.blockId = null; selection.arrowId = null
-    renderInspector(); updateHint(); saveState()
-    ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
-  })
-
-  document.getElementById('fitBtn').addEventListener('click', fitView)
-
-  document.getElementById('helpBtn')?.addEventListener('click', openShortcuts)
-
-  document.getElementById('themeBtn').addEventListener('click', () => {
-    ui.lightMode = !ui.lightMode
-    applyTheme()
-    try { localStorage.setItem('pathfinder-theme', ui.lightMode ? 'light' : '') } catch(_) {}
-  })
-
-  document.getElementById('tintBtn').addEventListener('click', () => {
-    ui.tintedBlocks = !ui.tintedBlocks
-    document.body.classList.toggle('tinted-blocks', ui.tintedBlocks)
-    document.getElementById('tintBtn').classList.toggle('active', ui.tintedBlocks)
-    try { localStorage.setItem('pathfinder-tint', ui.tintedBlocks ? '1' : '') } catch(_) {}
-  })
-
-  document.getElementById('snapBtn').addEventListener('click', () => {
-    ui.snapToGrid = !ui.snapToGrid
-    document.getElementById('snapBtn').classList.toggle('active', ui.snapToGrid)
-    document.body.classList.toggle('snap-grid', ui.snapToGrid)
-    try { localStorage.setItem('pathfinder-snap', ui.snapToGrid ? '1' : '0') } catch(_) {}
-    if (ui.snapToGrid) {
-      // Immediately align every existing block to the grid so the toggle has a
-      // visible effect, not just a behavior change for future drags.
-      snapshot()
-      Object.values(state.blocks).forEach(b => {
-        b.x = snapTo(b.x)
-        b.y = snapTo(b.y)
-      })
-      renderAllBlocks(); renderArrows(); renderFrames(); debouncedSave()
-      showToast('Snapped all blocks to the grid', 'success', 1500)
-    } else {
-      showToast('Grid snapping off', 'info', 1200)
-    }
-  })
-
-  // Arrow text: default OFF (notes reveal on hover/selection). Persist toggle.
-  const arrowTextBtn = document.getElementById('arrowTextBtn')
-  if (arrowTextBtn) {
-    arrowTextBtn.classList.toggle('active', ui.showArrowText)
-    document.body.classList.toggle('show-arrow-text', ui.showArrowText)
-    arrowTextBtn.addEventListener('click', () => {
-      ui.showArrowText = !ui.showArrowText
-      arrowTextBtn.classList.toggle('active', ui.showArrowText)
-      document.body.classList.toggle('show-arrow-text', ui.showArrowText)
-      try { localStorage.setItem('pathfinder-arrowtext', ui.showArrowText ? '1' : '0') } catch(_) {}
-    })
-  }
-
-  // Pin ports: default ON. Reflect initial state + persist the toggle.
-  const pinBtn = document.getElementById('pinPortsBtn')
-  if (pinBtn) {
-    pinBtn.classList.toggle('active', ui.pinPorts)
-    pinBtn.addEventListener('click', () => {
-      ui.pinPorts = !ui.pinPorts
-      pinBtn.classList.toggle('active', ui.pinPorts)
-      try { localStorage.setItem('pathfinder-pinports', ui.pinPorts ? '1' : '0') } catch(_) {}
-    })
-  }
+  document.getElementById('clearBtn')?.addEventListener('click', () => clearCanvas())
 }
 
 export function applyTheme() {
   document.body.classList.toggle('light-mode', ui.lightMode)
-  const btn = document.getElementById('themeBtn')
-  btn.textContent = ui.lightMode ? '☾' : '☀'
-  btn.classList.toggle('active', ui.lightMode)
   // Re-render arrows to swap marker refs and color defaults
   applyTransform()
   renderArrows()

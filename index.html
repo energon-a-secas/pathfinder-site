@@ -75,114 +75,61 @@
     <div class="readonly-badge" id="readonlyBadge" style="display:none">View only</div>
     <div class="header-actions">
       <!-- Canvas library -->
-      <div class="export-wrapper" id="mapsWrapper" aria-haspopup="true">
-        <button class="header-btn" id="mapsBtn" aria-expanded="false" aria-label="Your maps">Maps ▾</button>
+      <div class="export-wrapper" id="mapsWrapper">
+        <button class="header-btn" id="mapsBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Your maps">Maps<span class="hdr-caret" aria-hidden="true">▾</span></button>
         <div class="export-dropdown" id="mapsDropdown"></div>
       </div>
       <input type="file" id="importMapsFile" accept=".json" style="display:none">
 
-      <!-- Export & Share group -->
-      <div class="header-btn-group" role="group" aria-label="Export and share" data-keep-mobile>
-        <div class="export-wrapper" id="exportWrapper" aria-haspopup="true">
-          <button class="header-btn" id="exportBtn" aria-expanded="false" aria-label="Export canvas">Export ▾</button>
-          <div class="export-dropdown">
-            <div class="export-item" id="exportCopyPrompt">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-              Copy Prompt
-            </div>
-            <div class="export-item" id="copyDiagramInstructions">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 14H6v-2h2v2zm0-3H6V9h2v2zm0-3H6V6h2v2zm7 6h-5v-2h5v2zm3-3h-8V9h8v2zm0-3h-8V6h8v2z"/></svg>
-              Copy AI diagram-builder prompt
-            </div>
-            <div class="export-item" id="exportJSON">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
-              Download JSON
-            </div>
-            <div class="export-item" id="exportMarkdown">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12C21.35 6 22 6.63 22 7.41v9.18c0 .78-.65 1.41-1.44 1.41zM6.81 15.19v-3.33l1.56 1.88 1.56-1.88v3.33h1.61V8.81H9.94L8.38 10.7 6.81 8.81H5.2v6.38h1.61zm7.26-3.81h-1.61V8.81h-1.61v2.57H9.24l2.9 3.64 2.9-3.64z"/></svg>
-              Download Markdown
-            </div>
-            <div class="export-item" id="exportJsonCanvas">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
-              Download JSON Canvas
-            </div>
-            <div class="export-item" id="exportSpecBundle">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg>
-              Download Spec bundle (zip)
-            </div>
-            <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
-            <div class="export-item" id="exportPNG">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-              Download Image (PNG 2×)
-            </div>
-            <div class="export-item" id="exportSVG">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 5.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S11.83 10 11 10s-1.5-.67-1.5-1.5zM17 17H7l2.5-3.2 1.79 2.15 2.5-3.22L17 17z"/></svg>
-              Download Vector (SVG)
-            </div>
-            <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
-            <div class="export-item" id="exportMeetingSummary">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-              Export Meeting Summary
-            </div>
-            <div class="export-item" id="exportToPresentationSage">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
-              Open in Presentation Sage
-            </div>
-            <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0">
-            <div class="export-item" id="importJSON">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-              Import JSON / Canvas / Mermaid
-            </div>
-          </div>
+      <!-- File: import first, every export, then clearing the map. These rows
+           are the menu's source, not its display: js/view-menu.js renders them
+           through menu.js and clicks the row you pick, so each keeps its id and
+           its listeners. data-file-group splits the menu with dividers, and
+           data-readonly="ok" keeps a row on view-only links. -->
+      <div class="export-wrapper" id="exportWrapper">
+        <button class="header-btn" id="exportBtn" aria-haspopup="menu" aria-expanded="false" title="Import, export and download">File<span class="hdr-caret" aria-hidden="true">▾</span></button>
+        <div class="file-actions" id="fileActions" hidden>
+          <button type="button" id="importJSON" data-file-group="import"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg> Import JSON / Canvas / Mermaid…</button>
+          <button type="button" id="exportCopyPrompt" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Copy Prompt</button>
+          <button type="button" id="copyDiagramInstructions" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 14H6v-2h2v2zm0-3H6V9h2v2zm0-3H6V6h2v2zm7 6h-5v-2h5v2zm3-3h-8V9h8v2zm0-3h-8V6h8v2z"/></svg> Copy AI diagram-builder prompt</button>
+          <button type="button" id="exportJSON" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg> Download JSON</button>
+          <button type="button" id="exportMarkdown" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12C21.35 6 22 6.63 22 7.41v9.18c0 .78-.65 1.41-1.44 1.41zM6.81 15.19v-3.33l1.56 1.88 1.56-1.88v3.33h1.61V8.81H9.94L8.38 10.7 6.81 8.81H5.2v6.38h1.61zm7.26-3.81h-1.61V8.81h-1.61v2.57H9.24l2.9 3.64 2.9-3.64z"/></svg> Download Markdown</button>
+          <button type="button" id="exportJsonCanvas" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg> Download JSON Canvas</button>
+          <button type="button" id="exportSpecBundle" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg> Download Spec bundle (zip)</button>
+          <button type="button" id="exportPNG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg> Download Image (PNG 2×)</button>
+          <button type="button" id="exportSVG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 5.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S11.83 10 11 10s-1.5-.67-1.5-1.5zM17 17H7l2.5-3.2 1.79 2.15 2.5-3.22L17 17z"/></svg> Download Vector (SVG)</button>
+          <button type="button" id="exportMeetingSummary" data-file-group="handoff"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg> Export Meeting Summary</button>
+          <button type="button" id="exportToPresentationSage" data-file-group="handoff"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg> Open in Presentation Sage</button>
+          <button type="button" id="clearBtn" data-file-group="danger"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Clear this map…</button>
         </div>
-        <input type="file" id="importFile" accept=".json,.canvas,.mmd,.md,.txt" style="display:none">
+      </div>
+      <input type="file" id="importFile" accept=".json,.canvas,.mmd,.md,.txt" style="display:none">
 
-        <div class="export-wrapper" id="shareWrapper" aria-haspopup="true">
-          <button class="header-btn" id="shareBtn" aria-expanded="false" aria-label="Share canvas">Share</button>
-          <div class="export-dropdown">
-            <div class="export-item" id="shareCopyLink">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
-              Copy link
-            </div>
-            <div class="export-item" id="shareCopyReadOnly">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-              Copy view-only link
-            </div>
-            <div class="export-item" id="shareCopyEmbed">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-              Copy embed code
-            </div>
-          </div>
+      <!-- Share: the one control the header kit keeps in the bar on phones.
+           Like File, its rows are the menu's source (js/view-menu.js renders
+           them through menu.js), so each keeps its id and its listener. -->
+      <div class="export-wrapper" id="shareWrapper" data-keep-mobile>
+        <button class="header-btn" id="shareBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Share canvas">Share</button>
+        <div class="hdr-menu-source" id="shareActions" hidden>
+          <button type="button" id="shareCopyLink" data-menu-group="share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg> Copy link</button>
+          <button type="button" id="shareCopyReadOnly" data-menu-group="share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg> Copy view-only link</button>
+          <button type="button" id="shareCopyEmbed" data-menu-group="share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg> Copy embed code</button>
         </div>
       </div>
 
-      <!-- View toggles group -->
-      <div class="header-btn-group" role="group" aria-label="View options">
-        <button class="header-btn" id="themeBtn" title="Toggle light/dark mode" aria-label="Toggle light or dark mode">☀</button>
-        <div class="export-wrapper" id="cardsWrapper" aria-haspopup="true">
-          <button class="header-btn" id="cardsBtn" aria-expanded="false" aria-label="Default card style">Cards &#9662;</button>
-          <div class="export-dropdown" id="cardsDropdown"></div>
-        </div>
-        <button class="header-btn header-btn-icon" id="tintBtn" title="Color tint on blocks" aria-label="Toggle block color tint"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18 4V3c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6h1v4H9v11c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-9h8V4h-3z"/></svg></button>
-        <button class="header-btn" id="snapBtn" title="Snap to grid" aria-label="Toggle snap to grid">Grid</button>
-        <button class="header-btn" id="pinPortsBtn" title="Pin connections to the port you draw from (off = auto-route by position)" aria-label="Toggle pin connection ports">Pin&nbsp;ports</button>
-        <button class="header-btn" id="arrowTextBtn" title="Always show connection notes (off = reveal on hover or selection)" aria-label="Toggle always show arrow text">Arrow&nbsp;text</button>
+      <!-- Tidy: the main part arranges the map, the caret picks the direction. -->
+      <div class="header-btn-group header-split" id="tidyGroup" role="group" aria-label="Tidy">
+        <button class="header-btn" id="tidyBtn" title="Arrange blocks into layers and re-point every connection along the flow (L)">Tidy</button>
+        <button class="header-btn header-split-caret" id="tidyMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Tidy direction" title="Tidy direction"><span class="hdr-when-menu">Tidy direction</span><span aria-hidden="true">▾</span></button>
       </div>
 
-      <!-- Canvas actions group -->
-      <div class="header-btn-group" role="group" aria-label="Canvas actions">
-        <button class="header-btn" id="tidyBtn" title="Arrange blocks into layers and re-point every connection along the flow" aria-label="Tidy layout">Tidy</button>
-        <button class="header-btn header-btn-icon" id="tidyDirBtn" title="Layout direction" aria-label="Toggle layout direction"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M7 7h10.17l-3.58 3.59L15 12l6-6-6-6-1.41 1.41L17.17 5H7c-2.21 0-4 1.79-4 4v3h2V9c0-1.1.9-2 2-2z" transform="translate(0,5)"/></svg></button>
-        <button class="header-btn" id="fitBtn" aria-label="Fit all blocks in view">Fit</button>
-        <button class="header-btn header-btn-danger" id="clearBtn" aria-label="Clear canvas">Clear</button>
-      </div>
+      <button class="header-btn" id="viewBtn" aria-haspopup="menu" aria-expanded="false" title="Theme, snapping, motion and card style">View<span class="hdr-caret" aria-hidden="true">▾</span></button>
 
-      <a class="header-btn" href="trace.html" title="Troubleshooting trees and architecture maps, written as text">Trace</a>
+      <button class="header-btn" id="helpBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Help" title="Shortcuts, walkthrough and examples"><span class="hdr-when-bar" aria-hidden="true">?</span><span class="hdr-when-menu">Help</span><span class="hdr-caret" aria-hidden="true">▾</span></button>
 
-      <button class="header-btn header-btn-icon" id="helpBtn" aria-label="Keyboard shortcuts" title="Shortcuts &amp; help"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg></button>
-
-      <a class="header-btn header-btn-icon header-github" data-keep-mobile href="https://github.com/energon-a-secas/pathfinder-site" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">
+      <a class="header-btn header-btn-icon header-github" href="https://github.com/energon-a-secas/pathfinder-site" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">
       <svg viewBox="0 0 98 96" fill="currentColor" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>
+      <span class="hdr-when-menu">GitHub</span>
       </a>
     </div>
 
