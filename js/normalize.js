@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  normalize.js — Sanitize untrusted canvas data before it
+//  normalize.js: sanitize untrusted canvas data before it
 //  reaches state and rendering.
 //
 //  Every external entry point (localStorage load, file import,
@@ -9,7 +9,7 @@
 //  items (no id/type) are dropped and counted.
 // ════════════════════════════════════════════════════════════
 
-import { TYPES, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
+import { resolveTypeId, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
          CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS,
          SITUATION_FIELDS, SITUATION_DEFAULT, HIGHLIGHTS,
          PROMPT_MODES, PROMPT_TONES, PROMPT_DETAILS, PRE_PROMPTS, PROMPT_OPTS_DEFAULT } from './utils.js'
@@ -48,7 +48,7 @@ function toColor(v) {
  * Coerce a block's documentation reference into { href, label, anchor } or
  * null. Old canvases have no docRef (→ null); a docRef with neither an href
  * nor a label is meaningless and also collapses to null. The href is kept as
- * a plain string here — reachability (same-origin / configured base) and the
+ * a plain string here; reachability (same-origin / configured base) and the
  * decision to fetch vs. open-in-tab are enforced later in doc-panel.js.
  */
 function normalizeDocRef(raw) {
@@ -75,14 +75,17 @@ export function normalizeBlock(raw) {
   if (!id) return null
   const rawType = typeof raw.type === 'string' ? raw.type.trim() : ''
   if (!rawType) return null
-  const known = Object.hasOwn(TYPES, rawType)
+  // A label written where the id belongs ("Implementation", "Start / End")
+  // is read as that type rather than parked as Other.
+  const resolved = resolveTypeId(rawType)
   // A block that was already carried forward keeps its hint until a build
   // that knows the type reads it.
   const priorHint = toStr(raw.typeHint).trim()
-  let type = known ? rawType : 'custom'
-  let typeHint = known ? '' : rawType
-  if (known && rawType === 'custom' && priorHint) {
-    if (Object.hasOwn(TYPES, priorHint)) type = priorHint
+  let type = resolved || 'custom'
+  let typeHint = resolved ? '' : rawType
+  if (resolved === 'custom' && priorHint) {
+    const hinted = resolveTypeId(priorHint)
+    if (hinted && hinted !== 'custom') type = hinted
     else typeHint = priorHint
   }
 
@@ -90,7 +93,7 @@ export function normalizeBlock(raw) {
     ? [...new Set(raw.actions.filter(a => VALID_ACTIONS.includes(a)))]
     : []
   // Questions are objects { text, answer?, askedAt? }. Old canvases stored
-  // plain strings — coerce those to { text } so a "living question" can carry
+  // plain strings; coerce those to { text } so a "living question" can carry
   // a stored answer without breaking backward compatibility.
   const questions = Array.isArray(raw.questions)
     ? raw.questions

@@ -1,13 +1,104 @@
-import { dependencyEdges, connectionLabel } from './relations.js'
+import { dependencyEdges, connectionLabel, impliedVerb, relationOf } from './relations.js'
 // ════════════════════════════════════════════════════════════
-//  prompt.js — AI prompt export generation
+//  prompt.js: AI prompt export generation
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
-import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml } from './utils.js'
+import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml, typeInfo } from './utils.js'
 import { runGapDetection, GAP_META } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 import { taskChecklist } from './task-plan.js'
+
+/**
+ * The block types each prompt section prints. `tasks` is the Build checklist,
+ * so it takes every type the registry marks as a task; `flow` is the
+ * workflow walk over process steps and triggers.
+ */
+export const PROMPT_SECTION_TYPES = {
+  context: ['context'], stakeholders: ['stakeholder'], goals: ['goal'], metrics: ['metric'],
+  problems: ['problem'], requirements: ['requirement'], work: ['implementation'],
+  tasks: Object.keys(TYPES).filter(t => TYPES[t].task),
+  assumptions: ['assumption'], risks: ['risk'], questions: ['question'], decisions: ['decision'],
+  resources: ['resource'], outputs: ['output'], flow: ['process', 'terminator'], custom: ['custom'],
+}
+
+/**
+ * Per-mode section order. Every mode lists every type: a type missing from an
+ * order used to vanish from that prompt (Clarify dropped resources, outputs
+ * and custom), and the registry coverage test now fails if one ever does
+ * again. Explore and Clarify front-load the unknowns; Build folds
+ * requirements, outputs and work items into the task checklist.
+ */
+export const PROMPT_ORDERS = {
+  plan:    ['context','stakeholders','goals','metrics','problems','requirements','work','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
+  investigate: ['context','problems','metrics','questions','assumptions','stakeholders','goals','requirements','work','risks','decisions','resources','flow','outputs','custom'],
+  explore: ['assumptions','questions','goals','metrics','stakeholders','problems','requirements','work','risks','context','decisions','resources','outputs','flow','custom'],
+  build:   ['context','goals','metrics','stakeholders','tasks','assumptions','problems','risks','questions','decisions','resources','flow','custom'],
+  clarify: ['questions','assumptions','goals','metrics','stakeholders','problems','requirements','work','risks','decisions','context','resources','outputs','flow','custom'],
+}
+
+/**
+ * What an arrow says, in two parts: `stated`, the author's label or
+ * relation, and `implied`, the verb its endpoint types imply when nobody
+ * labelled it (an Implementation "satisfies" a Requirement), kept apart so
+ * it is never passed off as the author's words. An `informs` or `related`
+ * relation only says the arrow sets no task order, so beside an implied
+ * verb it reads as that ("context only") instead of as a second verb:
+ * "[informs] [implied: owns]" made two claims that disagree.
+ */
+export function connectionReading(a, f, t) {
+  const stated = connectionLabel(a)
+  const implied = f && t && !(a.label || '').trim() ? impliedVerb(f.type, t.type) : ''
+  if (!implied) return { stated, implied: '' }
+  const rel = a.relation ? relationOf(a) : ''
+  if (rel === 'informs' || rel === 'related') return { stated: '', implied: `${implied}; context only` }
+  return { stated, implied }
+}
+
+/** One connection line for the prompt. */
+export function connectionLine(a, blocks = state.blocks) {
+  const f = blocks[a.from], t = blocks[a.to]
+  if (!f || !t) return ''
+  const { stated, implied } = connectionReading(a, f, t)
+  let via = stated ? ` [${stated}]` : ''
+  if (implied) via += ` [implied: ${implied}]`
+  const arrow = a.bidirectional ? '↔' : '→'
+  return `• ${typeInfo(f.type).label} "${f.title}"${via} ${arrow} ${typeInfo(t.type).label} "${t.title}"`
+}
+
+/**
+ * One line per gap an author accepted (block.gapAck), labelled from GAP_META
+ * where this build knows the rule. Read from the blocks, not from gap
+ * detection, so an acceptance still reaches the reader once detection
+ * suppresses the gap itself.
+ *
+ * `firing` is the set of `blockId|gapId` pairs whose rule still fires. An
+ * acceptance whose gap has since been fixed (a requirement that gained
+ * criteria) is left out: listing it would tell the reader "done is
+ * undefined" beside the criteria that define it. A rule this build does not
+ * know cannot be re-checked, so it is listed as the author left it. Without
+ * `firing`, every acceptance is listed.
+ */
+export function acceptedGapLines(blocks = state.blocks, firing = null) {
+  return Object.values(blocks).flatMap(b => (b.gapAck || [])
+    .filter(gapType => !firing || !GAP_META[gapType] || firing.has(`${b.id}|${gapType}`))
+    .map(gapType => {
+      const what = GAP_META[gapType]?.prompt || GAP_META[gapType]?.short || gapType
+      return `• ${typeInfo(b.type).label}: "${b.title || '(untitled)'}": ${what}`
+    }))
+}
+
+/**
+ * The `blockId|gapId` pairs a gap-detection result says still fire. Reads
+ * both shapes: a detector that reports accepted gaps apart (`accepted`,
+ * one { id, gap } each) and one that reports them among the rest.
+ */
+export function firingGaps({ details = [], accepted = [] } = {}) {
+  return new Set([
+    ...details.flatMap(d => (d.gaps || []).map(g => `${d.id}|${g}`)),
+    ...(accepted || []).map(a => `${a.id}|${a.gap}`),
+  ])
+}
 
 /**
  * The standing brief: what this document is, and where the reader is standing.
@@ -58,7 +149,7 @@ export function generatePrompt() {
     let s = `\u2022${tagStr} ${b.title || '(untitled)'}`
     if (b.description) s += `\n  ${b.description}`
     if ((b.criteria || []).length) {
-      s += `\n  ${TYPES[b.type]?.criteria || 'Acceptance criteria'}:`
+      s += `\n  ${typeInfo(b.type).criteria || 'Acceptance criteria'}:`
       b.criteria.forEach(c => { s += `\n    - ${c}` })
     }
     if (b.rationale?.trim()) s += `\n  Rationale: ${b.rationale.trim().replace(/\n/g, '\n  ')}`
@@ -82,7 +173,7 @@ export function generatePrompt() {
   // Headings come from the registry, so a type can never print as undefined.
   const sec = type => {
     const items = byType[type]; if (!items?.length) return ''
-    return `## ${TYPES[type]?.section || TYPES[type]?.label || type}\n${items.map(fmt).join('\n')}\n`
+    return `## ${typeInfo(type).section}\n${items.map(fmt).join('\n')}\n`
   }
 
   const taskSection = () => {
@@ -123,8 +214,7 @@ export function generatePrompt() {
   }
 
   // Section builders keyed by intent, so each mode can choose order + form.
-  // SECTION_TYPES records which block types each one prints, for the
-  // fallback below.
+  // PROMPT_SECTION_TYPES records which block types each one prints.
   const S = {
     context:      () => sec('context'),
     stakeholders: () => sec('stakeholder'),
@@ -143,29 +233,10 @@ export function generatePrompt() {
     flow:         () => flowSection(),
     custom:       () => sec('custom'),
   }
-  const taskTypes = Object.keys(TYPES).filter(t => TYPES[t].task)
-  const SECTION_TYPES = {
-    context: ['context'], stakeholders: ['stakeholder'], goals: ['goal'], metrics: ['metric'],
-    problems: ['problem'], requirements: ['requirement'], work: ['implementation'], tasks: taskTypes,
-    assumptions: ['assumption'], risks: ['risk'], questions: ['question'], decisions: ['decision'],
-    resources: ['resource'], outputs: ['output'], flow: ['process', 'terminator'], custom: ['custom'],
-  }
-
-  // Per-mode section order. Every mode lists every type: a type missing from
-  // an order silently vanished from that prompt (Clarify used to drop
-  // resources, outputs and custom). Explore/Clarify front-load the unknowns;
-  // Build folds requirements, outputs and work into the task checklist.
-  const ORDERS = {
-    plan:    ['context','stakeholders','goals','metrics','problems','requirements','work','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
-    investigate: ['context','problems','metrics','questions','assumptions','stakeholders','goals','requirements','work','risks','decisions','resources','flow','outputs','custom'],
-    explore: ['assumptions','questions','goals','metrics','stakeholders','problems','requirements','work','risks','context','decisions','resources','outputs','flow','custom'],
-    build:   ['context','goals','metrics','stakeholders','tasks','assumptions','problems','risks','questions','decisions','resources','flow','custom'],
-    clarify: ['questions','assumptions','goals','metrics','stakeholders','problems','requirements','work','risks','decisions','context','resources','outputs','flow','custom'],
-  }
-  const order = ORDERS[mode] || ORDERS.plan
-  const covered = new Set(order.flatMap(k => SECTION_TYPES[k] || []))
-  // Safety net for a type added to the registry but not yet to an order:
-  // print it under its registry heading rather than dropping its blocks.
+  const order = PROMPT_ORDERS[mode] || PROMPT_ORDERS.plan
+  const covered = new Set(order.flatMap(k => PROMPT_SECTION_TYPES[k] || []))
+  // Safety net for a type the orders do not name (an unknown id in a
+  // hand-written canvas): print it under its own heading rather than drop it.
   const extra = Object.keys(byType).filter(t => !covered.has(t)).map(t => sec(t))
   const content = [...order.map(k => S[k] && S[k]()), ...extra].filter(Boolean).join('\n')
 
@@ -177,14 +248,14 @@ export function generatePrompt() {
       '## Task\nInvestigate. Establish what is actually true before anything is changed or proposed. ' +
       'Work outward from the Problems and Open Questions below.\n\n' +
       'For each finding, state the evidence you based it on. Where you could not establish something, say so plainly ' +
-      'rather than filling the gap with a plausible guess \u2014 an unmarked guess in an investigation is worse than an ' +
+      'rather than filling the gap with a plausible guess: an unmarked guess in an investigation is worse than an ' +
       'admitted unknown.\n' +
       'Where this canvas and reality disagree, report the disagreement; do not quietly reconcile it.\n' +
       'Do not write fixes yet. Close with what you would need in order to be sure.\n',
     explore:
       '## Task\nReview this strategy canvas and surface gaps, assumptions, and missing connections. ' +
       'Ask clarifying questions rather than proposing solutions. Highlight what is unclear or contradictory. ' +
-      'Start from the Assumptions and Open Questions below \u2014 they are where this plan is weakest.\n',
+      'Start from the Assumptions and Open Questions below; they are where this plan is weakest.\n',
     plan:
       '## Task\nReview this strategy canvas and produce a phased implementation plan. ' +
       'Break work into concrete phases with clear outputs for each. Flag any assumptions you are making.\n',
@@ -194,6 +265,7 @@ export function generatePrompt() {
       'Checked tasks are already marked done on the canvas; verify their claims against the code rather than reimplementing them. ' +
       'Do not treat blocked tasks as ready: resolve their blockers first. For each requirement, include acceptance criteria; ' +
       'where they are marked [NEEDS INPUT], do NOT invent them; ask first. ' +
+      'A work item listed with "satisfies:" is done when that requirement\'s criteria hold. ' +
       'Resolve blocking questions and circular dependencies before implementing the affected work.\n',
     clarify:
       '## Task\nDo NOT implement or plan yet. Identify what is ambiguous, missing, or contradictory ' +
@@ -218,7 +290,7 @@ export function generatePrompt() {
       : 'You cannot verify these from here, so do not treat any of them as established. Say which ones would change the plan most if they turned out to be wrong.\n\n'
   }
 
-  // 2. Dev option instructions \u2014 suppressed in Clarify (no implementation yet)
+  // 2. Dev option instructions, suppressed in Clarify (no implementation yet)
   if (mode !== 'clarify') {
     const preMap = {
       tasks:      'Define all tasks with clear acceptance criteria.',
@@ -241,38 +313,40 @@ export function generatePrompt() {
   }
 
   // 3. Block type legend (makes prompt self-contained for AI). The lines live
-  // in the type registry, next to everything else a type means.
+  // in the type registry, next to everything else a type means, and print in
+  // registry order (Why, Who, Proof, What, How, Doubt) rather than in the
+  // order blocks happened to be created.
   const usedTypes = new Set(Object.values(state.blocks).map(b => b.type))
   if (usedTypes.size) {
     prompt += '## Block Type Legend\n'
-    usedTypes.forEach(t => {
-      prompt += `\u2022 **${TYPES[t]?.label || t}**: ${TYPES[t]?.legend || TYPES[t]?.short || t}\n`
+    const ordered = [...Object.keys(TYPES).filter(t => usedTypes.has(t)), ...[...usedTypes].filter(t => !Object.hasOwn(TYPES, t))]
+    ordered.forEach(t => {
+      prompt += `\u2022 **${typeInfo(t).label}**: ${typeInfo(t).legend}\n`
     })
     prompt += '\n'
   }
 
-  // 4. Canvas content \u2014 titled by the canvas, with the engagement framing first
+  // 4. Canvas content, titled by the canvas, with the engagement framing first
   const title = (canvasMeta.title || '').trim() || 'Project Canvas'
   prompt += `---\n\n# ${title}\n\n`
   const brief = (canvasMeta.contextBrief || '').trim()
   if (brief) prompt += `## Engagement Context\n${brief}\n\n`
   prompt += content
 
-  // 5. Connections (typed)
+  // 5. Connections (typed; an unlabelled arrow prints the verb its endpoint
+  // types imply, marked as implied)
   if (state.arrows.length) {
     prompt += '\n## Connections\n'
     state.arrows.forEach(a => {
-      const f = state.blocks[a.from], t = state.blocks[a.to]
-      if (f && t) {
-        const label = connectionLabel(a)
-        const via = label ? ` [${label}]` : ''
-        prompt += `\u2022 ${TYPES[f.type]?.label || f.type} "${f.title}"${via} \u2192 ${TYPES[t.type]?.label || t.type} "${t.title}"\n`
+      const line = connectionLine(a)
+      if (line) {
+        prompt += line + '\n'
         if (a.note?.trim()) prompt += `    ${a.note.trim().replace(/\n/g, '\n    ')}\n`
       }
     })
   }
 
-  // 6. Groups — named clusters of blocks
+  // 6. Groups: named clusters of blocks
   const groups = Object.values(state.groups || {})
   if (groups.length) {
     prompt += '\n## Groups\n'
@@ -284,7 +358,7 @@ export function generatePrompt() {
     })
   }
 
-  // 7. Action legend — explain action badges if any block uses them
+  // 7. Action legend: explain action badges if any block uses them
   const usedActions = new Set()
   Object.values(state.blocks).forEach(b => (b.actions||[]).forEach(a => usedActions.add(a)))
   if (usedActions.size) {
@@ -296,15 +370,23 @@ export function generatePrompt() {
 
   // 8. Gap details. Labels come from GAP_META so the prompt, the breakdown
   // and the docs cannot drift apart.
-  const { count: gapCount, details: gapDetails, canvasFindings } = runGapDetection()
-  if (gapCount || (canvasFindings || []).length) {
+  // A gap the author accepted (block.gapAck) is not an open finding: it is
+  // listed on its own below, so the reader neither re-raises it nor loses it.
+  const gapResult = runGapDetection()
+  const { details: gapDetails, canvasFindings } = gapResult
+  const isAccepted = (id, gapType) => (state.blocks[id]?.gapAck || []).includes(gapType)
+  const openGaps = gapDetails.flatMap(g => g.gaps.filter(gapType => !isAccepted(g.id, gapType)).map(gapType => ({ g, gapType })))
+  if (openGaps.length || (canvasFindings || []).length) {
     prompt += '\n## Planning Gaps Detected\n'
-    gapDetails.forEach(g => {
-      g.gaps.forEach(gapType => {
-        prompt += `\u2022 ${TYPES[g.type]?.label || g.type}: "${g.title}": ${GAP_META[gapType]?.prompt || gapType}\n`
-      })
+    openGaps.forEach(({ g, gapType }) => {
+      prompt += `\u2022 ${typeInfo(g.type).label}: "${g.title}": ${GAP_META[gapType]?.prompt || gapType}\n`
     })
     ;(canvasFindings || []).forEach(f => { prompt += `\u2022 Canvas: ${f}\n` })
+  }
+  const accepted = acceptedGapLines(state.blocks, firingGaps(gapResult))
+  if (accepted.length) {
+    prompt += '\n## Accepted gaps\nThe author reviewed these and chose to leave them as they are. Do not raise them again as findings; mention one only if it now blocks the work.\n'
+    accepted.forEach(line => { prompt += line + '\n' })
   }
 
   // 9. The way back. The canvas absorbs results through a small patch format;
@@ -314,7 +396,10 @@ export function generatePrompt() {
     'https://pathfinder.neorgon.com/llms.txt) carrying: answers to the open questions, each ' +
     'assumption marked verified or refuted with its evidence, status changes, new acceptance ' +
     'criteria, and any new blocks wired to existing ones. Address blocks by the ids below; ' +
-    'do not invent answers you do not have. For new arrows, set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n'
+    'do not invent answers you do not have. For new arrows, set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n' +
+    // The ids, not the labels: a label ("Trigger / End") is what a person
+    // reads, the id is what the patch must carry.
+    `A new block's type is one of: ${Object.keys(TYPES).join(', ')}.\n`
   prompt += '\n### Block ids\n'
   Object.values(state.blocks).forEach(b => {
     prompt += `\u2022 ${b.id}: ${(b.title || '(untitled)').slice(0, 60)}\n`
@@ -334,7 +419,7 @@ export function buildQuestionPrompt(block, question) {
   const title = (canvasMeta.title || '').trim() || 'Project Canvas'
 
   const describe = b => {
-    let s = `${TYPES[b.type]?.label || b.type}: "${b.title || '(untitled)'}"`
+    let s = `${typeInfo(b.type).label}: "${b.title || '(untitled)'}"`
     if (b.description?.trim()) s += `\n  ${b.description.trim().replace(/\n/g, '\n  ')}`
     return s
   }

@@ -8,7 +8,7 @@ import { escHtml, debounce } from './neorgon-dom.js';
 export { escHtml, debounce };
 
 // ════════════════════════════════════════════════════════════
-//  utils.js — Small shared helpers
+//  utils.js: small shared helpers
 // ════════════════════════════════════════════════════════════
 
 // ── Constants ────────────────────────────────────────────────
@@ -30,6 +30,7 @@ export { escHtml, debounce };
  * - example: comma-separated quoted examples
  * - legend: the line the AI prompt uses to explain the type
  * - section: the heading an exporter gives a list of these blocks
+ * - plural: the short plural for tallies, slides and summaries ("3 Metrics")
  * - criteria: false, or the label of the done-list the type carries
  * - task: whether the Build checklist and tasks.md treat it as a task
  * - actions: the action toggles the inspector shows for the type
@@ -38,19 +39,19 @@ export const TYPES = {
   goal: {
     label: 'Goal', color: '#a78bfa', light: '#7c5fd4', tier: 'core', step: 'why',
     short: 'What you want to achieve',
-    tip: 'A strategic objective you want to achieve. Connect it to the Requirements that must be met.',
-    example: '"Increase conversion by 15%", "Launch MVP by Q3"',
+    tip: 'An outcome you want to achieve. Connect the Metric that measures it and the Requirements that must be met.',
+    example: '"Customers check out without calling support", "Launch the MVP by Q3"',
     legend: 'Strategic objective to achieve',
-    section: 'Project Goals',
+    section: 'Project Goals', plural: 'Goals',
     criteria: 'Acceptance criteria', task: false, actions: [],
   },
   problem: {
     label: 'Problem', color: '#f87171', light: '#d94444', tier: 'core', step: 'why',
     short: 'An issue happening now',
-    tip: 'A blocker, issue, or pain point needing resolution. Mark "Resolve" when actioned.',
+    tip: 'An issue happening now: a blocker or pain point. Mark "Resolve" once someone is acting on it. Something that only might happen is a Risk.',
     example: '"API latency exceeds SLA", "No CI/CD pipeline"',
     legend: 'Blocker or issue requiring resolution',
-    section: 'Problems / Blockers',
+    section: 'Problems / Blockers', plural: 'Problems',
     criteria: false, task: false, actions: ['resolve'],
   },
   stakeholder: {
@@ -59,7 +60,7 @@ export const TYPES = {
     tip: 'A person, role or team that receives, approves or is affected by the work. Connect the Outputs delivered to them and the Goals they own.',
     example: '"Executives", "Model owners", "Support team"',
     legend: 'Who receives, approves or is affected by the work',
-    section: 'Stakeholders (who this is for)',
+    section: 'Stakeholders (who this is for)', plural: 'Stakeholders',
     criteria: false, task: false, actions: [],
   },
   metric: {
@@ -68,25 +69,25 @@ export const TYPES = {
     tip: 'A measurable signal with a target: a key result, KPI or SLO. Put the target in Targets and connect it to the Goal it measures.',
     example: '"Sprint predictability at or above 80% by Q4", "p95 latency under 200ms"',
     legend: 'A measurable signal with a target; it defines success, do not redefine it',
-    section: 'Success Metrics (how we will know)',
+    section: 'Success Metrics (how we will know)', plural: 'Metrics',
     criteria: 'Targets', task: false, actions: [],
   },
   requirement: {
     label: 'Requirement', color: '#fbbf24', light: '#c49008', tier: 'core', step: 'what',
     short: 'Must be true when done',
-    tip: 'A hard constraint that must be satisfied. Link it to the Goal it serves.',
+    tip: 'Something that must be true when the work is done. Say how to check it in Acceptance criteria, and link it to the Goal it serves.',
     example: '"GDPR compliance", "Response under 200ms"',
-    legend: 'Hard constraint that must be satisfied',
-    section: 'Requirements',
+    legend: 'Must be true when the work is done; its acceptance criteria say how to check',
+    section: 'Requirements', plural: 'Requirements',
     criteria: 'Acceptance criteria', task: true, actions: [],
   },
   output: {
     label: 'Output', color: '#818cf8', light: '#5558cc', tier: 'more', step: 'what',
     short: 'A deliverable someone can hold: report, doc, release',
-    tip: 'An expected deliverable someone can hold. Connect from the Resources and Requirements that produce it.',
+    tip: 'A deliverable someone can hold: a report, doc or release. Connect it from the work that produces it and to the Stakeholder who receives it.',
     example: '"API documentation", "Staging environment", "User research report"',
     legend: 'Expected deliverable someone can hold: a report, doc or release',
-    section: 'Expected Outputs',
+    section: 'Expected Outputs', plural: 'Outputs',
     // Outputs were Build tasks before the registry existed; kept so the task
     // plan of an existing canvas does not change under it.
     criteria: 'Acceptance criteria', task: true, actions: [],
@@ -97,7 +98,7 @@ export const TYPES = {
     tip: 'Work you do once to build or change something: an epic, initiative, integration or task. Connect it to the Requirement it satisfies and the Output it produces.',
     example: '"Build the report scheduler", "Integrate SSO with the identity provider"',
     legend: 'Work to build or change something; check it against the requirement it satisfies',
-    section: 'Work Items (implementation)',
+    section: 'Work Items (implementation)', plural: 'Work items',
     // Optional: an implementation inherits "done" from the requirement it
     // satisfies, so an empty list is not a gap.
     criteria: 'Acceptance criteria', task: true, actions: [],
@@ -108,7 +109,7 @@ export const TYPES = {
     tip: 'A step or action in a workflow: something that gets done each time the flow runs. Chain these with arrows to show an end-to-end flow.',
     example: '"Update status to Ready for Review", "Generate the doc"',
     legend: 'A step or action in a workflow',
-    section: 'Workflow Steps',
+    section: 'Workflow Steps', plural: 'Process steps',
     criteria: false, task: false, actions: [],
   },
   terminator: {
@@ -117,16 +118,16 @@ export const TYPES = {
     tip: 'What starts or ends a flow: an event, a cadence or a finish. Bookend a process flow so the beginning and outcome are explicit.',
     example: '"Submission received", "Every end of sprint", "PRD approved"',
     legend: 'What starts or ends a flow: an event, a cadence, or a finish',
-    section: 'Workflow Triggers and Ends',
+    section: 'Workflow Triggers and Ends', plural: 'Triggers and ends',
     criteria: false, task: false, actions: [],
   },
   decision: {
     label: 'Decision', color: '#34d399', light: '#18a872', tier: 'core', step: 'how',
     short: 'A choice made, or one to make',
-    tip: 'A choice that has been or needs to be made. Document the rationale.',
+    tip: 'A choice made, or one to make. Record why in Rationale, and connect what it rests on.',
     example: '"Use PostgreSQL over MongoDB", "Ship without feature X"',
     legend: 'A choice made, or one to make (rationale should be documented)',
-    section: 'Decisions',
+    section: 'Decisions', plural: 'Decisions',
     criteria: false, task: false, actions: [],
   },
   resource: {
@@ -135,7 +136,7 @@ export const TYPES = {
     tip: 'An available asset: a team, tool, system, data source or budget. Connect it to what it enables.',
     example: '"Design team (3 people)", "AWS credits ($10K)", "Data warehouse"',
     legend: 'An existing team, tool, system or data source',
-    section: 'Resources Available',
+    section: 'Resources Available', plural: 'Resources and systems',
     criteria: false, task: false, actions: [],
   },
   assumption: {
@@ -144,7 +145,7 @@ export const TYPES = {
     tip: 'A belief you are treating as true without validating it. The AI pressure-tests each one. Link it to the Goal or Requirement it underpins.',
     example: '"Users will pay for this", "The API can handle our load"',
     legend: 'A belief being treated as true without validation: pressure-test it',
-    section: 'Assumptions (validate before building)',
+    section: 'Assumptions (validate before building)', plural: 'Assumptions',
     criteria: false, task: false, actions: ['validate'],
   },
   risk: {
@@ -153,7 +154,7 @@ export const TYPES = {
     tip: 'Something that could go wrong and derail the plan. Connect it to a Decision that mitigates it.',
     example: '"Key engineer leaving", "Vendor contract expires"',
     legend: 'Potential failure point requiring mitigation',
-    section: 'Risks',
+    section: 'Risks', plural: 'Risks',
     criteria: false, task: false, actions: ['prepare'],
   },
   question: {
@@ -162,7 +163,7 @@ export const TYPES = {
     tip: 'A genuine unknown needing an answer. For a belief you are assuming true, use an Assumption instead.',
     example: '"Will users accept SSO-only?", "Is budget approved?"',
     legend: 'A genuine unknown needing an answer',
-    section: 'Open Questions (Review Before Assuming)',
+    section: 'Open Questions (Review Before Assuming)', plural: 'Open questions',
     criteria: false, task: false, actions: [],
   },
   context: {
@@ -171,7 +172,7 @@ export const TYPES = {
     tip: 'Background information that frames the project. Helps the AI understand constraints.',
     example: '"Migrating to cloud", "Competitor launched a similar feature"',
     legend: 'Background information for framing',
-    section: 'Context / Background',
+    section: 'Context / Background', plural: 'Context',
     criteria: false, task: false, actions: [],
   },
   custom: {
@@ -180,7 +181,7 @@ export const TYPES = {
     tip: 'Anything that fits no other type. Gap checks skip it, so use it sparingly: typed blocks produce better AI prompts.',
     example: '"Parking lot", "Idea for later"',
     legend: 'Untyped: infer its role from its title and connections, and state what you assumed',
-    section: 'Custom / Other',
+    section: 'Custom / Other', plural: 'Other',
     criteria: false, task: false, actions: [],
   },
 }
@@ -219,6 +220,50 @@ export function typesByStep() {
     step: s.id, label: s.label, hint: s.hint,
     types: Object.keys(TYPES).filter(t => (known.has(TYPES[t].step) ? TYPES[t].step : 'other') === s.id),
   }))
+}
+
+/**
+ * A type's registry entry, or a neutral stand-in named after the id when this
+ * build does not know it (a hand-written canvas, a patch from newer code).
+ * Exporters read through this, so a heading can never print as "undefined".
+ */
+export function typeInfo(type) {
+  if (Object.hasOwn(TYPES, type)) return TYPES[type]
+  const name = String(type || TYPES.custom.label)
+  return { ...TYPES.custom, label: name, plural: name, section: name }
+}
+
+// Labels a type used to carry. Ids never change, but hand-written and
+// AI-written canvases often put the label a person saw in `type`, including
+// labels this build has since renamed.
+const RETIRED_TYPE_LABELS = {
+  'start / end': 'terminator',
+  'custom / other': 'custom',
+}
+
+const typeKey = s => String(s).trim().toLowerCase()
+  .replace(/[_-]+/g, ' ').replace(/\s*\/\s*/g, ' / ').replace(/\s+/g, ' ')
+
+let typeLookup = null
+
+/**
+ * The type id a written `type` value means, or '' when it names no type this
+ * build knows. Accepts the id itself, the id or label in any case ("Goal",
+ * "open-question", "Trigger / End"), and retired labels ("Start / End").
+ * Anything else stays unknown, so normalize can keep it as Other with the
+ * original in `typeHint` rather than guess.
+ */
+export function resolveTypeId(value) {
+  if (typeof value !== 'string') return ''
+  if (Object.hasOwn(TYPES, value)) return value
+  if (!typeLookup) {
+    typeLookup = new Map(Object.entries(RETIRED_TYPE_LABELS))
+    Object.entries(TYPES).forEach(([id, t]) => {
+      typeLookup.set(typeKey(id), id)
+      typeLookup.set(typeKey(t.label), id)
+    })
+  }
+  return typeLookup.get(typeKey(value)) || ''
 }
 
 // Card presets. `bar` is the original 3px left stripe, kept so canvases built

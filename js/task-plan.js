@@ -1,12 +1,12 @@
 // Shared by Build prompts and the spec bundle: both must hand an assistant
 // the same task order and the same evidence from the canvas.
-import { TYPES, PRIORITY_DEFS, STATUS_DEFS } from './utils.js'
+import { TYPES, PRIORITY_DEFS, STATUS_DEFS, typeInfo } from './utils.js'
 import { dependencyEdges } from './relations.js'
 
 const priorityRank = block => ({ high: 0, medium: 1, low: 2 }[block.priority] ?? 3)
 // The registry says which types are tasks: requirement and output as before,
 // plus implementation, the most task-like type there is.
-const isTask = block => !!TYPES[block.type]?.task
+const isTask = block => Object.hasOwn(TYPES, block.type) && TYPES[block.type].task
 
 /** Order dependencies, including paths through non-task blocks. */
 export function buildTaskPlan(blocks, arrows) {
@@ -46,6 +46,24 @@ export function buildTaskPlan(blocks, arrows) {
 
 const indent = text => String(text).trim().replace(/\r?\n/g, '\n      ')
 
+/**
+ * The requirements a work item satisfies: every requirement it is wired to,
+ * in either direction. An Implementation inherits "done" from these (its own
+ * criteria are optional), so the checklist prints them instead of asking for
+ * criteria the canvas already has one hop away.
+ */
+export function satisfiedRequirements(block, blocks, arrows) {
+  if (block?.type !== 'implementation') return []
+  const seen = new Set()
+  const out = []
+  arrows.forEach(a => {
+    const other = a.from === block.id ? a.to : a.to === block.id ? a.from : null
+    const req = other != null && Object.hasOwn(blocks, other) ? blocks[other] : null
+    if (req?.type === 'requirement' && !seen.has(req.id)) { seen.add(req.id); out.push(req) }
+  })
+  return out
+}
+
 export function taskChecklist(blocks, arrows) {
   const { tasks, incoming, hasCycle } = buildTaskPlan(blocks, arrows)
   if (!tasks.length) return ''
@@ -58,14 +76,24 @@ export function taskChecklist(blocks, arrows) {
     if (b.priority) tags.push(PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority)
     if (b.status && b.status !== 'not-started') tags.push(STATUS_DEFS[b.status]?.label?.toUpperCase() || b.status)
     out += `- [${done ? 'x' : ' '}]${tags.map(tag => ` [${tag}]`).join('')} ${b.title || '(untitled)'}\n`
-    out += `      Block: ${b.id} (${TYPES[b.type]?.label || b.type})\n`
+    out += `      Block: ${b.id} (${typeInfo(b.type).label})\n`
     if (b.description?.trim()) out += `      ${indent(b.description)}\n`
     const before = [...incoming.get(b.id)].map(id => blocks[id].title || '(untitled)')
     if (before.length) out += `      after: ${before.join('; ')}\n`
-    out += `      ${TYPES[b.type]?.criteria || 'Acceptance criteria'}:\n`
-    if (b.criteria?.length) {
-      b.criteria.forEach(c => { out += `      - ${done ? '' : '[ ] '}${indent(c)}\n` })
-    } else out += '      [NEEDS INPUT: acceptance criteria]\n'
+    const satisfies = satisfiedRequirements(b, blocks, arrows)
+    satisfies.forEach(req => {
+      out += `      satisfies: ${req.title || '(untitled)'} (${req.id})\n`
+      if (req.criteria?.length) {
+        req.criteria.forEach(c => { out += `        - ${done ? '' : '[ ] '}${indent(c)}\n` })
+      } else out += `        [NEEDS INPUT: acceptance criteria on "${req.title || '(untitled)'}"]\n`
+    })
+    // A work item's own criteria are optional once it satisfies a requirement.
+    if (b.criteria?.length || !satisfies.length) {
+      out += `      ${typeInfo(b.type).criteria || 'Acceptance criteria'}:\n`
+      if (b.criteria?.length) {
+        b.criteria.forEach(c => { out += `      - ${done ? '' : '[ ] '}${indent(c)}\n` })
+      } else out += '      [NEEDS INPUT: acceptance criteria]\n'
+    }
     if (b.rationale?.trim()) out += `      Rationale: ${indent(b.rationale)}\n`
     if (b.docRef?.href || b.docRef?.label) {
       const { href, label, anchor } = b.docRef

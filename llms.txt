@@ -11,8 +11,11 @@
 - Part of the Neorgon tool suite (free, no signup, runs in your browser): https://neorgon.com/
 - Keywords: strategy, canvas, ai-prompt, gap-detection, planning, investigation
 
-Everything runs client-side. No account, no backend, no telemetry. A canvas
-lives in the visitor's browser and travels as a file or a link.
+Everything runs client-side. No account, no backend. A canvas lives in the
+visitor's browser and travels as a file or a link; no canvas content is ever
+sent anywhere. On pathfinder.neorgon.com the page itself is counted: anonymous
+page views (GoatCounter and Cloudflare Web Analytics), skipped when the browser
+sends Do Not Track or Global Privacy Control.
 
 ---
 
@@ -33,13 +36,17 @@ The blocks most worth your attention are the ones people skim:
   main way a plan like this goes wrong.
 - **Connections** carry labels (`blocks`, `depends on`, `mitigates`). They are
   the dependency order. Use them to sequence work rather than inventing an
-  order of your own.
+  order of your own. An unlabelled connection between two types that imply a
+  verb prints it as `[implied: satisfies]`: the tool inferred it from the
+  endpoint types, the author did not write it.
+- **Accepted gaps** are gaps the author looked at and chose to leave. Do not
+  raise them again as findings.
 - A **Gap summary** at the end lists blocks the tool itself flagged as
   unconnected or unsupported. Treat it as a list of things the author has not
   finished thinking about.
 
 **2. You are asked to produce a canvas.** Emit the JSON below and the user
-imports it with Export ▾ → Import JSON. In the app, Export ▾ → **Copy AI
+imports it with File ▾ → Import JSON / Canvas / Mermaid. In the app, File ▾ → **Copy AI
 diagram-builder prompt** gives the same instructions with the current schema
 inlined.
 
@@ -66,7 +73,7 @@ inlined.
     }
   ],
   "arrows": [
-    { "id": "a1", "from": "b1", "to": "b2", "label": "depends on", "style": "routed" }
+    { "id": "a1", "from": "b1", "to": "b2", "label": "depends on", "style": "routed", "pattern": "solid" }
   ],
   "groups": [{ "id": "g1", "label": "Phase 1" }],
   "meta": {
@@ -94,26 +101,60 @@ lays the graph out properly.
 
 ### Block types
 
-| `type` | Use for |
-|---|---|
-| `goal` | An outcome to achieve |
-| `problem` | A blocker or issue, stated as an observable symptom |
-| `requirement` | A hard constraint that must hold |
-| `assumption` | A belief being treated as true without having been checked |
-| `risk` | Something that could go wrong |
-| `decision` | A choice made, or one that needs making |
-| `question` | A genuine unknown |
-| `resource` | An available asset, tool, team, or budget |
-| `output` | An expected deliverable |
-| `process` | A step in a workflow |
-| `terminator` | The start or end of a workflow |
-| `context` | Background that frames the rest |
-| `custom` | Anything else. Prefer a real type; they produce better prompts |
+Sixteen types, grouped by the question each one answers. Map a piece of work
+in this order: **Why → Who → Proof → What → How → Doubt**. Proof comes before
+How because the measure is set with the objective and the work is chosen after
+it. Context and Other support any step.
 
-`assumption` versus `question`: an assumption is something you are acting on
-without checking, a question is something you know you do not know. The
-difference matters, because the export tells the reader to pressure-test the
-first and answer the second.
+| `type` | Label in the app | Step | Use for |
+|---|---|---|---|
+| `goal` | Goal | Why | What you want to achieve |
+| `problem` | Problem | Why | An issue happening now |
+| `stakeholder` | Stakeholder | Who | Who receives, approves or is affected |
+| `metric` | Metric | Proof | A measurable signal with a target |
+| `requirement` | Requirement | What | Must be true when done |
+| `output` | Output | What | A deliverable someone can hold: report, doc, release |
+| `implementation` | Implementation | How | Work done once to build or change something |
+| `process` | Process | How | A recurring step in a workflow |
+| `terminator` | Trigger / End | How | What starts or ends a flow: an event, a cadence, a finish |
+| `decision` | Decision | How | A choice made, or one to make |
+| `resource` | Resource / System | How | An existing team, tool, system or data source |
+| `assumption` | Assumption | Doubt | A belief you are treating as true |
+| `risk` | Risk | Doubt | Something that might go wrong |
+| `question` | Open Question | Doubt | A genuine unknown |
+| `context` | Context | Other | Background that frames the work |
+| `custom` | Other | Other | Untyped: checks skip it |
+
+Write the id in `type`, never the label. Ids never change once shipped; labels
+may (`terminator` was labelled "Start / End" until 2026-09). An importer that
+meets a label anyway reads it as its type, and a type it does not know is kept
+as `custom` with the original in `typeHint` rather than dropped.
+
+Pairs that get confused:
+
+- Every time the flow runs is a Process; once, to build or change something,
+  is an Implementation.
+- A moment in time is a Trigger / End; a thing someone can hold is an Output.
+- A number with a target is a Metric. Put the target in its `criteria`.
+- An assumption is something you are acting on without checking; a question is
+  something you know you do not know. The export tells the reader to
+  pressure-test the first and answer the second.
+- A problem is happening now; a risk only might.
+
+Connections between some pairs imply a verb, printed in the prompt when the
+arrow has no label (it is never stored):
+
+| From → to | Implied verb |
+|---|---|
+| implementation → requirement | satisfies |
+| implementation → output | produces |
+| implementation → metric | should move |
+| resource → metric | source of |
+| terminator → process or implementation | triggers |
+| metric → goal | measures |
+| output → stakeholder | delivered to |
+| stakeholder → goal | owns |
+| risk → decision | mitigated by |
 
 ### Other enums
 
@@ -125,10 +166,13 @@ first and answer the second.
   order the source first. `informs` and `related` provide context without task
   ordering. Explicit meaning overrides label text. When omitted, recognized
   old labels infer their meaning; other arrows keep source-to-target ordering.
-- `arrows[].style`: `routed` (default, steers around blocks), `curved`,
-  `straight`, `elbow`, `dashed`, `dotted`
-- `arrows[].portsBy`: `tidy` marks connection sides written by auto-layout
-  (released when a block moves). Omit it for sides a person chose
+- `arrows[].style`: the route only. `routed` (default, steers around
+  blocks), `curved`, `straight`, `elbow`. The old values `dashed` and `dotted`
+  still load, as `curved` plus that pattern
+- `arrows[].pattern`: `solid` (default), `dashed`, `dotted`
+- `arrows[].portsBy`: `tidy` marks connection sides written by auto-layout,
+  `import` sides that came with an imported file. Tidy may move either; a
+  person moving a block releases them. Omit it for sides a person chose
 - `meta.prompt.mode`: `plan`, `investigate`, `explore`, `build`, `clarify`.
   Part of the canvas: set it so the recipient's export opens with the task
   you intended
@@ -137,8 +181,19 @@ first and answer the second.
 - `meta.prompt.pre`: any of `tasks`, `edge`, `errors`, `docs`, `security`,
   `typescript`
 - `blocks[].criteria`: short strings, the block's definition of done
-  (meaningful on `requirement`, `goal`, `output`). They feed the prompt's
-  acceptance criteria, tasks.md and the EARS export
+  (meaningful on `requirement`, `goal`, `output`, `implementation`; on a
+  `metric` they are its Targets). They feed the prompt, tasks.md and the EARS
+  export. An `implementation` wired to a `requirement` inherits that
+  requirement's criteria, so its own are optional
+- `blocks[].typeCheck`: `true` when the type was guessed with low confidence
+  (a Brain Dump line, an imported node) and nobody has confirmed it yet. Omit
+  it on blocks you typed deliberately
+- `blocks[].gapAck`: gap ids the author accepted for this block, for example
+  `["gap-no-criteria"]`. The prompt lists them under "Accepted gaps" instead of
+  as findings
+- `blocks[].typeHint`: written by the app, not by you. It keeps the original
+  type of a block whose type this build did not know, so a newer build can
+  restore it
 - `blocks[].rationale`: why a decision was made (string, `decision` blocks)
 - `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
 - `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
@@ -162,7 +217,9 @@ absent from the exported prompt for the same reason.
 
 - **Share hash:** `https://pathfinder.neorgon.com/#s=<base64(encodeURIComponent(JSON))>`
   carries a whole canvas in the link. Build it exactly that way when emitting
-  a link; the app offers replace-or-merge on arrival.
+  a link; the app always reads it. The app's own Share button may write the
+  shorter compressed form `#z=` (deflate-raw, then base64url); `validate.mjs`
+  reads both.
 - **`?src=`:** `https://pathfinder.neorgon.com/?src=<https url>` fetches canvas
   JSON from a URL instead, for canvases too large for a hash. Allowed hosts:
   GitHub raw and gist (`raw.githubusercontent.com`, `gist.githubusercontent.com`)
@@ -176,22 +233,27 @@ absent from the exported prompt for the same reason.
 An emitted canvas can be proven loadable without opening the app:
 
     curl -sO https://pathfinder.neorgon.com/validate.mjs
-    node validate.mjs canvas.json        # or -  (stdin), or a '#s=...' link
+    node validate.mjs canvas.json        # or -  (stdin), or a '#s=...' / '#z=...' link
 
 It runs the app's own normalizer (fetched from this site when not local), so
 what it accepts is exactly what the canvas accepts. Exit 0 clean; exit 1 when
-items would be dropped or coerced (each one is named); exit 2 unreadable.
+items would be dropped or coerced (each one is named, including a label
+written where a type id belongs); exit 2 unreadable. `INFO` lines, such as an
+old `dashed` style, describe a lossless reading and do not fail the check.
 
 ## Other formats, in and out
 
-- **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): Export ▾ →
-  Download JSON Canvas writes the map as a `.canvas` file; the same Import
-  picker reads one, classifying text nodes into block types (correction chips
-  appear for uncertain calls).
+- **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): File ▾ →
+  Download JSON Canvas writes the map as a `.canvas` file; File ▾ → Import
+  reads one, classifying text nodes into block types. An uncertain call is
+  marked `typeCheck` for a person to confirm.
 - **Mermaid flowcharts** import through the same picker (a fenced
   ```mermaid block or a bare `flowchart`/`graph` file): shapes map to types
-  (rhombus → decision, stadium/circle → start/end), subgraphs become groups,
-  and positions come from the app's own layout.
+  (rhombus → decision, stadium/circle → Trigger / End), subgraphs become
+  groups, and positions come from the app's own layout. The Markdown export
+  writes its graph the same way: every block declared (connected or not),
+  decisions as rhombi, triggers and ends as stadiums, and a
+  `class <nodes> <type id>` line per type.
 
 ## Writing results back: the patch
 
@@ -248,9 +310,11 @@ deselects dependent connections. Only the selected operations apply.
 
 `Investigate` establishes what is true and demands evidence per finding.
 `Explore` surfaces gaps and asks questions. `Plan` produces a phased plan.
-`Build` renders requirements as a task checklist. `Clarify` returns only
-questions. The mode reshapes section order and the task directive, so pick the
-one that matches what you actually want back.
+`Build` renders requirements, outputs and implementation work as one task
+checklist, and a work item lists the requirement it satisfies. `Clarify`
+returns only questions. The mode reshapes section order and the task
+directive, so pick the one that matches what you actually want back. Every
+mode carries every block type; only the order changes.
 
 ---
 
@@ -258,12 +322,12 @@ one that matches what you actually want back.
 
 There is no CLI and no API. The exchange is a file or a link:
 
-1. Export ▾ → **Download JSON** puts `pathfinder.json` in your downloads. Hand
+1. File ▾ → **Download JSON** puts `pathfinder.json` in your downloads. Hand
    that to a session directly; it is the whole canvas, situation included.
-2. Export ▾ → **Download Markdown** gives a readable version with one section
+2. File ▾ → **Download Markdown** gives a readable version with one section
    per block type, labelled connections, and a Mermaid graph of the topology.
-3. **Copy AI-ready prompt** (the pill on the canvas) copies the assembled
-   prompt, Situation first.
+3. **Copy prompt** (in the bar under the canvas) copies the assembled prompt,
+   Situation first.
 4. **Share** → Copy link encodes the entire canvas in the URL hash. Nothing is
    uploaded; the link is the data.
 

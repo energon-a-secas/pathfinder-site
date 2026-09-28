@@ -23,27 +23,61 @@ const PREFIX_PATTERNS = [
   { re: /^(assum(e|ption)|belief|hypothesis)[:.]\s*/i,         type: 'assumption' },
   { re: /^(need|req(uirement)?|must|should|shall)[:.]\s*/i,    type: 'requirement' },
   { re: /^(decision|decided|chose|choice)[:.]\s*/i,            type: 'decision' },
-  { re: /^(resource|team|tool|asset|budget)[:.]\s*/i,          type: 'resource' },
+  { re: /^(resource|system|team|tool|asset|budget)[:.]\s*/i,   type: 'resource' },
   { re: /^(output|deliverable|result|outcome)[:.]\s*/i,        type: 'output' },
   { re: /^(context|background|note|info|status)[:.]\s*/i,      type: 'context' },
   { re: /^(question)[:.]\s*/i,                                 type: 'question' },
   { re: /^(action|step|process|task|do)[:.]\s*/i,             type: 'process' },
   { re: /^(start|end|begin|finish|done|trigger)[:.]\s*/i,     type: 'terminator' },
+  { re: /^(metric|kpi|okr|kr|key result|measure)[:.]\s*/i,     type: 'metric' },
+  { re: /^(stakeholder|audience|sponsor|who)[:.]\s*/i,         type: 'stakeholder' },
+  { re: /^(implementation|implement|build|work|epic|initiative)[:.]\s*/i, type: 'implementation' },
 ]
 
+const UNITS = '(day|week|month|quarter|year|sprint|release|morning|evening|monday|tuesday|wednesday|thursday|friday)'
+const CADENCE_ANYWHERE = new RegExp(`\\b(every|each)\\s+(end|${UNITS})\\b|\\bend of (the )?${UNITS}\\b|\\b${UNITS}['’]?s end\\b`, 'i')
+const CADENCE_WHOLE = new RegExp(`^((on|at)\\s+)?((every|each)\\s+(end of (the )?)?${UNITS}(\\s+end)?|(the\\s+)?(end of (the )?${UNITS}|${UNITS}['’]?s end))$`, 'i')
+const AUDIENCE_WORDS = '(executives?|stakeholders?|customers?|leadership|owners?|team leads?|sponsors?)'
+const AUDIENCE = new RegExp(`\\b${AUDIENCE_WORDS}\\b`, 'i')
+const AUDIENCE_WHOLE = new RegExp(`^${AUDIENCE_WORDS}(\\s+(team|group|committee|board|council))?$`, 'i')
+
 // Weighted keyword cues. Each entry: [regex, points]. Highest-scoring type wins.
+// On a tie the earlier type wins, which is why the three newer types come
+// last: a line that already classified one way keeps doing so, and they only
+// take lines nothing else claimed or claimed weakly. Nouns are plural-safe
+// ("Reports", "Key Results"): the singular-only cues sent both to Other.
 const SCORE_RULES = {
   requirement: [[/\b(need|needs|must|should|shall|require[sd]?|has to|have to)\b/i, 3], [/\b(support|enable|provide|allow)\b/i, 1]],
   assumption:  [[/\b(assume|assuming|assumption|expect|expects|presumably|likely|probably|i think|we think|believe)\b/i, 3], [/\bwill\s+\w+/i, 2], [/\b(should be fine|hopefully)\b/i, 2]],
-  risk:        [[/\b(risk|concern|danger|threat|worried|might fail|could fail|fragile|breaks?|vulnerab)\b/i, 3], [/\b(if .* fails|single point of failure)\b/i, 2]],
-  goal:        [[/\b(goal|objective|aim|vision|want to|increase|reduce|improve|grow|launch|ship|achieve|reach)\b/i, 3]],
-  problem:     [[/\b(problem|issue|blocker|bug|broken|pain|can't|cannot|doesn't work|failing|slow|outage)\b/i, 3], [/\b(latency|exceeds?|over (our )?sla|breach(es|ing)?|too slow|error rate|downtime)\b/i, 3]],
+  risk:        [[/\b(risks?|concerns?|danger|threats?|worried|might fail|could fail|fragile|breaks?|vulnerab)\b/i, 3], [/\b(if .* fails|single point of failure)\b/i, 2]],
+  goal:        [[/\b(goals?|objectives?|aim|vision|want to|increase|reduce|improve|grow|launch|ship|achieve|reach)\b/i, 3]],
+  problem:     [[/\b(problems?|issues?|blockers?|bugs?|broken|pain|can't|cannot|doesn't work|failing|slow|outage)\b/i, 3], [/\b(latency|exceeds?|over (our )?sla|breach(es|ing)?|too slow|error rate|downtime)\b/i, 3],
+                // "Build fails on main" is a red pipeline, not work to do.
+                [/^(build|pipeline|ci|deploy(ment)?|tests?)\s+(is\s+|are\s+|was\s+|keeps\s+)?(fail(s|ed|ing)?|broken|red|flaky)\b/i, 3]],
   decision:    [[/\b(decided|decision|chose|choose|chosen|go with|pick(ed)?|settle[d]? on|opt(ed)? for)\b/i, 3]],
-  resource:    [[/\b(team|budget|tool|asset|library|api|service|credits?|headcount|engineers?|designers?)\b/i, 1]],
-  output:      [[/\b(deliverable|output|result|outcome|artifact|report|doc(s|umentation)?|deploy|release)\b/i, 2]],
+  // Named systems ("Data Central", "Partner Portal") are resources too.
+  resource:    [[/\b(teams?|budgets?|tools?|assets?|librar(y|ies)|apis?|services?|credits?|headcount|engineers?|designers?|systems?|platforms?|databases?|data sources?|warehouses?|central|hubs?|portals?)\b/i, 1]],
+  output:      [[/\b(deliverables?|outputs?|results?|outcomes?|artifacts?|reports?|doc(s|umentation)?|deploy|releases?)\b/i, 2]],
   context:     [[/\b(background|context|currently|today|historically|note that|fyi|for reference)\b/i, 2]],
-  process:     [[/^(update|create|add|send|generate|assign|review|submit|move|set|mark|run|trigger|notify)\b/i, 3], [/\b(step \d|then\b)/i, 1]],
-  terminator:  [[/^(start|begin|end|finish|done|complete[d]?)\b/i, 3]],
+  // `set up` is building something, not a step: leave it to implementation.
+  process:     [[/^(update|create|add|send|generate|assign|review|submit|move|set(?!\s+up\b)|mark|run|trigger|notify)\b/i, 3], [/\b(step \d|then\b)/i, 1]],
+  // A cadence ("every end of sprint", "on quarter's end") is what starts a
+  // flow. A bare "weekly" is not: "Weekly reports" are an output. Only a
+  // title that IS the cadence is a confident trigger: "Every week we lose
+  // two customers" mentions one, and a mention alone is a hint (1 point).
+  terminator:  [[/^(start|begin|end|finish|done|complete[d]?)\b/i, 3],
+                [CADENCE_ANYWHERE, 1],
+                [CADENCE_WHOLE, 2]],
+  metric:      [[/\b(kpis?|okrs?|metrics?|key results?|slas?|slos?|nps)\b/i, 3], [/%|\b(rates?|targets?|baselines?|percent(age)?)\b/i, 2]],
+  // A leading "build" is work unless the build is the subject ("Build
+  // fails on main") or its object is not a thing ("Build trust with ...").
+  implementation: [[/^(implement|integrate|migrate|automate|set up|(build|develop)(?!\s+(fails?|failed|failing|broke|broken|breaks|is|was|keeps|still|red|trust|relationships?|rapport|confidence|consensus|momentum|awareness|credibility|loyalty|reputation|culture)\b))\b/i, 3],
+                   [/\b(implement(s|ed|ing|ation)?|integrat(e|es|ed|ing|ion|ions)|migrat(e|es|ed|ing|ion)|automat(e|es|ed|ing|ion))\b/i, 2]],
+  // An audience word anywhere is a weak cue (2): "Customers will pay for
+  // this" is a belief and "Customer churn above 5%" a metric, and both tie
+  // back to the earlier type. Only a title that names the audience outright
+  // ("Customers", "Leadership team") is a confident stakeholder.
+  stakeholder: [[AUDIENCE, 2], [AUDIENCE_WHOLE, 1]],
 }
 
 const LEADING_FILLER = /^(we|i|the|our|they|it|this|that|there)\s+/i
@@ -51,6 +85,10 @@ const LEADING_FILLER = /^(we|i|the|our|they|it|this|that|there)\s+/i
 /**
  * Classify one raw line into { type, title, confidence }.
  * confidence: 'high' (explicit prefix or strong score) | 'low' (weak/none).
+ * A title alone cannot always carry its type: of the eleven reporting-flow
+ * titles in tests/types-registry.test.js, two still land on Other and one
+ * reads as a trigger where its author meant a report, which is why
+ * low-confidence calls ask to be checked.
  */
 export function categorizeLine(raw) {
   const line = raw.replace(/^\s*[-*•]\s+/, '').replace(/^\s*\d+\.\s+/, '').trim()
@@ -144,6 +182,9 @@ export function createBlocksFromText(text, nest = true) {
       width: null, color: null, collapsed: false, groupId: null,
       status: null, priority: null,
     }
+    // A guess the classifier was not sure of waits for a person to confirm
+    // it, and says so on the card, instead of passing as a real type.
+    if (confidence === 'low') state.blocks[id].typeCheck = true
     created.push({ id, confidence })
   })
 

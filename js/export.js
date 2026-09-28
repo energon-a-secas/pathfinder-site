@@ -1,15 +1,19 @@
 import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
-//  export.js — JSON/Markdown export/import
+//  export.js: JSON/Markdown export/import
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts } from './state.js'
-import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, SVG_ICONS } from './utils.js'
+// Namespace imports for helpers other streams own, feature-detected at call
+// time: interop.js may export mermaidShapeFor, state.js builds share links.
+import * as stateMod from './state.js'
+import * as interop from './interop.js'
+import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, typeInfo, showToast } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
-import { generatePrompt, refreshPrompt, situationSection } from './prompt.js'
+import { generatePrompt, refreshPrompt, situationSection, connectionReading } from './prompt.js'
 
 // ── Import JSON ───────────────────────────────────────────────
 /**
@@ -110,24 +114,45 @@ export function exportJSON() {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
   a.download = 'pathfinder.json'; a.click(); URL.revokeObjectURL(a.href)
+  // A full copy left the browser: the backup reminder listens for this.
+  window.dispatchEvent(new CustomEvent('pf:exported', { detail: { kind: 'json' } }))
 }
 
 // ── Export Markdown ──────────────────────────────────────────
-export function exportMarkdown() {
-  // Every type in the registry gets a section. Leaving one out silently drops
-  // those blocks from the file, which is how assumptions, context and custom
-  // blocks used to vanish on export.
-  const order   = ['goal','problem','stakeholder','metric','requirement','assumption','risk','question','decision',
-                   'resource','output','implementation','process','terminator','context','custom']
-  const headings = { goal:'Goals', problem:'Problems / Blockers', requirement:'Requirements',
-    assumption:'Assumptions (validate before building)', risk:'Risks', question:'Open Questions',
-    decision:'Decisions', resource:'Resources', output:'Outputs',
-    process:'Workflow Steps', terminator:'Workflow Start / End', context:'Context', custom:'Other' }
-  // A type with no heading here falls back to its registry section, which is
-  // what used to print as "## undefined".
-  const heading = t => headings[t] || TYPES[t]?.section || TYPES[t]?.label || t
-  const missing = Object.keys(TYPES).filter(t => !order.includes(t))
-  if (missing.length) order.push(...missing)
+
+/**
+ * Registry order, then any type id the registry does not know, so every
+ * block on the canvas has a section and none can vanish from an export.
+ */
+export function exportTypeOrder(blocks = state.blocks) {
+  const present = new Set(Object.values(blocks).map(b => b.type))
+  return [...Object.keys(TYPES), ...[...present].filter(t => !Object.hasOwn(TYPES, t))]
+}
+
+/** One connection for a Markdown list: bold titles, label, implied verb. */
+function markdownConnection(a) {
+  const f = state.blocks[a.from], t = state.blocks[a.to]
+  if (!f || !t) return ''
+  // Labels and notes round-trip through JSON but used to be thrown away
+  // here, so the exported list said what connected to what and never why.
+  const { stated, implied } = connectionReading(a, f, t)
+  const note  = (a.note  || '').trim().replace(/\s*\n\s*/g, ' ')
+  const arrow = a.bidirectional ? '↔' : '→'
+  let md = `- **${f.title}** ${arrow} **${t.title}**`
+  if (stated) md += `: _${stated}_`
+  if (implied) md += `${stated ? ' ' : ': '}_(implied: ${implied})_`
+  md += '\n'
+  if (note) md += `  - ${note}\n`
+  return md
+}
+
+/**
+ * The Markdown document: one section per type, headed by the registry's
+ * `section`, in the registry's Why, Who, Proof, What, How, Doubt order.
+ * Pure, so tests read it without a download.
+ */
+export function buildMarkdown() {
+  const order = exportTypeOrder()
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
   const title = (canvasMeta.title || '').trim() || 'Pathfinder Canvas'
@@ -140,7 +165,7 @@ export function exportMarkdown() {
   if (brief) md += `## Engagement Context\n${brief}\n\n`
   order.forEach(t => {
     const items = byType[t]; if (!items?.length) return
-    md += `## ${heading(t)}\n\n`
+    md += `## ${typeInfo(t).section}\n\n`
     items.forEach(b => {
       const tags = []
       if (b.priority) tags.push(b.priority.toUpperCase())
@@ -148,7 +173,7 @@ export function exportMarkdown() {
       md += `### ${b.title}${tags.length ? ' [' + tags.join(', ') + ']' : ''}\n`
       if (b.description) md += `${b.description}\n\n`
       if (b.criteria?.length) {
-        md += `**${TYPES[b.type]?.criteria || 'Acceptance criteria'}:**\n`
+        md += `**${typeInfo(b.type).criteria || 'Acceptance criteria'}:**\n`
         b.criteria.forEach(c => { md += `- [ ] ${c}\n` })
         md += '\n'
       }
@@ -169,22 +194,15 @@ export function exportMarkdown() {
   })
   if (state.arrows.length) {
     md += '## Connections\n\n'
-    state.arrows.forEach(a => {
-      const f = state.blocks[a.from], t = state.blocks[a.to]
-      if (!f || !t) return
-      // Labels and notes round-trip through JSON but used to be thrown away
-      // here, so the exported list said what connected to what and never why.
-      const label = connectionLabel(a)
-      const note  = (a.note  || '').trim().replace(/\s*\n\s*/g, ' ')
-      const arrow = a.bidirectional ? '\u2194' : '\u2192'
-      md += `- **${f.title}** ${arrow} **${t.title}**`
-      if (label) md += `: _${label}_`
-      md += '\n'
-      if (note) md += `  - ${note}\n`
-    })
+    state.arrows.forEach(a => { md += markdownConnection(a) })
     md += '\n'
     md += mermaidBlock()
   }
+  return md
+}
+
+export function exportMarkdown() {
+  const md = buildMarkdown()
   const blob = new Blob([md], { type: 'text/markdown' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
   a.download = 'pathfinder.md'; a.click(); URL.revokeObjectURL(a.href)
@@ -197,23 +215,53 @@ export function exportMarkdown() {
  * (or an AI being handed this file) has to rebuild the shape in their head
  * from it. The graph states the shape directly, and Mermaid renders natively
  * in GitHub, Obsidian and most Markdown viewers.
+ *
+ * Every block is declared, connected or not, so an isolated block survives a
+ * round trip. Shapes carry the two types Mermaid itself has a shape for
+ * (rhombus decision, stadium trigger or end), and a classDef per type carries
+ * the rest: the graph renders in the canvas's colours, and a `class` line
+ * names each block's type for any importer that reads it.
  */
-export function mermaidBlock() {
-  const ids = new Map()
-  const key = id => {
-    if (!ids.has(id)) ids.set(id, 'n' + (ids.size + 1))
-    return ids.get(id)
+const MERMAID_SHAPES = { decision: ['{', '}'], terminator: ['([', '])'] }
+
+export function mermaidShape(type) {
+  // SHARING may publish the importer's own table; prefer it when it answers
+  // with a usable [open, close] pair so export and import cannot disagree.
+  // Its answer may be an [open, close] pair or an { open, close } object.
+  if (typeof interop.mermaidShapeFor === 'function') {
+    const got = interop.mermaidShapeFor(type)
+    const pair = Array.isArray(got) ? got : (got && typeof got === 'object' ? [got.open, got.close] : null)
+    if (pair && pair.length === 2 && pair.every(s => typeof s === 'string' && s)) return pair
   }
-  const clean = s => String(s || 'Untitled').replace(/["\\]/g, '').replace(/\s+/g, ' ').slice(0, 60)
-  const lines = []
+  return MERMAID_SHAPES[type] || ['[', ']']
+}
+
+export function mermaidBlock() {
+  const blocks = Object.values(state.blocks)
+  if (!blocks.length) return ''
+  const ids = new Map(blocks.map((b, i) => [b.id, 'n' + (i + 1)]))
+  // Quotes, pipes and brackets would end a label early, in Mermaid or in the
+  // app's own Mermaid importer; brackets become parentheses, which both read.
+  // A backtick run would close the ```mermaid fence the graph sits in.
+  const clean = s => String(s || 'Untitled').replace(/["\\|]/g, '').replace(/`/g, "'").replace(/[[{]/g, '(').replace(/[\]}]/g, ')')
+    .replace(/\s+/g, ' ').trim().slice(0, 60) || 'Untitled'
+  const lines = blocks.map(b => {
+    const [open, close] = mermaidShape(b.type)
+    return `  ${ids.get(b.id)}${open}"${clean(b.title)}"${close}`
+  })
   state.arrows.forEach(a => {
-    const f = state.blocks[a.from], t = state.blocks[a.to]
-    if (!f || !t) return
+    if (!ids.has(a.from) || !ids.has(a.to)) return
     const label = connectionLabel(a)
     const edge = a.bidirectional ? '<-->' : '-->'
-    lines.push(`  ${key(a.from)}["${clean(f.title)}"] ${edge}${label ? `|${clean(label)}|` : ''} ${key(a.to)}["${clean(t.title)}"]`)
+    lines.push(`  ${ids.get(a.from)} ${edge}${label ? `|${clean(label)}|` : ''} ${ids.get(a.to)}`)
   })
-  if (!lines.length) return ''
+  // Registry order keeps the class lines stable between exports.
+  exportTypeOrder().forEach(t => {
+    const members = blocks.filter(b => b.type === t).map(b => ids.get(b.id))
+    if (!members.length || !Object.hasOwn(TYPES, t)) return
+    lines.push(`  classDef ${t} stroke:${TYPES[t].color},stroke-width:2px`)
+    lines.push(`  class ${members.join(',')} ${t}`)
+  })
   return '```mermaid\ngraph LR\n' + lines.join('\n') + '\n```\n\n'
 }
 
@@ -223,26 +271,32 @@ export function exportCopyPrompt() {
 }
 
 // ── Export to Presentation Sage ──────────────────────────────
-export function exportToPresentationSage() {
-  const order = ['goal','problem','requirement','risk','question','decision','resource','output']
-  const headings = { goal:'Goals', problem:'Problems', requirement:'Requirements',
-    risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs' }
-  // Every other registry type follows, under its registry section, so no
-  // block type is left out of the deck.
-  order.push(...Object.keys(TYPES).filter(t => !order.includes(t)))
-  const heading = t => headings[t] || TYPES[t]?.section || TYPES[t]?.label || t
+
+/**
+ * The deck as YAML: a title slide, then one bullets slide per type present,
+ * in registry order and headed by the registry's short plural, so every
+ * block type reaches the deck (triggers, steps and context used to vanish).
+ */
+export function buildSageYaml() {
+  const q = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, ' ')
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
+  const deckTitle = canvasMeta.title || 'Pathfinder Plan'
 
-  let yaml = `presentation:\n  title: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n  subtitle: "Exported from Pathfinder"\n  author: "Neorgon"\n  slides:\n    - type: title\n      heading: "${(canvasMeta.title || 'Pathfinder Plan').replace(/"/g, '\\"')}"\n      subtitle: "${Object.values(state.blocks).length} blocks, ${state.arrows.length} connections"\n`
+  let yaml = `presentation:\n  title: "${q(deckTitle)}"\n  subtitle: "Exported from Pathfinder"\n  author: "Neorgon"\n  slides:\n    - type: title\n      heading: "${q(deckTitle)}"\n      subtitle: "${Object.values(state.blocks).length} blocks, ${state.arrows.length} connections"\n`
 
-  order.forEach(t => {
+  exportTypeOrder().forEach(t => {
     const items = byType[t]; if (!items?.length) return
-    yaml += `    - type: bullets\n      heading: "${heading(t).replace(/"/g, '\\"')}"\n      bullets:\n`
+    yaml += `    - type: bullets\n      heading: "${q(typeInfo(t).plural)}"\n      bullets:\n`
     items.forEach(b => {
-      yaml += `        - "${b.title.replace(/"/g, '\\"')}"\n`
+      yaml += `        - "${q(b.title || '(untitled)')}"\n`
     })
   })
+  return yaml
+}
+
+export function exportToPresentationSage() {
+  const yaml = buildSageYaml()
 
   // Presentation Sage's share contract: the deck travels in the fragment as
   // base64url UTF-8, never hits a server, and ?via= lets the arrival be counted.
@@ -253,178 +307,178 @@ export function exportToPresentationSage() {
   window.open('https://slides.neorgon.com/?via=pathfinder#d=' + payload, '_blank')
 }
 
+
 // ── Export Meeting Summary ───────────────────────────────────
-export function exportMeetingSummary() {
-  const now = new Date()
+
+// A link long enough to swamp the summary is left out: the canvas title and
+// the app's own Share button do that job better than 40KB of hash.
+const MAX_SUMMARY_LINK = 4000
+
+/**
+ * The view-only link for this canvas: { url } when it is short enough to
+ * paste, { omitted: true } when it is not. The link format belongs to the
+ * sharing code, so this only asks it. The async builder comes first when
+ * there is one: it waits for the compressed form, where the synchronous one
+ * may answer with the long form from a stale cache.
+ */
+export async function summaryShareLink(mod = stateMod) {
+  try {
+    const build = typeof mod.buildShareUrlAsync === 'function' ? mod.buildShareUrlAsync
+      : typeof mod.buildShareUrl === 'function' ? mod.buildShareUrl : null
+    if (!build) return { url: '' }
+    const url = await build(true)
+    if (typeof url !== 'string' || !url) return { url: '' }
+    return url.length <= MAX_SUMMARY_LINK ? { url } : { url: '', omitted: true }
+  } catch (_) { return { url: '' } }
+}
+
+/**
+ * The meeting summary as Markdown. Headings are plain text (they used to
+ * carry raw SVG markup, which printed as tags in every Markdown viewer), and
+ * after the meeting-shaped sections (decisions, votes, actions, questions)
+ * every other type present gets a section from the registry, so nothing on
+ * the canvas is missing from the record. `now` and `shareUrl` are parameters
+ * so tests can pin them.
+ */
+export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmitted = false } = {}) {
   const blocks = Object.values(state.blocks)
   const arrows = state.arrows
   const votes = getAllVotes()
+  const canvasTitle = (canvasMeta.title || '').trim()
+  const oneLine = s => String(s || '').trim().replace(/\s*\n\s*/g, ' ')
+  const titleOf = b => b.title || '(untitled)'
 
-  let md = `# Meeting Summary\n_${now.toLocaleDateString()} at ${now.toLocaleTimeString()}_\n\n`
+  let md = `# Meeting Summary${canvasTitle ? `: ${canvasTitle}` : ''}\n_${now.toLocaleDateString()} at ${now.toLocaleTimeString()}_\n\n`
 
-  // Meeting metadata
-  const totalParticipants = new Set(Object.values(votes).flat().map(v => v.userId)).size
-  if (totalParticipants > 0) {
-    md += `**Participants:** ${totalParticipants}\n\n`
-  }
+  // Votes come from the URL hash, so a hand-edited one may hold anything.
+  const participants = new Set(Object.values(votes).flat().map(v => v?.userId).filter(Boolean)).size
+  if (participants > 0) md += `**Participants:** ${participants}\n\n`
+  if (shareUrl) md += `**Canvas (view-only link):** ${shareUrl}\n\n`
+  else if (shareOmitted) md += `**Canvas:** too large for a link in this summary. In Pathfinder, use Share, then Copy view-only link.\n\n`
 
-  // Canvas link if shareable
-  try {
-    const shareUrl = location.origin + location.pathname + location.search + location.hash
-    md += `**Canvas:** ${shareUrl}\n\n`
-  } catch (e) {}
-
-  // Decisions Made
+  // Decisions made
   const decisions = blocks.filter(b => b.type === 'decision')
+  md += '## Decisions made\n\n'
   if (decisions.length) {
-    md += `## ${SVG_ICONS.decision} Decisions Made\n\n`
     decisions.forEach(b => {
-      md += `- **${b.title}**`
-      if (b.description) md += `: ${b.description}`
-      if (b.notes) md += `\n  *Notes: ${b.notes}*`
-      md += `\n`
+      md += `- **${titleOf(b)}**${b.description ? `: ${oneLine(b.description)}` : ''}`
+      if (b.rationale?.trim()) md += `\n  Rationale: ${oneLine(b.rationale)}`
+      if (b.notes) md += `\n  *Notes: ${oneLine(b.notes)}*`
+      md += '\n'
     })
+    md += '\n'
   } else {
-    md += `## ${SVG_ICONS.decision} Decisions Made\n\n_No decision blocks found. Add blocks of type "Decision" to capture decisions here._\n\n`
+    md += `_No ${TYPES.decision.label} blocks yet. Add them to capture decisions here._\n\n`
   }
 
-  // Voting Results (if voting happened)
+  // Voting results (if voting happened)
   const votingBlocks = Object.entries(votes)
     .map(([blockId, voteArray]) => {
       const block = state.blocks[blockId]
-      if (!block) return null
-      const totalDots = voteArray.reduce((sum, v) => sum + v.dots, 0)
-      return { blockId, title: block.title, type: block.type, dots: totalDots }
+      if (!block || !Array.isArray(voteArray)) return null
+      const totalDots = voteArray.reduce((sum, v) => sum + (Number(v?.dots) || 0), 0)
+      return { title: titleOf(block), type: block.type, dots: totalDots }
     })
     .filter(Boolean)
     .sort((a, b) => b.dots - a.dots)
-
   if (votingBlocks.length) {
-    md += `## ${SVG_ICONS.vote} Voting Results\n\n`
-    md += `| Rank | Item | Votes |\n|------|------|-------|\n`
+    md += '## Voting results\n\n| Rank | Item | Votes |\n|------|------|-------|\n'
     votingBlocks.forEach((item, i) => {
-      const typeLabel = TYPES[item.type]?.label || item.type
-      md += `| ${i + 1} | ${item.title} (${typeLabel}) | ${item.dots}\n`
+      md += `| ${i + 1} | ${item.title} (${typeInfo(item.type).label}) | ${item.dots} |\n`
     })
-    md += `\n`
+    md += '\n'
   }
 
-  // Action Items (blocks with resolve/prepare actions)
+  // Action items (blocks with resolve/prepare/... actions)
   const actionBlocks = blocks.filter(b => b.actions && b.actions.length)
+  md += '## Action items\n\n'
   if (actionBlocks.length) {
-    md += `## ${SVG_ICONS.action} Action Items\n\n`
     actionBlocks.forEach(b => {
       b.actions.forEach(action => {
-        md += `- [ ] **${b.title}** (${action})`
-        if (b.notes) md += `\n  *Context: ${b.notes}*`
-        md += `\n`
+        md += `- [ ] **${titleOf(b)}** (${action})`
+        if (b.notes) md += `\n  *Context: ${oneLine(b.notes)}*`
+        md += '\n'
       })
     })
+    md += '\n'
   } else {
-    md += `## ${SVG_ICONS.action} Action Items\n\n_No action items marked. Add actions to blocks (resolve, prepare, etc.) to create action items._\n\n`
+    md += '_No action items marked. Add actions to blocks (resolve, prepare, and so on) to list them here._\n\n'
   }
 
-  // Open Questions
+  // Open questions: question blocks, then unanswered questions raised on
+  // any other block, which a meeting is exactly the place to settle.
   const questions = blocks.filter(b => b.type === 'question')
-  if (questions.length) {
-    md += `## ${SVG_ICONS.question} Open Questions\n\n`
+  const raised = blocks.filter(b => b.type !== 'question')
+    .flatMap(b => (b.questions || []).filter(q => q.text?.trim() && !q.answer?.trim()).map(q => ({ b, q })))
+  md += '## Open questions\n\n'
+  if (questions.length || raised.length) {
     questions.forEach(b => {
-      md += `- ${b.title}`
-      if (b.description) md += `: ${b.description}`
-      if (b.questions?.length) {
-        md += `\n  - ${b.questions.map(q => q.text + (q.answer?.trim() ? `: answered: ${q.answer.trim().replace(/\n/g, ' ')}` : '')).join('\n  - ')}`
-      }
-      md += `\n`
+      md += `- ${titleOf(b)}${b.description ? `: ${oneLine(b.description)}` : ''}`
+      ;(b.questions || []).forEach(q => {
+        md += `\n  - ${oneLine(q.text)}${q.answer?.trim() ? `: answered: ${oneLine(q.answer)}` : ''}`
+      })
+      md += '\n'
     })
+    raised.forEach(({ b, q }) => { md += `- ${oneLine(q.text)} (on "${titleOf(b)}")\n` })
+    md += '\n'
   } else {
-    md += `## ${SVG_ICONS.question} Open Questions\n\n_No questions recorded. Add "Question" blocks to track open questions._\n\n`
+    md += `_No questions recorded. Add ${TYPES.question.label} blocks to track what needs answering._\n\n`
   }
 
-  // Resource Inventory
-  const resources = blocks.filter(b => b.type === 'resource')
-  if (resources.length) {
-    md += `## ${SVG_ICONS.resource || SVG_ICONS.star} Available Resources\n\n`
-    resources.forEach(b => {
-      md += `- ${b.title}`
-      if (b.description) md += ` - ${b.description}`
-      md += `\n`
-    })
-    md += `\n`
-  }
+  // Every other type on the canvas, in registry order, under its plural.
+  const covered = new Set(['decision', 'question'])
+  exportTypeOrder().forEach(t => {
+    if (covered.has(t)) return
+    const items = blocks.filter(b => b.type === t)
+    if (!items.length) return
+    md += `## ${typeInfo(t).plural}\n\n`
+    items.forEach(b => { md += `- ${titleOf(b)}${b.description ? `: ${oneLine(b.description)}` : ''}\n` })
+    md += '\n'
+  })
 
-  // Risks Identified
-  const risks = blocks.filter(b => b.type === 'risk')
-  if (risks.length) {
-    md += `## ${SVG_ICONS.warning} Risks Identified\n\n`
-    risks.forEach(b => {
-      md += `- **${b.title}**`
-      if (b.description) md += `: ${b.description}`
-      md += `\n`
-    })
-    md += `\n`
-  }
-
-  // Goals / Objectives
-  const goals = blocks.filter(b => b.type === 'goal')
-  if (goals.length) {
-    md += `## ${SVG_ICONS.target || SVG_ICONS.flag} Goals / Objectives\n\n`
-    goals.forEach(b => {
-      md += `- ${b.title}`
-      if (b.description) md += `: ${b.description}`
-      md += `\n`
-    })
-    md += `\n`
-  }
-
-  // Connection Summary
-  const connectedCount = arrows.length
-  const isolatedCount = blocks.filter(b => {
-    const hasIncoming = arrows.some(a => a.to === b.id)
-    const hasOutgoing = arrows.some(a => a.from === b.id)
-    return !hasIncoming && !hasOutgoing
-  }).length
-
-  if (connectedCount > 0 || isolatedCount > 0) {
-    md += `## ${SVG_ICONS.link} Connection Summary\n\n`
-    md += `- Total connections made: ${connectedCount}\n`
+  // Connection summary
+  const isolatedCount = blocks.filter(b => !arrows.some(a => a.to === b.id || a.from === b.id)).length
+  if (arrows.length > 0 || isolatedCount > 0) {
+    md += '## Connection summary\n\n'
+    md += `- Total connections made: ${arrows.length}\n`
     md += `- Isolated items (no connections): ${isolatedCount}\n`
     md += `- Connected items: ${blocks.length - isolatedCount}\n\n`
   }
 
-  // Next Steps Recommendation
-  const emptySections = []
-  if (!decisions.length) emptySections.push('Decisions')
-  if (!actionBlocks.length) emptySections.push('Action Items')
-  if (!questions.length) emptySections.push('Open Questions')
+  // Next steps
+  const tips = []
+  if (!decisions.length) tips.push(`- Add ${TYPES.decision.label} blocks to capture decisions clearly`)
+  if (!actionBlocks.length) tips.push('- Use action badges (resolve, prepare, and so on) to mark tasks')
+  if (!questions.length && !raised.length) tips.push(`- Add ${TYPES.question.label} blocks to track what needs answering`)
+  if (tips.length) md += `## Recommendations\n\nTo improve future meeting summaries:\n${tips.join('\n')}\n\n`
 
-  if (emptySections.length) {
-    md += `## ${SVG_ICONS.info} Recommendations\n\nTo improve future meeting summaries:\n`
-    if (emptySections.includes('Decisions')) {
-      md += `- Add blocks of type "Decision" to capture decisions clearly\n`
-    }
-    if (emptySections.includes('Action Items')) {
-      md += `- Use action badges (resolve, prepare, etc.) to mark tasks\n`
-    }
-    if (emptySections.includes('Open Questions')) {
-      md += `- Add "Question" blocks to track what needs answering\n`
-    }
-    md += `\n`
-  }
-
-  md += `---\n*Summary generated from Pathfinder canvas*\n
-**Tips for better meeting summaries:**
-1. Use clear, descriptive titles for blocks
-2. Add context in descriptions and notes
-3. Mark decisions with "Decision" blocks
-4. Assign actions using action badges
-5. Vote on priorities to see team consensus`
-
-  // Download as markdown
-  const blob = new Blob([md], { type: 'text/markdown' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `meeting-summary-${now.toISOString().slice(0, 10)}.md`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  md += '---\n*Summary generated from a Pathfinder canvas*\n'
   return md
+}
+
+/**
+ * Download the meeting summary. Not an async function on purpose: the
+ * summary is built once up front, synchronously, so a canvas that cannot be
+ * summarised throws to the caller before it shows "Exported!", as it did
+ * before the link made this wait. The returned promise settles with the
+ * Markdown once the file is handed over, and never rejects: a failure after
+ * the wait is reported in a toast, not as an unhandled rejection.
+ */
+export function exportMeetingSummary() {
+  const now = new Date()
+  buildMeetingSummary({ now })
+  return summaryShareLink().then(({ url, omitted }) => {
+    const md = buildMeetingSummary({ now, shareUrl: url, shareOmitted: omitted })
+    const blob = new Blob([md], { type: 'text/markdown' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `meeting-summary-${now.toISOString().slice(0, 10)}.md`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return md
+  }).catch(err => {
+    console.error('Meeting summary export failed', err)
+    showToast('Could not export the meeting summary', 'error')
+    return ''
+  })
 }

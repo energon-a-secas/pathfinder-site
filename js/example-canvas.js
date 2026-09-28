@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  example-canvas.js — The worked example from tutorial.html.
+//  example-canvas.js: the worked example from tutorial.html.
 //
 //  Its own module so the walkthrough page and the test suite read
 //  the same object: a broken example on a page that teaches the

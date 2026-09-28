@@ -10,6 +10,7 @@
 //   node validate.mjs canvas.json        # a canvas JSON file
 //   node validate.mjs -                  # read JSON from stdin
 //   node validate.mjs '#s=...'           # a share hash, or a full share URL
+//   node validate.mjs '#z=...'           # a compressed share hash (deflate-raw, base64url)
 //
 // From any other repo, the published copy works standalone:
 //   curl -sO https://pathfinder.neorgon.com/validate.mjs && node validate.mjs canvas.json
@@ -20,6 +21,7 @@
 // minus those items) · 2 unreadable input.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { inflateRawSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -47,15 +49,27 @@ try {
   console.error(`js/normalize.js not found locally, fetching the app's copy from ${SITE}`);
   const cache = join(tmpdir(), 'pathfinder-validate', 'js');
   mkdirSync(cache, { recursive: true });
-  for (const f of ['normalize.js', 'utils.js', 'neorgon-dom.js']) {
+  // Every module normalize.js imports, directly or through utils.js. A file
+  // missing here fails the import, and the standalone run with it.
+  for (const f of ['normalize.js', 'utils.js', 'neorgon-dom.js', 'relations.js']) {
     writeFileSync(join(cache, f), await fetchText(`${SITE}/js/${f}`));
   }
   normalize = await import(pathToFileURL(join(cache, 'normalize.js')).href);
 }
 
 // ── read the input: file, stdin, share hash, or share URL ───────────────────
+// A share hash can carry more segments after the canvas ('&votes=...'), so
+// the payload stops at the first '&'.
 function decodeShare(hashOrUrl) {
-  const m = hashOrUrl.match(/#s=(.+)$/);
+  const z = hashOrUrl.match(/#z=([^&]+)/);
+  if (z) {
+    // Compressed links: deflate-raw bytes, base64url. The inflated text is
+    // the JSON itself, or percent-encoded JSON; both are accepted.
+    const bytes = Buffer.from(z[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    const text = inflateRawSync(bytes).toString('utf8');
+    return /^\s*[[{]/.test(text) ? text : decodeURIComponent(text);
+  }
+  const m = hashOrUrl.match(/#s=([^&]+)/);
   if (!m) return null;
   // The app encodes as btoa(encodeURIComponent(JSON)).
   return decodeURIComponent(Buffer.from(m[1], 'base64').toString('binary'));
@@ -64,9 +78,9 @@ function decodeShare(hashOrUrl) {
 let raw;
 try {
   if (target === '-') raw = readFileSync(0, 'utf8');
-  else if (target.includes('#s=')) raw = decodeShare(target);
+  else if (target.includes('#s=') || target.includes('#z=')) raw = decodeShare(target);
   else raw = readFileSync(target, 'utf8');
-  if (raw == null) throw new Error('no #s= payload in that argument');
+  if (raw == null) throw new Error('no #s= or #z= payload in that argument');
 } catch (e) {
   console.error(`could not read input: ${e.message}`);
   process.exit(2);
@@ -98,6 +112,12 @@ rawBlocks.forEach((rb, i) => {
     return;
   }
   if (kept.typeHint) note('COERCE', `block ${label}: type "${kept.typeHint}" is not known here, kept as Other (custom) with typeHint`);
+  // A label or a retired label written where the id belongs ("Start / End",
+  // "Open Question") loads as that type; say so, so the next export can write
+  // the id. A carried-forward block restored from its typeHint is not news.
+  else if (typeof rb.type === 'string' && rb.type.trim() !== kept.type && !(rb.type.trim() === 'custom' && rb.typeHint)) {
+    note('COERCE', `block ${label}: type "${rb.type}" read as "${kept.type}" (write the id)`);
+  }
   const checks = [
     ['status', kept.status], ['priority', kept.priority], ['highlight', kept.highlight],
     ['cardStyle', kept.cardStyle],
@@ -137,8 +157,15 @@ rawArrows.forEach((ra, i) => {
   if (ra.style != null && !['curved','straight','elbow','routed','dashed','dotted'].includes(ra.style)) {
     note('COERCE', `arrow ${from} -> ${to}: style "${ra.style}" is not known, falls back to curved`);
   }
+  // The old way to write a dash: lossless, so it is information, not a problem.
+  if (['dashed','dotted'].includes(ra.style)) {
+    note('INFO', `arrow ${from} -> ${to}: style "${ra.style}" is the old form, read as style "curved" + pattern "${ra.style}"`);
+  }
   if (ra.pattern != null && !['solid','dashed','dotted'].includes(ra.pattern)) {
     note('COERCE', `arrow ${from} -> ${to}: pattern "${ra.pattern}" is not known, falls back to solid`);
+  }
+  if (ra.portsBy != null && !['tidy','import'].includes(ra.portsBy)) {
+    note('COERCE', `arrow ${from} -> ${to}: portsBy "${ra.portsBy}" is not known, dropped (the sides count as chosen by a person)`);
   }
 });
 
@@ -155,6 +182,9 @@ if (data.meta && typeof data.meta === 'object') {
 
 // ── report ──────────────────────────────────────────────────────────────────
 problems.forEach(p => console.log(`${p.level.padEnd(6)} ${p.msg}`));
+// INFO lines describe a lossless reading of older data; only the rest change
+// what loads, so only they fail the check.
+const failing = problems.filter(p => p.level !== 'INFO');
 
 const nb = Object.keys(clean.blocks).length;
 const na = clean.arrows.length;
@@ -162,4 +192,4 @@ const drops = clean.dropped.blocks + clean.dropped.arrows + clean.dropped.groups
 console.log(`${nb} block${nb === 1 ? '' : 's'}, ${na} arrow${na === 1 ? '' : 's'}, ${Object.keys(clean.groups).length} group(s) load cleanly` +
   (drops ? `; ${drops} item${drops === 1 ? '' : 's'} dropped` : ''));
 
-process.exit(problems.length ? 1 : 0);
+process.exit(failing.length ? 1 : 0);

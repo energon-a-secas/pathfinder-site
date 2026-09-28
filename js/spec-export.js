@@ -13,7 +13,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, canvasMeta } from './state.js'
-import { TYPES, PRIORITY_DEFS, showToast } from './utils.js'
+import { TYPES, PRIORITY_DEFS, showToast, typeInfo } from './utils.js'
 import { situationSection } from './prompt.js'
 import { mermaidBlock } from './export.js'
 import { taskChecklist } from './task-plan.js'
@@ -55,12 +55,16 @@ Pathfinder: https://pathfinder.neorgon.com/
 
 Files:
 
-- spec.md: what to build. Goals, requirements with acceptance criteria, open
-  questions marked [NEEDS CLARIFICATION], assumptions and risks.
+- spec.md: what to build and for whom. Stakeholders, goals, success metrics
+  with their targets, problems, requirements with acceptance criteria,
+  deliverables, open questions marked [NEEDS CLARIFICATION], assumptions
+  and risks.
 - plan.md: how, and under what constraints. The situation, decisions with
-  their rationale, resources, context, and the dependency graph.
-- tasks.md: the ordered checklist, sequenced by the dependency order drawn
-  on the canvas.
+  their rationale, resources and systems, context, the workflow, and the
+  dependency graph.
+- tasks.md: the ordered checklist (requirements, deliverables and work
+  items), sequenced by the dependency order drawn on the canvas. A work item
+  lists the requirement it satisfies and inherits its acceptance criteria.
 - requirements.md: the same requirements restated in EARS form
   ("THE SYSTEM SHALL ..."), for tools that expect Kiro-style specs.
 
@@ -92,6 +96,13 @@ function specMd() {
       if (b.description) md += `${b.description}\n`
       md += `\nDone when:\n${criteriaChecklist(b)}\n`
     })
+  }
+  if (t.problem?.length) {
+    md += `## Problems\n\n`
+    t.problem.forEach(b => {
+      md += `- **${b.title || '(untitled)'}**${priTag(b)}${b.description ? `: ${b.description}` : ''}\n`
+    })
+    md += '\n'
   }
   if (t.metric?.length) {
     md += `## Success metrics\n\n`
@@ -143,10 +154,10 @@ function specMd() {
     })
     md += '\n'
   }
-  // Any type no file of the bundle covers yet (problems, Other) still ships,
-  // under its registry heading, instead of vanishing from the bundle.
-  Object.keys(t).filter(type => !BUNDLED_TYPES.has(type) && !TYPES[type]?.task).forEach(type => {
-    md += `## ${TYPES[type]?.section || TYPES[type]?.label || type}\n\n`
+  // Types without a section of their own (Other, or an id this build does not
+  // know) still ship, under their registry heading, instead of vanishing.
+  Object.keys(t).filter(type => !SPEC_BUNDLE_HOME[type]).forEach(type => {
+    md += `## ${typeInfo(type).section}\n\n`
     t[type].forEach(b => {
       md += `- **${b.title || '(untitled)'}**${b.description ? `: ${b.description}` : ''}\n`
     })
@@ -155,10 +166,18 @@ function specMd() {
   return md
 }
 
-// Types with a dedicated section somewhere in the bundle (task types go to
-// tasks.md through the shared checklist).
-const BUNDLED_TYPES = new Set(['stakeholder', 'goal', 'metric', 'requirement', 'output', 'assumption',
-  'risk', 'question', 'decision', 'resource', 'context', 'process', 'terminator'])
+/**
+ * The file that gives each type its own section. Every registry type but
+ * Other has one; the registry coverage test fails when a new type is added
+ * without a home here. Task types also appear in tasks.md through the shared
+ * checklist, and implementation lives only there.
+ */
+export const SPEC_BUNDLE_HOME = {
+  goal: 'spec.md', problem: 'spec.md', stakeholder: 'spec.md', metric: 'spec.md',
+  requirement: 'spec.md', output: 'spec.md', implementation: 'tasks.md',
+  process: 'plan.md', terminator: 'plan.md', decision: 'plan.md', resource: 'plan.md',
+  assumption: 'spec.md', risk: 'spec.md', question: 'spec.md', context: 'plan.md',
+}
 
 // Layer of every block along the dependency order, cycles broken, the same
 // ordering the prompt's workflow section uses. planMd called this before it
@@ -184,7 +203,7 @@ function planMd() {
     })
   }
   if (t.resource?.length) {
-    md += `## Resources\n\n`
+    md += `## ${TYPES.resource.plural}\n\n`
     t.resource.forEach(b => { md += `- **${b.title || '(untitled)'}**${b.description ? `: ${b.description}` : ''}\n` })
     md += '\n'
   }
@@ -198,10 +217,12 @@ function planMd() {
     const layer = layerMap()
     const ordered = flow.sort((a, b) => (layer.get(a.id) ?? 0) - (layer.get(b.id) ?? 0))
     md += `## Workflow\n\n`
-    ordered.forEach(b => { md += `- ${b.title || '(untitled)'}${b.type === 'terminator' ? ' (start/end)' : ''}\n` })
+    ordered.forEach(b => { md += `- ${b.title || '(untitled)'}${b.type === 'terminator' ? ` (${TYPES.terminator.label})` : ''}\n` })
     md += '\n'
   }
-  const graph = mermaidBlock()
+  // The graph is the connections' shape; a canvas with none has no structure
+  // worth drawing beyond the sections above.
+  const graph = state.arrows.length ? mermaidBlock() : ''
   if (graph) md += `## Structure\n\n${graph}`
   return md
 }
@@ -211,7 +232,8 @@ function tasksMd() {
   let md = `# ${title()}: tasks\n\n`
   md += `> Sequenced by the dependency order drawn on the canvas. Priorities break\n> ties between available tasks. Checked tasks are marked done, not independently\n> verified. Resolve blockers and missing inputs before implementing affected tasks.\n\n`
   if (!checklist) {
-    md += `No requirement, output or implementation blocks on the canvas yet, so\nthere are no tasks to list. Add them in Pathfinder and export again.\n`
+    const kinds = Object.keys(TYPES).filter(type => TYPES[type].task).map(type => TYPES[type].label)
+    md += `No ${kinds.slice(0, -1).join(', ')} or ${kinds[kinds.length - 1]} blocks on the canvas yet, so\nthere are no tasks to list. Add them in Pathfinder and export again.\n`
     return md
   }
   return md + checklist

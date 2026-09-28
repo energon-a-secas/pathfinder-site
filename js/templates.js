@@ -1,17 +1,22 @@
 // ════════════════════════════════════════════════════════════
-//  templates.js — Pre-defined block patterns
+//  templates.js: pre-defined block patterns
 //
 //  Templates are content-bearing: each block ships a real title +
 //  description (and sometimes priority / actions), and arrows carry
 //  semantic labels. Applied to an empty canvas they produce a prompt
-//  that already reads like a brief — that's the canvas→AI value on
-//  display, not empty placeholder boxes.
+//  that already reads like a brief, which is the canvas-to-AI value
+//  on display, not empty placeholder boxes.
+//
+//  An arrow is [from, to, label?, relation?]. The label is what the
+//  reader sees; a label like "requires" also implies a relation
+//  (depends-on), so where that inference would reverse the drawn
+//  order, the arrow names its relation explicitly.
 // ════════════════════════════════════════════════════════════
 
 import { state, view } from './state.js'
 import { $, genId } from './utils.js'
 
-// SVG icons for templates (no emojis — cleaner look)
+// SVG icons for templates (line icons rather than emoji: one palette, one weight)
 export const TICONS = {
   sprint: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5"/></svg>',
   search: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>',
@@ -21,6 +26,7 @@ export const TICONS = {
   bug: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-2.81a5.98 5.98 0 00-1.82-1.96L17 4.41 15.59 3l-2.17 2.17a6.02 6.02 0 00-2.83 0L8.41 3 7 4.41l1.62 1.63A5.98 5.98 0 006.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81a5.99 5.99 0 0010.38 0H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>',
   map: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>',
   migrate: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h10v2H4zm0 5h10v2H4zm0 5h10v2H4zm14.5-8.5L17 8l3 3-3 3 1.5 1.5L23 11z"/></svg>',
+  report: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 17h2v-5H7v5zm4 0h2V7h-2v10zm4 0h2v-7h-2v7z"/></svg>',
 }
 
 export const TEMPLATES = [
@@ -152,7 +158,9 @@ export const TEMPLATES = [
       [0,1,'reported as'], [1,2,'reproduce'], [1,3,'scope'], [1,4,'when'],
       [4,5,'suggests'], [2,6,'points at'], [2,7,'points at'], [8,1,'context for'],
       [5,6,'underpins'], [6,9,'confirmed by'], [7,9,'confirmed by'],
-      [9,10,'may cause'], [9,11,'requires'], [10,11,'guarded by'], [11,12,'closes'],
+      // "requires" alone reads as depends-on, which ordered the test before
+      // the root cause and closed the cycle cause -> risk -> test -> cause.
+      [9,10,'may cause'], [9,11,'requires','precedes'], [10,11,'guarded by'], [11,12,'closes'],
     ],
   },
   {
@@ -243,6 +251,68 @@ export const TEMPLATES = [
       [4,3,'underpins'], [5,3,'underpins'], [12,3,'satisfies'],
       [1,6,'starts with'], [6,7,'then'], [7,8,'then'], [8,9,'then'], [9,14,'ends at'],
       [6,10,'risks'], [8,11,'risks'], [2,13,'proven by'], [13,8,'gates'],
+    ],
+  },
+  {
+    // A reporting pipeline typed the way the six steps suggest: who reads
+    // each report, what number it is judged by, the one-off build versus the
+    // recurring run, and the cadences that start it. Unlabelled arrows are
+    // deliberate: their endpoint types imply the verb (owns, measures,
+    // satisfies, should move, triggers, delivered to) and the prompt prints
+    // it. Arrows to and from readers and measures say `informs`, so they add
+    // no task order; the rest keep the default. No title contains another,
+    // and no description hides a question: the open one is its own block.
+    icon: 'report',
+    name: 'Recurring Reporting Flow',
+    desc: 'Cadence → reports → readers, with a measure',
+    large: true,
+    mode: 'plan',
+    situation: { codebase: 'none', runtime: 'chat', firstMove: 'plan',
+      constraints: 'Automate only the reports someone reads\nOne source of truth for every number' },
+    blocks: [
+      { type: 'goal', title: 'Leaders see delivery health without asking', dx: 0, dy: 0, priority: 'high',
+        description: 'What the reports are for. Without it every report below is output nobody can judge, and the easiest one to cut is the one that matters.' },
+      { type: 'stakeholder', title: 'Executives', dx: 0, dy: -160,
+        description: 'Read the quarterly roll-up. They want trend and risk rather than ticket detail, and they sign off the targets.' },
+      { type: 'stakeholder', title: 'Delivery leads', dx: 0, dy: 160,
+        description: 'Own each epic and act on its status every sprint. The sprint-end report is written for them first.' },
+      { type: 'metric', title: 'Report lead time', dx: 300, dy: -80,
+        description: 'Working days from a sprint or quarter closing to its report reaching the readers. The number the goal is judged by, not the count of reports sent.',
+        criteria: ['One working day or less after each sprint closes, by the end of the quarter'] },
+      { type: 'requirement', title: 'Reports need no manual assembly', dx: 300, dy: 80, priority: 'high',
+        description: 'Every figure in every report comes from the work tracker, not from someone copying it across on a Friday afternoon.',
+        criteria: ['Every figure comes from the work tracker; nobody retypes numbers',
+          'Any report can be regenerated later and shows the same figures'] },
+      { type: 'implementation', title: 'Build the report scheduler', dx: 600, dy: 80,
+        description: 'Work done once: connect the work tracker and the document tool so the reports assemble themselves. The run it enables is a Process.' },
+      { type: 'resource', title: 'Work tracker', dx: 600, dy: -80,
+        description: 'The system of record every report reads from. If it is wrong or late, every report is wrong or late with it.' },
+      { type: 'terminator', title: 'Every end of sprint', dx: 600, dy: 240,
+        description: 'The cadence that starts the sprint-end run. A moment in time, so it is a Trigger, not a step and not a report.' },
+      { type: 'terminator', title: 'Quarter end', dx: 600, dy: -240,
+        description: 'Starts the quarterly roll-up. Its own trigger, because the executives read on a different clock from the delivery leads.' },
+      { type: 'process', title: 'Assemble each epic\'s status notes', dx: 900, dy: 240,
+        description: 'The recurring run: pull progress, plans and problems for each open epic from the work tracker, every time the trigger fires.' },
+      { type: 'output', title: 'Status notes per epic', dx: 1200, dy: 240,
+        description: 'Progress, plans and problems for one epic on one page. The unit every other report is assembled from.' },
+      { type: 'output', title: 'Sprint-end report', dx: 1500, dy: 160,
+        description: 'Every epic\'s status notes for the sprint that just closed, with what slipped and why, for the people who can act on it.' },
+      { type: 'output', title: 'Quarterly roll-up', dx: 1500, dy: -160,
+        description: 'The quarter in one document: lead time against target, the epics at risk, and the decisions needed from leadership.' },
+      { type: 'output', title: 'Weekly status report', dx: 1200, dy: 400,
+        description: 'An older format still produced every week. Nobody on the map receives it, which is the open question beside it.' },
+      { type: 'question', title: 'Does anyone still read the weekly report?', dx: 1500, dy: 400,
+        description: 'If nobody reads it, retire it rather than automate it. Ask the delivery leads before the scheduler is built.' },
+      { type: 'risk', title: 'Tracker data is stale or incomplete', dx: 900, dy: -80, actions: ['prepare'],
+        description: 'Epics not updated before the trigger fires turn into confident reports of old news. Remind owners a day before.' },
+    ],
+    arrows: [
+      [1,0,'','informs'], [3,0,'','informs'], [0,4,'requires'],
+      [5,4], [5,3,'','informs'], [6,5,'feeds'], [6,15,'can go stale','related'],
+      [7,9], [5,9,'automates'], [9,10,'produces'],
+      [10,11,'rolls into'], [10,12,'rolls into'], [8,12,'starts'],
+      [11,2,'','informs'], [12,1,'','informs'],
+      [9,13,'produces'], [14,13,'about','related'],
     ],
   },
 ]
