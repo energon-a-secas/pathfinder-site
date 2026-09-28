@@ -336,36 +336,15 @@
       <!-- SVG arrows layer (rendered under blocks) -->
       <svg class="arrows-layer" id="arrowsLayer">
         <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.45)"/>
+          <!-- Heads for connections are minted per colour and size by
+               canvas.js (arrowMarker). These two serve the line being drawn
+               from a port; events.js picks one by theme, and both follow
+               the --edge-hi token, so they are the same. -->
+          <marker id="arrowhead-pre" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="7.2" preserveAspectRatio="none" refX="10" refY="5" orient="auto-start-reverse">
+            <polygon points="0,0 10,5 0,10 2.5,5" style="fill: var(--edge-hi)"/>
           </marker>
-          <marker id="arrowhead-sel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.85)"/>
-          </marker>
-          <marker id="arrowhead-pre" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,.38)"/>
-          </marker>
-          <marker id="arrowhead-back" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
-            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(255,255,255,.45)"/>
-          </marker>
-          <marker id="arrowhead-back-sel" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
-            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(255,255,255,.85)"/>
-          </marker>
-          <!-- Light-mode markers -->
-          <marker id="arrowhead-light" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(0,0,0,.35)"/>
-          </marker>
-          <marker id="arrowhead-light-sel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(0,0,0,.7)"/>
-          </marker>
-          <marker id="arrowhead-light-pre" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(0,0,0,.3)"/>
-          </marker>
-          <marker id="arrowhead-light-back" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
-            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(0,0,0,.35)"/>
-          </marker>
-          <marker id="arrowhead-light-back-sel" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
-            <polygon points="10 0, 0 3.5, 10 7" fill="rgba(0,0,0,.7)"/>
+          <marker id="arrowhead-light-pre" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="7.2" preserveAspectRatio="none" refX="10" refY="5" orient="auto-start-reverse">
+            <polygon points="0,0 10,5 0,10 2.5,5" style="fill: var(--edge-hi)"/>
           </marker>
         </defs>
         <g id="arrowsGroup"></g>

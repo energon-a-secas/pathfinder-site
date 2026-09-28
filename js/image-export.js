@@ -1,8 +1,8 @@
 import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
-//  image-export.js — Render the canvas to a crisp SVG / PNG
+//  image-export.js: render the canvas to a crisp SVG / PNG
 //
-//  The diagram is redrawn as a self-contained, native SVG (vector — so
+//  The diagram is redrawn as a self-contained, native SVG (vector, so
 //  it stays sharp at any size) rather than screenshotting the DOM. Blocks
 //  become rounded rects with a type badge, title, and description; arrows
 //  reuse the same routing math as the live canvas. PNG output rasterizes
@@ -11,7 +11,8 @@ import { connectionLabel } from './relations.js'
 
 import { state, ui, canvasMeta } from './state.js'
 import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, DEFAULT_WIDTH, escHtml, showToast } from './utils.js'
-import { resolveRoutes, pathFor, arrowMidpoint, arrowRoute, arrowPattern, dashArrayFor } from './canvas.js'
+import { resolveRoutes, pathFor, placeLabels, arrowRoute, arrowPattern, arrowWeight, dashArrayFor,
+         headLength, headTrim, colorKey } from './canvas.js'
 
 const PAD = 48          // outer margin; also covers the 6px highlight ring
 const BADGE_H = 14
@@ -35,14 +36,18 @@ function wrapText(text, maxWidth, charW) {
   return out
 }
 
+// Connection colours are the canvas's --edge tokens (style.css [lines]), as
+// literals because an exported file carries no stylesheet.
 function themeColors() {
   return ui.lightMode
     ? { bg: '#f0f1f5', card: '#ffffff', cardBorder: 'rgba(0,0,0,.14)',
         title: '#1a1a2e', desc: 'rgba(0,0,0,.62)', meta: 'rgba(0,0,0,.55)',
-        arrow: 'rgba(0,0,0,.4)', label: 'rgba(0,0,0,.72)', frame: 'rgba(0,0,0,.12)', frameLabel: 'rgba(0,0,0,.5)' }
+        arrow: '#6b7280', label: '#334155', pill: '#ffffff', pillBorder: 'rgba(15,23,42,.16)',
+        frame: 'rgba(0,0,0,.12)', frameLabel: 'rgba(0,0,0,.5)' }
     : { bg: '#040714', card: '#0a0a1a', cardBorder: 'rgba(255,255,255,.14)',
         title: '#f9f9f9', desc: 'rgba(255,255,255,.6)', meta: 'rgba(255,255,255,.5)',
-        arrow: 'rgba(255,255,255,.5)', label: 'rgba(255,255,255,.82)', frame: 'rgba(255,255,255,.1)', frameLabel: 'rgba(255,255,255,.5)' }
+        arrow: '#7c8196', label: '#cacaca', pill: '#0d1020', pillBorder: 'rgba(255,255,255,.12)',
+        frame: 'rgba(255,255,255,.1)', frameLabel: 'rgba(255,255,255,.5)' }
 }
 
 // Build the diagram SVG string plus its intrinsic pixel size.
@@ -88,14 +93,6 @@ export function buildSvg() {
 
   const parts = []
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Avenir Next, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">`)
-  // One marker per distinct arrow colour. A single shared head meant a
-  // recoloured arrow exported with a default-coloured tip.
-  const headId = c => 'ah-' + c.replace(/[^0-9a-zA-Z]/g, '')
-  const headColors = [...new Set([C.arrow, ...state.arrows.map(a => a.color).filter(Boolean)])]
-  parts.push('<defs>' + headColors.map(c =>
-    `<marker id="${headId(c)}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${c}"/></marker>` +
-    `<marker id="${headId(c)}-b" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto"><polygon points="10 0, 0 3.5, 10 7" fill="${c}"/></marker>`
-  ).join('') + '</defs>')
   parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${C.bg}"/>`)
   parts.push(`<g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)})">`)
 
@@ -106,42 +103,56 @@ export function buildSvg() {
     if (f.label) parts.push(`<text x="${(f.x + 14).toFixed(1)}" y="${(f.y + 22).toFixed(1)}" font-size="12" font-weight="600" fill="${C.frameLabel}">${escHtml(f.label)}</text>`)
   })
 
-  // 2. Arrows (under blocks), with labels + notes.
-  // Geometry comes from the same resolver the canvas uses, so lanes and routed
-  // paths in the export match what was on screen.
+  // 2. Arrows (under blocks): every line, then every label over the lines,
+  // exactly as the canvas paints them. Geometry, lanes, heads, dashes and
+  // label placement all come from the same functions the canvas uses.
   const routes = resolveRoutes()
+  const labels = placeLabels(routes)
+  const heads = new Map()
+  const headRef = (color, weight) => {
+    const L = headLength(weight)
+    const id = 'ah-' + colorKey(color) + '-' + Math.round(L * 10)
+    if (!heads.has(id)) {
+      heads.set(id, `<marker id="${id}" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="${L}" markerHeight="${Math.round(L * 72) / 100}" preserveAspectRatio="none" refX="6" refY="5" orient="auto-start-reverse"><polygon points="0,0 10,5 0,10 2.5,5" fill="${escHtml(color)}"/></marker>`)
+    }
+    return `url(#${id})`
+  }
+  const lines = [], tags = []
   state.arrows.forEach(a => {
     const f = state.blocks[a.from], t = state.blocks[a.to]; if (!f || !t) return
     const pts = routes.get(a.id); if (!pts) return
     const style = arrowRoute(a)
-    const d = pathFor(pts, style)
+    const weight = arrowWeight(a)
+    const trim = headTrim(weight)
+    const d = pathFor(pts, style, { start: a.bidirectional ? trim : 0, end: trim })
     const color = a.color || C.arrow
-    // Same dash lengths as the canvas, from the same helper.
-    const dashes = dashArrayFor(arrowPattern(a), a.weight || 2)
+    const head = headRef(color, weight)
+    const dashes = dashArrayFor(arrowPattern(a), weight)
     const dash = dashes ? ` stroke-dasharray="${dashes}"` : ''
-    const back = a.bidirectional ? ` marker-start="url(#${headId(color)}-b)"` : ''
-    parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${a.weight || 2}"${dash} marker-end="url(#${headId(color)})"${back}/>`)
-    const mid = arrowMidpoint(pts, style)
-    let mx = mid.x, my = mid.y
-    if (pts.laneCount > 1) {
-      const spread = (pts.lane - (pts.laneCount - 1) / 2) * 15
-      if (pts.d1 === 'left' || pts.d1 === 'right') my += spread
-      else mx += spread
+    const back = a.bidirectional ? ` marker-start="${head}"` : ''
+    lines.push(`<path d="${d}" fill="none" stroke="${escHtml(color)}" stroke-width="${weight}"${dash} marker-end="${head}"${back}/>`)
+    const lp = labels.get(a.id); if (!lp) return
+    if (lp.text && lp.leader) {
+      const L = lp.leader
+      tags.push(`<line x1="${L.x1}" y1="${L.y1}" x2="${L.x2}" y2="${L.y2}" stroke="${escHtml(color)}" stroke-width="1" stroke-dasharray="2 2"/>`)
     }
-    const label = connectionLabel(a)
-    if (label) {
-      parts.push(`<text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="middle" fill="${C.label}" stroke="${C.bg}" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${escHtml(label)}</text>`)
+    if (lp.text) {
+      tags.push(`<rect x="${lp.x - lp.w / 2}" y="${lp.y - lp.h / 2}" width="${lp.w}" height="${lp.h}" rx="9" fill="${C.pill}" stroke="${C.pillBorder}" stroke-width="1"/>`)
+      tags.push(`<text x="${lp.x}" y="${lp.y}" font-size="11" font-weight="500" text-anchor="middle" dominant-baseline="central" fill="${C.label}">${escHtml(lp.text)}</text>`)
     }
     if (a.note?.trim()) {
-      const lines = wrapText(a.note.trim(), 170, 6).slice(0, 4)
-      const startY = my + (label ? 15 : 4)
-      const tspans = lines.map((ln, i) => `<tspan x="${mx.toFixed(1)}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
-      parts.push(`<text x="${mx.toFixed(1)}" y="${startY.toFixed(1)}" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="${C.desc}" stroke="${C.bg}" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${tspans}</text>`)
+      const noteLines = wrapText(a.note.trim(), 170, 6).slice(0, 4)
+      const startY = lp.y + (lp.text ? lp.h / 2 + 4 : 4)
+      const tspans = noteLines.map((ln, i) => `<tspan x="${lp.x}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
+      tags.push(`<text x="${lp.x}" y="${startY}" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="${C.desc}" stroke="${C.bg}" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${tspans}</text>`)
     }
   })
+  // Spotlight fades every line and label, as on the canvas at rest.
+  const spotlit = !!canvasMeta.spotlight && ids.some(id => state.blocks[id].highlight)
+  if (spotlit) parts.push('<g opacity="0.35">', ...lines, ...tags, '</g>')
+  else parts.push(...lines, ...tags)
 
   // 3. Blocks
-  const spotlit = !!canvasMeta.spotlight && ids.some(id => state.blocks[id].highlight)
   ids.forEach(id => {
     const b = state.blocks[id], { w, h } = dims[id]
     const x = b.x, y = b.y
@@ -196,7 +207,7 @@ export function buildSvg() {
       parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(ty + 8).toFixed(1)}" font-size="9" font-weight="700" fill="${C.meta}">${escHtml(meta.join('  •  '))}</text>`)
       ty += 14
     }
-    // Description (wrapped, multi-line) — skip when the block is collapsed
+    // Description (wrapped, multi-line); skipped when the block is collapsed
     if (b.description && !b.collapsed) {
       ty += 6
       wrapText(b.description, w - 26, 5.6).slice(0, 8).forEach((ln, i) => {
@@ -215,6 +226,9 @@ export function buildSvg() {
   }
 
   parts.push(`</svg>`)
+  // The heads are known only once every arrow is drawn; defs may follow the
+  // opening tag anywhere, so they go in second.
+  parts.splice(1, 0, '<defs>' + [...heads.values()].join('') + '</defs>')
   return { svg: parts.join(''), width: W, height: H }
 }
 

@@ -322,92 +322,14 @@
       transform-origin: 0 0;
     }
 
-    /* SVG arrows layer — sits under blocks */
+    /* SVG arrows layer: sits under blocks. Every connection rule (lines,
+       heads, labels, hit areas, the label editor) lives in the [lines]
+       section at the end of this file. */
     .arrows-layer {
       position: absolute;
       top: 0; left: 0;
       width: 1px; height: 1px;
       overflow: visible;
-      pointer-events: none;
-    }
-
-    /* Arrow paths — color/weight driven by JS-set CSS custom props --ac / --aw / --ac-hi */
-    /* No dasharray here: a line's pattern is set inline from arrow.pattern
-       (canvas.js), and any rule here would override it. No animation either:
-       every arrow used to run an invisible infinite one. */
-    .arrow-path {
-      fill: none;
-      stroke: var(--ac, rgba(255,255,255,.3));
-      stroke-width: var(--aw, 2px);
-      pointer-events: none;
-      transition: stroke var(--dur-fast), stroke-width 0.3s ease;
-    }
-
-    .arrow-label {
-      font-size: 11px;
-      font-weight: 600;
-      font-family: var(--font);
-      fill: rgba(255,255,255,.82);
-      text-anchor: middle;
-      dominant-baseline: middle;
-      pointer-events: none;
-      paint-order: stroke fill;
-      stroke: #040714;
-      stroke-width: 5px;
-      stroke-linejoin: round;
-    }
-    .arrow-label.selected { fill: #fff; }
-
-    /* Arrow note — hidden until the connection is hovered/selected, or the
-       "show arrow text" setting is on. Never intercepts pointer events. */
-    .arrow-note {
-      font-size: 10px;
-      font-weight: 500;
-      font-family: var(--font);
-      fill: rgba(255,255,255,.7);
-      text-anchor: middle;
-      dominant-baseline: hanging;
-      pointer-events: none;
-      paint-order: stroke fill;
-      stroke: #040714;
-      stroke-width: 4px;
-      stroke-linejoin: round;
-      opacity: 0;
-      transition: opacity var(--dur-fast);
-    }
-    [data-aid].related .arrow-note,
-    [data-aid].sel .arrow-note,
-    body.show-arrow-text [data-aid] .arrow-note { opacity: 1; }
-    .arrow-note.selected { fill: #fff; }
-    body.light-mode .arrow-note { fill: rgba(0,0,0,.62); stroke: var(--bg); }
-    body.light-mode .arrow-note.selected { fill: #000; }
-
-    /* Endpoint handles on the selected connection. The arrows layer is
-       pointer-events:none, so these opt back in explicitly. */
-    .arrow-handle {
-      fill: var(--bg);
-      stroke: rgba(255,255,255,.85);
-      stroke-width: 2;
-      pointer-events: all;
-      cursor: grab;
-    }
-    .arrow-handle:hover { fill: rgba(255,255,255,.85); }
-    body.light-mode .arrow-handle { stroke: rgba(0,0,0,.7); }
-    body.light-mode .arrow-handle:hover { fill: rgba(0,0,0,.7); }
-
-    .arrow-hitbox {
-      fill: none;
-      stroke: transparent;
-      stroke-width: 14;
-      cursor: pointer;
-      pointer-events: stroke;
-    }
-
-    .arrow-preview {
-      fill: none;
-      stroke: rgba(255,255,255,.38);
-      stroke-width: 2;
-      stroke-dasharray: 7 4;
       pointer-events: none;
     }
 
@@ -782,8 +704,6 @@
       transition: opacity var(--dur), filter var(--dur);
     }
     body.spotlight .canvas-root .block:not([data-highlight]):hover { opacity: .7; filter: none; }
-    body.spotlight [data-aid] .arrow-path { opacity: .35; }
-    body.spotlight [data-aid].related .arrow-path { opacity: 1; }
 
     /* Motion is decoration here; the ring carries the whole message without it. */
     @media (prefers-reduced-motion: reduce) {
@@ -820,7 +740,6 @@
     body.tidying .block { transition: left 420ms var(--ease-snap), top 420ms var(--ease-snap); }
 
     .block.dragging { cursor: grabbing; box-shadow: 0 10px 36px rgba(0,0,0,.55); z-index: 100; }
-    .canvas-root.has-hover .arrow-path:not(.related) { stroke: rgba(255,255,255,.08) !important; }
 
     /* Review bar: only exists on the view-only link */
     .review-bar { display: none; }
@@ -1022,12 +941,6 @@
     .brain-dump-hint { font-size: 12px; color: var(--text-faint, var(--text-muted)); opacity: .8; }
     .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: .45; transition: opacity 120ms; }
 
-    /* Connections of the hovered card: a brighter solid stroke, not marching
-       dashes, so a dashed or dotted line keeps its own pattern on hover. */
-    .arrow-path.related {
-      stroke: var(--ac-hi, rgba(255,255,255,.7)) !important;
-      stroke-width: 2.5px !important;
-    }
 
     /* Block type accent: feeds the card edge, the type dot and the preset strips */
     .block[data-type=goal]        { --bc: var(--c-goal); }
@@ -2186,7 +2099,6 @@
       .block { border-width: 3px; background: #050510; }
       .block.selected { outline: 3px solid #fff; }
       .block:focus-visible { outline: 3px solid #ffff00; box-shadow: none; }
-      .arrow-path { stroke: rgba(255,255,255,.85) !important; }
       .header-bar { backdrop-filter: none; }
       .palette, .right-panel { border-color: rgba(255,255,255,.3); }
     }
@@ -2201,7 +2113,6 @@
     body.high-contrast .block { border-width: 3px; background: #050510; }
     body.high-contrast .block.selected { outline: 3px solid #fff; }
     body.high-contrast .block:focus-visible { outline: 3px solid #ffff00; box-shadow: none; }
-    body.high-contrast .arrow-path { stroke: rgba(255,255,255,.85) !important; }
     body.high-contrast .header-bar { backdrop-filter: none; }
     body.high-contrast .palette,
     body.high-contrast .right-panel { border-color: rgba(255,255,255,.3); }
@@ -2302,12 +2213,6 @@
       box-shadow: 0 0 0 4px rgba(0,0,0,.08);
     }
 
-    body.light-mode .arrow-path { stroke: var(--ac, rgba(0,0,0,.2)); }
-    body.light-mode .arrow-preview { stroke: rgba(0,0,0,.28); stroke-dasharray: 7 4; }
-    body.light-mode .arrow-label { fill: rgba(0,0,0,.72); stroke: var(--bg); stroke-width: 5px; }
-    body.light-mode .arrow-label.selected { fill: #000; }
-    body.light-mode .canvas-root.has-hover .arrow-path:not(.related) { stroke: rgba(0,0,0,.06) !important; }
-    body.light-mode .arrow-path.related { stroke: var(--ac-hi, rgba(0,0,0,.5)) !important; }
 
 
     body.light-mode .right-panel {
@@ -2436,11 +2341,6 @@
       box-shadow: 0 4px 16px rgba(0,0,0,.15);
     }
 
-    body.light-mode .arrow-label {
-      fill: rgba(0,0,0,.55);
-      stroke: #f0f1f5;
-    }
-    body.light-mode .arrow-label.selected { fill: rgba(0,0,0,.85); }
 
 
     /* Light-mode gap glows (static tints) */
@@ -3024,6 +2924,244 @@ body.light-mode .voting-banner { background: #fff; box-shadow: 0 8px 24px rgba(1
 
 
 /* ════ [lines] ════ */
+/* Connection tokens. Opaque colours rather than alpha, so a line and its
+   head always match and a faded line fades whole. On the canvas background
+   the rest colour reads at 5.2:1 (dark) and 4.3:1 (light), the bright one
+   at 12.3:1 and 9.2:1. */
+:root {
+  --edge: #7c8196;
+  --edge-hi: #c7cad6;
+  --edge-pill: #0d1020;
+  --edge-pill-border: rgba(255,255,255,.12);
+}
+/* Derived from the text tokens on body, where the theme classes redefine
+   those: declared on :root they would freeze at the dark values. */
+body {
+  --edge-sel: var(--text-primary);
+  --edge-label: var(--text-secondary);
+}
+body.light-mode {
+  --edge: #6b7280;
+  --edge-hi: #334155;
+  --edge-pill: #fff;
+  --edge-pill-border: rgba(15,23,42,.16);
+}
+body.high-contrast { --edge: #d6d9e3; --edge-hi: #fff; --edge-pill-border: rgba(255,255,255,.5); }
+body.light-mode.high-contrast { --edge: #374151; --edge-hi: #0f172a; --edge-pill-border: rgba(15,23,42,.5); }
+@media (prefers-contrast: more) {
+  :root { --edge: #d6d9e3; --edge-hi: #fff; }
+  body.light-mode { --edge: #374151; --edge-hi: #0f172a; }
+}
+
+/* One connection = a .arrow-g (hit area, line, handles) plus, when it has
+   text, a .arrow-label-g in the labels layer painted after every line.
+   canvas.js sets --ac/--aw/--mk (rest), --ac-hi/--mk-hi (a card or the
+   line hovered) and --ac-sel/--mk-sel (selected); these rules pick the set
+   for the state. Heads are minted per colour and size, so a state changes
+   the head's colour with the line and never its size. */
+.arrow-g {
+  --ac-now: var(--ac, var(--edge));
+  --aw-now: var(--aw, 1.5px);
+  --mk-now: var(--mk, none);
+}
+.arrow-g:is(.related, .hover) {
+  --ac-now: var(--ac-hi, var(--edge-hi));
+  --aw-now: calc(var(--aw, 1.5px) + .5px);
+  --mk-now: var(--mk-hi, var(--mk, none));
+}
+.arrow-g.sel {
+  --ac-now: var(--ac-sel, var(--edge-sel));
+  --aw-now: calc(var(--aw, 1.5px) + 1px);
+  --mk-now: var(--mk-sel, var(--mk, none));
+}
+/* No dasharray here: a line's pattern is set inline from arrow.pattern
+   (canvas.js), and any rule here would override it. No animation either. */
+.arrow-path {
+  fill: none;
+  stroke: var(--ac-now, var(--ac, var(--edge)));
+  stroke-width: var(--aw-now, var(--aw, 1.5px));
+  marker-end: var(--mk-now, none);
+  pointer-events: none;
+  transition: stroke var(--dur-fast);
+}
+.arrow-g.bidir .arrow-path { marker-start: var(--mk-now, none); }
+
+/* The hit area stays about 12 screen pixels wide at any zoom: --px is one
+   screen pixel in world units, set by applyTransform. */
+.arrow-hitbox {
+  fill: none;
+  stroke: transparent;
+  stroke-width: max(calc(var(--px, 1px) * 12), calc(var(--aw, 1.5px) + 6px));
+  cursor: pointer;
+  pointer-events: stroke;
+}
+/* The narrow hit area over every line's stroke (canvas.js hitsLayer): the
+   stroke plus about 1.5 screen px a side, at least 4 screen px. Painted above
+   every wide area, so a press exactly on a line is that line's, even where
+   a neighbour's 12px area overlaps it. */
+.arrow-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: max(calc(var(--px, 1px) * 4), calc(var(--aw, 1.5px) + var(--px, 1px) * 3));
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+/* Hovering a card fades the connections it has nothing to do with: the
+   whole group, so heads and labels fade with their lines. */
+.arrow-g, .arrow-label-g { transition: opacity var(--dur-fast); }
+.canvas-root.has-hover :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .18; }
+body.spotlight :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .35; }
+
+/* Hovering a connection rings the two cards it joins (canvas.js
+   drawEndRings), from under the cards so their own outlines are untouched. */
+.arrow-end-ring {
+  fill: none;
+  stroke: var(--edge-hi);
+  stroke-width: calc(var(--px, 1px) * 1.5);
+  pointer-events: none;
+}
+
+/* Endpoint handles on the selected connection, a constant size on screen.
+   The arrows layer is pointer-events:none, so these opt back in. */
+.arrow-handle {
+  r: calc(var(--px, 1px) * 4.5);
+  fill: var(--bg);
+  stroke: var(--edge-sel);
+  stroke-width: calc(var(--px, 1px) * 1.5);
+  pointer-events: all;
+  cursor: grab;
+}
+.arrow-handle:hover { fill: var(--edge-sel); }
+@media (pointer: coarse) { .arrow-handle { r: calc(var(--px, 1px) * 9); } }
+
+/* Labels: a pill, so a label reads over any line under it. */
+.arrow-label-g { cursor: pointer; }
+.arrow-label-bg {
+  fill: var(--edge-pill);
+  stroke: var(--edge-pill-border);
+  stroke-width: 1px;
+  pointer-events: all;
+}
+.arrow-label {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  fill: var(--edge-label);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.arrow-label-g:is(.hover, .related) .arrow-label,
+.arrow-label-g.sel .arrow-label { fill: var(--text-primary); }
+/* The tick from a label that stepped off its line back to that line. */
+.arrow-label-leader {
+  stroke: var(--ac, var(--edge));
+  stroke-width: 1px;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+.arrow-label-g:is(.hover, .related) .arrow-label-leader { stroke: var(--ac-hi, var(--edge-hi)); }
+.arrow-label-g.sel .arrow-label-leader { stroke: var(--ac-sel, var(--edge-sel)); }
+.arrow-label-g.sel .arrow-label-bg { stroke: var(--ac-sel, var(--edge-sel)); }
+
+/* A note shows under its label while the connection is hovered or
+   selected, or always with "Always show connection notes". */
+.arrow-note {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
+  fill: var(--text-secondary);
+  text-anchor: middle;
+  dominant-baseline: hanging;
+  pointer-events: none;
+  paint-order: stroke fill;
+  stroke: var(--bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+.arrow-label-g:is(.related, .hover, .sel) .arrow-note,
+body.show-arrow-text .arrow-note { opacity: 1; }
+.arrow-label-g.sel .arrow-note { fill: var(--text-primary); }
+
+/* The line being drawn from a port. */
+.arrow-preview {
+  fill: none;
+  stroke: var(--edge-hi);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  opacity: .8;
+  pointer-events: none;
+}
+
+/* Inline label editor (arrow-edit.js): an input at the label, with the
+   relation chips under it. Screen-space, so it stays readable at any zoom. */
+.arrow-edit {
+  position: absolute;
+  z-index: 40;
+  /* --edit-dx shifts the box back inside the viewport near a side edge. */
+  transform: translate(calc(-50% + var(--edit-dx, 0px)), -14px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+/* Near the bottom edge the chips go above the field, which stays on the
+   line where it was opened. */
+.arrow-edit.flip {
+  flex-direction: column-reverse;
+  transform: translate(calc(-50% + var(--edit-dx, 0px)), calc(-100% + 14px));
+}
+.arrow-edit-input {
+  field-sizing: content;
+  width: 180px;
+  min-width: 140px;
+  max-width: 320px;
+  min-height: 28px;
+  padding: 4px 12px;
+  font: 500 13px var(--font);
+  text-align: center;
+  color: var(--text-primary);
+  background: var(--edge-pill);
+  border: 1px solid var(--edge-hi);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+.arrow-edit-input::placeholder { color: var(--text-muted); }
+.arrow-edit-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.arrow-edit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 340px;
+}
+.arrow-edit-chip {
+  min-height: 24px;
+  padding: 2px 9px;
+  font: 500 11px var(--font);
+  color: var(--text-secondary);
+  background: var(--edge-pill);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.arrow-edit-chip:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.arrow-edit-chip[aria-pressed="true"] {
+  color: var(--text-primary);
+  border-color: var(--edge-hi);
+  background: color-mix(in srgb, var(--edge-hi) 18%, var(--edge-pill));
+}
+.arrow-edit-chip.suggest { border-style: dashed; }
+.arrow-edit-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body.light-mode .arrow-edit-input { box-shadow: 0 6px 20px rgba(15,23,42,.14); }
+
+@media (prefers-reduced-motion: reduce) {
+  .arrow-path, .arrow-g, .arrow-label-g, .arrow-note { transition: none; }
+}
 
 
 

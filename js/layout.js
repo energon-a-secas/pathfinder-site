@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  layout.js — Layered ("Sugiyama") auto-layout for the canvas.
+//  layout.js: layered ("Sugiyama") auto-layout for the canvas.
 //
 //  Four stages, the standard ones: break cycles, assign layers,
 //  order within each layer to minimise crossings, then assign
@@ -16,6 +16,7 @@
 
 import { state, snapshot } from './state.js'
 import { getBlockDims } from './utils.js'
+import { resolveRoutes, linesUnderCards } from './canvas.js'
 
 export const LAYOUT_DEFAULTS = {
   direction: 'LR',   // 'LR' left to right, 'TB' top to bottom
@@ -305,7 +306,7 @@ export function layoutGraph(nodes, edges, opts = {}) {
  */
 export function tidyCanvas({ direction = 'LR' } = {}) {
   const ids = Object.keys(state.blocks)
-  if (ids.length < 2) return { moved: 0, crossings: 0 }
+  if (ids.length < 2) return { moved: 0, crossings: 0, underCards: 0 }
 
   const nodes = ids.map(id => {
     const { w, h } = getBlockDims(id)
@@ -380,20 +381,39 @@ export function tidyCanvas({ direction = 'LR' } = {}) {
     }
   })
 
-  return { moved, crossings }
+  // A layer-crossing count says nothing about a line hidden behind a card,
+  // which is the worse defect, so count those on the routes as they will be
+  // drawn. This primes the route cache the next render uses.
+  let underCards = 0
+  try { underCards = linesUnderCards(resolveRoutes()).length } catch (_) {}
+
+  return { moved, crossings, underCards }
+}
+
+/** The toast Tidy shows: what moved, and what is still in the way. */
+export function tidySummary({ moved, crossings, underCards = 0 }, count, direction = 'LR') {
+  const under = underCards ? `${underCards} line${underCards === 1 ? '' : 's'} under a card` : ''
+  // Nothing moved is exactly when a line left under a card most needs
+  // saying: Tidy will not fix it by running again.
+  if (!moved) return under ? `Already arranged, ${under}` : 'Already arranged'
+  const dir = direction === 'TB' ? 'top to bottom' : 'left to right'
+  const bits = [`${crossings} crossing${crossings === 1 ? '' : 's'}`]
+  if (under) bits.push(under)
+  return `Arranged ${count} blocks ${dir}, ${bits.join(', ')}. Undo with Cmd+Z`
 }
 
 /**
- * Release tidy-written port pins on every arrow touching the given blocks,
- * so a block the user moves after an auto-layout gets self-routing arrows
- * again. Hand-pinned ports (no 'tidy' provenance) are left alone.
+ * Release layout-written port pins on every arrow touching the given blocks,
+ * so a block the user moves after an auto-layout (or an import that brought
+ * another tool's sides) gets self-routing arrows again. Hand-pinned ports
+ * (no 'tidy' or 'import' provenance) are left alone.
  * Returns how many arrows were released.
  */
 export function releaseTidyPins(blockIds) {
   const ids = new Set(blockIds)
   let released = 0
   state.arrows.forEach(a => {
-    if (a.portsBy !== 'tidy') return
+    if (a.portsBy !== 'tidy' && a.portsBy !== 'import') return
     if (!ids.has(a.from) && !ids.has(a.to)) return
     a.fromPort = null; a.toPort = null
     delete a.portsBy

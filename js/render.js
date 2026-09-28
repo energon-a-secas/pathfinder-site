@@ -323,7 +323,7 @@ export function addArrow(fromId, toId, fromPort = null, toPort = null, { undo = 
   if (state.arrows.some(a => a.from === fromId && a.to === toId)) return null
   if (undo) snapshot()
   const arrow = { id: genId(), from: fromId, to: toId,
-    style: 'routed', bidirectional: false, color: null, weight: 2, fromPort, toPort }
+    style: 'routed', bidirectional: false, color: null, weight: 1.5, fromPort, toPort }
   if (relation) arrow.relation = relation
   state.arrows.push(arrow)
   renderArrows()

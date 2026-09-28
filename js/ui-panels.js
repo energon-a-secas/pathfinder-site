@@ -19,7 +19,7 @@ import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
 import { getDocsBase, setDocsBase } from './doc-panel.js'
-import { tidyCanvas } from './layout.js'
+import { tidyCanvas, tidySummary } from './layout.js'
 import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
 
@@ -855,7 +855,7 @@ export function runTidy() {
   const count = Object.keys(state.blocks).length
   if (count < 2) { showToast('Add at least two blocks to arrange', 'info', 1600); return }
 
-  const { moved, crossings } = tidyCanvas({ direction: layoutDir })
+  const tidied = tidyCanvas({ direction: layoutDir })
   document.body.classList.add('tidying')
   renderAllBlocks()
   renderFrames()
@@ -876,12 +876,8 @@ export function runTidy() {
   saveState()
   ui.promptDirty = true
   runGapDetection()
-  const dir = layoutDir === 'LR' ? 'left to right' : 'top to bottom'
-  showToast(
-    moved
-      ? `Arranged ${count} blocks ${dir}, ${crossings} crossing${crossings === 1 ? '' : 's'}. Undo with Cmd+Z`
-      : 'Already arranged',
-    'success', 2600)
+  // The summary also counts lines left under a card (layout.js).
+  showToast(tidySummary(tidied, count, layoutDir), 'success', 2600)
 }
 
 export function setupTidy() {
