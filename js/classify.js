@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  classify.js: text to typed blocks. The line classifier, outline
-//  parser, paste handler, Brain Dump card and the type-correction
-//  chips that follow an import. Moved out of events.js unchanged.
+//  parser, paste handler, Brain Dump card and the type check that
+//  follows an import (a button on the card's type label).
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, view, snapshot, debouncedSave } from './state.js'
@@ -211,61 +211,112 @@ export function setupPasteHandler() {
   })
 }
 
-// ── Type-correction chips ────────────────────────────────────
+// ── Type check on the card ───────────────────────────────────
 //
-// After an import, each fresh block gets a small chip floated above it so the
-// 1-2 mis-categorized lines are one click from fixed. Chips are SIBLINGS in
-// canvasRoot (never inside block innerHTML: renderBlock rebuilds that wholesale
-// and would wipe them). They dismiss on the next canvas pointerdown.
-function clearTypeChips() {
-  document.querySelectorAll('.type-chip').forEach(el => el.remove())
+// A type the classifier was unsure of is marked `typeCheck` on the block, and
+// the card's type label becomes a button (renderBlock). Clicking it opens the
+// type menu with "Looks right" first; either choice clears the mark in one
+// undo step. This replaced chips floated above the cards, which covered their
+// neighbours, never dimmed, vanished on the next press anywhere and lost
+// their clicks to the viewport. Imported here, not at the top, so the
+// classifier's own import block stays untouched; the aliases keep these
+// bindings from clashing with anything that block imports later.
+import { mutateBlocks as mutateCheckedBlocks, renderInspector as renderCheckedInspector } from './render.js'
+import { selection as typeCheckSelection } from './state.js'
+import { openDropdown as openTypeDropdown } from './menu.js'
+import { typesByStep as typeCheckGroups, TYPE_DISAMBIGUATION as TYPE_CHECK_HINTS } from './utils.js'
+
+/**
+ * Mark the low-confidence blocks among `created` ([{ id, confidence }]) as
+ * awaiting a type check. Metadata only, so no undo step of its own: the
+ * import or Brain Dump that created them already took one. The name is the
+ * old one because the importers and the `pf:show-type-chips` event use it.
+ */
+export function showTypeChips(created) {
+  if (ui.readOnly) return 0
+  const ids = (Array.isArray(created) ? created : [])
+    .filter(c => c && c.confidence === 'low' && state.blocks[c.id] && !state.blocks[c.id].typeCheck)
+    .map(c => c.id)
+  if (ids.length) mutateCheckedBlocks(ids, { typeCheck: true }, { undo: false })
+  return ids.length
 }
 
-function showTypeChips(created) {
-  clearTypeChips()
-  if (ui.readOnly) return
-  const root = $.canvasRoot()
-  created.forEach(({ id, confidence }) => {
-    const b = state.blocks[id]; if (!b) return
-    const chip = document.createElement('div')
-    chip.className = 'type-chip' + (confidence === 'low' ? ' low-confidence' : '')
-    chip.dataset.bid = id
-    // Overlay UI: the canvas pointer handlers leave it alone.
-    chip.setAttribute('data-canvas-ui', '')
-    chip.style.left = b.x + 'px'
-    chip.style.top  = (b.y - 26) + 'px'
-    chip.innerHTML =
-      `<span class="type-chip-dot" style="background:${TYPES[b.type]?.color || '#fff'}"></span>` +
-      `<span class="type-chip-label">${TYPES[b.type]?.label || b.type}</span>` +
-      `<svg class="type-chip-caret" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>`
-    root.appendChild(chip)
-    // Mark low-confidence blocks so the misses are visually obvious.
-    if (confidence === 'low') getBlockEl(id)?.classList.add('low-confidence')
-  })
+// A colour that is exactly the old type's colour (an import often sets one)
+// is not a choice anybody made: left in place, it would paint the corrected
+// block in the colour of the type it no longer is.
+function isTypeColour(color, type) {
+  const c = typeof color === 'string' ? color.trim().toLowerCase() : ''
+  const t = TYPES[type]
+  return !!c && !!t && (c === t.color.toLowerCase() || c === t.light.toLowerCase())
 }
 
-function openTypeChipMenu(chip) {
-  const id = chip.dataset.bid
-  document.querySelectorAll('.type-chip-menu').forEach(m => m.remove())
-  const menu = document.createElement('div')
-  menu.className = 'type-chip-menu'
-  menu.setAttribute('data-canvas-ui', '')
-  menu.innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
-    `<button class="type-chip-opt" data-type="${t}">` +
-    `<span class="type-chip-dot" style="background:${cfg.color}"></span>${cfg.label}</button>`
-  ).join('')
-  chip.appendChild(menu)
-  menu.addEventListener('click', e => {
-    const opt = e.target.closest('.type-chip-opt'); if (!opt) return
-    e.stopPropagation()
-    mutateBlock(id, { type: opt.dataset.type })
-    getBlockEl(id)?.classList.remove('low-confidence')
-    const b = state.blocks[id]
-    chip.classList.remove('low-confidence')
-    chip.querySelector('.type-chip-dot').style.background = TYPES[b.type]?.color || '#fff'
-    chip.querySelector('.type-chip-label').textContent = TYPES[b.type]?.label || b.type
-    menu.remove()
+/**
+ * Settle a block's type check: confirm the type it has (no `type`), or change
+ * it. Either way the mark goes, as one undo step. Returns false when there
+ * was nothing to do.
+ */
+export function resolveTypeCheck(id, type = null) {
+  const b = state.blocks[id]
+  if (!b || ui.readOnly) return false
+  if (type && !Object.hasOwn(TYPES, type)) return false
+  if (!b.typeCheck && (!type || type === b.type)) return false
+  mutateCheckedBlocks([id], blk => {
+    delete blk.typeCheck
+    if (!type || type === blk.type) return null
+    return isTypeColour(blk.color, blk.type) ? { type, color: null } : { type }
+  }, { undo: true })
+  // The inspector shows the type too; mutateBlocks leaves it to the caller.
+  if (typeCheckSelection.ids.has(id)) renderCheckedInspector()
+  return true
+}
+
+// The card re-renders, so the button that had focus is gone: hand focus to
+// the card rather than dropping it on the page.
+function refocusCard(id) {
+  const ae = document.activeElement
+  if (!ae || ae === document.body) getBlockEl(id)?.focus({ preventScroll: true })
+}
+
+// One row per step, each opening that step's types, with the type names as
+// the row's hint so nobody has to guess which step holds Resource. A flat
+// list of all sixteen under seven headings stood about 790px tall, covered
+// its own card and pushed the lines below out of sight.
+function typeCheckItems(id) {
+  const b = state.blocks[id]
+  const pick = type => () => { resolveTypeCheck(id, type); refocusCard(id) }
+  const items = [
+    { label: 'Looks right', hint: `Keep it as ${TYPES[b.type]?.label || b.type}`, action: pick(null) },
+    { type: 'divider' },
+  ]
+  typeCheckGroups().forEach(g => {
+    if (!g.types.length) return
+    items.push({
+      label: g.label,
+      hint: g.types.map(t => TYPES[t].label).join(', '),
+      submenu: () => g.types.map(t => ({
+        label: TYPES[t].label, dot: `var(--c-${t})`, radio: true, checked: t === b.type, action: pick(t),
+      })),
+    })
   })
+  items.push({ type: 'divider' }, {
+    type: 'custom',
+    render: c => {
+      c.classList.add('type-check-help')
+      TYPE_CHECK_HINTS.forEach(line => {
+        const p = document.createElement('p')
+        p.textContent = line
+        c.appendChild(p)
+      })
+    },
+  })
+  return items
+}
+
+/** Open the type menu under a card's type-check button. */
+export function openTypeChipMenu(anchor) {
+  const id = anchor?.dataset?.typeCheck
+  if (!id || !state.blocks[id] || ui.readOnly) return null
+  return openTypeDropdown(anchor, typeCheckItems(id), { label: 'Block type', className: 'type-check-menu' })
 }
 
 // ── Brain Dump empty state ───────────────────────────────────
@@ -288,22 +339,34 @@ export function setupBrainDump() {
   })
 }
 
+let typeChecksWired = false
 export function setupTypeChips() {
-  // Importers (Brain Dump lives here, interop does not) request chips via an
-  // event, so no module has to import this one just to show them.
+  if (typeChecksWired) return
+  typeChecksWired = true
+  // Importers (Brain Dump lives here, interop does not) report their
+  // low-confidence blocks via an event, so no module has to import this one.
   window.addEventListener('pf:show-type-chips', e => showTypeChips(Array.isArray(e.detail) ? e.detail : []))
-  const root = $.canvasRoot()
-  // Open a chip's menu on click; dismiss all chips on any other canvas press.
-  root.addEventListener('pointerdown', e => {
-    const chip = e.target.closest('.type-chip')
-    if (chip) {
-      if (e.target.closest('.type-chip-menu')) return
-      e.stopPropagation()
-      const existing = chip.querySelector('.type-chip-menu')
-      document.querySelectorAll('.type-chip-menu').forEach(m => m.remove())
-      if (!existing) openTypeChipMenu(chip)
-      return
-    }
-    clearTypeChips()
-  }, true)
+  // The button carries data-canvas-ui, so a press on it neither selects nor
+  // drags the card; its click opens the menu.
+  $.canvasRoot().addEventListener('click', e => {
+    const btn = e.target.closest('.block-type-check'); if (!btn) return
+    e.stopPropagation()
+    openTypeChipMenu(btn)
+  })
+  // Tab steps from card to card and never lands on the button, so T opens
+  // the check for the focused card (or the one selected card when focus is
+  // on the page). Never while typing.
+  document.addEventListener('keydown', e => {
+    if ((e.key || '').toLowerCase() !== 't' || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return
+    if (ui.readOnly) return
+    const ae = document.activeElement
+    if (ae?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae?.tagName || '')) return
+    const onPage = !ae || ae === document.body
+    const card = (!onPage && ae.closest?.('.block')) ||
+      (onPage && typeCheckSelection.ids.size === 1 ? getBlockEl(typeCheckSelection.blockId) : null)
+    const btn = card && $.canvasRoot().contains(card) ? card.querySelector('.block-type-check') : null
+    if (!btn) return
+    e.preventDefault()
+    openTypeChipMenu(btn)
+  })
 }

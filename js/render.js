@@ -12,6 +12,7 @@ import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import { renderInspector } from './inspector.js'
+import { lightAccentFor, highlightTabLabel } from './cards.js'
 
 // The inspector moved to inspector.js; these re-exports keep every existing
 // importer of render.js working.
@@ -42,7 +43,11 @@ export function renderBlock(id) {
     el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; return
   }
 
-  el.className = 'block' + (selection.ids.has(id) ? ' selected' : '') + (b.collapsed ? ' collapsed' : '')
+  // A type set by the classifier with low confidence waits for a person to
+  // confirm it. A view-only link cannot confirm anything, so it shows none.
+  const typeCheck = !!b.typeCheck && !ui.readOnly
+  el.className = 'block' + (selection.ids.has(id) ? ' selected' : '') + (b.collapsed ? ' collapsed' : '') +
+    (b.color ? ' has-color' : '') + (typeCheck ? ' type-check' : '')
   el.dataset.id   = id
   el.dataset.type = b.type
   const w = b.width || DEFAULT_WIDTH
@@ -52,7 +57,13 @@ export function renderBlock(id) {
   el.dataset.card = b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE
   if (b.highlight) el.dataset.highlight = b.highlight
   else delete el.dataset.highlight
-  if (b.color) el.style.setProperty('--bc', b.color)
+  // A custom colour feeds --bc through the stylesheet (.has-color), not
+  // inline, so the light theme can swap in a twin that reads on white.
+  if (b.color) {
+    el.style.setProperty('--bc-custom', b.color)
+    const light = lightAccentFor(b.color)
+    if (light) el.style.setProperty('--bc-custom-light', light)
+  }
   if (b.borderWidth) el.style.setProperty('--bw', b.borderWidth + 'px')
 
   const actHtml = (b.actions || []).map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
@@ -61,10 +72,22 @@ export function renderBlock(id) {
   const priorityHtml = b.priority
     ? `<span class="priority-badge priority-${b.priority}" title="${PRIORITY_DEFS[b.priority]?.label || b.priority} priority">${PRIORITY_DEFS[b.priority]?.label || b.priority}</span>` : ''
   // Always rendered (even when empty) so the description is directly
-  // double-click editable on the card. Empty ones collapse via CSS `:empty`
-  // and show an "Add description…" hint only on hover/selection.
+  // double-click editable on the card. Empty ones collapse via CSS `:empty`;
+  // the selected card shows an "Add description" hint as an overlay, which
+  // never changes the card's height (the arrows are drawn to that height).
   const descHtml = `<div class="block-desc">${escHtmlMultiline(b.description)}</div>`
-  const badgeStyle = b.color ? ` style="color:${b.color}"` : ''
+
+  // The type reads as a neutral label beside a dot in the type colour, so
+  // its contrast never depends on the hue. Awaiting a check, the label is a
+  // button that opens the type menu (classify.js), with "Looks right" first.
+  const typeLabel = escHtml(TYPES[b.type]?.label || b.type)
+  const typeDot = '<span class="block-type-dot" aria-hidden="true"></span>'
+  const typeHtml = typeCheck
+    ? `<button type="button" class="block-type-badge block-type-check" data-type-check="${id}" data-canvas-ui` +
+      ` aria-haspopup="menu" aria-expanded="false" aria-label="Type ${typeLabel}, set automatically: confirm or change it"` +
+      ` aria-keyshortcuts="T" title="Set automatically: confirm or change the type (T)">${typeDot}<span class="block-type-label">${typeLabel}</span>` +
+      `<svg class="block-type-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>`
+    : `<span class="block-type-badge">${typeDot}<span class="block-type-label">${typeLabel}</span></span>`
 
   // Voting indicator - show vote count if any votes exist
   const voteCount = getBlockVotes(id).reduce((sum, v) => sum + v.dots, 0)
@@ -81,21 +104,41 @@ export function renderBlock(id) {
   const answeredHtml = answered
     ? `\n      <span class="block-answered-badge" title="A question on this block has an answer">${getSmallIcon('check')}</span>` : ''
 
+  // Collapsing is an edit, so a view-only link gets no control for it, only
+  // a mark on a collapsed card saying that something is folded away.
+  const caretSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+  const collapseHtml = ui.readOnly
+    ? (b.collapsed ? `<span class="block-collapsed-mark" aria-hidden="true" title="Collapsed">${caretSvg}</span>` : '')
+    : `<button type="button" class="block-collapse-btn" data-bid="${id}" title="${b.collapsed ? 'Expand' : 'Collapse'}"` +
+    ` aria-label="${b.collapsed ? 'Expand block' : 'Collapse block'}" aria-expanded="${b.collapsed ? 'false' : 'true'}">` +
+    `${caretSvg}</button>`
+
+  const hlTab = highlightTabLabel(b.highlight)
+  const hlTabHtml = hlTab ? `\n    <span class="block-hl-tab" aria-hidden="true">${escHtml(hlTab)}</span>` : ''
+
   el.tabIndex = 0
   el.setAttribute('role', 'article')
-  el.setAttribute('aria-label', `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}`)
+  el.setAttribute('aria-label', `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}` +
+    (hlTab ? `, highlighted ${hlTab}` : '') + (typeCheck ? ', type not confirmed' : '') +
+    (ui.readOnly && b.collapsed ? ', collapsed' : ''))
+  // T opens the type check from the card itself (classify.js), since Tab
+  // steps from card to card and never reaches the label's button.
+  if (typeCheck) el.setAttribute('aria-keyshortcuts', 'T')
+  else el.removeAttribute('aria-keyshortcuts')
   el.setAttribute('aria-selected', selection.ids.has(id) ? 'true' : 'false')
 
+  // The gi- slot belongs to gaps.js: runGapDetection paints it after every
+  // render, from the same result that sets the card's gap class.
   el.innerHTML = `
     <div class="block-header">
-      <span class="block-type-badge"${badgeStyle}>${TYPES[b.type]?.label || b.type}</span>${voteHtml}${docHtml}${answeredHtml}
+      ${typeHtml}${voteHtml}${docHtml}${answeredHtml}
       <div class="block-gap-icons" id="gi-${id}"></div>
-      <button class="block-collapse-btn" data-bid="${id}" title="${b.collapsed ? 'Expand' : 'Collapse'}" aria-label="${b.collapsed ? 'Expand block' : 'Collapse block'}">${b.collapsed ? '&#9654;' : '&#9660;'}</button>
+      ${collapseHtml}
     </div>
-    <div class="block-title" id="bt-${id}">${escHtml(b.title) || '<span style="opacity:.35">Untitled</span>'}</div>
+    <div class="block-title" id="bt-${id}">${escHtml(b.title) || '<span class="block-title-empty">Untitled</span>'}</div>
     ${descHtml}
     ${(statusHtml || priorityHtml) ? `<div class="block-meta">${priorityHtml}${statusHtml}</div>` : ''}
-    ${actHtml ? `<div class="block-actions">${actHtml}</div>` : ''}
+    ${actHtml ? `<div class="block-actions">${actHtml}</div>` : ''}${hlTabHtml}
     <div class="port port-left"   data-port="left"   data-bid="${id}"></div>
     <div class="port port-right"  data-port="right"  data-bid="${id}"></div>
     <div class="port port-top"    data-port="top"    data-bid="${id}"></div>

@@ -179,41 +179,27 @@
     }
     .palette-section.collapsed .palette-section-body { max-height: 0; }
 
-    /* Advanced types sub-section (nested collapsible inside Blocks) */
-    .palette-subsection-toggle {
-      width: 100%; background: none; border: 0; text-align: left; font-family: var(--font);
-      padding: 8px 16px;
-      margin-top: 4px;
-      font-size: var(--text-xs);
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: .02em;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      user-select: none;
-      opacity: .75;
-      transition: color var(--dur-fast), opacity var(--dur-fast);
-    }
-    .palette-subsection-toggle:hover { color: var(--text-secondary); opacity: 1; }
-    .palette-subsection-body {
-      overflow: hidden;
-      max-height: 700px;
-    }
-    .palette-subsection.collapsed .palette-subsection-body { max-height: 0; }
-
+    /* Type rows are real buttons (palette.js renders them from the registry),
+       so the browser's button chrome is reset here. */
     .palette-item {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 9px 16px;
+      width: 100%;
+      padding: 6px 16px;
+      min-height: 32px;
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      background: none;
+      border: 0;
       cursor: grab;
-      border-bottom: 1px solid var(--border-subtle);
       transition: background var(--dur-fast);
       user-select: none;
+      -webkit-user-select: none;
     }
+    .palette-item:focus-visible { outline: 2px solid var(--cards-focus, var(--accent-bright)); outline-offset: -2px; }
     .palette-item:hover { background: var(--surface-2); }
     .palette-item:active { background: rgba(255,255,255,.08); cursor: grabbing; }
     .palette-item.dragging { opacity: 0.4; cursor: grabbing; }
@@ -234,7 +220,6 @@
     .palette-item-text { min-width: 0; }
 
     .palette-label { font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500; }
-    .palette-desc  { font-size: 11px; color: var(--text-muted); line-height: 1.3; margin-top: 1px; }
 
     /* Palette collapse button */
     /* Palette header. Sticky so the collapse control stays reachable however far
@@ -271,7 +256,6 @@
     .palette.collapsed { width: 48px; }
     .palette.collapsed .palette-section-toggle span,
     .palette.collapsed .palette-item-text,
-    .palette.collapsed .palette-desc,
     .palette.collapsed .section-indicator { display: none; }
     .palette.collapsed .palette-section-toggle {
       justify-content: center;
@@ -289,12 +273,7 @@
     .palette.collapsed .palette-section.collapsed .palette-section-body { max-height: 0 !important; }
     .palette.collapsed .palette-head { justify-content: center; padding: 8px 4px; }
     .palette.collapsed .palette-head-title { display: none; }
-    .palette.collapsed .palette-subsection-toggle { justify-content: center; padding: 8px 4px; }
-    .palette.collapsed .palette-subsection-toggle span { display: none; }
-    .palette.collapsed .palette-subsection-toggle .section-indicator { display: block; }
     .palette.collapsed .palette-section-toggle .section-indicator { display: block; }
-    .palette.collapsed .palette-subsection-body { max-height: 1200px; }
-    .palette.collapsed .palette-subsection.collapsed .palette-subsection-body { max-height: 0; }
     .template-item.template-user { position: relative; }
     .utpl-del {
       position: absolute; top: 6px; right: 6px;
@@ -451,13 +430,15 @@
     /* Card presets. Every preset declares all four borders itself, so the
        look lives in one place instead of being patched across light mode,
        high contrast, and the gap states. `--bw` is the per-block border
-       width override; `--card-fill` the surface. */
+       width override; `--card-fill` the surface. The type colour is a
+       quiet edge plus the dot beside the type label, never the label text,
+       so no text on a card depends on a hue for its contrast. */
     .block {
       position: absolute;
       width: 220px;
       --bw: 1.5px;
       --card-fill: rgba(8, 8, 22, 0.88);
-      --card-edge: color-mix(in srgb, var(--bc, white) 62%, transparent);
+      --card-edge: color-mix(in srgb, var(--bc, white) 38%, var(--border));
       border-radius: var(--radius);
       border: var(--bw) solid var(--card-edge);
       background: var(--card-fill);
@@ -474,19 +455,23 @@
       border-left: 3px solid var(--bc, rgba(255,255,255,.12));
     }
 
-    /* Solid header: the type colour reads as a strip rather than an edge. */
+    /* Solid header: the type colour reads as a strip rather than an edge.
+       The strip rounds its own top corners instead of the card clipping it,
+       so the highlight ring and tab outside the card are not cut off. */
     .block[data-card="header"] {
       --card-edge: var(--border);
       padding-top: 0;
-      overflow: hidden;
     }
     .block[data-card="header"] .block-header {
       background: var(--bc, var(--border-strong));
       margin: 0 -12px 8px;
       padding: 5px 12px;
+      border-radius: calc(var(--radius) - var(--bw)) calc(var(--radius) - var(--bw)) 0 0;
     }
-    .block[data-card="header"] .block-type-badge { color: rgba(0,0,0,.78); }
-    .block[data-card="header"] .block-collapse-btn { color: rgba(0,0,0,.6); }
+    .block[data-card="header"] .block-type-badge { color: rgba(0,0,0,.82); }
+    .block[data-card="header"] .block-type-dot { display: none; }
+    .block[data-card="header"] .block-collapse-btn { color: rgba(0,0,0,.66); }
+    .block[data-card="header"] .block-type-check:hover { background: rgba(0,0,0,.1); }
 
     /* Tinted: full border plus an accent wash across the card. */
     .block[data-card="tint"] {
@@ -495,14 +480,13 @@
         color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 100%);
     }
 
-    /* Plain: neutral edge, colour survives in the type badge only. */
+    /* Plain: neutral edge, colour survives in the type dot only. */
     .block[data-card="plain"] { --card-edge: var(--border); }
+    /* Hover is a shadow and nothing else: no height, border or outline
+       change, so a card never moves under the pointer or off its arrows. */
     .block:hover { box-shadow: 0 4px 20px rgba(0,0,0,.45); }
-    .block.selected {
-      outline: 2px solid rgba(255,255,255,.38);
-      outline-offset: 2px;
-      box-shadow: 0 4px 24px rgba(0,0,0,.5);
-    }
+    /* The selected outline lives in the [cards] section at the end of this
+       file, so it comes after every state rule it has to beat. */
     .select-box {
       position: absolute;
       border: 1.5px dashed rgba(255,255,255,.55);
@@ -870,65 +854,6 @@
     .review-count { opacity: .8; }
     body[data-zen="on"] .review-bar { display: none; }
 
-    /* ── Type-correction chips (post-import reclassify) ────────── */
-    .type-chip {
-      position: absolute;
-      z-index: 90;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      background: rgba(8,8,22,.92);
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 14px;
-      cursor: pointer;
-      backdrop-filter: blur(6px);
-      user-select: none;
-      transition: border-color var(--dur-fast);
-    }
-    .type-chip:hover { border-color: rgba(255,255,255,.4); }
-    .type-chip.low-confidence {
-      border-color: var(--c-assumption);
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-assumption) 35%, transparent);
-    }
-    .type-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .type-chip-caret { width: 12px; height: 12px; opacity: .6; }
-    .type-chip-menu {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      z-index: 130;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2px;
-      padding: 5px;
-      background: rgba(12,12,28,.98);
-      border: 1px solid rgba(255,255,255,.14);
-      border-radius: 10px;
-      box-shadow: 0 12px 32px rgba(0,0,0,.55);
-    }
-    .type-chip-opt {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 9px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      background: none;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      white-space: nowrap;
-      text-align: left;
-    }
-    .type-chip-opt:hover { background: rgba(255,255,255,.08); color: #fff; }
-    .block.low-confidence { outline: 1px dashed var(--c-assumption); outline-offset: 2px; }
 
     /* ── Block right-click context menu ──────────────────────────── */
     .ctx-menu {
@@ -1095,7 +1020,7 @@
     }
     .brain-dump-btn:hover { transform: translateY(-1px); }
     .brain-dump-hint { font-size: 12px; color: var(--text-faint, var(--text-muted)); opacity: .8; }
-    .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: 0.4; transition: opacity 120ms; }
+    .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: .45; transition: opacity 120ms; }
 
     /* Connections of the hovered card: a brighter solid stroke, not marching
        dashes, so a dashed or dotted line keeps its own pattern on hover. */
@@ -1104,7 +1029,7 @@
       stroke-width: 2.5px !important;
     }
 
-    /* Block type accent — drives left border, faint side borders, and background tint */
+    /* Block type accent: feeds the card edge, the type dot and the preset strips */
     .block[data-type=goal]        { --bc: var(--c-goal); }
     .block[data-type=problem]     { --bc: var(--c-problem); }
     .block[data-type=requirement] { --bc: var(--c-requirement); }
@@ -1133,25 +1058,66 @@
         color-mix(in srgb, var(--bc, #080816) 6%, rgba(8,8,22,.92)) 100%);
     }
 
+    /* One fixed-height row: the type label on the left, the markers and the
+       collapse caret on the right. Controls that appear on hover only fade,
+       they never take space in or out, so the row never changes height. */
     .block-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 5px;
+      gap: 4px;
+      min-height: 20px;
+      margin-bottom: 4px;
     }
 
+    /* The type: an 8px dot in the type colour and a neutral label. */
     .block-type-badge {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: .07em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      margin-right: auto;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: .04em;
       text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 3px;
-      background: rgba(255,255,255,.06);
+      color: var(--text-secondary);
     }
-    .block .block-type-badge { color: var(--bc, var(--text-muted)); }
+    .block-type-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .block-type-dot {
+      flex: 0 0 8px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--bc, var(--text-muted));
+    }
 
-    .block-gap-icons { display: flex; gap: 3px; }
+    /* A type the classifier was unsure of: the label is a button (dashed
+       underline and a caret) that opens the type menu, "Looks right" first. */
+    .block-type-check {
+      margin: -2px auto -2px -4px;
+      padding: 2px 4px;
+      font-family: inherit;
+      background: none;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    /* A border, not an underline: the label clips its overflow (for the
+       ellipsis), which cut off an underline drawn below the baseline. The
+       negative margin keeps the text where a plain label has it. */
+    .block-type-check .block-type-label {
+      padding-bottom: 1px;
+      margin-bottom: -2px;
+      border-bottom: 1px dashed currentColor;
+    }
+    .block-type-caret { flex: 0 0 11px; width: 11px; height: 11px; margin-left: -3px; }
+    .block-type-check:hover { background: var(--surface-2); color: var(--text-primary); }
+    .block-type-check:focus-visible { outline: 2px solid var(--cards-focus, var(--accent-bright)); outline-offset: 1px; }
+    .block-type-check[aria-expanded="true"] { background: var(--surface-2); color: var(--text-primary); }
+
+    /* The gap marker's slot. gaps.js fills it; empty, it takes no room. */
+    .block-gap-icons { display: flex; align-items: center; gap: 3px; }
+    .block-gap-icons:empty { display: none; }
     .gap-icon { font-size: 11px; line-height: 1; }
 
     /* Vote indicator in block header */
@@ -1267,7 +1233,7 @@
     body.light-mode .block-doc-badge { background: rgba(2,132,199,.1); border-color: rgba(2,132,199,.3); color: #0284c7; }
 
     .block-title {
-      font-size: var(--text-sm);
+      font-size: 14px;
       font-weight: 600;
       color: var(--text-primary);
       line-height: 1.35;
@@ -1282,27 +1248,32 @@
       cursor: text;
     }
 
+    .block-title-empty { color: var(--text-muted); font-weight: 500; font-style: italic; }
+
+    /* Muted and clamped to three lines on the canvas; the whole text shows
+       while it is being edited and in the inspector. */
     .block-desc {
-      font-size: 11px;
-      color: rgba(255,255,255,.55);
+      font-size: 12px;
+      color: var(--text-muted);
       line-height: 1.4;
       margin-top: 4px;
       word-break: break-word;
       white-space: pre-wrap;
       outline: none;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      overflow: hidden;
     }
-    /* Empty description: hidden by default, shows a faint "add" hint on
-       hover/selection so the field is discoverable but never noisy. */
+    /* Empty description: gone from the layout. The selected card offers it
+       as a caption under the card (see [cards]), never inside it, so neither
+       hover nor selection changes a card's height. */
     .block-desc:empty { display: none; margin-top: 0; }
-    .block:hover .block-desc:empty,
-    .block.selected .block-desc:empty { display: block; margin-top: 4px; }
-    .block:hover .block-desc:empty::before,
-    .block.selected .block-desc:empty::before {
-      content: 'Add description…';
-      color: rgba(255,255,255,.28);
-      font-style: italic;
-    }
     .block-desc[contenteditable=true] {
+      -webkit-line-clamp: unset;
+      line-clamp: none;
+      overflow: visible;
       background: rgba(255,255,255,.06);
       border-radius: 4px;
       padding: 3px 5px;
@@ -1312,8 +1283,6 @@
     }
     .block-desc[contenteditable=true]:empty::before { content: ''; }
     .block.collapsed .block-desc:empty { display: none; }
-    body.light-mode .block:hover .block-desc:empty::before,
-    body.light-mode .block.selected .block-desc:empty::before { color: rgba(0,0,0,.3); }
     body.light-mode .block-desc[contenteditable=true] { background: rgba(0,0,0,.05); }
 
     .block-actions {
@@ -1324,8 +1293,8 @@
     }
 
     .action-badge {
-      font-size: 9px;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 600;
       letter-spacing: .04em;
       text-transform: uppercase;
       padding: 2px 5px;
@@ -2029,14 +1998,27 @@
     }
 
     /* ── Block collapse button ──────────────────────────────────── */
+    /* A caret that shows on hover, selection or keyboard focus, and stays
+       on a collapsed card so its hidden body is discoverable. It fades rather
+       than appearing, so the header row keeps its height. */
     .block-collapse-btn {
-      background: none; border: none;
-      color: rgba(255,255,255,.25);
-      cursor: pointer; font-size: 9px; line-height: 1;
-      padding: 0 1px; margin-left: 4px; flex-shrink: 0;
-      transition: color var(--dur-fast);
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px;
+      margin: -2px -4px -2px 0;
+      padding: 0;
+      background: none; border: none; border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer; flex-shrink: 0;
+      opacity: 0;
+      transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
     }
-    .block-collapse-btn:hover { color: rgba(255,255,255,.7); }
+    .block-collapse-btn svg { width: 14px; height: 14px; transition: transform var(--dur-fast); }
+    .block.collapsed .block-collapse-btn svg { transform: rotate(-90deg); }
+    .block:hover .block-collapse-btn,
+    .block.selected .block-collapse-btn,
+    .block.collapsed .block-collapse-btn,
+    .block-collapse-btn:focus-visible { opacity: 1; }
+    .block-collapse-btn:hover { color: var(--text-primary); background: var(--surface-2); }
     .block.collapsed .block-desc,
     .block.collapsed .block-actions { display: none; }
 
@@ -2281,7 +2263,6 @@
 
     body.light-mode .block {
       --card-fill: #fff;
-      --card-edge: color-mix(in srgb, var(--bc, #999) 55%, transparent);
       box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 12px rgba(15,23,42,.06);
     }
     body.light-mode .block[data-card="bar"]   { --card-edge: color-mix(in srgb, var(--bc, #999) 40%, transparent); }
@@ -2293,19 +2274,13 @@
         color-mix(in srgb, var(--bc, #fff) 5%, #fff) 100%);
     }
     body.light-mode .block:hover { box-shadow: 0 2px 4px rgba(15,23,42,.1), 0 8px 24px rgba(15,23,42,.12); }
-    body.light-mode .block.selected {
-      outline-color: color-mix(in srgb, var(--bc, #555) 70%, transparent);
-      box-shadow: 0 4px 24px rgba(15,23,42,.16), 0 0 0 1px color-mix(in srgb, var(--bc, #555) 30%, transparent);
-    }
     body.light-mode .block-title { color: var(--text-primary); }
-    body.light-mode .block-desc { color: rgba(0,0,0,.62); }
-    body.light-mode .block-type-badge { background: rgba(0,0,0,.05); }
-    body.light-mode .action-badge.resolve   { background: rgba(220,38,38,.12); color: #dc2626; }
-    body.light-mode .action-badge.prepare   { background: rgba(202,138,4,.12);  color: #ca8a04; }
-    body.light-mode .action-badge.recollect { background: rgba(2,132,199,.12);  color: #0284c7; }
-    body.light-mode .action-badge.reinforce { background: rgba(22,163,74,.12);  color: #16a34a; }
-    body.light-mode .block-collapse-btn { color: rgba(0,0,0,.28); }
-    body.light-mode .block-collapse-btn:hover { color: rgba(0,0,0,.6); }
+    /* Darker shades, so 10px text reads at 4.5:1 or better on white; the
+       ones this used to take measured 2.7 to 4.0. */
+    body.light-mode .action-badge.resolve   { background: rgba(220,38,38,.1); color: #b91c1c; }
+    body.light-mode .action-badge.prepare   { background: rgba(202,138,4,.12); color: #92400e; }
+    body.light-mode .action-badge.recollect { background: rgba(2,132,199,.1); color: #075985; }
+    body.light-mode .action-badge.reinforce { background: rgba(22,163,74,.1); color: #166534; }
     body.light-mode .block-resize-handle::after {
       border-right-color: rgba(0,0,0,.18);
       border-bottom-color: rgba(0,0,0,.18);
@@ -2334,8 +2309,6 @@
     body.light-mode .canvas-root.has-hover .arrow-path:not(.related) { stroke: rgba(0,0,0,.06) !important; }
     body.light-mode .arrow-path.related { stroke: var(--ac-hi, rgba(0,0,0,.5)) !important; }
 
-    body.light-mode .canvas-hint { color: rgba(0,0,0,.2); }
-    body.light-mode .canvas-hint svg { opacity: .16; }
 
     body.light-mode .right-panel {
       background: #fbfcfe;
@@ -2469,8 +2442,6 @@
     }
     body.light-mode .arrow-label.selected { fill: rgba(0,0,0,.85); }
 
-    body.light-mode .canvas-hint { color: rgba(0,0,0,.3); }
-    body.light-mode .canvas-hint svg { opacity: .2; }
 
     /* Light-mode gap glows (static tints) */
     body.light-mode .block.gap-assumption  { box-shadow: 0 0 12px 3px rgba(202,144,8,.25); }
@@ -2544,7 +2515,6 @@
       .palette { width: 48px; }
       .palette .palette-section-toggle span,
       .palette .palette-item-text,
-      .palette .palette-desc,
       .palette .section-indicator { display: none; }
       .palette .palette-section-toggle {
         justify-content: center;
@@ -2554,9 +2524,6 @@
       }
       .palette .palette-section-toggle .section-indicator { display: block; }
       .palette .palette-head { display: none; }
-      .palette .palette-subsection-toggle span { display: none; }
-      .palette .palette-subsection-toggle { justify-content: center; padding: 8px 4px; }
-      .palette .palette-subsection-toggle .section-indicator { display: block; }
       .palette .palette-item {
         justify-content: center;
         padding: 10px 4px;
@@ -2604,7 +2571,6 @@
         gap: 6px;
       }
       .palette .palette-item-text { display: block; }
-      .palette .palette-desc { display: none; }
       .palette .palette-dot { width: 10px; height: 10px; }
       .palette .palette-collapse-btn { display: none; }
       #templatesSection { display: none; }
@@ -2721,37 +2687,6 @@
       background: rgba(255,255,255,.1); color: var(--text-primary); border-color: var(--text-secondary);
     }
 
-    /* ── Phase 1: Palette hover tooltips ──────────────────── */
-    .palette-item { position: relative; }
-    .palette-tooltip {
-      display: none; position: absolute;
-      left: 100%; top: 50%; transform: translateY(-50%);
-      margin-left: 8px; z-index: 200;
-      width: 260px; padding: 10px 12px;
-      background: #1a1a2e; border: 1px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      box-shadow: 0 8px 24px rgba(0,0,0,.5);
-      font-size: 12px; line-height: 1.5; color: var(--text-secondary);
-      pointer-events: none;
-    }
-    .palette-tooltip::before {
-      content: ''; position: absolute;
-      right: 100%; top: 50%; transform: translateY(-50%);
-      border: 6px solid transparent; border-right-color: var(--border-strong);
-    }
-    .palette-tooltip-example {
-      color: var(--text-muted); font-style: italic;
-    }
-    .palette-tooltip-tip {
-      color: var(--accent); font-weight: 500;
-    }
-    .palette-item:hover .palette-tooltip { display: block; }
-    .palette.collapsed .palette-tooltip { display: none !important; }
-
-    /* Hide tooltips on touch devices (no persistent hover) */
-    @media (pointer: coarse) {
-      .palette-tooltip { display: none !important; }
-    }
 
     /* ── Phase 1: Light-mode overrides for new elements ────── */
     body.light-mode .status-badge { background: rgba(0,0,0,.06); color: #475569; }
@@ -2788,13 +2723,6 @@
       background: rgba(0,0,0,.08); color: #0f172a; border-color: #475569;
     }
 
-    body.light-mode .palette-tooltip {
-      background: #fff; border-color: rgba(0,0,0,.12);
-      color: #334155; box-shadow: 0 8px 24px rgba(0,0,0,.12);
-    }
-    body.light-mode .palette-tooltip::before { border-right-color: rgba(0,0,0,.12); }
-    body.light-mode .palette-tooltip-example { color: #64748b; }
-    body.light-mode .palette-tooltip-tip { color: #0063e5; }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -3122,6 +3050,254 @@ body.light-mode .voting-banner { background: #fff; box-shadow: 0 8px 24px rgba(1
 
 
 /* ════ [cards] ════ */
+/* Card visuals, the palette and the empty state. Each card state has its own
+   channel: type is the dot and a quiet edge, hover a shadow, selection the
+   outline, a gap an icon, isolation a dashed edge, a highlight a ring with a
+   word on it, a type awaiting a check a button on the label. */
+:root { --cards-focus: var(--accent-bright); --caption-ink: var(--text-muted); }
+/* The caption sits on the light canvas, not on a card: muted grey is 4.3:1
+   there, so it takes the secondary text colour. */
+body.light-mode { --cards-focus: #1d4ed8; --caption-ink: var(--text-secondary); }
+
+/* A custom colour arrives as --bc-custom (render.js), plus a darker twin for
+   the light theme when one is known, so a pale swatch still reads on white. */
+.block.has-color { --bc: var(--bc-custom); }
+body.light-mode .block.has-color { --bc: var(--bc-custom-light, var(--bc-custom)); }
+
+/* Selection wins over every other state: it comes after all of them. */
+.block.block.selected {
+  outline: 2px solid var(--text-secondary);
+  outline-offset: 3px;
+}
+
+/* Status, priority and action badges on a card: 10px/600, never smaller. */
+.block .status-badge,
+.block .priority-badge { font-size: 10px; font-weight: 600; }
+.action-badge.validate { background: rgba(234,179,8,.16); color: #eab308; }
+body.light-mode .action-badge.validate { background: rgba(202,138,4,.12); color: #854d0e; }
+/* On white the stock light shades measured 2.7 to 4.3:1 at 10px. */
+body.light-mode .block .status-badge.status-in-progress { color: #075985; }
+body.light-mode .block .status-badge.status-done        { color: #065f46; }
+body.light-mode .block .status-badge.status-blocked     { color: #b91c1c; }
+body.light-mode .block .priority-badge.priority-high    { color: #b91c1c; }
+body.light-mode .block .priority-badge.priority-medium  { color: #92400e; }
+body.light-mode .block .priority-badge.priority-low     { color: #475569; }
+
+/* Header preset. Dark: the type colour is the strip and the label is dark
+   on it; Context's slate is too dark for that, so it takes white. Light: a
+   tinted strip with the neutral label, since dark text fails on half of the
+   light type colours and white on the other half. */
+.block[data-card="header"][data-type=context]:not(.has-color) :is(.block-type-badge, .block-collapse-btn, .block-collapsed-mark) { color: #fff; }
+body.light-mode .block[data-card="header"] .block-header { background: color-mix(in srgb, var(--bc, #94a3b8) 22%, #fff); }
+body.light-mode .block[data-card="header"] .block-type-badge,
+body.light-mode .block[data-card="header"][data-type=context]:not(.has-color) .block-type-badge { color: var(--text-secondary); }
+body.light-mode .block[data-card="header"] .block-collapse-btn { color: var(--text-muted); }
+body.light-mode .block[data-card="header"][data-type=context]:not(.has-color) :is(.block-collapse-btn, .block-collapsed-mark) { color: var(--text-muted); }
+body.light-mode .block[data-card="header"] .block-type-dot { display: block; }
+
+/* The empty description of the selected card is offered as a caption just
+   under the card. It is absolutely placed, so the card keeps its height and
+   the arrows keep their ends; double-clicking it edits the description. */
+body:not(.readonly-mode) .block.selected:not(.collapsed) .block-desc:empty:not([contenteditable="true"]) {
+  display: block;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 2px; right: 2px;
+  margin: 0;
+  overflow: visible;
+  font-size: 11px;
+  line-height: 1.3;
+}
+body:not(.readonly-mode) .block.selected:not(.collapsed) .block-desc:empty:not([contenteditable="true"])::before {
+  content: 'Double-click to add a description';
+  color: var(--caption-ink);
+  font-style: italic;
+}
+/* Only for a single selection: after Cmd+A every empty card would carry the
+   caption, under its own bottom port. Cards are siblings in the canvas root,
+   so two selected siblings mean a multi-selection. */
+.canvas-root:has(> .block.selected ~ .block.selected) .block.selected .block-desc:empty:not([contenteditable="true"]) {
+  display: none;
+}
+
+/* Ports show on hover or selection. On a touch screen there is no hover, so
+   only the selected card shows them (and its caret and resize grip). */
+.block.selected .port { opacity: 1; }
+@media (pointer: coarse) {
+  .block:not(.selected) .port,
+  .block:not(.selected) .block-resize-handle { opacity: 0; pointer-events: none; }
+  .block:not(.selected):not(.collapsed) .block-collapse-btn { opacity: 0; pointer-events: none; }
+}
+/* A view-only link cannot connect or resize anything. */
+.readonly-mode .block .port,
+.readonly-mode .block .block-resize-handle { display: none; }
+/* Nor fold a card, but a collapsed one still says that it is folded: the
+   caret, turned, as a mark rather than a control. */
+.block-collapsed-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  margin: -2px -4px -2px 0;
+  color: var(--text-muted);
+}
+.block-collapsed-mark svg { width: 14px; height: 14px; transform: rotate(-90deg); }
+.block[data-card="header"] .block-collapsed-mark { color: rgba(0,0,0,.66); }
+body.light-mode .block[data-card="header"] .block-collapsed-mark { color: var(--text-muted); }
+
+/* Highlight ring: static, clear of the card edge, and named by a small tab
+   so it does not rely on colour. Geometry only: motion is the [chrome] part. */
+.block[data-highlight]::before {
+  inset: -8px;
+  border-width: 2.5px;
+  border-radius: calc(var(--radius) + 8px);
+}
+.block[data-type=terminator][data-highlight]::before { border-radius: 30px; }
+.block[data-highlight=festive]::before { padding: 2.5px; }
+.block-hl-tab {
+  position: absolute;
+  top: -7px; right: 14px;
+  transform: translateY(-50%);
+  padding: 1px 5px;
+  font-size: 9px; font-weight: 700; line-height: 1.3;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: #0b0b16;
+  background: var(--hl, var(--border-strong));
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* The type-check menu ends with the lines that separate the types people
+   confuse (TYPE_DISAMBIGUATION). */
+.type-check-menu .type-check-help { max-width: 300px; padding: 2px 10px 6px 28px; }
+.type-check-help p { margin: 0 0 4px; font-size: 11px; line-height: 1.4; color: var(--text-muted); white-space: normal; }
+
+/* The canvas hint only shows when the Brain Dump cannot (a view-only link),
+   so each variant says only what that view can do. */
+.canvas-hint { color: var(--text-muted); }
+.canvas-hint p { margin: 0; }
+.canvas-hint-view { display: none; }
+.readonly-mode .canvas-hint-view { display: block; }
+.readonly-mode .canvas-hint-edit { display: none; }
+body.light-mode .canvas-hint { color: var(--text-secondary); }
+body.light-mode .canvas-hint svg { opacity: .2; }
+
+/* ── Palette: types grouped by the question they answer ── */
+.palette-step { padding: 2px 0 6px; }
+.palette-step + .palette-step { border-top: 1px solid var(--border-subtle); }
+.palette-step-head {
+  padding: 8px 16px 3px;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-muted);
+  user-select: none;
+}
+.palette-label { font-size: 13px; line-height: 1.3; }
+.palette-item .palette-dot { width: 8px; height: 8px; }
+.palette.collapsed .palette-step-head {
+  padding: 8px 0 2px;
+  text-align: center;
+  font-size: 9px; letter-spacing: .02em;
+}
+.palette.collapsed .palette-item .palette-dot { width: 12px; height: 12px; }
+
+/* One tip for the whole palette, fixed to the page (palette.js places it). */
+.palette-tip {
+  position: fixed;
+  z-index: 1000;
+  display: flex; flex-direction: column; gap: 4px;
+  width: max-content; max-width: 260px;
+  padding: 10px 12px;
+  font-size: 12px; line-height: 1.45;
+  color: var(--text-secondary);
+  background: #16172a;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  pointer-events: none;
+}
+.palette-tip[hidden] { display: none; }
+.palette-tip-title { font-size: 13px; color: var(--text-primary); }
+.palette-tip-short { font-weight: 600; }
+.palette-tip-example { color: var(--text-muted); font-style: italic; }
+body.light-mode .palette-tip {
+  background: #fff;
+  border-color: rgba(15,23,42,.14);
+  box-shadow: 0 8px 24px rgba(15,23,42,.14);
+}
+
+@media (max-width: 1024px) {
+  .palette .palette-step-head { padding: 8px 0 2px; text-align: center; font-size: 9px; letter-spacing: .02em; }
+  .palette .palette-item .palette-dot { width: 12px; height: 12px; }
+  /* The 48px palette had "Save canvas as template" spilling out as clipped
+     words; it gets the icon-only treatment the collapsed palette gives it. */
+  .palette .template-save span { display: none; }
+  .palette .template-save { justify-content: center; padding: 10px 4px; }
+  .palette .utpl-del { display: none; }
+}
+@media (max-width: 768px) {
+  .palette .palette-step { display: flex; align-items: center; flex-shrink: 0; padding: 0; }
+  .palette .palette-step + .palette-step { border-top: 0; border-left: 1px solid var(--border-subtle); }
+  .palette .palette-step-head { padding: 0 4px 0 12px; font-size: 9px; }
+  .palette .palette-item { width: auto; }
+  .palette .palette-item .palette-dot { width: 9px; height: 9px; }
+}
+
+/* ── Empty state: Brain Dump plus the six-step starter ── */
+.brain-dump { overflow-y: auto; align-items: safe center; }
+.brain-dump-hint { opacity: 1; color: var(--text-muted); }
+.brain-dump-hint a { color: var(--text-secondary); }
+.map-steps {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.map-steps-title {
+  margin: 0 0 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.map-steps-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.map-step {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  min-width: 0;
+  padding: 7px 10px;
+  font: inherit; text-align: left;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.map-step:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.map-step:focus-visible { outline: 2px solid var(--cards-focus); outline-offset: 2px; }
+.map-step-head { display: flex; align-items: baseline; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.map-step-num { font-size: 11px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.map-step-type {
+  display: flex; align-items: center; gap: 6px;
+  max-width: 100%;
+  font-size: 12px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.map-step-type .palette-dot { flex: 0 0 8px; width: 8px; height: 8px; }
+.brain-dump-card .map-steps-hint { margin: 10px 0 0; font-size: 12px; color: var(--text-muted); }
+@media (max-width: 420px) { .map-steps-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Muted grey on the light step buttons measured 4.4:1. */
+body.light-mode .map-step-num,
+body.light-mode .map-step-type { color: var(--text-secondary); }
+body.light-mode .brain-dump-card {
+  background: rgba(255,255,255,.97);
+  border-color: rgba(15,23,42,.12);
+  box-shadow: 0 18px 50px rgba(15,23,42,.14);
+}
+body.light-mode .brain-dump-card h2 { background-image: linear-gradient(135deg, #7c3aed, #4338ca); }
+body.light-mode .brain-dump-card textarea {
+  color: var(--text-primary);
+  background: #fff;
+  border-color: rgba(15,23,42,.2);
+}
+body.light-mode .brain-dump-card textarea:focus { border-color: #4f46e5; }
+body.light-mode .brain-dump-card textarea::placeholder { color: #64748b; }
 
 
 
