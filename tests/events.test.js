@@ -5,7 +5,7 @@
 
 import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, ui } from '../js/state.js'
-import { parseOutline, categorizeLine, createBlocksFromText } from '../js/events.js'
+import { parseOutline, categorizeLine, createBlocksFromText } from '../js/classify.js'
 
 function reset() {
   cleanupMockEls()

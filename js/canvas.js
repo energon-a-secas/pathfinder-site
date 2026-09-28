@@ -52,6 +52,37 @@ export function colorMarker(color, back = false) {
   return `url(#${id})`
 }
 
+// ── Arrow route vs pattern ───────────────────────────────────
+// `style` is geometry only (routed, curved, straight, elbow) and `pattern` is
+// the dash (solid, dashed, dotted). They used to share `style`, so a dashed
+// line could not also be routed. normalize.js migrates saved data; these read
+// an arrow either way, so an unnormalized legacy object still draws right.
+export const ARROW_ROUTES = ['routed', 'curved', 'straight', 'elbow']
+export const ARROW_PATTERN_VALUES = ['solid', 'dashed', 'dotted']
+const LEGACY_PATTERN_STYLES = ['dashed', 'dotted']
+
+export function arrowRoute(a) {
+  const s = a?.style
+  if (ARROW_ROUTES.includes(s)) return s
+  return 'curved'
+}
+
+export function arrowPattern(a) {
+  if (ARROW_PATTERN_VALUES.includes(a?.pattern)) return a.pattern
+  if (LEGACY_PATTERN_STYLES.includes(a?.style)) return a.style
+  return 'solid'
+}
+
+// Dash lengths in user units, stretched a little for heavy lines so a thick
+// dotted line does not turn into a solid one. '' means solid.
+const DASHES = { dashed: [8, 6], dotted: [2, 5] }
+export function dashArrayFor(pattern, weight = 2) {
+  const d = DASHES[pattern]
+  if (!d) return ''
+  const k = Math.max(1, (Number(weight) || 2) / 2.5)
+  return d.map(n => Math.round(n * k * 10) / 10).join(' ')
+}
+
 // ── Canvas transform + dot grid ──────────────────────────────
 export function applyTransform() {
   const canvasRoot = $.canvasRoot()
@@ -329,7 +360,7 @@ export function renderArrows(opts = {}) {
 
   state.arrows.forEach(a => {
     const pts   = routes.get(a.id); if (!pts) return
-    const style = a.style || 'curved'
+    const style = arrowRoute(a)
     const d     = pathFor(pts, style)
     const sel   = selection.arrowId === a.id
 
@@ -362,9 +393,10 @@ export function renderArrows(opts = {}) {
     vis.setAttribute('d', d)
     vis.classList.toggle('selected', sel)
     g.classList.toggle('sel', sel)
+    // Inline style, not the presentation attribute: any stylesheet rule
+    // beats an attribute, which is how dashed arrows used to draw solid.
     vis.removeAttribute('stroke-dasharray')
-    if (style === 'dashed') vis.setAttribute('stroke-dasharray', '10 6')
-    else if (style === 'dotted') vis.setAttribute('stroke-dasharray', '3 5')
+    vis.style.strokeDasharray = dashArrayFor(arrowPattern(a), a.weight || 2)
     vis.setAttribute('marker-end', a.color
       ? colorMarker(a.color, false)
       : markerRef(sel ? 'arrowhead-sel' : 'arrowhead'))

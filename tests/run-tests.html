@@ -61,6 +61,9 @@
 <input id="frameLabelInput" style="display:none">
 <div id="templatesList" style="display:none"></div>
 <div id="arrowColorSwatches" style="display:none"></div>
+<div id="arrowInfo" style="display:none"></div>
+<input id="arrowLabelInput" style="display:none">
+<button id="arrowBidir" style="display:none"></button>
 <div id="healthBar" style="display:none"></div>
 <div id="promptDiff" style="display:none"></div>
 
@@ -123,6 +126,22 @@
   await import('./examples-page.test.js')
   await import('./review.test.js')
   await import('./trace.test.js')
+  // Foundation (UI/UX overhaul wave 1)
+  await import('./menu.test.js')
+  await import('./create.test.js')
+  await import('./foundation.test.js')
+  await import('./inline-edit.test.js')
+  await import('./types-foundation.test.js')
+  // One file per wave-2 stream; each stream replaces its stub
+  await import('./inspector-ui.test.js')
+  await import('./context-menus.test.js')
+  await import('./lines.test.js')
+  await import('./chrome.test.js')
+  await import('./navigation.test.js')
+  await import('./types-registry.test.js')
+  await import('./cards.test.js')
+  await import('./insights.test.js')
+  await import('./sharing-safety.test.js')
 
   // Run everything and render results
   const results = await runAll()

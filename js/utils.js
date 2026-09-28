@@ -12,20 +12,213 @@ export { escHtml, debounce };
 // ════════════════════════════════════════════════════════════
 
 // ── Constants ────────────────────────────────────────────────
+/**
+ * The type registry: one entry per block type, and the only place a type's
+ * meaning is written down. Every palette, picker, legend, exporter heading
+ * and criteria label reads it, so adding a type is one entry here plus its
+ * CSS colour, instead of the seventeen hand-kept copies it used to take.
+ *
+ * Key order is the display order (palette, pickers, dropdowns iterate it), and
+ * follows the Why, Who, Proof, What, How, Doubt flow in TYPE_STEPS. Ids never
+ * change once shipped: a saved canvas stores the id, so renaming one would
+ * orphan every block of that type. Labels may change.
+ *
+ * - color / light: accent in the dark and light themes (CSS --c-<id> mirrors them)
+ * - tier: 'core' shows by default, 'more' behind the expander
+ * - step: which TYPE_STEPS question the type answers
+ * - short: one line for rows and pickers; tip: the longer tooltip guidance
+ * - example: comma-separated quoted examples
+ * - legend: the line the AI prompt uses to explain the type
+ * - section: the heading an exporter gives a list of these blocks
+ * - criteria: false, or the label of the done-list the type carries
+ * - task: whether the Build checklist and tasks.md treat it as a task
+ * - actions: the action toggles the inspector shows for the type
+ */
 export const TYPES = {
-  goal:        { label: 'Goal',          color: '#a78bfa' },
-  problem:     { label: 'Problem',       color: '#f87171' },
-  requirement: { label: 'Requirement',   color: '#fbbf24' },
-  assumption:  { label: 'Assumption',    color: '#eab308' },
-  risk:        { label: 'Risk',          color: '#fb923c' },
-  decision:    { label: 'Decision',      color: '#34d399' },
-  question:    { label: 'Open Question', color: '#38bdf8' },
-  resource:    { label: 'Resource',      color: '#2dd4bf' },
-  output:      { label: 'Output',        color: '#818cf8' },
-  process:     { label: 'Process',       color: '#60a5fa' },
-  terminator:  { label: 'Start / End',   color: '#f0abfc' },
-  context:     { label: 'Context',       color: '#64748b' },
-  custom:      { label: 'Custom',        color: '#d8b4fe' }
+  goal: {
+    label: 'Goal', color: '#a78bfa', light: '#7c5fd4', tier: 'core', step: 'why',
+    short: 'What you want to achieve',
+    tip: 'A strategic objective you want to achieve. Connect it to the Requirements that must be met.',
+    example: '"Increase conversion by 15%", "Launch MVP by Q3"',
+    legend: 'Strategic objective to achieve',
+    section: 'Project Goals',
+    criteria: 'Acceptance criteria', task: false, actions: [],
+  },
+  problem: {
+    label: 'Problem', color: '#f87171', light: '#d94444', tier: 'core', step: 'why',
+    short: 'An issue happening now',
+    tip: 'A blocker, issue, or pain point needing resolution. Mark "Resolve" when actioned.',
+    example: '"API latency exceeds SLA", "No CI/CD pipeline"',
+    legend: 'Blocker or issue requiring resolution',
+    section: 'Problems / Blockers',
+    criteria: false, task: false, actions: ['resolve'],
+  },
+  stakeholder: {
+    label: 'Stakeholder', color: '#fda4af', light: '#be185d', tier: 'more', step: 'who',
+    short: 'Who receives, approves or is affected',
+    tip: 'A person, role or team that receives, approves or is affected by the work. Connect the Outputs delivered to them and the Goals they own.',
+    example: '"Executives", "Model owners", "Support team"',
+    legend: 'Who receives, approves or is affected by the work',
+    section: 'Stakeholders (who this is for)',
+    criteria: false, task: false, actions: [],
+  },
+  metric: {
+    label: 'Metric', color: '#67e8f9', light: '#0e7490', tier: 'core', step: 'proof',
+    short: 'A measurable signal with a target',
+    tip: 'A measurable signal with a target: a key result, KPI or SLO. Put the target in Targets and connect it to the Goal it measures.',
+    example: '"Sprint predictability at or above 80% by Q4", "p95 latency under 200ms"',
+    legend: 'A measurable signal with a target; it defines success, do not redefine it',
+    section: 'Success Metrics (how we will know)',
+    criteria: 'Targets', task: false, actions: [],
+  },
+  requirement: {
+    label: 'Requirement', color: '#fbbf24', light: '#c49008', tier: 'core', step: 'what',
+    short: 'Must be true when done',
+    tip: 'A hard constraint that must be satisfied. Link it to the Goal it serves.',
+    example: '"GDPR compliance", "Response under 200ms"',
+    legend: 'Hard constraint that must be satisfied',
+    section: 'Requirements',
+    criteria: 'Acceptance criteria', task: true, actions: [],
+  },
+  output: {
+    label: 'Output', color: '#818cf8', light: '#5558cc', tier: 'more', step: 'what',
+    short: 'A deliverable someone can hold: report, doc, release',
+    tip: 'An expected deliverable someone can hold. Connect from the Resources and Requirements that produce it.',
+    example: '"API documentation", "Staging environment", "User research report"',
+    legend: 'Expected deliverable someone can hold: a report, doc or release',
+    section: 'Expected Outputs',
+    // Outputs were Build tasks before the registry existed; kept so the task
+    // plan of an existing canvas does not change under it.
+    criteria: 'Acceptance criteria', task: true, actions: [],
+  },
+  implementation: {
+    label: 'Implementation', color: '#a3e635', light: '#4d7c0f', tier: 'core', step: 'how',
+    short: 'Work done once to build or change something',
+    tip: 'Work you do once to build or change something: an epic, initiative, integration or task. Connect it to the Requirement it satisfies and the Output it produces.',
+    example: '"Build the report scheduler", "Integrate SSO with the identity provider"',
+    legend: 'Work to build or change something; check it against the requirement it satisfies',
+    section: 'Work Items (implementation)',
+    // Optional: an implementation inherits "done" from the requirement it
+    // satisfies, so an empty list is not a gap.
+    criteria: 'Acceptance criteria', task: true, actions: [],
+  },
+  process: {
+    label: 'Process', color: '#60a5fa', light: '#2563eb', tier: 'more', step: 'how',
+    short: 'A recurring step in a workflow',
+    tip: 'A step or action in a workflow: something that gets done each time the flow runs. Chain these with arrows to show an end-to-end flow.',
+    example: '"Update status to Ready for Review", "Generate the doc"',
+    legend: 'A step or action in a workflow',
+    section: 'Workflow Steps',
+    criteria: false, task: false, actions: [],
+  },
+  terminator: {
+    label: 'Trigger / End', color: '#f0abfc', light: '#c026a8', tier: 'more', step: 'how',
+    short: 'What starts or ends a flow: an event, a cadence, a finish',
+    tip: 'What starts or ends a flow: an event, a cadence or a finish. Bookend a process flow so the beginning and outcome are explicit.',
+    example: '"Submission received", "Every end of sprint", "PRD approved"',
+    legend: 'What starts or ends a flow: an event, a cadence, or a finish',
+    section: 'Workflow Triggers and Ends',
+    criteria: false, task: false, actions: [],
+  },
+  decision: {
+    label: 'Decision', color: '#34d399', light: '#18a872', tier: 'core', step: 'how',
+    short: 'A choice made, or one to make',
+    tip: 'A choice that has been or needs to be made. Document the rationale.',
+    example: '"Use PostgreSQL over MongoDB", "Ship without feature X"',
+    legend: 'A choice made, or one to make (rationale should be documented)',
+    section: 'Decisions',
+    criteria: false, task: false, actions: [],
+  },
+  resource: {
+    label: 'Resource / System', color: '#2dd4bf', light: '#14a894', tier: 'more', step: 'how',
+    short: 'An existing team, tool, system or data source',
+    tip: 'An available asset: a team, tool, system, data source or budget. Connect it to what it enables.',
+    example: '"Design team (3 people)", "AWS credits ($10K)", "Data warehouse"',
+    legend: 'An existing team, tool, system or data source',
+    section: 'Resources Available',
+    criteria: false, task: false, actions: [],
+  },
+  assumption: {
+    label: 'Assumption', color: '#eab308', light: '#b07d06', tier: 'core', step: 'doubt',
+    short: 'A belief you are treating as true',
+    tip: 'A belief you are treating as true without validating it. The AI pressure-tests each one. Link it to the Goal or Requirement it underpins.',
+    example: '"Users will pay for this", "The API can handle our load"',
+    legend: 'A belief being treated as true without validation: pressure-test it',
+    section: 'Assumptions (validate before building)',
+    criteria: false, task: false, actions: ['validate'],
+  },
+  risk: {
+    label: 'Risk', color: '#fb923c', light: '#d46e14', tier: 'core', step: 'doubt',
+    short: 'Something that might go wrong',
+    tip: 'Something that could go wrong and derail the plan. Connect it to a Decision that mitigates it.',
+    example: '"Key engineer leaving", "Vendor contract expires"',
+    legend: 'Potential failure point requiring mitigation',
+    section: 'Risks',
+    criteria: false, task: false, actions: ['prepare'],
+  },
+  question: {
+    label: 'Open Question', color: '#38bdf8', light: '#1490c8', tier: 'more', step: 'doubt',
+    short: 'A genuine unknown',
+    tip: 'A genuine unknown needing an answer. For a belief you are assuming true, use an Assumption instead.',
+    example: '"Will users accept SSO-only?", "Is budget approved?"',
+    legend: 'A genuine unknown needing an answer',
+    section: 'Open Questions (Review Before Assuming)',
+    criteria: false, task: false, actions: [],
+  },
+  context: {
+    label: 'Context', color: '#64748b', light: '#4b5563', tier: 'more', step: 'other',
+    short: 'Background that frames the work',
+    tip: 'Background information that frames the project. Helps the AI understand constraints.',
+    example: '"Migrating to cloud", "Competitor launched a similar feature"',
+    legend: 'Background information for framing',
+    section: 'Context / Background',
+    criteria: false, task: false, actions: [],
+  },
+  custom: {
+    label: 'Other', color: '#d8b4fe', light: '#8b3fc4', tier: 'more', step: 'other',
+    short: 'Untyped: checks skip it',
+    tip: 'Anything that fits no other type. Gap checks skip it, so use it sparingly: typed blocks produce better AI prompts.',
+    example: '"Parking lot", "Idea for later"',
+    legend: 'Untyped: infer its role from its title and connections, and state what you assumed',
+    section: 'Custom / Other',
+    criteria: false, task: false, actions: [],
+  },
+}
+
+/**
+ * The six questions a map answers, in the order worth asking them: Why, Who,
+ * Proof, What, How, Doubt. Proof comes before How because every planning
+ * method surveyed (OKR, GQM, Theory of Change) sets the measure with the
+ * objective and picks the work after. Other holds what supports any step.
+ */
+export const TYPE_STEPS = [
+  { id: 'why',   label: 'Why',   hint: 'what outcome, or what hurts' },
+  { id: 'who',   label: 'Who',   hint: 'who wants it, receives it, or signs it off' },
+  { id: 'proof', label: 'Proof', hint: 'how we will know it worked' },
+  { id: 'what',  label: 'What',  hint: 'what must be true or delivered' },
+  { id: 'how',   label: 'How',   hint: 'the work, steps and systems' },
+  { id: 'doubt', label: 'Doubt', hint: 'imagine it failed: why?' },
+  { id: 'other', label: 'Other', hint: 'background, or not typed yet' },
+]
+
+/** Lines the type picker shows under the list, for the pairs people confuse. */
+export const TYPE_DISAMBIGUATION = [
+  'Every time the flow runs is a Process; once, to build or change something, is an Implementation.',
+  'A moment in time is a Trigger / End; a thing someone can hold is an Output.',
+  'A number with a target is a Metric.',
+]
+
+/**
+ * Types grouped by step, in TYPE_STEPS order, each group in registry order:
+ * [{ step: 'why', label: 'Why', hint, types: ['goal', 'problem'] }, ...].
+ * A type whose step is unknown lands in Other rather than disappearing.
+ */
+export function typesByStep() {
+  const known = new Set(TYPE_STEPS.map(s => s.id))
+  return TYPE_STEPS.map(s => ({
+    step: s.id, label: s.label, hint: s.hint,
+    types: Object.keys(TYPES).filter(t => (known.has(TYPES[t].step) ? TYPES[t].step : 'other') === s.id),
+  }))
 }
 
 // Card presets. `bar` is the original 3px left stripe, kept so canvases built
@@ -155,22 +348,6 @@ export const ARROW_LABEL_PRESETS = [
   'depends on', 'blocks', 'enables', 'mitigates',
   'validates', 'conflicts with', 'informs', 'requires',
 ]
-
-export const TYPE_EXPLANATIONS = {
-  goal:        'A strategic objective you want to achieve. Examples: "Increase conversion by 15%", "Launch MVP by Q3". Connect to Requirements that must be met.',
-  problem:     'A blocker, issue, or pain point that needs resolution. Examples: "API latency exceeds SLA", "No CI/CD pipeline". Mark "Resolve" when actioned.',
-  requirement: 'A hard constraint that must be satisfied for a Goal to succeed. Examples: "GDPR compliance", "Response time under 200ms". Link to the Goal it serves.',
-  assumption:  'A belief you are treating as true without having validated it yet. Examples: "Users will pay for this", "The API can handle our load". The AI should pressure-test each one. Link to the Goal or Requirement it underpins.',
-  risk:        'Something that could go wrong and derail the plan. Examples: "Key engineer leaving", "Vendor contract expires". Connect to a Decision that mitigates it.',
-  question:    'A genuine unknown that needs an answer before proceeding. Examples: "Will users accept SSO-only auth?", "Is the budget approved?". Link to the Goal or Requirement it affects. (For beliefs you are assuming true, use an Assumption instead.)',
-  decision:    'A choice that has already been made or needs to be made. Examples: "Use PostgreSQL over MongoDB", "Ship without feature X". Document the rationale in Notes.',
-  resource:    'An available asset, tool, team, or budget. Examples: "Design team (3 people)", "AWS credits ($10K)", "Existing auth library". Connect to what it enables.',
-  output:      'An expected deliverable or measurable result. Examples: "API documentation", "Staging environment", "User research report". Connect from the Resources and Requirements that produce it.',
-  process:     'A step or action in a workflow: something that gets done. Examples: "Update status to Ready for Review", "Generate the Google Doc", "Assign a reviewer". Chain these with arrows to show an end-to-end flow.',
-  terminator:  'The start or end of a workflow. Examples: "Submission received", "PRD approved", "Done". Use it to bookend a process flow so the beginning and outcome are explicit.',
-  context:     'Background information that frames the project. Examples: "Company is migrating to cloud", "Competitor launched similar feature last month". Helps AI understand constraints.',
-  custom:      'A free-form block for anything that doesn\'t fit the other types. Use sparingly. The structured types produce better AI prompts.',
-}
 
 export const SWATCH_COLORS = [
   '#a78bfa', '#f87171', '#fbbf24', '#fb923c',
@@ -332,31 +509,34 @@ export function getLargeIcon(key) {
   return getSvgIcon(key, '', 24)
 }
 
+// The URL hash is '&'-separated segments ('s=...', 'votes=...'). Split it
+// without its leading '#': left on, the first segment read '#votes=...',
+// matched no 'votes=' test, and every save appended a second votes segment
+// while every read kept parsing the stale first one.
+function hashSegments() {
+  return location.hash.replace(/^#/, '').split('&').filter(Boolean)
+}
+
 // Get current URL hash and parse votes
 export function getBlockVotes(blockId) {
-  const hash = location.hash
-  if (!hash || !hash.includes(VOTE_HASH_KEY + '=')) return []
-
-  try {
-    const voteStr = hash.split(VOTE_HASH_KEY + '=')[1].split('&')[0]
-    const allVotes = JSON.parse(decodeURIComponent(voteStr))
-    return allVotes[blockId] || []
-  } catch (e) {
-    return []
-  }
+  return getAllVotes()[blockId] || []
 }
 
 // Get all votes for all blocks
 export function getAllVotes() {
-  const hash = location.hash
-  if (!hash || !hash.includes(VOTE_HASH_KEY + '=')) return {}
-
+  const seg = hashSegments().find(part => part.startsWith(VOTE_HASH_KEY + '='))
+  if (!seg) return {}
   try {
-    const voteStr = hash.split(VOTE_HASH_KEY + '=')[1].split('&')[0]
-    return JSON.parse(decodeURIComponent(voteStr))
+    const all = JSON.parse(decodeURIComponent(seg.slice(VOTE_HASH_KEY.length + 1)))
+    return all && typeof all === 'object' && !Array.isArray(all) ? all : {}
   } catch (e) {
     return {}
   }
+}
+
+function writeHash(segments) {
+  const baseUrl = location.pathname + location.search
+  history.replaceState(null, '', baseUrl + (segments.length ? '#' + segments.join('&') : ''))
 }
 
 // Set votes for a block (updates URL hash)
@@ -369,14 +549,9 @@ export function setBlockVotes(blockId, votes) {
   }
 
   const voteStr = encodeURIComponent(JSON.stringify(allVotes))
-  const baseUrl = location.pathname + location.search
-
-  // Remove existing vote hash if it exists
-  const cleanHash = location.hash.split('&').filter(part => !part.startsWith(VOTE_HASH_KEY + '=')).join('&')
-  const prefix = cleanHash ? cleanHash + '&' : '#'
-
-  const newUrl = baseUrl + (Object.keys(allVotes).length > 0 ? prefix + VOTE_HASH_KEY + '=' + voteStr : cleanHash)
-  history.replaceState(null, '', newUrl)
+  // Every other segment stays as it was; exactly one votes segment, last.
+  const rest = hashSegments().filter(part => !part.startsWith(VOTE_HASH_KEY + '='))
+  writeHash(Object.keys(allVotes).length > 0 ? [...rest, VOTE_HASH_KEY + '=' + voteStr] : rest)
 }
 
 // Add votes from current user to a block
@@ -425,9 +600,7 @@ export function removeVotesFromBlock(blockId, dots = 1) {
 
 // Clear all votes (useful for voting phase reset)
 export function clearAllVotes() {
-  const baseUrl = location.pathname + location.search
-  const cleanHash = location.hash.split('&').filter(part => !part.startsWith(VOTE_HASH_KEY + '=')).join('&')
-  history.replaceState(null, '', baseUrl + cleanHash)
+  writeHash(hashSegments().filter(part => !part.startsWith(VOTE_HASH_KEY + '=')))
   return true
 }
 

@@ -11,7 +11,7 @@ import { connectionLabel } from './relations.js'
 
 import { state, ui, canvasMeta } from './state.js'
 import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, DEFAULT_WIDTH, escHtml, showToast } from './utils.js'
-import { resolveRoutes, pathFor, arrowMidpoint } from './canvas.js'
+import { resolveRoutes, pathFor, arrowMidpoint, arrowRoute, arrowPattern, dashArrayFor } from './canvas.js'
 
 const PAD = 48          // outer margin; also covers the 6px highlight ring
 const BADGE_H = 14
@@ -113,10 +113,12 @@ export function buildSvg() {
   state.arrows.forEach(a => {
     const f = state.blocks[a.from], t = state.blocks[a.to]; if (!f || !t) return
     const pts = routes.get(a.id); if (!pts) return
-    const style = a.style || 'curved'
+    const style = arrowRoute(a)
     const d = pathFor(pts, style)
     const color = a.color || C.arrow
-    const dash = style === 'dashed' ? ' stroke-dasharray="10 6"' : style === 'dotted' ? ' stroke-dasharray="3 5"' : ''
+    // Same dash lengths as the canvas, from the same helper.
+    const dashes = dashArrayFor(arrowPattern(a), a.weight || 2)
+    const dash = dashes ? ` stroke-dasharray="${dashes}"` : ''
     const back = a.bidirectional ? ` marker-start="url(#${headId(color)}-b)"` : ''
     parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${a.weight || 2}"${dash} marker-end="url(#${headId(color)})"${back}/>`)
     const mid = arrowMidpoint(pts, style)

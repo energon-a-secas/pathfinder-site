@@ -40,3 +40,24 @@ export function relationHint(arrow, blocks) {
   const from = blocks[arrow.from]?.title || 'Source', to = blocks[arrow.to]?.title || 'Target'
   return relation === 'depends-on' ? `“${to}” comes before “${from}” in the task plan.` : `“${from}” comes before “${to}” in the task plan.`
 }
+
+// The verb an unlabelled connection implies from its two endpoint types.
+// Derived, never stored: the relation enum above stays an ordering
+// vocabulary, and this only fills in what the drawing already says
+// (methodology.md "Relations"). '' when the pair implies nothing.
+const IMPLIED_VERBS = {
+  'implementation>requirement': 'satisfies',
+  'implementation>output': 'produces',
+  'implementation>metric': 'should move',
+  'resource>metric': 'source of',
+  'terminator>process': 'triggers',
+  'terminator>implementation': 'triggers',
+  'metric>goal': 'measures',
+  'output>stakeholder': 'delivered to',
+  'stakeholder>goal': 'owns',
+  'risk>decision': 'mitigated by',
+}
+
+export function impliedVerb(fromType, toType) {
+  return IMPLIED_VERBS[fromType + '>' + toType] || ''
+}

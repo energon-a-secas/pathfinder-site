@@ -27,8 +27,11 @@ export const ui = {
   tintedBlocks:   false,
   lightMode:      false,
   hoveredBlockId: null,
-  pinPorts:       true,   // keep arrows on the port the user connected (vs auto-route)
+  // Off by default since 2026-09-28: pinned ends fight Tidy and the router,
+  // so new connections auto-route unless the saved preference says otherwise.
+  pinPorts:       false,  // keep arrows on the port the user connected (vs auto-route)
   showArrowText:  false,  // always show arrow notes (vs reveal on hover/selection)
+  votingMode:     false,  // dot voting: a click on a card adds a dot only while this is on
 }
 
 export const canvasMeta = { title: '', contextBrief: '', cardStyle: DEFAULT_CARD_STYLE, spotlight: false, situation: { ...SITUATION_DEFAULT } }
@@ -47,11 +50,28 @@ const undoHistory   = []
 const redoFuture    = []
 const MAX_HISTORY   = 50
 
+// The coalescing token of the last snapshotOnce(). A typing burst in one
+// field calls snapshotOnce with the same token on every input event, so the
+// whole burst is one undo step. Any plain snapshot() ends the burst.
+let lastSnapshotToken = null
+
 export function snapshot() {
   undoHistory.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
   if (undoHistory.length > MAX_HISTORY) undoHistory.shift()
   redoFuture.length = 0
+  lastSnapshotToken = null
 }
+
+/** Snapshot unless the previous snapshot was taken for the same token. */
+export function snapshotOnce(token) {
+  if (token != null && token === lastSnapshotToken) return false
+  snapshot()
+  lastSnapshotToken = token ?? null
+  return true
+}
+
+/** End the current coalescing burst (undo, redo, a field losing focus). */
+export function resetSnapshotToken() { lastSnapshotToken = null }
 
 export function getUndoHistory() { return undoHistory }
 export function getRedoFuture()  { return redoFuture }

@@ -94,9 +94,10 @@ rawBlocks.forEach((rb, i) => {
   if (!kept) {
     if (!rb || typeof rb !== 'object') note('DROP', `block ${label}: not an object`);
     else if (!String(rb.id ?? '').trim()) note('DROP', `block ${label}: missing id`);
-    else note('DROP', `block ${label}: unknown type "${rb.type}"`);
+    else note('DROP', `block ${label}: missing type`);
     return;
   }
+  if (kept.typeHint) note('COERCE', `block ${label}: type "${kept.typeHint}" is not known here, kept as Other (custom) with typeHint`);
   const checks = [
     ['status', kept.status], ['priority', kept.priority], ['highlight', kept.highlight],
     ['cardStyle', kept.cardStyle],
@@ -110,6 +111,19 @@ rawBlocks.forEach((rb, i) => {
   if (Array.isArray(rb.criteria) && rb.criteria.filter(c => String(c ?? '').trim()).length > kept.criteria.length) {
     note('COERCE', `block ${label}: some acceptance criteria were trimmed (max 30, 300 chars each)`);
   }
+  // Accepted gaps and the type-check flag are optional; name anything that
+  // did not survive rather than dropping it silently.
+  if (Array.isArray(rb.gapAck)) {
+    const keptAcks = new Set(kept.gapAck || []);
+    rb.gapAck.forEach(g => {
+      if (!keptAcks.has(g)) note('COERCE', `block ${label}: gapAck entry ${JSON.stringify(g)} dropped (not a gap id like "gap-no-req", or past the limit)`);
+    });
+  } else if (rb.gapAck != null) {
+    note('COERCE', `block ${label}: gapAck is not a list of gap ids, dropped`);
+  }
+  if (rb.typeCheck != null && typeof rb.typeCheck !== 'boolean') {
+    note('COERCE', `block ${label}: typeCheck ${JSON.stringify(rb.typeCheck)} is not true or false, dropped`);
+  }
 });
 
 const rawArrows = Array.isArray(data.arrows) ? data.arrows : [];
@@ -122,6 +136,9 @@ rawArrows.forEach((ra, i) => {
   if (!ids.has(from) || !ids.has(to)) note('WARN', `arrow ${from} -> ${to}: endpoint not on this canvas (the app tolerates it, nothing renders)`);
   if (ra.style != null && !['curved','straight','elbow','routed','dashed','dotted'].includes(ra.style)) {
     note('COERCE', `arrow ${from} -> ${to}: style "${ra.style}" is not known, falls back to curved`);
+  }
+  if (ra.pattern != null && !['solid','dashed','dotted'].includes(ra.pattern)) {
+    note('COERCE', `arrow ${from} -> ${to}: pattern "${ra.pattern}" is not known, falls back to solid`);
   }
 });
 

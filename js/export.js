@@ -78,6 +78,7 @@ export function applyImport(data, mode, opts = {}) {
       if (a.label) extra.label = a.label
       if (a.note) extra.note = a.note
       if (a.style && a.style !== 'curved') extra.style = a.style
+      if (a.pattern && a.pattern !== 'solid') extra.pattern = a.pattern
       if (a.weight && a.weight !== 2) extra.weight = a.weight
       if (a.bidirectional) extra.bidirectional = a.bidirectional
       if (a.color) extra.color = a.color
@@ -116,12 +117,15 @@ export function exportMarkdown() {
   // Every type in the registry gets a section. Leaving one out silently drops
   // those blocks from the file, which is how assumptions, context and custom
   // blocks used to vanish on export.
-  const order   = ['goal','problem','requirement','assumption','risk','question','decision',
-                   'resource','output','process','terminator','context','custom']
+  const order   = ['goal','problem','stakeholder','metric','requirement','assumption','risk','question','decision',
+                   'resource','output','implementation','process','terminator','context','custom']
   const headings = { goal:'Goals', problem:'Problems / Blockers', requirement:'Requirements',
     assumption:'Assumptions (validate before building)', risk:'Risks', question:'Open Questions',
     decision:'Decisions', resource:'Resources', output:'Outputs',
     process:'Workflow Steps', terminator:'Workflow Start / End', context:'Context', custom:'Other' }
+  // A type with no heading here falls back to its registry section, which is
+  // what used to print as "## undefined".
+  const heading = t => headings[t] || TYPES[t]?.section || TYPES[t]?.label || t
   const missing = Object.keys(TYPES).filter(t => !order.includes(t))
   if (missing.length) order.push(...missing)
   const byType = {}
@@ -136,7 +140,7 @@ export function exportMarkdown() {
   if (brief) md += `## Engagement Context\n${brief}\n\n`
   order.forEach(t => {
     const items = byType[t]; if (!items?.length) return
-    md += `## ${headings[t]}\n\n`
+    md += `## ${heading(t)}\n\n`
     items.forEach(b => {
       const tags = []
       if (b.priority) tags.push(b.priority.toUpperCase())
@@ -144,7 +148,7 @@ export function exportMarkdown() {
       md += `### ${b.title}${tags.length ? ' [' + tags.join(', ') + ']' : ''}\n`
       if (b.description) md += `${b.description}\n\n`
       if (b.criteria?.length) {
-        md += `**Acceptance criteria:**\n`
+        md += `**${TYPES[b.type]?.criteria || 'Acceptance criteria'}:**\n`
         b.criteria.forEach(c => { md += `- [ ] ${c}\n` })
         md += '\n'
       }
@@ -223,6 +227,10 @@ export function exportToPresentationSage() {
   const order = ['goal','problem','requirement','risk','question','decision','resource','output']
   const headings = { goal:'Goals', problem:'Problems', requirement:'Requirements',
     risk:'Risks', question:'Open Questions', decision:'Decisions', resource:'Resources', output:'Outputs' }
+  // Every other registry type follows, under its registry section, so no
+  // block type is left out of the deck.
+  order.push(...Object.keys(TYPES).filter(t => !order.includes(t)))
+  const heading = t => headings[t] || TYPES[t]?.section || TYPES[t]?.label || t
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
 
@@ -230,7 +238,7 @@ export function exportToPresentationSage() {
 
   order.forEach(t => {
     const items = byType[t]; if (!items?.length) return
-    yaml += `    - type: bullets\n      heading: "${headings[t]}"\n      bullets:\n`
+    yaml += `    - type: bullets\n      heading: "${heading(t).replace(/"/g, '\\"')}"\n      bullets:\n`
     items.forEach(b => {
       yaml += `        - "${b.title.replace(/"/g, '\\"')}"\n`
     })

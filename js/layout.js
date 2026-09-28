@@ -351,7 +351,10 @@ export function tidyCanvas({ direction = 'LR' } = {}) {
       (a.fromPort === 'bottom' && a.toPort === 'top')    ||
       (a.fromPort === 'bottom' && a.toPort === 'bottom') ||
       (a.fromPort === 'right'  && a.toPort === 'right')
-    if ((a.fromPort || a.toPort) && a.portsBy !== 'tidy' && !looksOldTidy) return
+    // 'import' pins came from another tool's layout (JSON Canvas sides), not
+    // from a person choosing them here, so Tidy may restamp them like its own.
+    const autoPinned = a.portsBy === 'tidy' || a.portsBy === 'import'
+    if ((a.fromPort || a.toPort) && !autoPinned && !looksOldTidy) return
     const lf = layerOf.get(a.from), lt = layerOf.get(a.to)
     if (lf == null || lt == null) return
     if (lt > lf) {

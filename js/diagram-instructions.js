@@ -20,19 +20,22 @@ Return ONLY a single valid JSON object (no prose, no markdown fences) in exactly
 RULES
 - Every block needs a unique "id", a "type", and a "title". "description" is optional.
 - Allowed "type" values ONLY:
-  goal        - an objective to achieve
-  problem     - a blocker or issue
-  requirement - a hard constraint that must be met
-  assumption  - a belief treated as true but not yet validated
-  risk        - something that could go wrong
-  decision    - a choice made or to be made
-  question    - a genuine open unknown
-  resource    - an available asset, tool, team, or link
-  output      - an expected deliverable or result
-  process     - a step / action in a workflow (e.g. "Update status to Ready")
-  terminator  - the start or end of a workflow (e.g. "Submission received", "Approved")
-  context     - background information that frames things
-  custom      - only if nothing above fits
+  goal           - an objective to achieve
+  problem        - a blocker or issue happening now
+  stakeholder    - a person, role or team that receives, approves or is affected by the work
+  metric         - a measurable signal with a target (e.g. "Predictability at or above 80%")
+  requirement    - a hard constraint that must be met
+  output         - a deliverable someone can hold: report, doc, release
+  implementation - work done once to build or change something (e.g. "Build the scheduler")
+  process        - a recurring step / action in a workflow (e.g. "Update status to Ready")
+  terminator     - what starts or ends a flow: an event, a cadence, a finish (e.g. "Submission received")
+  decision       - a choice made or to be made
+  resource       - an existing team, tool, system or data source
+  assumption     - a belief treated as true but not yet validated
+  risk           - something that could go wrong
+  question       - a genuine open unknown
+  context        - background information that frames things
+  custom         - only if nothing above fits
 - Use process + terminator for end-to-end workflows (Start -> step -> step -> End).
   Use goal / requirement / risk / etc. for strategy maps. Do not put a flow node where a
   requirement is meant, or vice-versa.

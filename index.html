@@ -238,13 +238,23 @@
         </div>
         <div class="palette-item" data-type="problem" role="button" tabindex="0" aria-label="Add Problem block">
           <div class="palette-dot" style="background:var(--c-problem)"></div>
-          <div class="palette-item-text"><div class="palette-label">Problem</div><div class="palette-desc">Blocker or issue</div></div>
+          <div class="palette-item-text"><div class="palette-label">Problem</div><div class="palette-desc">An issue happening now</div></div>
           <div class="palette-tooltip">A blocker, issue, or pain point needing resolution.<br><span class="palette-tooltip-example">e.g. "API latency exceeds SLA", "No CI/CD pipeline"</span><br><span class="palette-tooltip-tip">Mark "Resolve" when actioned.</span></div>
+        </div>
+        <div class="palette-item" data-type="metric" role="button" tabindex="0" aria-label="Add Metric block">
+          <div class="palette-dot" style="background:var(--c-metric)"></div>
+          <div class="palette-item-text"><div class="palette-label">Metric</div><div class="palette-desc">A measurable signal with a target</div></div>
+          <div class="palette-tooltip">A measurable signal with a target: a key result, KPI or SLO.<br><span class="palette-tooltip-example">e.g. "Sprint predictability at or above 80% by Q4"</span><br><span class="palette-tooltip-tip">Put the target in Targets and connect it to the Goal it measures.</span></div>
         </div>
         <div class="palette-item" data-type="requirement" role="button" tabindex="0" aria-label="Add Requirement block">
           <div class="palette-dot" style="background:var(--c-requirement)"></div>
-          <div class="palette-item-text"><div class="palette-label">Requirement</div><div class="palette-desc">Needed to proceed</div></div>
+          <div class="palette-item-text"><div class="palette-label">Requirement</div><div class="palette-desc">Must be true when done</div></div>
           <div class="palette-tooltip">A hard constraint that must be satisfied.<br><span class="palette-tooltip-example">e.g. "GDPR compliance", "Response under 200ms"</span><br><span class="palette-tooltip-tip">Link to the Goal it serves.</span></div>
+        </div>
+        <div class="palette-item" data-type="implementation" role="button" tabindex="0" aria-label="Add Implementation block">
+          <div class="palette-dot" style="background:var(--c-implementation)"></div>
+          <div class="palette-item-text"><div class="palette-label">Implementation</div><div class="palette-desc">Work done once to build or change something</div></div>
+          <div class="palette-tooltip">Work you do once to build or change something: an epic, initiative, integration or task.<br><span class="palette-tooltip-example">e.g. "Build the report scheduler", "Integrate SSO"</span><br><span class="palette-tooltip-tip">Connect it to the Requirement it satisfies and the Output it produces.</span></div>
         </div>
         <div class="palette-item" data-type="assumption" role="button" tabindex="0" aria-label="Add Assumption block">
           <div class="palette-dot" style="background:var(--c-assumption)"></div>
@@ -258,8 +268,8 @@
         </div>
         <div class="palette-item" data-type="decision" role="button" tabindex="0" aria-label="Add Decision block">
           <div class="palette-dot" style="background:var(--c-decision)"></div>
-          <div class="palette-item-text"><div class="palette-label">Decision</div><div class="palette-desc">A choice already made</div></div>
-          <div class="palette-tooltip">A choice that has been or needs to be made.<br><span class="palette-tooltip-example">e.g. "Use PostgreSQL over MongoDB", "Ship without feature X"</span><br><span class="palette-tooltip-tip">Document the rationale in Notes.</span></div>
+          <div class="palette-item-text"><div class="palette-label">Decision</div><div class="palette-desc">A choice made, or one to make</div></div>
+          <div class="palette-tooltip">A choice that has been or needs to be made.<br><span class="palette-tooltip-example">e.g. "Use PostgreSQL over MongoDB", "Ship without feature X"</span><br><span class="palette-tooltip-tip">Document the rationale.</span></div>
         </div>
 
         <!-- Advanced types (collapsible) -->
@@ -269,40 +279,45 @@
             <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
           </button>
           <div class="palette-subsection-body" id="advancedBlocksList">
+            <div class="palette-item" data-type="stakeholder" role="button" tabindex="0" aria-label="Add Stakeholder block">
+              <div class="palette-dot" style="background:var(--c-stakeholder)"></div>
+              <div class="palette-item-text"><div class="palette-label">Stakeholder</div><div class="palette-desc">Who receives, approves or is affected</div></div>
+              <div class="palette-tooltip">A person, role or team that receives, approves or is affected by the work.<br><span class="palette-tooltip-example">e.g. "Executives", "Model owners", "Support team"</span><br><span class="palette-tooltip-tip">Connect the Outputs delivered to them and the Goals they own.</span></div>
+            </div>
             <div class="palette-item" data-type="question" role="button" tabindex="0" aria-label="Add Open Question block">
               <div class="palette-dot" style="background:var(--c-question)"></div>
               <div class="palette-item-text"><div class="palette-label">Open Question</div><div class="palette-desc">A genuine unknown</div></div>
               <div class="palette-tooltip">A genuine unknown needing an answer.<br><span class="palette-tooltip-example">e.g. "Will users accept SSO-only?", "Is budget approved?"</span><br><span class="palette-tooltip-tip">For a belief you’re assuming true, use an Assumption instead.</span></div>
             </div>
-            <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource block">
+            <div class="palette-item" data-type="resource" role="button" tabindex="0" aria-label="Add Resource or System block">
               <div class="palette-dot" style="background:var(--c-resource)"></div>
-              <div class="palette-item-text"><div class="palette-label">Resource</div><div class="palette-desc">Available asset</div></div>
-              <div class="palette-tooltip">An available asset, tool, team, or budget.<br><span class="palette-tooltip-example">e.g. "Design team (3 people)", "AWS credits ($10K)"</span><br><span class="palette-tooltip-tip">Connect to what it enables.</span></div>
+              <div class="palette-item-text"><div class="palette-label">Resource / System</div><div class="palette-desc">Team, tool, system or data source</div></div>
+              <div class="palette-tooltip">An available asset: a team, tool, system, data source or budget.<br><span class="palette-tooltip-example">e.g. "Design team (3 people)", "AWS credits ($10K)", "Data warehouse"</span><br><span class="palette-tooltip-tip">Connect to what it enables.</span></div>
             </div>
             <div class="palette-item" data-type="output" role="button" tabindex="0" aria-label="Add Output block">
               <div class="palette-dot" style="background:var(--c-output)"></div>
-              <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">Expected result</div></div>
-              <div class="palette-tooltip">An expected deliverable or measurable result.<br><span class="palette-tooltip-example">e.g. "API documentation", "Staging environment"</span><br><span class="palette-tooltip-tip">Connect from Resources and Requirements that produce it.</span></div>
+              <div class="palette-item-text"><div class="palette-label">Output</div><div class="palette-desc">A deliverable someone can hold</div></div>
+              <div class="palette-tooltip">An expected deliverable someone can hold: a report, doc or release.<br><span class="palette-tooltip-example">e.g. "API documentation", "Staging environment"</span><br><span class="palette-tooltip-tip">Connect from Resources and Requirements that produce it.</span></div>
             </div>
             <div class="palette-item" data-type="process" role="button" tabindex="0" aria-label="Add Process block">
               <div class="palette-dot" style="background:var(--c-process)"></div>
-              <div class="palette-item-text"><div class="palette-label">Process</div><div class="palette-desc">A workflow step or action</div></div>
+              <div class="palette-item-text"><div class="palette-label">Process</div><div class="palette-desc">A recurring step in a workflow</div></div>
               <div class="palette-tooltip">A step or action in a workflow, something that gets done.<br><span class="palette-tooltip-example">e.g. "Update status to Ready for Review", "Generate the doc"</span><br><span class="palette-tooltip-tip">Chain these with arrows to show an end-to-end flow.</span></div>
             </div>
-            <div class="palette-item" data-type="terminator" role="button" tabindex="0" aria-label="Add Start or End block">
+            <div class="palette-item" data-type="terminator" role="button" tabindex="0" aria-label="Add Trigger or End block">
               <div class="palette-dot" style="background:var(--c-terminator)"></div>
-              <div class="palette-item-text"><div class="palette-label">Start / End</div><div class="palette-desc">Workflow entry or outcome</div></div>
-              <div class="palette-tooltip">The start or end of a workflow.<br><span class="palette-tooltip-example">e.g. "Submission received", "PRD approved"</span><br><span class="palette-tooltip-tip">Bookend a process flow so the beginning and outcome are explicit.</span></div>
+              <div class="palette-item-text"><div class="palette-label">Trigger / End</div><div class="palette-desc">What starts or ends a flow</div></div>
+              <div class="palette-tooltip">What starts or ends a flow: an event, a cadence or a finish.<br><span class="palette-tooltip-example">e.g. "Submission received", "Every end of sprint", "PRD approved"</span><br><span class="palette-tooltip-tip">Bookend a process flow so the beginning and outcome are explicit.</span></div>
             </div>
             <div class="palette-item" data-type="context" role="button" tabindex="0" aria-label="Add Context block">
               <div class="palette-dot" style="background:var(--c-context)"></div>
               <div class="palette-item-text"><div class="palette-label">Context</div><div class="palette-desc">Background information</div></div>
               <div class="palette-tooltip">Background info that frames the project.<br><span class="palette-tooltip-example">e.g. "Migrating to cloud", "Competitor launched similar feature"</span><br><span class="palette-tooltip-tip">Helps AI understand constraints.</span></div>
             </div>
-            <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Custom block">
+            <div class="palette-item" data-type="custom" role="button" tabindex="0" aria-label="Add Other block">
               <div class="palette-dot" style="background:var(--c-custom)"></div>
-              <div class="palette-item-text"><div class="palette-label">Custom</div><div class="palette-desc">Free-form block</div></div>
-              <div class="palette-tooltip">A free-form block for anything else.<br><span class="palette-tooltip-tip">Use sparingly -- structured types produce better AI prompts.</span></div>
+              <div class="palette-item-text"><div class="palette-label">Other</div><div class="palette-desc">Untyped: checks skip it</div></div>
+              <div class="palette-tooltip">Anything that fits no other type.<br><span class="palette-tooltip-tip">Gap checks skip it, so use it sparingly: typed blocks produce better AI prompts.</span></div>
             </div>
           </div>
         </div>
@@ -321,14 +336,14 @@
     <!-- Empty state hint -->
     <div class="canvas-hint" id="canvasHint">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-      Click or drag a block type from the palette to add it<br>
+      Double-click empty canvas to add a block, or drag one in from the palette<br>
       Drag from a port ● to connect blocks<br>
-      Double-click a block to edit its title
+      Double-click a card to edit it; Enter or F2 edits the selected card
     </div>
 
     <!-- Brain Dump empty state: fastest on-ramp from messy text to a canvas -->
     <div class="brain-dump" id="brainDump">
-      <div class="brain-dump-card">
+      <div class="brain-dump-card" data-canvas-ui>
         <h2>Start with a brain dump</h2>
         <p>Paste or type your messy thoughts: one idea per line. We’ll turn them into typed, AI-ready blocks. Fix any mislabels with one click after.</p>
         <textarea id="brainDumpInput" rows="6" spellcheck="false"
@@ -348,11 +363,11 @@
     <div class="select-box" id="selectBox"></div>
 
     <!-- Search remains reachable on touch screens and in view-only links. -->
-    <button class="canvas-search-toggle" id="searchBtn" aria-controls="searchOverlay" aria-expanded="false" title="Find blocks (Ctrl or Cmd + F)">
+    <button class="canvas-search-toggle" id="searchBtn" data-canvas-ui aria-controls="searchOverlay" aria-expanded="false" title="Find blocks (Ctrl or Cmd + F)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
       Find blocks
     </button>
-    <section class="search-overlay" id="searchOverlay" role="search" aria-label="Find blocks" style="display:none">
+    <section class="search-overlay" id="searchOverlay" data-canvas-ui role="search" aria-label="Find blocks" style="display:none">
       <div class="search-heading">
         <input class="search-input" id="searchInput" type="text" role="combobox"
                aria-label="Search block content" aria-autocomplete="list" aria-controls="searchResults" aria-expanded="false"
@@ -380,7 +395,7 @@
 
 <!-- Review bar: view-only links let a reviewer collect notes per block
          and copy them out as a pathfinder-patch. Hidden outside readonly. -->
-    <div class="review-bar" id="reviewBar">
+    <div class="review-bar" id="reviewBar" data-canvas-ui>
       <input class="review-input" id="reviewInput" type="text" maxlength="500"
              placeholder="Select a block, note what you'd change…">
       <button class="review-btn" id="reviewAddBtn">Add note</button>
@@ -440,7 +455,11 @@
   </div>
 
   <div class="canvas-statusbar" id="canvasStatusbar" data-canvas-ui>
-    <span class="zoom-indicator" id="zoomIndicator" title="Canvas zoom" aria-label="Canvas zoom">100%</span>
+    <div class="zoom-controls" id="zoomControls" data-canvas-ui>
+      <span class="zoom-indicator" id="zoomIndicator" title="Canvas zoom" aria-label="Canvas zoom">100%</span>
+      <button type="button" class="zoom-fit-btn" id="fitViewBtn" title="Fit all blocks in view (Shift+1)" aria-label="Fit all blocks in view">Fit</button>
+    </div>
+    <span class="backup-status" id="backupStatus" hidden></span>
     <div class="save-status-bar" id="saveStatusBar">
       <span id="saveStatusText" role="status" aria-live="polite">Saved locally</span>
       <button id="saveRetry" hidden>Retry save</button>

@@ -9,7 +9,7 @@
 import { describe, it, assert, mockBlockEl, cleanupMockEls } from './test-utils.js'
 import { state, canvasMeta } from '../js/state.js'
 import { normalizeBlock, normalizeCanvas } from '../js/normalize.js'
-import { selectionHighlight, highlightRowHtml } from '../js/render.js'
+import { selectionHighlight, highlightRowHtml } from '../js/inspector.js'
 import { buildSvg } from '../js/image-export.js'
 import { HIGHLIGHTS } from '../js/utils.js'
 

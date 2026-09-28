@@ -17,7 +17,7 @@ import { connectionLabel } from './relations.js'
 
 import { state, canvasMeta } from './state.js'
 import { TYPES, genId, getBlockDims } from './utils.js'
-import { categorizeLine } from './events.js'
+import { categorizeLine } from './classify.js'
 import { layoutGraph } from './layout.js'
 
 // ── Format detection ─────────────────────────────────────────
@@ -254,7 +254,9 @@ export function parseMermaid(text) {
           edges.push({
             from: f, to: t,
             label: label ? label.trim() : undefined,
-            style: op.includes('.') ? 'dashed' : 'routed',
+            // Dotted Mermaid links keep their routing; the dash is a pattern.
+            style: 'routed',
+            pattern: op.includes('.') ? 'dashed' : 'solid',
             weight: op.startsWith('==') ? 3.5 : undefined,
           })
         }))
@@ -276,7 +278,7 @@ export function parseMermaid(text) {
     const p = positions.get(n.id) || { x: 0, y: 0 }
     return { id: n.id, type, title: n.label.slice(0, 200), x: p.x, y: p.y, groupId: membership[n.id] || null }
   })
-  const arrows = edges.map(e => ({ id: genId(), from: e.from, to: e.to, label: e.label, style: e.style, weight: e.weight }))
+  const arrows = edges.map(e => ({ id: genId(), from: e.from, to: e.to, label: e.label, style: e.style, pattern: e.pattern, weight: e.weight }))
 
   return { payload: { blocks, arrows, groups, meta: { title: '' } }, lowConfidence }
 }

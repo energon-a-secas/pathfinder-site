@@ -1,18 +1,21 @@
-import { relationHint } from './relations.js'
 // ════════════════════════════════════════════════════════════
-//  render.js — DOM rendering, block creation, canvas layout,
+//  render.js: DOM rendering, block creation, canvas layout,
 //              selection, mutations, undo/redo
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
-         getUndoHistory, getRedoFuture } from './state.js'
-import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
-         ARROW_LABEL_PRESETS, TYPE_EXPLANATIONS, DEFAULT_WIDTH, CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS,
-         escHtml, escHtmlMultiline, genId, getBlockEl, getBlockDims, getBlockVotes, getSmallIcon } from './utils.js'
+         getUndoHistory, getRedoFuture, resetSnapshotToken } from './state.js'
+import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
+         DEFAULT_WIDTH, DEFAULT_CARD_STYLE,
+         escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
-import { runGapDetection, getGapFixes } from './gaps.js'
+import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
-import { askQuestion, detectSeeReference } from './doc-panel.js'
+import { renderInspector } from './inspector.js'
+
+// The inspector moved to inspector.js; these re-exports keep every existing
+// importer of render.js working.
+export { renderInspector, renderQuestions } from './inspector.js'
 
 function afterMutation() {
   ui.promptDirty = true
@@ -23,29 +26,9 @@ function afterMutation() {
 }
 
 // ── Block rendering ──────────────────────────────────────────
-/**
- * The highlight picker. One markup helper for both places it appears, so the
- * single-block and multi-select versions cannot drift.
- *
- * `active` is the currently applied key, or `'mixed'` when a selection carries
- * more than one, which is worth showing rather than silently picking the first.
- */
-export function highlightRowHtml(active) {
-  return `<button class="hl-swatch hl-swatch-none${!active ? ' active' : ''}" data-hl=""
-            title="No highlight" aria-label="No highlight"></button>` +
-    Object.entries(HIGHLIGHTS).map(([key, h]) =>
-      `<button class="hl-swatch${key === 'festive' ? ' hl-swatch-festive' : ''}${active === key ? ' active' : ''}"
-               data-hl="${key}" style="--sw:${h.color}"
-               title="${escHtml(h.label)}: ${escHtml(h.hint)}" aria-label="${escHtml(h.label)}"></button>`
-    ).join('')
-}
-
-/** What a whole selection is set to: one key, null, or 'mixed'. */
-export function selectionHighlight(ids) {
-  const seen = new Set(ids.map(id => state.blocks[id]?.highlight || null))
-  if (seen.size > 1) return 'mixed'
-  return [...seen][0] || null
-}
+// Per-block markers (review notes, votes) register a `(block, el)` painter
+// here instead of editing renderBlock. Each runs after the card is built.
+export const blockDecorators = []
 
 export function renderBlock(id) {
   const b  = state.blocks[id]; if (!b) return
@@ -118,6 +101,10 @@ export function renderBlock(id) {
     <div class="port port-top"    data-port="top"    data-bid="${id}"></div>
     <div class="port port-bottom" data-port="bottom" data-bid="${id}"></div>
     <div class="block-resize-handle" data-bid="${id}"></div>`
+
+  for (const paint of blockDecorators) {
+    try { paint(b, el) } catch (err) { console.error('block decorator failed', err) }
+  }
 }
 
 export function renderAllBlocks() {
@@ -125,308 +112,6 @@ export function renderAllBlocks() {
   Object.keys(state.blocks).forEach(id => renderBlock(id))
 }
 
-// ── Inspector ────────────────────────────────────────────────
-export function renderInspector() {
-  const inspectorEmpty   = $.inspectorEmpty()
-  const inspectorContent = $.inspectorContent()
-  const inspectorMulti   = $.inspectorMulti()
-  const inspectorArrow   = $.inspectorArrow()
-  const inspTitle        = $.inspTitle()
-  const inspDesc         = $.inspDesc()
-  const inspNotes        = $.inspNotes()
-
-  if (selection.ids.size > 1) {
-    inspectorEmpty.style.display = 'none'
-    inspectorContent.style.display = 'none'
-    inspectorMulti.style.display = ''
-    inspectorArrow.style.display = 'none'
-    // A count by type, because "5 problems, 3 requirements, 1 goal" is what
-    // people actually want to say out loud when they present a canvas.
-    const tally = {}
-    selection.ids.forEach(id => { const t = state.blocks[id]?.type; if (t) tally[t] = (tally[t] || 0) + 1 })
-    const parts = Object.entries(tally)
-      .sort((a, b) => b[1] - a[1])
-      .map(([t, n]) => `${n} ${(TYPES[t]?.label || t).toLowerCase()}${n === 1 ? '' : 's'}`)
-    document.getElementById('multiCount').textContent =
-      `${selection.ids.size} blocks selected` + (parts.length > 1 ? ` \u2014 ${parts.join(', ')}` : '')
-
-    const multiHl = document.getElementById('multiHighlightRow')
-    if (multiHl) {
-      const active = selectionHighlight([...selection.ids])
-      multiHl.innerHTML = highlightRowHtml(active === 'mixed' ? null : active)
-      multiHl.dataset.mixed = active === 'mixed' ? '1' : ''
-    }
-    const spotBtn = document.getElementById('spotlightBtn')
-    if (spotBtn) {
-      spotBtn.classList.toggle('active', !!canvasMeta.spotlight)
-      spotBtn.textContent = canvasMeta.spotlight ? 'Spotlight: on' : 'Spotlight: off'
-    }
-
-    const frameSection = document.getElementById('frameSection')
-    const ungroupBtn = document.getElementById('ungroupBtn')
-    const groupBlocksBtn = document.getElementById('groupBlocksBtn')
-    if (frameSection && ungroupBtn && groupBlocksBtn) {
-      const hasGroup = selection.groupId && state.groups[selection.groupId]
-      frameSection.style.display = hasGroup ? '' : 'none'
-      groupBlocksBtn.style.display = hasGroup ? 'none' : ''
-      if (hasGroup) {
-        const lbl = document.getElementById('frameLabelInput')
-        if (lbl) lbl.value = state.groups[selection.groupId].label
-      }
-    }
-    return
-  }
-  inspectorMulti.style.display = 'none'
-  if (selection.arrowId) {
-    const a = state.arrows.find(arr => arr.id === selection.arrowId)
-    inspectorEmpty.style.display = 'none'
-    inspectorContent.style.display = 'none'
-    inspectorArrow.style.display = ''
-    if (a) {
-      const f = state.blocks[a.from], t = state.blocks[a.to]
-      document.getElementById('arrowInfo').textContent =
-        `${TYPES[f?.type]?.label||'?'} "${f?.title||'?'}" \u2192 ${TYPES[t?.type]?.label||'?'} "${t?.title||'?'}"`
-      document.getElementById('arrowLabelInput').value = a.label || ''
-      const relationInput = document.getElementById('arrowRelation')
-      if (relationInput) relationInput.value = a.relation || ''
-      const hint = document.getElementById('arrowRelationHint')
-      if (hint) hint.textContent = relationHint(a, state.blocks)
-      const arrowNoteEl = document.getElementById('arrowNoteInput')
-      if (arrowNoteEl) arrowNoteEl.value = a.note || ''
-      // Label presets
-      const presetsEl = document.getElementById('arrowLabelPresets')
-      if (presetsEl) {
-        presetsEl.innerHTML = ARROW_LABEL_PRESETS.map(p =>
-          `<button class="arrow-preset-chip${a.label === p ? ' active' : ''}" data-preset="${p}">${p}</button>`
-        ).join('')
-      }
-      // Style buttons
-      document.querySelectorAll('[data-arrow-style]').forEach(btn =>
-        btn.classList.toggle('active', (a.style || 'curved') === btn.dataset.arrowStyle))
-      // Bidirectional toggle
-      document.getElementById('arrowBidir').classList.toggle('active', !!a.bidirectional)
-      // Color swatches
-      const arrowSwatches = $.arrowColorSwatches()
-      if (arrowSwatches) {
-        arrowSwatches.innerHTML =
-          `<div class="color-swatch swatch-reset${!a.color ? ' active' : ''}" data-color="reset" role="button" aria-label="Default color" title="Default"></div>` +
-          SWATCH_COLORS.map(c =>
-            `<div class="color-swatch${a.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" role="button" aria-label="${SWATCH_NAMES[c] || c}" title="${SWATCH_NAMES[c] || c}"></div>`
-          ).join('')
-      }
-      // Weight buttons
-      document.querySelectorAll('[data-arrow-weight]').forEach(btn =>
-        btn.classList.toggle('active', (a.weight || 2) === +btn.dataset.arrowWeight))
-      // Connection points. An unpinned end reads as Auto; the canvas still picks
-      // a side for it, but the user has not committed to one.
-      document.querySelectorAll('.port-pick').forEach(group => {
-        const pinned = (group.dataset.portEnd === 'from' ? a.fromPort : a.toPort) || ''
-        group.querySelectorAll('[data-port-side]').forEach(btn =>
-          btn.classList.toggle('active', btn.dataset.portSide === pinned))
-      })
-    }
-    return
-  }
-  inspectorArrow.style.display = 'none'
-  if (!selection.blockId) {
-    inspectorEmpty.style.display = ''
-    inspectorContent.style.display = 'none'
-    return
-  }
-  const b = state.blocks[selection.blockId]
-  if (!b) { inspectorEmpty.style.display = ''; inspectorContent.style.display = 'none'; return }
-
-  inspectorEmpty.style.display = 'none'
-  inspectorContent.style.display = ''
-
-  // type picker
-  const TYPE_TIPS = {
-    goal: 'What you want to achieve', problem: 'Blocker or issue', requirement: 'Needed to proceed',
-    assumption: 'A belief you’re treating as true', risk: 'What might go wrong',
-    question: 'A genuine unknown', decision: 'A choice already made',
-    resource: 'Available asset', output: 'Expected result',
-    process: 'A workflow step or action', terminator: 'Workflow start or end',
-    context: 'Background information', custom: 'Free-form block',
-  }
-  $.typePicker().innerHTML = Object.entries(TYPES).map(([t, cfg]) =>
-    `<span class="type-pill${t===b.type?' active':''}" data-type="${t}" style="color:${cfg.color}" title="${TYPE_TIPS[t] || t}">${cfg.label}</span>`
-  ).join('')
-
-  // Contextual nudge: a question stated as a belief should become an Assumption
-  // so the AI is told to pressure-test it rather than just answer it.
-  const promoteEl = document.getElementById('promoteAssumption')
-  if (promoteEl) {
-    if (b.type === 'question') {
-      promoteEl.style.display = ''
-      promoteEl.dataset.bid = b.id
-    } else {
-      promoteEl.style.display = 'none'
-    }
-  }
-
-  // Status picker
-  const statusPicker = document.getElementById('statusPicker')
-  if (statusPicker) {
-    statusPicker.innerHTML = `<button class="status-opt${!b.status || b.status === 'not-started' ? ' active' : ''}" data-status="">None</button>` +
-      Object.entries(STATUS_DEFS).filter(([k]) => k !== 'not-started').map(([k, v]) =>
-        `<button class="status-opt${b.status === k ? ' active' : ''}" data-status="${k}">${v.icon} ${v.label}</button>`
-      ).join('')
-  }
-
-  // Priority picker
-  const priorityPicker = document.getElementById('priorityPicker')
-  if (priorityPicker) {
-    priorityPicker.innerHTML = `<button class="priority-opt${!b.priority ? ' active' : ''}" data-priority="">None</button>` +
-      Object.entries(PRIORITY_DEFS).map(([k, v]) =>
-        `<button class="priority-opt${b.priority === k ? ' active' : ''}" data-priority="${k}" style="--pc:${v.color}">${v.label}</button>`
-      ).join('')
-  }
-
-  inspTitle.value = b.title
-  inspDesc.value  = b.description
-  inspNotes.value = b.notes || ''
-
-  // Acceptance criteria for the block types that can be "done"; rationale for
-  // decisions. Hidden everywhere else so the inspector stays short.
-  const criteriaSection = document.getElementById('criteriaSection')
-  if (criteriaSection) {
-    const wants = b.type === 'requirement' || b.type === 'goal' || b.type === 'output'
-    criteriaSection.style.display = wants ? '' : 'none'
-    if (wants) $.inspCriteria().value = (b.criteria || []).join('\n')
-  }
-  const rationaleSection = document.getElementById('rationaleSection')
-  if (rationaleSection) {
-    rationaleSection.style.display = b.type === 'decision' ? '' : 'none'
-    if (b.type === 'decision') $.inspRationale().value = b.rationale || ''
-  }
-
-  // Documentation reference fields + "promote See:" nudge
-  const docHref = document.getElementById('docRefHref')
-  const docLabel = document.getElementById('docRefLabel')
-  const docAnchor = document.getElementById('docRefAnchor')
-  if (docHref && docLabel && docAnchor) {
-    docHref.value = b.docRef?.href || ''
-    docLabel.value = b.docRef?.label || ''
-    docAnchor.value = b.docRef?.anchor || ''
-    const previewBtn = document.getElementById('docRefPreviewBtn')
-    if (previewBtn) previewBtn.style.display = b.docRef?.href ? '' : 'none'
-  }
-  const promoteSee = document.getElementById('promoteSeeRef')
-  if (promoteSee) {
-    const seeRef = detectSeeReference(b.description)
-    if (seeRef && !b.docRef) {
-      promoteSee.style.display = ''
-      promoteSee.textContent = `↳ Use "See: ${seeRef.label || seeRef.href}" as this block's doc`
-    } else {
-      promoteSee.style.display = 'none'
-    }
-  }
-
-  document.querySelectorAll('.action-toggle').forEach(btn => {
-    const isActive = b.actions.includes(btn.dataset.action)
-    btn.classList.toggle('active', isActive)
-    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
-  })
-
-  // Color swatches
-  const swatchesEl = $.colorSwatches()
-  if (swatchesEl) {
-    swatchesEl.innerHTML =
-      `<div class="color-swatch swatch-reset${!b.color ? ' active' : ''}" data-color="reset" role="button" aria-label="Reset to type color" title="Reset to type color"></div>` +
-      SWATCH_COLORS.map(c =>
-        `<div class="color-swatch${b.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" role="button" aria-label="${SWATCH_NAMES[c] || c}" title="${SWATCH_NAMES[c] || c}"></div>`
-      ).join('')
-  }
-
-  // Appearance. "Default" is a real choice, not an absent one: it means this
-  // block follows the canvas, so changing the canvas default still moves it.
-  const cardPicker = document.getElementById('cardStylePicker')
-  if (cardPicker) {
-    const canvasDefault = CARD_STYLES[canvasMeta.cardStyle]?.label || 'Outline'
-    cardPicker.innerHTML =
-      `<button class="radio-opt${!b.cardStyle ? ' active' : ''}" data-card-style="" title="Follow the canvas default (${escHtml(canvasDefault)})">Default</button>` +
-      Object.entries(CARD_STYLES).map(([k, v]) =>
-        `<button class="radio-opt${b.cardStyle === k ? ' active' : ''}" data-card-style="${k}" title="${escHtml(v.hint)}">${escHtml(v.label)}</button>`
-      ).join('')
-  }
-  const borderPicker = document.getElementById('borderWidthPicker')
-  if (borderPicker) {
-    borderPicker.innerHTML =
-      `<button class="radio-opt${!b.borderWidth ? ' active' : ''}" data-border-width="" style="flex:1">Default</button>` +
-      BORDER_WIDTHS.map(w =>
-        `<button class="radio-opt${b.borderWidth === w ? ' active' : ''}" data-border-width="${w}" style="flex:1">${w}px</button>`
-      ).join('')
-  }
-
-  const hlRow = document.getElementById('blockHighlightRow')
-  if (hlRow) hlRow.innerHTML = highlightRowHtml(b.highlight)
-
-  renderQuestions(b)
-
-  // Gap fix suggestions
-  const gapFixesEl = document.getElementById('gapFixes')
-  if (gapFixesEl) {
-    const fixes = getGapFixes(b)
-    if (fixes.length) {
-      gapFixesEl.style.display = ''
-      gapFixesEl.innerHTML =
-        '<div class="insp-label" style="margin-bottom:8px">Suggestions</div>' +
-        fixes.map(f => `
-          <div class="gap-fix-item">
-            <span class="gap-fix-icon">${f.icon}</span>
-            <div class="gap-fix-text">${escHtml(f.text)}</div>
-            ${f.action ? `<button class="gap-fix-btn" data-fix="${f.id}" data-bid="${b.id}">${escHtml(f.action)}</button>` : ''}
-          </div>`).join('')
-    } else {
-      gapFixesEl.style.display = 'none'
-    }
-  }
-}
-
-export function renderQuestions(b) {
-  const questionsList = $.questionsList()
-  questionsList.innerHTML = (b.questions||[]).map((q, i) => `
-    <div class="question-item${q.answer ? ' answered' : ''}">
-      <div class="question-row">
-        <input type="text" value="${escHtml(q.text)}" placeholder="Enter question\u2026" data-qi="${i}">
-        <button class="q-ask" data-qi="${i}" title="Copy a grounded prompt for this question">Ask</button>
-        <button class="q-del" data-qi="${i}" title="Delete">\u00D7</button>
-      </div>
-      <textarea class="question-answer" data-qi="${i}" rows="2"
-        placeholder="Paste the assistant's answer here\u2026">${escHtml(q.answer || '')}</textarea>
-    </div>`).join('')
-
-  questionsList.querySelectorAll('input[data-qi]').forEach(inp =>
-    inp.addEventListener('input', () => {
-      const b2 = state.blocks[selection.blockId]; if (!b2) return
-      const q = b2.questions[+inp.dataset.qi]; if (!q) return
-      q.text = inp.value
-      debouncedSave(); ui.promptDirty = true
-    })
-  )
-  questionsList.querySelectorAll('.question-answer').forEach(ta =>
-    ta.addEventListener('input', () => {
-      const b2 = state.blocks[selection.blockId]; if (!b2) return
-      const q = b2.questions[+ta.dataset.qi]; if (!q) return
-      if (ta.value.trim()) q.answer = ta.value; else delete q.answer
-      ta.closest('.question-item')?.classList.toggle('answered', !!ta.value.trim())
-      debouncedSave(); ui.promptDirty = true
-    })
-  )
-  questionsList.querySelectorAll('.q-ask').forEach(btn =>
-    btn.addEventListener('click', () => {
-      const b2 = state.blocks[selection.blockId]; if (!b2) return
-      askQuestion(b2, +btn.dataset.qi)
-    })
-  )
-  questionsList.querySelectorAll('.q-del').forEach(btn =>
-    btn.addEventListener('click', () => {
-      const b2 = state.blocks[selection.blockId]; if (!b2) return
-      b2.questions.splice(+btn.dataset.qi, 1)
-      renderQuestions(b2); debouncedSave(); ui.promptDirty = true
-    })
-  )
-}
 
 // ── Selection ────────────────────────────────────────────────
 export function selectBlock(id) {
@@ -481,8 +166,12 @@ export function deselectAll() {
 }
 
 // ── Block / arrow mutations ──────────────────────────────────
-export function mutateBlock(id, changes) {
+// `undo: true` makes the change its own undo step. It defaults to false so
+// callers that already took a snapshot (or coalesce with snapshotOnce) do not
+// get a second one.
+export function mutateBlock(id, changes, { undo = false } = {}) {
   if (!state.blocks[id]) return
+  if (undo) snapshot()
   Object.assign(state.blocks[id], changes)
   renderBlock(id)
   renderArrows()
@@ -490,6 +179,49 @@ export function mutateBlock(id, changes) {
   runGapDetection()
   debouncedSave()
   afterMutation()
+}
+
+/**
+ * Change several blocks as one undo step. `changesOrFn` is either an object
+ * applied to every block or `(block) => changes`. Returns how many changed.
+ */
+export function mutateBlocks(ids, changesOrFn, { undo = true } = {}) {
+  const live = ids.filter(id => state.blocks[id])
+  if (!live.length) return 0
+  if (undo) snapshot()
+  live.forEach(id => {
+    const b = state.blocks[id]
+    const changes = typeof changesOrFn === 'function' ? changesOrFn(b) : changesOrFn
+    if (changes) Object.assign(b, changes)
+    renderBlock(id)
+  })
+  renderArrows()
+  renderFrames()
+  runGapDetection()
+  debouncedSave()
+  afterMutation()
+  return live.length
+}
+
+/**
+ * Change one arrow. One undo step by default. Moving either end off its pin
+ * drops `portsBy`, since the side is now the user's choice, unless the caller
+ * passes `portsBy` explicitly (reversing an arrow keeps its provenance).
+ * `refreshInspector: false` is for text inputs that must keep their caret.
+ */
+export function mutateArrow(id, changes, { undo = true, refreshInspector = true } = {}) {
+  const a = state.arrows.find(arr => arr.id === id)
+  if (!a) return null
+  if (undo) snapshot()
+  Object.assign(a, changes)
+  if (('fromPort' in changes || 'toPort' in changes) && !('portsBy' in changes)) delete a.portsBy
+  if (a.portsBy == null) delete a.portsBy
+  renderArrows({ cheap: false })
+  runGapDetection()
+  debouncedSave()
+  afterMutation()
+  if (refreshInspector && selection.arrowId === id) renderInspector()
+  return a
 }
 
 function nextUntitledTitle() {
@@ -500,8 +232,8 @@ function nextUntitledTitle() {
   return `Untitled ${(used.length ? Math.max(...used) : 0) + 1}`
 }
 
-export function createBlock(type, wx, wy) {
-  snapshot()
+export function createBlock(type, wx, wy, { undo = true } = {}) {
+  if (undo) snapshot()
   const id = genId()
   const count = Object.keys(state.blocks).length
   state.blocks[id] = {
@@ -542,16 +274,20 @@ export function deleteBlock(id) {
   afterMutation()
 }
 
-export function addArrow(fromId, toId, fromPort = null, toPort = null) {
-  if (fromId === toId) return
-  if (state.arrows.some(a => a.from === fromId && a.to === toId)) return
-  snapshot()
-  state.arrows.push({ id: genId(), from: fromId, to: toId,
-    style: 'routed', bidirectional: false, color: null, weight: 2, fromPort, toPort })
+// Returns the new arrow's id, or null when the connection already exists.
+export function addArrow(fromId, toId, fromPort = null, toPort = null, { undo = true, relation = null } = {}) {
+  if (fromId === toId) return null
+  if (state.arrows.some(a => a.from === fromId && a.to === toId)) return null
+  if (undo) snapshot()
+  const arrow = { id: genId(), from: fromId, to: toId,
+    style: 'routed', bidirectional: false, color: null, weight: 2, fromPort, toPort }
+  if (relation) arrow.relation = relation
+  state.arrows.push(arrow)
   renderArrows()
   runGapDetection()
   debouncedSave()
   afterMutation()
+  return arrow.id
 }
 
 export function deleteArrow(id) {
@@ -599,6 +335,7 @@ export function undo() {
   future.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
   const d = JSON.parse(history.pop())
   state.blocks = d.blocks; state.arrows = d.arrows; state.groups = d.groups || {}
+  resetSnapshotToken()
   renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
   deselectAll(); debouncedSave()
 }
@@ -610,6 +347,7 @@ export function redo() {
   history.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
   const d = JSON.parse(future.pop())
   state.blocks = d.blocks; state.arrows = d.arrows; state.groups = d.groups || {}
+  resetSnapshotToken()
   renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
   deselectAll(); debouncedSave()
 }

@@ -18,7 +18,17 @@ import { RELATIONS } from './relations.js'
 const VALID_ACTIONS   = Object.keys(ACTION_DEFS)
 const VALID_STATUSES  = Object.keys(STATUS_DEFS)
 const VALID_PRIORITIES = Object.keys(PRIORITY_DEFS)
-const VALID_ARROW_STYLES = ['curved', 'straight', 'elbow', 'routed', 'dashed', 'dotted']
+// Arrow geometry and line pattern are separate fields. Before 2026-09 the
+// dashes lived in `style`, which is why these two legacy values still load.
+const VALID_ARROW_STYLES = ['curved', 'straight', 'elbow', 'routed']
+const LEGACY_PATTERN_STYLES = ['dashed', 'dotted']
+const VALID_ARROW_PATTERNS = ['solid', 'dashed', 'dotted']
+const VALID_PORTS_BY = ['tidy', 'import']
+// gapAck holds gap ids ('gap-no-req', ...). Any well-formed gap id is kept,
+// known or not, so an acknowledgement written by newer code survives here.
+const GAP_ID = /^gap-[a-z0-9-]{1,40}$/
+const MAX_GAP_ACKS = 20
+const MAX_TYPE_HINT = 40
 const VALID_CARD_STYLES = Object.keys(CARD_STYLES)
 const VALID_HIGHLIGHTS = Object.keys(HIGHLIGHTS)
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/
@@ -52,13 +62,29 @@ function normalizeDocRef(raw) {
 
 /**
  * Coerce one raw object into a valid block, or return null if it
- * cannot be salvaged (missing id, or a type not in the registry).
+ * cannot be salvaged (missing id, or no type at all).
+ *
+ * A type this build does not know is kept as `custom` with the original in
+ * `typeHint`. A stale tab or an older copy of validate.mjs loading a canvas
+ * saved by newer code must not drop those blocks: its next autosave would
+ * make the loss permanent. A later build that knows the type restores it.
  */
 export function normalizeBlock(raw) {
   if (!raw || typeof raw !== 'object') return null
   const id = toStr(raw.id).trim()
   if (!id) return null
-  if (typeof raw.type !== 'string' || !Object.hasOwn(TYPES, raw.type)) return null
+  const rawType = typeof raw.type === 'string' ? raw.type.trim() : ''
+  if (!rawType) return null
+  const known = Object.hasOwn(TYPES, rawType)
+  // A block that was already carried forward keeps its hint until a build
+  // that knows the type reads it.
+  const priorHint = toStr(raw.typeHint).trim()
+  let type = known ? rawType : 'custom'
+  let typeHint = known ? '' : rawType
+  if (known && rawType === 'custom' && priorHint) {
+    if (Object.hasOwn(TYPES, priorHint)) type = priorHint
+    else typeHint = priorHint
+  }
 
   const actions = Array.isArray(raw.actions)
     ? [...new Set(raw.actions.filter(a => VALID_ACTIONS.includes(a)))]
@@ -82,9 +108,13 @@ export function normalizeBlock(raw) {
 
   const widthNum = toFiniteNum(raw.width, null)
 
-  return {
+  const gapAck = Array.isArray(raw.gapAck)
+    ? [...new Set(raw.gapAck.filter(g => typeof g === 'string' && GAP_ID.test(g)))].slice(0, MAX_GAP_ACKS)
+    : []
+
+  const block = {
     id,
-    type: raw.type,
+    type,
     title: toStr(raw.title),
     description: toStr(raw.description),
     notes: toStr(raw.notes),
@@ -111,6 +141,14 @@ export function normalizeBlock(raw) {
       : [],
     rationale: toStr(raw.rationale).slice(0, 2000),
   }
+  // Optional fields are written only when they say something, so a canvas
+  // that never used them serializes exactly as it did before they existed.
+  if (typeHint) block.typeHint = typeHint.slice(0, MAX_TYPE_HINT)
+  // Auto-typed with low confidence and not yet confirmed by a person.
+  if (raw.typeCheck === true) block.typeCheck = true
+  // Gap ids the author looked at and accepted for this block.
+  if (gapAck.length) block.gapAck = gapAck
+  return block
 }
 
 /**
@@ -124,12 +162,19 @@ export function normalizeArrow(raw) {
   if (!from || !to || from === to) return null
 
   const PORTS = ['left', 'right', 'top', 'bottom']
+  // Legacy { style: 'dashed' } becomes { style: 'curved', pattern: 'dashed' }:
+  // the dashed style always drew a curve, so the drawing does not change.
+  // An unknown style also stays 'curved' rather than turning into 'routed',
+  // which would redraw old canvases.
+  const legacyPattern = LEGACY_PATTERN_STYLES.includes(raw.style) ? raw.style : null
+  const pattern = VALID_ARROW_PATTERNS.includes(raw.pattern) ? raw.pattern : (legacyPattern || 'solid')
   return {
     id: toStr(raw.id).trim() || null,
     from,
     to,
     relation: Object.hasOwn(RELATIONS, raw.relation) ? raw.relation : null,
     style: VALID_ARROW_STYLES.includes(raw.style) ? raw.style : 'curved',
+    pattern,
     bidirectional: !!raw.bidirectional,
     color: toColor(raw.color),
     weight: toFiniteNum(raw.weight, 2),
@@ -138,8 +183,9 @@ export function normalizeArrow(raw) {
     fromPort: PORTS.includes(raw.fromPort) ? raw.fromPort : null,
     toPort:   PORTS.includes(raw.toPort)   ? raw.toPort   : null,
     // Provenance of the pins: 'tidy' means auto-layout wrote them and a later
-    // block drag may release them. Anything else collapses to absent (= user).
-    portsBy: raw.portsBy === 'tidy' ? 'tidy' : undefined,
+    // block drag may release them; 'import' means another tool's layout did,
+    // and Tidy may restamp them. Anything else collapses to absent (= user).
+    portsBy: VALID_PORTS_BY.includes(raw.portsBy) ? raw.portsBy : undefined,
   }
 }
 

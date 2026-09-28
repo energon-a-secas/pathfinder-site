@@ -62,6 +62,13 @@ export function toggleZen() {
   if (goingZen) showToast('Zen mode. Press Z to bring the panels back', 'info', 2600)
 }
 
+/** Bring the panels back (leaving Zen) without touching the header. */
+export function showPanels() {
+  if (chrome.panels) return
+  chrome.panels = true
+  apply(); persist()
+}
+
 export function setupChrome() {
   let saved = null
   try { saved = localStorage.getItem(KEY) } catch (_) {}

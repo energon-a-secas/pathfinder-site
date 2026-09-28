@@ -13,10 +13,12 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, canvasMeta } from './state.js'
-import { PRIORITY_DEFS, showToast } from './utils.js'
+import { TYPES, PRIORITY_DEFS, showToast } from './utils.js'
 import { situationSection } from './prompt.js'
 import { mermaidBlock } from './export.js'
 import { taskChecklist } from './task-plan.js'
+import { dependencyEdges } from './relations.js'
+import { breakCycles, assignLayers } from './layout.js'
 
 const byType = () => {
   const m = {}
@@ -76,12 +78,29 @@ function specMd() {
   const brief = (canvasMeta.contextBrief || '').trim()
   if (brief) md += `## Summary\n\n${brief}\n\n`
 
+  if (t.stakeholder?.length) {
+    md += `## Stakeholders\n\n`
+    t.stakeholder.forEach(b => {
+      md += `- **${b.title || '(untitled)'}**${b.description ? `: ${b.description}` : ''}\n`
+    })
+    md += '\n'
+  }
   if (t.goal?.length) {
     md += `## Goals\n\n`
     t.goal.forEach((b, i) => {
       md += `### G${i + 1}. ${b.title || '(untitled)'}${priTag(b)}\n`
       if (b.description) md += `${b.description}\n`
       md += `\nDone when:\n${criteriaChecklist(b)}\n`
+    })
+  }
+  if (t.metric?.length) {
+    md += `## Success metrics\n\n`
+    t.metric.forEach((b, i) => {
+      md += `### M${i + 1}. ${b.title || '(untitled)'}${priTag(b)}\n`
+      if (b.description) md += `${b.description}\n`
+      md += (b.criteria || []).length
+        ? `\nTargets:\n${b.criteria.map(c => `- ${c}\n`).join('')}\n`
+        : `\nTargets:\n- [NEEDS INPUT: target]\n\n`
     })
   }
   if (t.requirement?.length) {
@@ -124,7 +143,30 @@ function specMd() {
     })
     md += '\n'
   }
+  // Any type no file of the bundle covers yet (problems, Other) still ships,
+  // under its registry heading, instead of vanishing from the bundle.
+  Object.keys(t).filter(type => !BUNDLED_TYPES.has(type) && !TYPES[type]?.task).forEach(type => {
+    md += `## ${TYPES[type]?.section || TYPES[type]?.label || type}\n\n`
+    t[type].forEach(b => {
+      md += `- **${b.title || '(untitled)'}**${b.description ? `: ${b.description}` : ''}\n`
+    })
+    md += '\n'
+  })
   return md
+}
+
+// Types with a dedicated section somewhere in the bundle (task types go to
+// tasks.md through the shared checklist).
+const BUNDLED_TYPES = new Set(['stakeholder', 'goal', 'metric', 'requirement', 'output', 'assumption',
+  'risk', 'question', 'decision', 'resource', 'context', 'process', 'terminator'])
+
+// Layer of every block along the dependency order, cycles broken, the same
+// ordering the prompt's workflow section uses. planMd called this before it
+// existed, so any canvas with a workflow step threw on Spec bundle export.
+function layerMap() {
+  const ids = Object.keys(state.blocks)
+  const { acyclic } = breakCycles(ids, dependencyEdges(state.blocks, state.arrows))
+  return assignLayers(ids, acyclic).layer
 }
 
 function planMd() {
@@ -169,7 +211,7 @@ function tasksMd() {
   let md = `# ${title()}: tasks\n\n`
   md += `> Sequenced by the dependency order drawn on the canvas. Priorities break\n> ties between available tasks. Checked tasks are marked done, not independently\n> verified. Resolve blockers and missing inputs before implementing affected tasks.\n\n`
   if (!checklist) {
-    md += `No requirement or output blocks on the canvas yet, so there are no\ntasks to list. Add them in Pathfinder and export again.\n`
+    md += `No requirement, output or implementation blocks on the canvas yet, so\nthere are no tasks to list. Add them in Pathfinder and export again.\n`
     return md
   }
   return md + checklist

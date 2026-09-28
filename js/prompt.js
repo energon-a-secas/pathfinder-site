@@ -58,7 +58,7 @@ export function generatePrompt() {
     let s = `\u2022${tagStr} ${b.title || '(untitled)'}`
     if (b.description) s += `\n  ${b.description}`
     if ((b.criteria || []).length) {
-      s += '\n  Acceptance criteria:'
+      s += `\n  ${TYPES[b.type]?.criteria || 'Acceptance criteria'}:`
       b.criteria.forEach(c => { s += `\n    - ${c}` })
     }
     if (b.rationale?.trim()) s += `\n  Rationale: ${b.rationale.trim().replace(/\n/g, '\n  ')}`
@@ -79,9 +79,10 @@ export function generatePrompt() {
     return s
   }
 
-  const sec = (heading, type) => {
+  // Headings come from the registry, so a type can never print as undefined.
+  const sec = type => {
     const items = byType[type]; if (!items?.length) return ''
-    return `## ${heading}\n${items.map(fmt).join('\n')}\n`
+    return `## ${TYPES[type]?.section || TYPES[type]?.label || type}\n${items.map(fmt).join('\n')}\n`
   }
 
   const taskSection = () => {
@@ -122,33 +123,51 @@ export function generatePrompt() {
   }
 
   // Section builders keyed by intent, so each mode can choose order + form.
+  // SECTION_TYPES records which block types each one prints, for the
+  // fallback below.
   const S = {
-    context:      () => sec('Context / Background', 'context'),
-    goals:        () => sec('Project Goals', 'goal'),
-    problems:     () => sec('Problems / Blockers', 'problem'),
-    requirements: () => sec('Requirements', 'requirement'),
+    context:      () => sec('context'),
+    stakeholders: () => sec('stakeholder'),
+    goals:        () => sec('goal'),
+    metrics:      () => sec('metric'),
+    problems:     () => sec('problem'),
+    requirements: () => sec('requirement'),
+    work:         () => sec('implementation'),
     tasks:        () => taskSection(),
-    assumptions:  () => sec('Assumptions (validate before building)', 'assumption'),
-    risks:        () => sec('Risks', 'risk'),
-    questions:    () => sec('Open Questions (Review Before Assuming)', 'question'),
-    decisions:    () => sec('Decisions', 'decision'),
-    resources:    () => sec('Resources Available', 'resource'),
-    outputs:      () => sec('Expected Outputs', 'output'),
+    assumptions:  () => sec('assumption'),
+    risks:        () => sec('risk'),
+    questions:    () => sec('question'),
+    decisions:    () => sec('decision'),
+    resources:    () => sec('resource'),
+    outputs:      () => sec('output'),
     flow:         () => flowSection(),
-    custom:       () => sec('Custom / Other', 'custom'),
+    custom:       () => sec('custom'),
+  }
+  const taskTypes = Object.keys(TYPES).filter(t => TYPES[t].task)
+  const SECTION_TYPES = {
+    context: ['context'], stakeholders: ['stakeholder'], goals: ['goal'], metrics: ['metric'],
+    problems: ['problem'], requirements: ['requirement'], work: ['implementation'], tasks: taskTypes,
+    assumptions: ['assumption'], risks: ['risk'], questions: ['question'], decisions: ['decision'],
+    resources: ['resource'], outputs: ['output'], flow: ['process', 'terminator'], custom: ['custom'],
   }
 
-  // Per-mode section order. Explore/Clarify front-load the unknowns; Build
-  // combines requirements/outputs so dependencies can cross between types.
+  // Per-mode section order. Every mode lists every type: a type missing from
+  // an order silently vanished from that prompt (Clarify used to drop
+  // resources, outputs and custom). Explore/Clarify front-load the unknowns;
+  // Build folds requirements, outputs and work into the task checklist.
   const ORDERS = {
-    plan:    ['context','goals','problems','requirements','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
-    investigate: ['context','problems','questions','assumptions','goals','requirements','risks','decisions','resources','flow','outputs','custom'],
-    explore: ['assumptions','questions','goals','problems','requirements','risks','context','decisions','resources','outputs','flow','custom'],
-    build:   ['context','goals','tasks','assumptions','problems','risks','questions','decisions','resources','flow','custom'],
-    clarify: ['questions','assumptions','goals','problems','requirements','risks','decisions','context','flow'],
+    plan:    ['context','stakeholders','goals','metrics','problems','requirements','work','assumptions','risks','questions','decisions','resources','outputs','flow','custom'],
+    investigate: ['context','problems','metrics','questions','assumptions','stakeholders','goals','requirements','work','risks','decisions','resources','flow','outputs','custom'],
+    explore: ['assumptions','questions','goals','metrics','stakeholders','problems','requirements','work','risks','context','decisions','resources','outputs','flow','custom'],
+    build:   ['context','goals','metrics','stakeholders','tasks','assumptions','problems','risks','questions','decisions','resources','flow','custom'],
+    clarify: ['questions','assumptions','goals','metrics','stakeholders','problems','requirements','work','risks','decisions','context','resources','outputs','flow','custom'],
   }
   const order = ORDERS[mode] || ORDERS.plan
-  const content = order.map(k => S[k] && S[k]()).filter(Boolean).join('\n')
+  const covered = new Set(order.flatMap(k => SECTION_TYPES[k] || []))
+  // Safety net for a type added to the registry but not yet to an order:
+  // print it under its registry heading rather than dropping its blocks.
+  const extra = Object.keys(byType).filter(t => !covered.has(t)).map(t => sec(t))
+  const content = [...order.map(k => S[k] && S[k]()), ...extra].filter(Boolean).join('\n')
 
   if (!content.trim()) return '(No blocks yet. Add blocks to generate a prompt.)'
 
@@ -221,27 +240,13 @@ export function generatePrompt() {
     if (preLines.length) prompt += preLines.join('\n') + '\n\n'
   }
 
-  // 3. Block type legend (makes prompt self-contained for AI)
+  // 3. Block type legend (makes prompt self-contained for AI). The lines live
+  // in the type registry, next to everything else a type means.
   const usedTypes = new Set(Object.values(state.blocks).map(b => b.type))
   if (usedTypes.size) {
     prompt += '## Block Type Legend\n'
-    const typeDefs = {
-      goal: 'Strategic objective to achieve',
-      problem: 'Blocker or issue requiring resolution',
-      requirement: 'Hard constraint that must be satisfied',
-      assumption: 'A belief being treated as true without validation \u2014 pressure-test it',
-      risk: 'Potential failure point requiring mitigation',
-      question: 'A genuine unknown needing an answer',
-      decision: 'Choice already made (rationale should be documented)',
-      resource: 'Available asset, tool, or capability',
-      output: 'Expected deliverable or result',
-      process: 'A step or action in a workflow',
-      terminator: 'The start or end of a workflow',
-      context: 'Background information for framing',
-      custom: 'Free-form block',
-    }
     usedTypes.forEach(t => {
-      prompt += `\u2022 **${TYPES[t]?.label || t}**: ${typeDefs[t] || t}\n`
+      prompt += `\u2022 **${TYPES[t]?.label || t}**: ${TYPES[t]?.legend || TYPES[t]?.short || t}\n`
     })
     prompt += '\n'
   }
@@ -261,7 +266,7 @@ export function generatePrompt() {
       if (f && t) {
         const label = connectionLabel(a)
         const via = label ? ` [${label}]` : ''
-        prompt += `\u2022 ${TYPES[f.type]?.label} "${f.title}"${via} \u2192 ${TYPES[t.type]?.label} "${t.title}"\n`
+        prompt += `\u2022 ${TYPES[f.type]?.label || f.type} "${f.title}"${via} \u2192 ${TYPES[t.type]?.label || t.type} "${t.title}"\n`
         if (a.note?.trim()) prompt += `    ${a.note.trim().replace(/\n/g, '\n    ')}\n`
       }
     })
@@ -296,7 +301,7 @@ export function generatePrompt() {
     prompt += '\n## Planning Gaps Detected\n'
     gapDetails.forEach(g => {
       g.gaps.forEach(gapType => {
-        prompt += `\u2022 ${TYPES[g.type]?.label}: "${g.title}" \u2014 ${GAP_META[gapType]?.prompt || gapType}\n`
+        prompt += `\u2022 ${TYPES[g.type]?.label || g.type}: "${g.title}": ${GAP_META[gapType]?.prompt || gapType}\n`
       })
     })
     ;(canvasFindings || []).forEach(f => { prompt += `\u2022 Canvas: ${f}\n` })

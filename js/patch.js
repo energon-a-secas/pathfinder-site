@@ -206,6 +206,10 @@ export function buildPlan(patch) {
     }
     const clean = normalizeBlock({ ...rb, id: rb?.id ?? genId() })
     if (!clean) return miss('block', rb?.title ?? rb?.id, 'Unsalvageable block (missing id/known type)')
+    // Loading a saved canvas keeps an unknown type as Other (forward
+    // compatibility). A patch is different: the prompt listed the types, so an
+    // unknown one is a mistake to report, not a block to guess at.
+    if (clean.typeHint) return miss('block', rb?.title ?? rb?.id, `Unknown block type "${clean.typeHint}"`)
     const finalId = Object.hasOwn(state.blocks, clean.id) || Object.hasOwn(Object.prototype, clean.id) ? genId() : clean.id
     idMap.set(clean.id, finalId)
     pendingTitle.set(finalId, clean.title || '(new block)')

@@ -94,7 +94,10 @@ describe('parseMermaid()', () => {
     assert.eq(byId.d.title, 'Ship it?')
     assert.eq(payload.arrows.length, 3)
     assert.eq(payload.arrows.find(a => a.from === 'a').label, 'then')
-    assert.eq(payload.arrows.find(a => a.to === 'b').style, 'dashed')
+    // Route and pattern are separate fields: a dotted link stays routed.
+    assert.eq(payload.arrows.find(a => a.to === 'b').pattern, 'dashed')
+    assert.eq(payload.arrows.find(a => a.to === 'b').style, 'routed')
+    assert.eq(payload.arrows.find(a => a.from === 'a').pattern, 'solid')
   })
   it('lays nodes out without stacking them', () => {
     const { payload } = parseMermaid('graph TD\n a --> b\n a --> c\n b --> d\n c --> d')

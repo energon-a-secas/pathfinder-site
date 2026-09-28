@@ -9,14 +9,15 @@
 import { state, selection, ui, toWorld } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
 import {
-  duplicateBlock, deleteBlock, mutateBlock, selectBlock, setSelection, createBlock,
+  duplicateBlock, deleteBlock, mutateBlock, selectBlock, setSelection, selectArrow,
 } from './render.js'
+import { createBlockAt } from './create.js'
 
 let menuEl = null
 
 // Types offered in the empty-canvas quick-add menu, in a sensible authoring
 // order (core planning types first, then flow nodes for workflows).
-const QUICK_ADD_TYPES = ['goal', 'problem', 'requirement', 'decision', 'process', 'terminator']
+const QUICK_ADD_TYPES = ['goal', 'problem', 'metric', 'requirement', 'implementation', 'assumption', 'risk', 'decision', 'process', 'terminator']
 
 function closeMenu() {
   if (menuEl) { menuEl.remove(); menuEl = null }
@@ -91,6 +92,8 @@ function buildMenu(id) {
 }
 
 function positionMenu(menu, clientX, clientY) {
+  // Canvas UI: the canvas's pointer and wheel handlers leave it alone.
+  menu.setAttribute('data-canvas-ui', '')
   menu.style.left = '0px'; menu.style.top = '0px'
   document.body.appendChild(menu)
   const { width, height } = menu.getBoundingClientRect()
@@ -144,6 +147,9 @@ export function openBlockMenu(id, clientX, clientY) {
   // Keyboard: arrow-navigate items, Escape closes.
   requestAnimationFrame(() => menu.querySelector('.ctx-item')?.focus())
   menu.addEventListener('keydown', e => {
+    // Keys pressed in the menu are the menu's: H must not hide the header,
+    // L must not run Tidy, Delete must not delete the card behind it.
+    e.stopPropagation()
     const items = [...menu.querySelectorAll('.ctx-item')]
     const idx = items.indexOf(document.activeElement)
     if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus() }
@@ -153,9 +159,10 @@ export function openBlockMenu(id, clientX, clientY) {
 }
 
 // ── Empty-canvas quick-add menu ──────────────────────────────
-// Right-clicking blank canvas offers a fast "add block here" list. The new
-// block is dropped at the world position under the cursor and selected.
-function openAddMenu(clientX, clientY) {
+// Right-clicking or double-clicking blank canvas offers a fast "add block
+// here" list. The new block is centred on the world position under the
+// cursor, selected, and opens in title editing.
+export function openCanvasAddMenu(clientX, clientY) {
   if (ui.readOnly) return
   closeMenu()
   const menu = document.createElement('div')
@@ -163,7 +170,7 @@ function openAddMenu(clientX, clientY) {
   menu.setAttribute('role', 'menu')
   menu.innerHTML =
     `<div class="ctx-add-heading">Add block here</div>` +
-    QUICK_ADD_TYPES.map(t =>
+    QUICK_ADD_TYPES.filter(t => TYPES[t]).map(t =>
       `<button class="ctx-item" role="menuitem" data-add-type="${t}">` +
       `<span class="ctx-dot" style="background:${TYPES[t].color}"></span>${TYPES[t].label}</button>`
     ).join('')
@@ -178,11 +185,12 @@ function openAddMenu(clientX, clientY) {
   positionMenu(menu, clientX, clientY)
   menu.addEventListener('click', e => {
     const opt = e.target.closest('[data-add-type]'); if (!opt) return
-    selectBlock(createBlock(opt.dataset.addType, w.x, w.y))
     closeMenu()
+    createBlockAt(opt.dataset.addType, w.x, w.y)
   })
   requestAnimationFrame(() => menu.querySelector('.ctx-item')?.focus())
   menu.addEventListener('keydown', e => {
+    e.stopPropagation()   // see openBlockMenu: no canvas shortcut fires from here
     const items = [...menu.querySelectorAll('.ctx-item')]
     const idx = items.indexOf(document.activeElement)
     if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus() }
@@ -191,7 +199,10 @@ function openAddMenu(clientX, clientY) {
   })
 }
 
+let contextMenuWired = false
 export function setupContextMenu() {
+  if (contextMenuWired) return
+  contextMenuWired = true
   const canvasRoot = $.canvasRoot()
   const canvasViewport = $.canvasViewport()
 
@@ -207,10 +218,14 @@ export function setupContextMenu() {
   // stops those from reaching here via its own preventDefault + return.
   canvasViewport.addEventListener('contextmenu', e => {
     if (e.target.closest('.block')) return
-    if (e.target.closest('[data-canvas-ui], .brain-dump, .copy-pill-wrap, .search-overlay, .canvas-search-toggle')) return
+    if (e.target.closest('[data-canvas-ui]')) return
     if (ui.readOnly) return
+    // A connection is not empty canvas. Select it; the MENUS stream gives it
+    // its own menu.
+    const arrow = e.target.closest('[data-aid]')
+    if (arrow) { e.preventDefault(); closeMenu(); selectArrow(arrow.dataset.aid); return }
     e.preventDefault()
-    openAddMenu(e.clientX, e.clientY)
+    openCanvasAddMenu(e.clientX, e.clientY)
   })
 
   // Keyboard context-menu key / Shift+F10 on a focused or selected block.
@@ -228,6 +243,11 @@ export function setupContextMenu() {
   document.addEventListener('pointerdown', e => {
     if (menuEl && !e.target.closest('.ctx-menu')) closeMenu()
   }, true)
+  // A wheel on the canvas pans or zooms it; the menu would be left pointing
+  // at the wrong place, so it closes like any other outside interaction.
+  document.addEventListener('wheel', e => {
+    if (menuEl && !e.target.closest?.('.ctx-menu')) closeMenu()
+  }, { capture: true, passive: true })
   window.addEventListener('blur', closeMenu)
   document.addEventListener('scroll', closeMenu, true)
 }

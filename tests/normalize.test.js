@@ -12,8 +12,17 @@ describe('normalizeBlock()', () => {
     assert.eq(normalizeBlock({ type: 'goal', title: 'x' }), null)
   })
 
-  it('drops a block with an unknown type', () => {
-    assert.eq(normalizeBlock({ id: 'a', type: 'not-real' }), null)
+  it('keeps a block with an unknown type as custom, with the type in typeHint', () => {
+    const b = normalizeBlock({ id: 'a', type: 'not-real', title: 'From a newer build' })
+    assert.eq(b.type, 'custom')
+    assert.eq(b.typeHint, 'not-real')
+    assert.eq(b.title, 'From a newer build')
+  })
+
+  it('drops a block with no type at all', () => {
+    assert.eq(normalizeBlock({ id: 'a' }), null)
+    assert.eq(normalizeBlock({ id: 'a', type: '' }), null)
+    assert.eq(normalizeBlock({ id: 'a', type: 7 }), null)
   })
 
   it('drops non-object input', () => {
@@ -156,9 +165,11 @@ describe('normalizeCanvas()', () => {
     const r = normalizeCanvas({ blocks: [
       { id: 'a', type: 'goal' },
       { type: 'goal' },          // no id
-      { id: 'c', type: 'bad' },  // bad type
+      { id: 'c', type: 'bad' },  // unknown type: kept as custom, not dropped
+      { id: 'd' },               // no type
     ]})
-    assert.eq(Object.keys(r.blocks).length, 1)
+    assert.eq(Object.keys(r.blocks).length, 2)
+    assert.eq(r.blocks.c.type, 'custom')
     assert.eq(r.dropped.blocks, 2)
   })
 

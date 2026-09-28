@@ -4,7 +4,9 @@ import { TYPES, PRIORITY_DEFS, STATUS_DEFS } from './utils.js'
 import { dependencyEdges } from './relations.js'
 
 const priorityRank = block => ({ high: 0, medium: 1, low: 2 }[block.priority] ?? 3)
-const isTask = block => block.type === 'requirement' || block.type === 'output'
+// The registry says which types are tasks: requirement and output as before,
+// plus implementation, the most task-like type there is.
+const isTask = block => !!TYPES[block.type]?.task
 
 /** Order dependencies, including paths through non-task blocks. */
 export function buildTaskPlan(blocks, arrows) {
@@ -60,7 +62,7 @@ export function taskChecklist(blocks, arrows) {
     if (b.description?.trim()) out += `      ${indent(b.description)}\n`
     const before = [...incoming.get(b.id)].map(id => blocks[id].title || '(untitled)')
     if (before.length) out += `      after: ${before.join('; ')}\n`
-    out += '      Acceptance criteria:\n'
+    out += `      ${TYPES[b.type]?.criteria || 'Acceptance criteria'}:\n`
     if (b.criteria?.length) {
       b.criteria.forEach(c => { out += `      - ${done ? '' : '[ ] '}${indent(c)}\n` })
     } else out += '      [NEEDS INPUT: acceptance criteria]\n'

@@ -69,7 +69,7 @@ function markCanvas() {
 }
 
 function renderChanges() {
-  const edgeText = (arrow, canvas) => arrow ? `${canvas.blocks[arrow.from]?.title || arrow.from} → ${canvas.blocks[arrow.to]?.title || arrow.to}\n${connectionLabel(arrow)}${arrow.note ? '\n' + arrow.note : ''}\nStyle: ${arrow.style}, weight: ${arrow.weight}, color: ${arrow.color || 'default'}\nDirection: ${arrow.bidirectional ? 'both ways' : 'one way'}\nConnection sides: ${arrow.fromPort || 'automatic'} → ${arrow.toPort || 'automatic'}${arrow.portsBy ? '\nSides placed by Tidy' : ''}` : 'Not connected'
+  const edgeText = (arrow, canvas) => arrow ? `${canvas.blocks[arrow.from]?.title || arrow.from} → ${canvas.blocks[arrow.to]?.title || arrow.to}\n${connectionLabel(arrow)}${arrow.note ? '\n' + arrow.note : ''}\nStyle: ${arrow.style}${arrow.pattern && arrow.pattern !== 'solid' ? `, ${arrow.pattern}` : ''}, weight: ${arrow.weight}, color: ${arrow.color || 'default'}\nDirection: ${arrow.bidirectional ? 'both ways' : 'one way'}\nConnection sides: ${arrow.fromPort || 'automatic'} → ${arrow.toPort || 'automatic'}${arrow.portsBy ? '\nSides placed by Tidy' : ''}` : 'Not connected'
   const blockRows = changes.blocks.map((change, i) => `<li class="comparison-change">
     <button class="comparison-jump" data-change="${i}"><span class="comparison-kind ${change.kind}">${change.kind}</span><strong>${escHtml(name(change))}</strong><span>Show on canvas →</span></button>
     ${change.fields.length ? `<p class="comparison-fields">Changed: ${escHtml(change.fields.join(', '))}</p>` : ''}

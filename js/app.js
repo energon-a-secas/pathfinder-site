@@ -9,9 +9,16 @@ import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import {
   setupCanvasTitle, setupArrowEvents, setupCanvasPointerEvents,
-  setupKeyboardShortcuts, setupTabNavigation, setupPalette, setupInspectorEvents, setupPasteHandler,
-  setupTypeChips, setupBrainDump
+  setupKeyboardShortcuts, setupTabNavigation
 } from './events.js'
+import { setupPasteHandler, setupTypeChips, setupBrainDump } from './classify.js'
+import { setupPalette } from './palette.js'
+import { setupInspectorEvents } from './inspector.js'
+import { applyPrefs } from './prefs.js'
+import { setupArrowEdit } from './arrow-edit.js'
+import { setupViewMenu } from './view-menu.js'
+import { setupZoomControls } from './zoom-controls.js'
+import { setupSharingSafety } from './sharing.js'
 import { setupContextMenu } from './context-menu.js'
 import { setupChrome } from './chrome.js'
 import { setupLibrary } from './library.js'
@@ -36,6 +43,9 @@ function init() {
   ui.readOnly = params.has('readonly') || ui.embed
   if (ui.embed)    document.body.classList.add('embed-mode')
   if (ui.readOnly) document.body.classList.add('readonly-mode')
+  // Per-browser preferences (motion) are body classes; apply them before
+  // anything renders so nothing animates for a frame and then stops.
+  applyPrefs()
 
   const fromLink = location.hash.startsWith('#s=') || params.has('src')
   // View-only arrivals must never display or merge the visitor's private map.
@@ -50,7 +60,7 @@ function init() {
   } catch(_) {}
   if (ui.lightMode) applyTheme()
 
-  // Restore pin-ports preference (default ON)
+  // Restore pin-ports preference (default OFF since 2026-09-28)
   try { const p = localStorage.getItem('pathfinder-pinports'); if (p !== null) ui.pinPorts = p === '1' } catch(_) {}
 
   // Restore arrow-text preference (default OFF)
@@ -115,6 +125,10 @@ function init() {
   setupAttention()
   setupComparison()
   setupReview()
+  setupArrowEdit()
+  setupViewMenu()
+  setupZoomControls()
+  setupSharingSafety()
 
   renderAllBlocks()
   updateHint()
