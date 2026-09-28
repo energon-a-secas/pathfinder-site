@@ -416,137 +416,210 @@
       <!-- Inspector pane -->
       <div class="tab-pane active" id="inspectorPane">
         <div class="inspector-empty" id="inspectorEmpty">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
           Select a block to<br>inspect its properties
         </div>
 
-        <div id="inspectorContent" style="display:none">
+        <!-- One block. Everything that changes what the block says sits above
+             the disclosures; everything about how it looks sits inside them. -->
+        <div id="inspectorContent" class="inspector-block" style="display:none">
+          <div class="insp-head">
+            <button type="button" class="insp-chip insp-type-btn" id="inspTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Type">
+              <span class="insp-dot" id="inspTypeDot" aria-hidden="true"></span>
+              <span class="insp-chip-text" id="inspTypeLabel">Type</span>
+              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <span class="insp-status-wrap" id="statusPicker">
+              <button type="button" class="insp-chip insp-status-btn" id="inspStatusBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Status">
+                <span class="insp-status-glyph" id="inspStatusGlyph" aria-hidden="true"></span>
+                <span class="insp-chip-text" id="inspStatusLabel">Status</span>
+                <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </span>
+            <button type="button" class="insp-icon-btn" id="inspMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="More block actions" title="More actions">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </div>
+
           <div class="insp-section">
-            <div class="insp-label">Type</div>
-            <div class="insp-type-picker" id="typePicker"></div>
-            <button class="promote-assumption-btn" id="promoteAssumption" type="button" style="display:none" title="Treating this as true rather than asking it? Make it an Assumption so the AI pressure-tests it.">↳ Treating this as true? Make it an Assumption</button>
-          </div>
-          <div class="insp-section" id="colorSection">
-            <div class="insp-label">Accent Color</div>
-            <div class="color-swatches" id="colorSwatches"></div>
-          </div>
-          <div class="insp-section" id="appearanceSection">
-            <div class="insp-label">Card style <span class="insp-label-hint">overrides the canvas default</span></div>
-            <div class="dev-radio-group" id="cardStylePicker"></div>
-            <div class="insp-label" style="margin-top:8px">Border</div>
-            <div class="dev-radio-group" id="borderWidthPicker"></div>
-            <div class="insp-label" style="margin-top:8px">Highlight <span class="insp-label-hint">for presenting, not for meaning</span></div>
-            <div class="hl-row" id="blockHighlightRow"></div>
+            <label class="insp-label" for="inspTitle">Title</label>
+            <input class="insp-input" id="inspTitle" type="text" placeholder="Block title…" autocomplete="off">
           </div>
           <div class="insp-section">
-            <div class="insp-label">Title</div>
-            <input class="insp-input" id="inspTitle" type="text" placeholder="Block title…">
+            <label class="insp-label" for="inspDesc">Description</label>
+            <textarea class="insp-textarea insp-autogrow" id="inspDesc" placeholder="Describe this block…" rows="2"></textarea>
           </div>
-          <div class="insp-section">
-            <div class="insp-label">Description</div>
-            <textarea class="insp-textarea" id="inspDesc" placeholder="Describe this block…" rows="3"></textarea>
-          </div>
+
+          <!-- Fields the block's type reads. Shown only when they apply. -->
           <div class="insp-section" id="criteriaSection" style="display:none">
-            <div class="insp-label">Acceptance criteria <span class="insp-label-hint">one per line; done means these hold</span></div>
-            <textarea class="insp-textarea" id="inspCriteria" placeholder="Returns within 200ms&#10;Works with an empty cart&#10;Proven by a failing-first test" rows="3"></textarea>
+            <label class="insp-label" for="inspCriteria"><span id="criteriaLabelText">Acceptance criteria</span> <span class="insp-label-hint" id="criteriaHint">one per line</span></label>
+            <textarea class="insp-textarea insp-autogrow" id="inspCriteria" placeholder="Returns within 200ms&#10;Works with an empty cart" rows="2"></textarea>
           </div>
           <div class="insp-section" id="rationaleSection" style="display:none">
-            <div class="insp-label">Rationale <span class="insp-label-hint">why this choice; what was rejected</span></div>
-            <textarea class="insp-textarea" id="inspRationale" placeholder="Chosen because… Rejected: X (too slow), Y (no budget)" rows="3"></textarea>
+            <label class="insp-label" for="inspRationale">Rationale <span class="insp-label-hint">why this choice; what was rejected</span></label>
+            <textarea class="insp-textarea insp-autogrow" id="inspRationale" placeholder="Chosen because… Rejected: X (too slow), Y (no budget)" rows="2"></textarea>
           </div>
-          <div class="insp-section" id="docRefSection">
-            <div class="insp-label">Documentation <span class="insp-label-hint">wire this block to a doc</span></div>
-            <button class="promote-assumption-btn" id="promoteSeeRef" type="button" style="display:none" title="Turn the 'See:' line in the description into a real documentation reference"></button>
-            <input class="insp-input" id="docRefHref" type="url" placeholder="https://docs.example.com/page  (or /path)">
-            <input class="insp-input" id="docRefLabel" type="text" placeholder="Label (optional)" style="margin-top:6px" maxlength="80">
-            <input class="insp-input" id="docRefAnchor" type="text" placeholder="Anchor (optional, e.g. section-name)" style="margin-top:6px" maxlength="80">
-            <button class="add-btn" id="docRefPreviewBtn" style="margin-top:6px;display:none">Preview doc</button>
+          <div class="insp-section" id="typeActionsSection" hidden>
+            <div class="insp-toggle-row" id="typeActions" role="group" aria-label="Actions for this block"></div>
           </div>
-          <div class="insp-section">
-            <div class="insp-label">Status</div>
-            <div class="status-picker" id="statusPicker"></div>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Priority</div>
-            <div class="priority-picker" id="priorityPicker"></div>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Actions <button class="actions-info-btn" id="actionsInfoBtn" type="button" aria-label="What are actions?" title="What are actions?">(i)</button></div>
-            <div class="actions-info-panel" id="actionsInfoPanel" style="display:none">
-              <p><strong>Actions</strong> mark the current intent for a block. They appear as badges and are included in the AI prompt to guide recommendations.</p>
-              <dl>
-                <dt>Resolve</dt><dd>Take action to fix or close this item</dd>
-                <dt>Prepare</dt><dd>Gather resources or context before proceeding</dd>
-                <dt>Recollect</dt><dd>Review past decisions or context relevant here</dd>
-                <dt>Reinforce</dt><dd>Strengthen or validate the current approach</dd>
-              </dl>
+          <button class="insp-link-btn" id="promoteAssumption" type="button" hidden title="Treating this as true rather than asking it? Make it an Assumption so the AI pressure-tests it.">Treating this as true? Make it an Assumption</button>
+
+          <section class="insp-suggestions" id="gapFixesSection" hidden aria-labelledby="gapFixesHeading">
+            <h3 class="insp-label insp-suggestions-head" id="gapFixesHeading"><span id="gapFixesTitle">Suggestions</span> <span class="insp-count" id="gapFixesCount"></span></h3>
+            <div id="gapFixes" class="gap-fixes-section"></div>
+          </section>
+          <p class="insp-accepted" id="gapAccepted" hidden></p>
+
+          <!-- Disclosures: closed by default, open state remembered per browser
+               (pathfinder-insp-open). Links and docs opens itself when there is
+               something in it. -->
+          <details class="insp-disclosure" data-disclosure="questions" id="questionsDetails">
+            <summary class="insp-summary">Questions <span class="insp-count" id="questionsCount"></span></summary>
+            <div class="insp-disclosure-body">
+              <div class="questions-list" id="questionsList"></div>
+              <button class="add-btn" id="addQuestionBtn" type="button">+ Add question</button>
             </div>
-            <div class="actions-toggles">
-              <button class="action-toggle" data-action="resolve" title="Take action to fix or close this item" aria-pressed="false">Resolve</button>
-              <button class="action-toggle" data-action="prepare" title="Gather resources or context before proceeding" aria-pressed="false">Prepare</button>
-              <button class="action-toggle" data-action="recollect" title="Review past decisions or context relevant here" aria-pressed="false">Recollect</button>
-              <button class="action-toggle" data-action="reinforce" title="Strengthen or validate the current approach" aria-pressed="false">Reinforce</button>
+          </details>
+          <details class="insp-disclosure" data-disclosure="notes" id="notesDetails">
+            <summary class="insp-summary">Notes <span class="insp-summary-hint" id="notesHint"></span></summary>
+            <div class="insp-disclosure-body">
+              <label class="sr-only" for="inspNotes">Notes</label>
+              <textarea class="insp-textarea insp-autogrow" id="inspNotes" placeholder="Freeform notes…" rows="3"></textarea>
             </div>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Open Questions</div>
-            <div class="questions-list" id="questionsList"></div>
-            <button class="add-btn" id="addQuestionBtn">+ Add question</button>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Notes</div>
-            <textarea class="insp-textarea" id="inspNotes" placeholder="Freeform notes…" rows="3"></textarea>
-          </div>
-          <div id="gapFixes" class="gap-fixes-section" style="display:none"></div>
-          <button class="insp-dupe-btn"   id="dupeBlockBtn">Duplicate Block  ⌘D</button>
-          <button class="insp-delete-btn" id="deleteBlockBtn">Delete Block</button>
+          </details>
+          <details class="insp-disclosure" data-disclosure="docs" id="docsDetails">
+            <summary class="insp-summary">Links and docs <span class="insp-summary-hint" id="docsHint"></span></summary>
+            <div class="insp-disclosure-body" id="docRefSection">
+              <button class="insp-link-btn" id="promoteSeeRef" type="button" hidden title="Turn the 'See:' line in the description into a real documentation reference"></button>
+              <label class="insp-sublabel" for="docRefHref">Link</label>
+              <input class="insp-input" id="docRefHref" type="url" placeholder="https://docs.example.com/page  (or /path)">
+              <label class="insp-sublabel" for="docRefLabel">Label <span class="insp-label-hint">optional</span></label>
+              <input class="insp-input" id="docRefLabel" type="text" placeholder="What the link is" maxlength="80">
+              <label class="insp-sublabel" for="docRefAnchor">Anchor <span class="insp-label-hint">optional, e.g. section-name</span></label>
+              <input class="insp-input" id="docRefAnchor" type="text" placeholder="section-name" maxlength="80">
+              <button class="add-btn insp-preview-btn" id="docRefPreviewBtn" type="button" hidden>Preview doc</button>
+            </div>
+          </details>
+          <details class="insp-disclosure" data-disclosure="planning" id="planningDetails">
+            <summary class="insp-summary">Planning <span class="insp-summary-hint" id="planningHint"></span></summary>
+            <div class="insp-disclosure-body">
+              <div class="insp-field-row">
+                <span class="insp-sublabel" id="inspPriorityCaption">Priority</span>
+                <button type="button" class="insp-chip" id="inspPriorityBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Priority">
+                  <span class="insp-dot" id="inspPriorityDot" aria-hidden="true"></span>
+                  <span class="insp-chip-text" id="inspPriorityText">None</span>
+                  <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+              </div>
+              <div class="insp-toggle-row" role="group" aria-label="Planning intent">
+                <button type="button" class="action-toggle" data-action="recollect" aria-pressed="false" title="Review past decisions or context relevant here"><span class="action-tick" aria-hidden="true"></span>Recollect</button>
+                <button type="button" class="action-toggle" data-action="reinforce" aria-pressed="false" title="Strengthen or validate the current approach"><span class="action-tick" aria-hidden="true"></span>Reinforce</button>
+              </div>
+              <p class="insp-help">Recollect: review past decisions or context here. Reinforce: strengthen the current approach. Both reach the prompt as badges.</p>
+            </div>
+          </details>
+          <details class="insp-disclosure" data-disclosure="appearance" id="appearanceDetails">
+            <summary class="insp-summary">Appearance <span class="insp-summary-hint" id="appearanceHint"></span></summary>
+            <div class="insp-disclosure-body">
+              <div class="insp-appearance" role="group" aria-label="Appearance">
+                <div class="insp-appearance-cell">
+                  <span class="insp-sublabel" aria-hidden="true">Colour</span>
+                  <button type="button" class="insp-chip insp-chip-sm insp-chip-dot" id="inspColourBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Colour">
+                    <span class="insp-dot" id="inspColourDot" aria-hidden="true"></span>
+                    <span class="insp-chip-text" id="inspColourText">Type colour</span>
+                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                </div>
+                <div class="insp-appearance-cell">
+                  <span class="insp-sublabel" aria-hidden="true">Card</span>
+                  <button type="button" class="insp-chip insp-chip-sm" id="inspCardBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Card style">
+                    <span class="insp-chip-text" id="inspCardText">Default</span>
+                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                </div>
+                <div class="insp-appearance-cell">
+                  <span class="insp-sublabel" aria-hidden="true">Border</span>
+                  <button type="button" class="insp-chip insp-chip-sm" id="inspBorderBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Border">
+                    <span class="insp-chip-text" id="inspBorderText">Auto</span>
+                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                </div>
+                <div class="insp-appearance-cell">
+                  <span class="insp-sublabel" aria-hidden="true">Highlight</span>
+                  <button type="button" class="insp-chip insp-chip-sm insp-chip-dot" id="inspHighlightBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Highlight">
+                    <span class="insp-dot" id="inspHighlightDot" aria-hidden="true"></span>
+                    <span class="insp-chip-text" id="inspHighlightText">None</span>
+                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                </div>
+              </div>
+              <p class="insp-help">Highlights are for presenting, not for meaning: the prompt ignores them.</p>
+            </div>
+          </details>
         </div>
 
+        <!-- Several blocks. Bulk edits are one undo step each. -->
         <div class="inspector-multi" id="inspectorMulti" style="display:none">
-          <div class="inspector-multi-count" id="multiCount"></div>
-          <div class="insp-section">
-            <div class="insp-label">Highlight <span class="insp-label-hint">draw the eye when you share this</span></div>
-            <div class="hl-row" id="multiHighlightRow"></div>
-            <button class="radio-opt" id="spotlightBtn" style="width:100%;margin-top:8px"
-                    title="Fade every block that is not highlighted, so the marked ones carry the canvas">Spotlight: off</button>
+          <p class="inspector-multi-count" id="multiCount" role="status"></p>
+          <div class="insp-head insp-head-multi" role="group" aria-label="Change every selected block">
+            <button type="button" class="insp-chip" id="multiTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Type for every selected block">
+              <span class="insp-dot" id="multiTypeDot" aria-hidden="true"></span>
+              <span class="insp-chip-text" id="multiTypeText">Type</span>
+              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <button type="button" class="insp-chip" id="multiStatusBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Status for every selected block">
+              <span class="insp-chip-text" id="multiStatusText">Status</span>
+              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <button type="button" class="insp-chip" id="multiPriorityBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Priority for every selected block">
+              <span class="insp-chip-text" id="multiPriorityText">Priority</span>
+              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
           </div>
           <div class="insp-section">
-            <div class="insp-label">Align</div>
-            <div class="dev-radio-group align-grid">
-              <button class="radio-opt" data-align="left" title="Align left edges">Left</button>
-              <button class="radio-opt" data-align="hcenter" title="Align horizontal centres">Centre</button>
-              <button class="radio-opt" data-align="right" title="Align right edges">Right</button>
-              <button class="radio-opt" data-align="top" title="Align top edges">Top</button>
-              <button class="radio-opt" data-align="vcenter" title="Align vertical centres">Middle</button>
-              <button class="radio-opt" data-align="bottom" title="Align bottom edges">Bottom</button>
-            </div>
+            <div class="insp-label" id="multiHighlightLabel">Highlight <span class="insp-label-hint">for presenting, not for meaning</span></div>
+            <div class="hl-row" id="multiHighlightRow" role="group" aria-labelledby="multiHighlightLabel"></div>
+            <button type="button" class="insp-toggle-btn" id="spotlightBtn" aria-pressed="false"
+                    title="Fade every block that is not highlighted, so the marked ones carry the canvas">Spotlight: fade the rest</button>
           </div>
-          <div class="insp-section">
-            <div class="insp-label">Distribute <span class="insp-label-hint">needs three or more</span></div>
-            <div class="dev-radio-group">
-              <button class="radio-opt" data-distribute="h" style="flex:1" title="Even horizontal gaps">Horizontally</button>
-              <button class="radio-opt" data-distribute="v" style="flex:1" title="Even vertical gaps">Vertically</button>
-            </div>
+          <div class="insp-section insp-btn-row" id="multiArrangeRow">
+            <button type="button" class="insp-chip" id="multiAlignBtn" aria-haspopup="menu" aria-expanded="false">
+              <span class="insp-chip-text">Align</span>
+              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <button type="button" class="insp-chip" id="multiDistributeBtn" aria-haspopup="menu" aria-expanded="false">
+              <span class="insp-chip-text">Distribute</span>
+              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <button class="insp-chip" id="groupBlocksBtn" type="button"><span class="insp-chip-text">Group</span></button>
           </div>
-          <button class="insp-dupe-btn" id="groupBlocksBtn">Group selected</button>
           <div id="frameSection" style="display:none">
-            <div class="insp-section" style="margin-top:10px">
-              <div class="insp-label">Group Label</div>
-              <input class="insp-input" id="frameLabelInput" type="text" placeholder="Group name…" maxlength="40">
+            <div class="insp-section">
+              <label class="insp-label" for="frameLabelInput">Group label</label>
+              <input class="insp-input" id="frameLabelInput" type="text" placeholder="Group name…" maxlength="40" autocomplete="off">
             </div>
-            <button class="insp-delete-btn" id="ungroupBtn" style="margin-top:4px">Ungroup</button>
+            <button class="insp-quiet-btn" id="ungroupBtn" type="button">Ungroup</button>
           </div>
-          <button class="insp-delete-btn" id="deleteMultiBtn" style="margin-top:8px">Delete Selected</button>
+          <button class="insp-delete-btn" id="deleteMultiBtn" type="button">Delete selected</button>
         </div>
 
+        <!-- One connection. -->
         <div class="inspector-arrow" id="inspectorArrow" style="display:none">
-          <div class="insp-section">
-            <div class="insp-label">Connection</div>
+          <div class="insp-arrow-head">
             <div class="inspector-arrow-info" id="arrowInfo"></div>
+            <button type="button" class="insp-icon-btn" id="arrowReverse" aria-label="Reverse direction" title="Reverse direction">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h12l-3-3M17 17H5l3 3"/></svg>
+            </button>
+          </div>
+          <div class="insp-section">
+            <label class="insp-label" for="arrowLabelInput">Label</label>
+            <input class="insp-input" id="arrowLabelInput" type="text" list="arrowLabelSuggestions"
+                   placeholder="e.g. depends on, produces…" maxlength="40" autocomplete="off">
+            <datalist id="arrowLabelSuggestions"></datalist>
           </div>
           <div class="insp-section">
             <label class="insp-label" for="arrowRelation">Meaning</label>
-            <select class="insp-input" id="arrowRelation" aria-describedby="arrowRelationHint">
+            <select class="insp-input insp-select" id="arrowRelation" aria-describedby="arrowRelationHint">
               <option value="">From label or arrow direction</option>
               <option value="precedes">Comes before</option>
               <option value="depends-on">Depends on</option>
@@ -557,72 +630,80 @@
             <p class="insp-label-hint" id="arrowRelationHint"></p>
           </div>
           <div class="insp-section">
-            <div class="insp-label">Label</div>
-            <input class="insp-input" id="arrowLabelInput" type="text"
-                   placeholder="e.g. depends on, enables, blocks…" maxlength="40">
-            <div class="arrow-label-presets" id="arrowLabelPresets"></div>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Note <span class="insp-label-hint">shown on hover / when selected</span></div>
-            <textarea class="insp-textarea" id="arrowNoteInput" rows="2"
+            <label class="insp-label" for="arrowNoteInput">Note <span class="insp-label-hint">shown on hover or when selected</span></label>
+            <textarea class="insp-textarea insp-autogrow" id="arrowNoteInput" rows="2"
                       placeholder="Longer annotation for this connection…" maxlength="400"></textarea>
           </div>
-          <div class="insp-section">
-            <div class="insp-label">Style</div>
-            <div class="dev-radio-group">
-              <button class="radio-opt" data-arrow-style="curved">Curved</button>
-              <button class="radio-opt" data-arrow-style="straight">Straight</button>
-              <button class="radio-opt" data-arrow-style="routed" title="Orthogonal line that steers around other blocks">Routed</button>
-              <button class="radio-opt" data-arrow-style="elbow">Elbow</button>
-              <button class="radio-opt" data-arrow-style="dashed">Dashed</button>
-              <button class="radio-opt" data-arrow-style="dotted">Dotted</button>
+          <div class="insp-section" id="arrowLineSection">
+            <div class="insp-label">Line</div>
+            <div class="insp-line-grid">
+              <label class="insp-mini" for="arrowRouteSelect"><span>Route</span>
+                <select class="insp-input insp-select" id="arrowRouteSelect">
+                  <option value="routed">Routed</option>
+                  <option value="curved">Curved</option>
+                  <option value="straight">Straight</option>
+                  <option value="elbow">Elbow</option>
+                </select>
+              </label>
+              <label class="insp-mini" for="arrowPatternSelect"><span>Pattern</span>
+                <select class="insp-input insp-select" id="arrowPatternSelect">
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                </select>
+              </label>
+              <label class="insp-mini" for="arrowHeadsSelect"><span>Heads</span>
+                <select class="insp-input insp-select" id="arrowHeadsSelect">
+                  <option value="end">End</option>
+                  <option value="both">Both</option>
+                </select>
+              </label>
+              <label class="insp-mini" for="arrowWeightSelect"><span>Weight</span>
+                <select class="insp-input insp-select" id="arrowWeightSelect">
+                  <option value="1">Thin</option>
+                  <option value="1.5">Normal</option>
+                  <option value="2.5">Thick</option>
+                  <option value="3.5">Bold</option>
+                </select>
+              </label>
+            </div>
+            <div class="insp-field-row" id="arrowColourRow">
+              <span class="insp-sublabel" aria-hidden="true">Colour</span>
+              <button type="button" class="insp-chip" id="arrowColourBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Colour">
+                <span class="insp-dot" id="arrowColourDot" aria-hidden="true"></span>
+                <span class="insp-chip-text" id="arrowColourText">Default</span>
+                <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
             </div>
           </div>
-          <div class="insp-section">
-            <div class="insp-label">Direction</div>
-            <div class="dev-radio-group">
-              <button class="radio-opt" id="arrowReverse" style="flex:1">&#8634; Reverse</button>
-              <button class="radio-opt" id="arrowBidir" style="flex:1">&#8644; Bidirectional</button>
-            </div>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Color</div>
-            <div class="color-swatches" id="arrowColorSwatches"></div>
-          </div>
-          <div class="insp-section">
-            <div class="insp-label">Weight</div>
-            <div class="dev-radio-group">
-              <button class="radio-opt" data-arrow-weight="1">Thin</button>
-              <button class="radio-opt" data-arrow-weight="2">Normal</button>
-              <button class="radio-opt" data-arrow-weight="3.5">Thick</button>
-              <button class="radio-opt" data-arrow-weight="5">Bold</button>
-            </div>
-          </div>
-          <div class="insp-section" id="arrowPortSection">
-            <div class="insp-label">Connection points <span class="insp-label-hint">the side each end attaches to</span></div>
-            <div class="port-pick-row">
-              <span class="port-pick-label">From</span>
-              <div class="dev-radio-group port-pick" data-port-end="from">
-                <button class="radio-opt" data-port-side="" title="Pick the side automatically">Auto</button>
-                <button class="radio-opt" data-port-side="top" aria-label="Top" title="Top">&#8593;</button>
-                <button class="radio-opt" data-port-side="right" aria-label="Right" title="Right">&#8594;</button>
-                <button class="radio-opt" data-port-side="bottom" aria-label="Bottom" title="Bottom">&#8595;</button>
-                <button class="radio-opt" data-port-side="left" aria-label="Left" title="Left">&#8592;</button>
+          <details class="insp-disclosure" data-disclosure="arrow-advanced" id="arrowAdvanced">
+            <summary class="insp-summary">Advanced <span class="insp-summary-hint" id="arrowPortsHint">connection points</span></summary>
+            <div class="insp-disclosure-body" id="arrowPortSection">
+              <p class="insp-help">The side each end attaches to. Auto lets the router choose.</p>
+              <div class="port-pick-row">
+                <span class="port-pick-label" id="portFromLabel">From</span>
+                <div class="dev-radio-group port-pick" data-port-end="from" role="group" aria-labelledby="portFromLabel">
+                  <button type="button" class="radio-opt" data-port-side="" aria-pressed="false" title="Pick the side automatically">Auto</button>
+                  <button type="button" class="radio-opt" data-port-side="top" aria-pressed="false" aria-label="Top" title="Top">&#8593;</button>
+                  <button type="button" class="radio-opt" data-port-side="right" aria-pressed="false" aria-label="Right" title="Right">&#8594;</button>
+                  <button type="button" class="radio-opt" data-port-side="bottom" aria-pressed="false" aria-label="Bottom" title="Bottom">&#8595;</button>
+                  <button type="button" class="radio-opt" data-port-side="left" aria-pressed="false" aria-label="Left" title="Left">&#8592;</button>
+                </div>
               </div>
-            </div>
-            <div class="port-pick-row">
-              <span class="port-pick-label">To</span>
-              <div class="dev-radio-group port-pick" data-port-end="to">
-                <button class="radio-opt" data-port-side="" title="Pick the side automatically">Auto</button>
-                <button class="radio-opt" data-port-side="top" aria-label="Top" title="Top">&#8593;</button>
-                <button class="radio-opt" data-port-side="right" aria-label="Right" title="Right">&#8594;</button>
-                <button class="radio-opt" data-port-side="bottom" aria-label="Bottom" title="Bottom">&#8595;</button>
-                <button class="radio-opt" data-port-side="left" aria-label="Left" title="Left">&#8592;</button>
+              <div class="port-pick-row">
+                <span class="port-pick-label" id="portToLabel">To</span>
+                <div class="dev-radio-group port-pick" data-port-end="to" role="group" aria-labelledby="portToLabel">
+                  <button type="button" class="radio-opt" data-port-side="" aria-pressed="false" title="Pick the side automatically">Auto</button>
+                  <button type="button" class="radio-opt" data-port-side="top" aria-pressed="false" aria-label="Top" title="Top">&#8593;</button>
+                  <button type="button" class="radio-opt" data-port-side="right" aria-pressed="false" aria-label="Right" title="Right">&#8594;</button>
+                  <button type="button" class="radio-opt" data-port-side="bottom" aria-pressed="false" aria-label="Bottom" title="Bottom">&#8595;</button>
+                  <button type="button" class="radio-opt" data-port-side="left" aria-pressed="false" aria-label="Left" title="Left">&#8592;</button>
+                </div>
               </div>
+              <button type="button" class="insp-quiet-btn" id="arrowAutoRoute">Reset ends to auto</button>
             </div>
-            <button class="radio-opt" id="arrowAutoRoute" style="width:100%">&#8634; Reset both ends to auto</button>
-          </div>
-          <button class="insp-delete-btn" id="deleteArrowBtn">Delete Connection</button>
+          </details>
+          <button class="insp-delete-btn" id="deleteArrowBtn" type="button">Delete connection</button>
         </div>
       </div>
 

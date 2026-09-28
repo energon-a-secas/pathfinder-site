@@ -1396,15 +1396,14 @@
     }
     .inspector-empty svg { width: 34px; height: 34px; opacity: .2; display: block; margin: 0 auto 12px; }
 
-    .inspector-multi { padding: 28px 16px; text-align: center; }
-    .inspector-multi-count { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 16px; }
+    .inspector-multi-count { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.45; }
 
-    .inspector-arrow { padding: 16px; }
     .inspector-arrow-info {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      flex: 1; min-width: 0;
       font-size: var(--text-xs);
       color: var(--text-muted);
-      line-height: 1.6;
-      margin-bottom: 4px;
+      line-height: 1.4;
     }
 
     .insp-label {
@@ -1416,32 +1415,15 @@
       margin-bottom: 7px;
     }
 
+    /* No opacity on top of the muted colour: that took it to about 3.5:1. */
     .insp-label-hint {
       font-weight: 500;
       text-transform: none;
       letter-spacing: 0;
-      color: var(--text-faint, var(--text-muted));
-      opacity: .7;
+      color: var(--text-muted);
     }
 
     .insp-section { margin-bottom: 16px; }
-
-    .insp-type-picker { display: flex; flex-wrap: wrap; gap: 5px; }
-
-    .type-pill {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .05em;
-      text-transform: uppercase;
-      padding: 6px 10px;
-      border-radius: 20px;
-      border: 1px solid transparent;
-      cursor: pointer;
-      opacity: .45;
-      transition: opacity var(--dur-fast), border-color var(--dur-fast);
-    }
-    .type-pill.active  { opacity: 1; border-color: currentColor; }
-    .type-pill:hover   { opacity: .8; }
 
     .promote-assumption-btn {
       display: block;
@@ -1497,26 +1479,25 @@
 
     .actions-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
 
+    /* Action toggles are neutral: a check box and a word. They used to be
+       four saturated hues, none of which meant anything the label did not. */
     .action-toggle {
-      font-size: var(--text-xs);
-      font-weight: 700;
-      padding: 8px 12px;
+      display: inline-flex; align-items: center; gap: 7px;
+      min-height: 30px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px 4px 8px;
       border-radius: var(--radius-sm);
-      border: 1px solid transparent;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--text-secondary);
       cursor: pointer;
-      opacity: .45;
       font-family: var(--font);
-      transition: opacity var(--dur-fast), background var(--dur-fast);
+      transition: background var(--dur-fast), border-color var(--dur-fast);
     }
-    .action-toggle.active { opacity: 1; }
-    .action-toggle[data-action=resolve]   { color: #f87171; border-color: rgba(248,113,113,.28); background: rgba(248,113,113,.08); }
-    .action-toggle[data-action=prepare]   { color: #fbbf24; border-color: rgba(251,191,36,.28);  background: rgba(251,191,36,.08); }
-    .action-toggle[data-action=recollect] { color: #38bdf8; border-color: rgba(56,189,248,.28);  background: rgba(56,189,248,.08); }
-    .action-toggle[data-action=reinforce] { color: #34d399; border-color: rgba(52,211,153,.28);  background: rgba(52,211,153,.08); }
-    .action-toggle.active[data-action=resolve]   { background: rgba(248,113,113,.2); }
-    .action-toggle.active[data-action=prepare]   { background: rgba(251,191,36,.2);  }
-    .action-toggle.active[data-action=recollect] { background: rgba(56,189,248,.2);  }
-    .action-toggle.active[data-action=reinforce] { background: rgba(52,211,153,.2);  }
+    .action-toggle:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-2); }
+    .action-toggle[aria-pressed="true"] { color: var(--text-primary); border-color: var(--border-strong); background: var(--surface-2); }
+    .action-toggle:disabled { cursor: default; }
 
     .questions-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 7px; }
 
@@ -1591,28 +1572,12 @@
     }
     .add-btn:hover { border-color: rgba(255,255,255,.3); color: var(--text-secondary); }
 
-    .insp-dupe-btn {
-      width: 100%;
-      margin-top: 8px;
-      padding: 8px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.14);
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      font-family: var(--font);
-      font-size: var(--text-sm);
-      font-weight: 600;
-      cursor: pointer;
-      transition: background var(--dur-fast);
-    }
-    .insp-dupe-btn:hover { background: rgba(255,255,255,.12); }
-
     .insp-delete-btn {
       width: 100%;
       margin-top: 18px;
       padding: 8px;
-      background: rgba(248,113,113,.08);
-      border: 1px solid rgba(248,113,113,.22);
+      background: none;
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       color: #f87171;
       font-family: var(--font);
@@ -1621,7 +1586,7 @@
       cursor: pointer;
       transition: background var(--dur-fast);
     }
-    .insp-delete-btn:hover { background: rgba(248,113,113,.2); }
+    .insp-delete-btn:hover { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.4); }
 
     /* Prompt panel */
     .prompt-summary {
@@ -1872,16 +1837,11 @@
     .readonly-mode .insp-textarea,
     .readonly-mode .action-toggle,
     .readonly-mode #addQuestionBtn,
-    .readonly-mode .type-pill,
-    .readonly-mode .insp-dupe-btn,
     .readonly-mode .insp-delete-btn,
     .readonly-mode #deleteMultiBtn,
     .readonly-mode #deleteArrowBtn,
     .readonly-mode #arrowLabelInput,
-    .readonly-mode #arrowNoteInput,
-    .readonly-mode .status-opt,
-    .readonly-mode .priority-opt,
-    .readonly-mode .arrow-preset-chip { pointer-events: none; opacity: 0.5; }
+    .readonly-mode #arrowNoteInput { pointer-events: none; opacity: 0.5; }
 
     :focus-visible {
       outline: 2px solid var(--accent-bright, #0080ff);
@@ -1954,14 +1914,6 @@
     }
 
     /* ── Color swatches ──────────────────────────────────────────── */
-    .color-swatches { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 0; }
-    .color-swatch {
-      width: 17px; height: 17px; border-radius: 50%; cursor: pointer;
-      border: 2px solid transparent; flex-shrink: 0;
-      transition: transform var(--dur-fast), border-color var(--dur-fast);
-    }
-    .color-swatch:hover { transform: scale(1.2); }
-    .color-swatch.active { border-color: rgba(255,255,255,.75); }
     .swatch-reset {
       border: 2px dashed rgba(255,255,255,.25) !important; background: transparent !important;
       position: relative;
@@ -2015,10 +1967,7 @@
     .template-desc  { font-size: 10px; color: var(--text-muted); line-height: 1.3; margin-top: 1px; }
 
     /* ── Gap fix suggestions ────────────────────────────────────── */
-    .gap-fixes-section {
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 14px; margin-top: 4px; margin-bottom: 4px;
-    }
+    .gap-fixes-section { display: flex; flex-direction: column; }
     .gap-fix-item {
       display: flex; align-items: flex-start; gap: 8px; margin-bottom: 9px;
     }
@@ -2233,18 +2182,8 @@
     body.light-mode .question-item input:focus { border-color: rgba(0,0,0,.25); background: #fff; }
     body.light-mode .add-btn:hover { border-color: rgba(0,0,0,.25); }
 
-    body.light-mode .insp-dupe-btn {
-      background: rgba(0,0,0,.04);
-      border-color: rgba(0,0,0,.12);
-      color: var(--text-secondary);
-    }
-    body.light-mode .insp-dupe-btn:hover { background: rgba(0,0,0,.08); }
-
-    body.light-mode .insp-delete-btn {
-      background: rgba(224,82,82,.06);
-      border-color: rgba(224,82,82,.2);
-    }
-    body.light-mode .insp-delete-btn:hover { background: rgba(224,82,82,.12); }
+    body.light-mode .insp-delete-btn { color: #c62828; }
+    body.light-mode .insp-delete-btn:hover { background: rgba(198,40,40,.07); border-color: rgba(198,40,40,.35); }
 
     body.light-mode .copy-btn {
       background: rgba(0,0,0,.05);
@@ -2281,7 +2220,6 @@
       border-color: rgba(0,0,0,.1);
     }
 
-    body.light-mode .color-swatch.active { border-color: rgba(0,0,0,.55); }
     body.light-mode .swatch-reset { border-color: rgba(0,0,0,.18) !important; }
     body.light-mode .swatch-reset.active { border-color: rgba(0,0,0,.55) !important; }
     body.light-mode .swatch-reset::after { color: rgba(0,0,0,.35); }
@@ -2522,29 +2460,6 @@
 
     .block.collapsed .block-meta { display: none; }
 
-    /* ── Phase 1: Status & Priority pickers in inspector ────── */
-    .status-picker, .priority-picker {
-      display: flex; flex-wrap: wrap; gap: 4px;
-    }
-    .status-opt, .priority-opt {
-      font-size: 11px; font-weight: 500; padding: 4px 8px;
-      border: 1px solid var(--border); border-radius: 5px;
-      background: transparent; color: var(--text-secondary);
-      cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast);
-    }
-    .status-opt:hover, .priority-opt:hover {
-      background: var(--surface-2); border-color: var(--border-strong);
-    }
-    .status-opt.active, .priority-opt.active {
-      background: rgba(255,255,255,.1); border-color: var(--text-secondary); color: var(--text-primary);
-    }
-    .priority-opt[data-priority="high"]   { color: #f87171; border-color: rgba(248,113,113,.3); }
-    .priority-opt[data-priority="medium"] { color: #fbbf24; border-color: rgba(251,191,36,.3); }
-    .priority-opt[data-priority="low"]    { color: #94a3b8; border-color: rgba(148,163,184,.3); }
-    .priority-opt.active[data-priority="high"]   { background: rgba(248,113,113,.15); }
-    .priority-opt.active[data-priority="medium"] { background: rgba(251,191,36,.15); }
-    .priority-opt.active[data-priority="low"]    { background: rgba(148,163,184,.15); }
-
     /* ── Phase 1: Actions info panel ───────────────────────── */
     .actions-info-btn {
       display: inline-flex; align-items: center; justify-content: center;
@@ -2574,18 +2489,6 @@
     .arrow-label-presets {
       display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
     }
-    .arrow-preset-chip {
-      font-size: 10px; padding: 3px 7px; border-radius: 4px;
-      border: 1px solid var(--border); background: transparent;
-      color: var(--text-muted); cursor: pointer;
-      transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
-    }
-    .arrow-preset-chip:hover {
-      background: var(--surface-2); color: var(--text-secondary); border-color: var(--border-strong);
-    }
-    .arrow-preset-chip.active {
-      background: rgba(255,255,255,.1); color: var(--text-primary); border-color: var(--text-secondary);
-    }
 
 
     /* ── Phase 1: Light-mode overrides for new elements ────── */
@@ -2598,30 +2501,10 @@
     body.light-mode .priority-badge.priority-medium { background: rgba(251,191,36,.12);  color: #d97706; }
     body.light-mode .priority-badge.priority-low    { background: rgba(148,163,184,.12); color: #64748b; }
 
-    body.light-mode .status-opt, body.light-mode .priority-opt {
-      border-color: rgba(0,0,0,.12); color: #475569;
-    }
-    body.light-mode .status-opt:hover, body.light-mode .priority-opt:hover {
-      background: rgba(0,0,0,.04);
-    }
-    body.light-mode .status-opt.active, body.light-mode .priority-opt.active {
-      background: rgba(0,0,0,.06); border-color: #475569; color: #0f172a;
-    }
-
     body.light-mode .actions-info-panel {
       background: rgba(0,0,0,.03); border-color: rgba(0,0,0,.1);
     }
     body.light-mode .actions-info-btn { border-color: rgba(0,0,0,.15); color: #64748b; }
-
-    body.light-mode .arrow-preset-chip {
-      border-color: rgba(0,0,0,.12); color: #64748b;
-    }
-    body.light-mode .arrow-preset-chip:hover {
-      background: rgba(0,0,0,.04); color: #334155;
-    }
-    body.light-mode .arrow-preset-chip.active {
-      background: rgba(0,0,0,.08); color: #0f172a; border-color: #475569;
-    }
 
 
     @media (prefers-reduced-motion: reduce) {
@@ -2916,6 +2799,352 @@ body.light-mode .voting-banner { background: #fff; box-shadow: 0 8px 24px rgba(1
 
 
 /* ════ [inspector] ════ */
+/* The right panel. At rest the only colour above the fold is the type dot,
+   the status glyph and a highlight dot: every control is a neutral chip that
+   opens a menu (js/menu.js), and how a block looks lives in a closed
+   disclosure. Everything here reads theme tokens, so light mode follows. */
+
+/* The panel toggles sections with the hidden attribute; a class that sets
+   display (flex rows, chips) must not bring one back. */
+#inspectorPane [hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  #inspectorPane *, #inspectorPane *::before { transition: none !important; }
+}
+
+/* Header row: [● Type ▾] [◔ Status ▾] [⋯] */
+.insp-head { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+.insp-head-multi { flex-wrap: wrap; margin-bottom: 16px; }
+/* The type gets the room; status keeps its size and drops its word
+   (is-tight, measured by fitHead in inspector.js) before the type's name
+   loses letters. The glyph keeps its colour, tooltip and accessible name. */
+.insp-status-wrap { display: inline-flex; min-width: 0; flex: 0 0 auto; }
+.insp-head.is-tight { gap: 4px; }
+.insp-head.is-tight #inspStatusLabel { display: none; }
+.insp-head.is-tight .insp-status-btn { gap: 3px; padding: 0 4px 0 8px; }
+.insp-head.is-tight #inspMoreBtn { flex-basis: 28px; width: 28px; }
+
+.insp-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-width: 0; height: 32px;
+  padding: 0 6px 0 9px;
+  font-family: var(--font); font-size: 13px; font-weight: 600; line-height: 1;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.insp-chip:hover:not(:disabled),
+.insp-chip[aria-expanded="true"] { background: var(--surface-2); border-color: var(--border-strong); }
+/* Read-only: the chip still says what the block is, it just stops being a
+   control. Full contrast, no caret. */
+.insp-chip:disabled { cursor: default; }
+.insp-chip:disabled .insp-caret { display: none; }
+.insp-chip-sm { height: 30px; padding: 0 6px 0 8px; font-size: 12px; gap: 5px; width: 100%; }
+.insp-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-caret { flex: 0 0 13px; width: 13px; height: 13px; margin-left: auto; color: var(--text-muted); }
+.insp-type-btn { flex: 1 1 0; justify-content: flex-start; }
+/* Typed automatically with low confidence: the dashed edge says "check me"
+   without a second colour. */
+.insp-type-btn.is-unconfirmed { border-style: dashed; border-color: var(--border-strong); }
+
+.insp-dot {
+  flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--text-muted);
+}
+.insp-dot.is-empty { background: none; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
+
+.insp-status-glyph { flex: 0 0 auto; font-size: 13px; line-height: 1; color: var(--text-muted); }
+.insp-status-glyph[data-status="in-progress"],
+.insp-menu-glyph[data-status="in-progress"] { color: var(--c-question); }
+.insp-status-glyph[data-status="done"],
+.insp-menu-glyph[data-status="done"] { color: var(--c-decision); }
+.insp-status-glyph[data-status="blocked"],
+.insp-menu-glyph[data-status="blocked"] { color: var(--c-problem); }
+.insp-menu-glyph { display: inline-flex; width: 16px; justify-content: center; font-size: 13px; line-height: 16px; color: var(--text-muted); }
+/* When the header is tight the glyph is all that shows of the status, so on
+   the light panel it gets the text contrast floor too, not just the 3:1 a
+   symbol would need. */
+body.light-mode :is(.insp-status-glyph, .insp-menu-glyph)[data-status="in-progress"] { color: color-mix(in srgb, var(--c-question) 75%, var(--text-primary)); }
+body.light-mode :is(.insp-status-glyph, .insp-menu-glyph)[data-status="done"] { color: color-mix(in srgb, var(--c-decision) 75%, var(--text-primary)); }
+body.light-mode :is(.insp-status-glyph, .insp-menu-glyph)[data-status="blocked"] { color: color-mix(in srgb, var(--c-problem) 75%, var(--text-primary)); }
+
+.insp-icon-btn {
+  flex: 0 0 30px; width: 30px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+.insp-icon-btn svg { width: 16px; height: 16px; }
+.insp-icon-btn:hover,
+.insp-icon-btn[aria-expanded="true"] { color: var(--text-primary); background: var(--surface-2); border-color: var(--border); }
+
+/* Fields */
+.insp-sublabel { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 8px 0 4px; }
+.insp-field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.insp-field-row .insp-sublabel { margin: 0; flex: 0 0 56px; }
+.insp-field-row .insp-chip { flex: 0 1 auto; }
+.insp-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 17px; padding: 0 5px; margin-left: 4px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0; font-variant-numeric: tabular-nums;
+  color: var(--text-secondary); background: var(--surface-2); border-radius: 4px;
+}
+.insp-count:empty { display: none; }
+.insp-help { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: var(--text-muted); }
+
+/* Placeholders at the muted text colour: the browser default measured about
+   4.1:1 on the field in dark mode and 4.3:1 in light, under the 4.5:1 floor. */
+#inspectorPane :is(.insp-input, .insp-textarea, .question-item input, .question-answer)::placeholder {
+  color: var(--text-muted); opacity: 1;
+}
+/* The light field is a shade darker than the panel, which takes the muted
+   colour to 4.4:1 on it: a step toward the secondary text colour clears it. */
+body.light-mode #inspectorPane :is(.insp-input, .insp-textarea, .question-item input, .question-answer)::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 80%, var(--text-secondary));
+}
+
+/* Description, criteria, rationale and notes grow with their text. */
+.insp-autogrow { field-sizing: content; min-height: 56px; max-height: 320px; resize: vertical; }
+#inspDesc { min-height: 60px; }
+
+.insp-select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 26px;
+  font-weight: 500;
+  cursor: pointer;
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 13px 13px;
+}
+.insp-select:disabled { cursor: default; background-image: none; padding-right: 10px; }
+body.light-mode .insp-select { color-scheme: light; }
+
+/* Toggles: a tick box and a word. aria-pressed carries the state. */
+.insp-toggle-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.action-tick {
+  position: relative; flex: 0 0 13px; width: 13px; height: 13px;
+  border: 1.5px solid var(--text-muted); border-radius: 3px;
+}
+.action-toggle[aria-pressed="true"] .action-tick { background: var(--text-primary); border-color: var(--text-primary); }
+.action-toggle[aria-pressed="true"] .action-tick::after {
+  content: ''; position: absolute; left: 3px; top: 0;
+  width: 4px; height: 7px;
+  border: solid var(--bg); border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+}
+.action-toggle:disabled:not([aria-pressed="true"]) { opacity: .6; }
+
+.insp-link-btn {
+  display: block; width: 100%;
+  margin: -6px 0 16px; padding: 7px 10px;
+  font-family: var(--font); font-size: 12px; font-weight: 600; text-align: left;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.insp-link-btn:hover { color: var(--text-primary); background: var(--surface-1); }
+#docRefSection .insp-link-btn { margin: 0 0 6px; }
+
+.insp-quiet-btn {
+  margin-top: 8px; min-height: 30px; padding: 5px 12px;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.insp-quiet-btn:hover { color: var(--text-primary); background: var(--surface-2); border-color: var(--border-strong); }
+.insp-preview-btn { margin-top: 10px; }
+
+/* Suggestions: the gap fixes, open whenever the block has a gap. A quiet box,
+   not an alarm: the card already carries the gap icon. */
+.insp-suggestions {
+  margin: 0 0 14px; padding: 10px 12px 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.insp-suggestions-head { display: flex; align-items: center; margin: 0 0 8px; }
+.gap-fix-accept-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: -2px 0 8px; padding-top: 7px;
+  border-top: 1px dashed var(--border);
+  font-size: 11px; color: var(--text-muted);
+}
+.gap-fix-accept {
+  flex-shrink: 0; min-height: 26px; padding: 3px 10px;
+  font-family: var(--font); font-size: 11px; font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+}
+.gap-fix-accept:hover { color: var(--text-primary); background: var(--surface-2); border-color: var(--border-strong); }
+.gap-fix-btn { min-height: 26px; }
+.insp-accepted { margin: -6px 0 14px; font-size: 11px; line-height: 1.6; color: var(--text-muted); }
+.insp-accepted-label { font-weight: 600; }
+.insp-accepted-item { white-space: nowrap; }
+.insp-accepted-reopen {
+  padding: 0 2px; font: inherit; font-weight: 600;
+  color: var(--text-secondary); background: none; border: 0;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.insp-accepted-reopen:hover { color: var(--text-primary); }
+
+/* Disclosures: closed by default, one line each. */
+.insp-disclosure { border-top: 1px solid var(--border-subtle); }
+.insp-disclosure:last-of-type { border-bottom: 1px solid var(--border-subtle); }
+.insp-summary {
+  display: flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 2px;
+  font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+  list-style: none; cursor: pointer; user-select: none;
+}
+.insp-summary::-webkit-details-marker { display: none; }
+.insp-summary::before {
+  content: ''; flex: 0 0 auto;
+  width: 6px; height: 6px; margin: 0 4px 0 2px;
+  border: solid var(--text-muted); border-width: 0 1.6px 1.6px 0;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast);
+}
+.insp-disclosure[open] > .insp-summary::before { transform: rotate(45deg); }
+.insp-summary:hover { color: var(--text-primary); }
+.insp-summary-hint {
+  margin-left: auto; min-width: 0; max-width: 58%;
+  font-size: 11px; font-weight: 500; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.insp-disclosure-body { padding: 2px 2px 14px; }
+.insp-disclosure-body > .insp-sublabel:first-child { margin-top: 0; }
+#arrowAdvanced { margin-top: 4px; }
+
+/* Appearance: one row of four menu buttons, [● ▾] [Outline ▾] [1.5px ▾]
+   [○ ▾]. Colour and Highlight show only their dot (the name is still the
+   button's accessible name and tooltip, and the summary line spells out
+   whatever is set). The row never wraps: in a narrow panel the carets go
+   first (the labels above say what each button is), and only then does the
+   card style's name shorten. */
+.insp-appearance { display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 8px; container-type: inline-size; }
+.insp-appearance-cell { flex: 0 0 auto; min-width: 0; }
+.insp-appearance-cell:has(#inspCardBtn), .insp-appearance-cell:has(#inspBorderBtn) { flex-shrink: 1; }
+.insp-appearance-cell .insp-sublabel { margin: 0 0 4px; font-size: 10.5px; white-space: nowrap; }
+.insp-appearance .insp-chip-sm { width: auto; max-width: 100%; }
+@container (max-width: 276px) {
+  .insp-appearance .insp-caret { display: none; }
+  .insp-appearance .insp-chip-sm { padding: 0 9px; }
+}
+.insp-chip-dot { gap: 6px; padding: 0 6px 0 10px; }
+.insp-chip-dot .insp-chip-text {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+/* The colour menu's first swatch is the type's own colour. */
+.pf-menu-swatch.insp-swatch-default { box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3px var(--text-muted); }
+.insp-type-notes p { margin: 2px 4px 6px 22px; font-size: 11px; line-height: 1.45; color: var(--text-muted); }
+/* Sixteen types, each with its one-line meaning, plus the notes that tell
+   similar types apart: all of it in about 600px, so the list opens under its
+   button instead of covering it. The meaning sits beside the name in a wider
+   menu rather than under it, which halves each row. */
+.pf-menu.insp-type-menu { width: 430px; max-width: min(430px, calc(100vw - 16px)); }
+.insp-type-menu .pf-menu-item { min-height: 0; padding-top: 2px; padding-bottom: 2px; }
+.insp-type-menu .pf-menu-text {
+  display: grid; grid-template-columns: 8.4em minmax(0, 1fr); column-gap: 10px; align-items: baseline;
+}
+.insp-type-menu .pf-menu-hint { font-size: 11px; line-height: 1.3; }
+.insp-type-menu .pf-menu-heading { padding-top: 4px; padding-bottom: 0; line-height: 1.2; }
+.insp-type-menu .pf-menu-divider { margin-top: 3px; margin-bottom: 3px; }
+.insp-type-menu .insp-type-notes p { margin-top: 1px; margin-bottom: 2px; line-height: 1.35; }
+/* The "Looks right" row spans both columns: it is a sentence, not a type. */
+.insp-type-menu .pf-menu-item:not([role="menuitemradio"]) .pf-menu-text { display: flex; }
+
+/* The question list's Ask button, neutral like the rest of the panel (the
+   base rule is sky blue). */
+#inspectorPane .q-ask { background: none; border-color: var(--border); color: var(--text-secondary); }
+#inspectorPane .q-ask:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--text-primary); }
+
+/* Several blocks */
+.insp-btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.insp-toggle-btn {
+  display: inline-flex; align-items: center; margin-top: 10px; min-height: 30px; padding: 5px 12px;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  color: var(--text-secondary);
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.insp-toggle-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.insp-toggle-btn[aria-pressed="true"] { color: var(--text-primary); background: var(--surface-2); border-color: var(--border-strong); }
+.insp-toggle-btn[aria-pressed="true"]::before { content: '\2713'; margin-right: 6px; }
+#multiHighlightRow[data-mixed="1"]::after { content: 'Mixed'; font-size: 11px; color: var(--text-muted); }
+#multiDistributeBtn:disabled { opacity: .55; cursor: default; }
+
+/* One connection */
+.insp-arrow-head { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+/* From above To, so both titles have the full width to be read. */
+#arrowInfo { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 2px; }
+.insp-endpoint {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  font-family: var(--font); text-align: left;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.insp-endpoint:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.insp-endpoint.is-missing { cursor: default; color: var(--text-muted); font-size: 12px; }
+.insp-endpoint-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.insp-endpoint-type { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.insp-endpoint-title { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-arrow-sep { align-self: flex-start; margin-left: 11px; font-size: 13px; line-height: 1; color: var(--text-muted); }
+.insp-line-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.insp-mini { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.insp-mini .insp-input { font-size: 13px; padding-top: 6px; padding-bottom: 6px; }
+#arrowRelationHint { margin-top: 6px; font-size: 11px; line-height: 1.45; }
+#arrowLineSection .insp-field-row { margin-bottom: 0; }
+
+/* Read-only. The shared read-only rule greys and disables every .insp-input
+   at 50%; the inspector's fields are readonly or disabled in the markup
+   already, so they keep full contrast and stay selectable and scrollable. */
+.readonly-mode #inspectorPane :is(.insp-input, .insp-textarea, .question-item input, .question-answer) {
+  pointer-events: auto; opacity: 1;
+}
+.readonly-mode #inspectorPane :is(.insp-input, .insp-textarea)[readonly] { background: none; resize: none; }
+.readonly-mode #inspectorPane .action-toggle[aria-pressed="true"] { opacity: 1; }
+.readonly-mode #inspectorPane .insp-select:disabled { opacity: 1; color: var(--text-primary); }
+
+body.light-mode .insp-chip,
+body.light-mode .insp-endpoint { background: #fff; }
+body.light-mode .insp-chip:hover:not(:disabled),
+body.light-mode .insp-chip[aria-expanded="true"],
+body.light-mode .insp-endpoint:hover { background: rgba(15,23,42,.05); }
+body.light-mode .insp-suggestions { background: #fff; }
+/* The light theme's .insp-input rule uses the background shorthand, which
+   would reset the caret to a repeating tile, so the whole set is restated. */
+body.light-mode .insp-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 13px 13px;
+}
+body.light-mode .insp-select:disabled { background-image: none; }
+body.light-mode .action-toggle[aria-pressed="true"] .action-tick::after { border-color: #fff; }
 
 
 
