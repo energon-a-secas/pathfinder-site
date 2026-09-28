@@ -24,6 +24,14 @@ import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
 import { openCanvasAddMenu } from './context-menu.js'
 import { setVotingMode, refreshVotingBanner } from './voting.js'
+// Navigation (keyboard, zoom, quick create). Its own lines, so the shared
+// imports above stay as other streams left them.
+import { blockDecorators } from './render.js'
+import { zoomIn, zoomOut, zoomTo, zoomAround, zoomToSelection, wheelZoomFactor } from './zoom-controls.js'
+import { ARROW_DIRS, PORT_DIR, readingOrder, nearestInDirection, currentBlockId, selectFromKeyboard,
+         focusableAfterCanvas, controlsBeforeCanvas, nudgeSelection, panBy, createInDirection,
+         openQuickCreate, nav, isTyping, canvasHasFocus, canvasZoomKeysApply, labelPorts,
+         untabCardControls, isCameraHeld, revealShift } from './navigation.js'
 
 // ── Canvas title editing ─────────────────────────────────────
 export function setupCanvasTitle() {
@@ -102,6 +110,16 @@ export function setupCanvasPointerEvents() {
   const recentlyDragged = new WeakMap()
   const DRAG_VOTE_THRESHOLD = 200 // ms
 
+  // The last click on a port. A double-click is two clicks to the browser
+  // but one gesture to a person, so its second click adds no second block.
+  let lastPortClick = null    // { bid, t, x, y }
+  const isPortRepeat = (bid, x, y, detail) => {
+    const p = lastPortClick, now = performance.now()
+    lastPortClick = { bid, t: now, x, y }
+    if (detail > 1) return true
+    return !!p && p.bid === bid && now - p.t <= DBL_MS && Math.hypot(x - p.x, y - p.y) <= DBL_SLOP
+  }
+
   // Safety net. Until a drag moves 3px nothing is captured, so its pointerup
   // can land outside the viewport (header, panel, another window). Without
   // this, pointer.ix would outlive the press and the next hover would drag.
@@ -113,20 +131,32 @@ export function setupCanvasPointerEvents() {
     selectBox.style.display = 'none'
     arrowPreview.setAttribute('d', '')
     canvasViewport.style.cursor = 'default'
+    canvasViewport.classList.remove('is-panning')
     clearGuides()
     canvasRoot.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
     pointer.ix = null
     if (ix.type !== 'pan') renderArrows({ cheap: false })
   }
 
+  // A pan that keeps the selection: the middle button, or any press while
+  // Space is held. Starts over cards too, since that is where people are.
+  const startHandPan = e => {
+    e.preventDefault()
+    pointer.ix = { type: 'pan', startX: e.clientX, startY: e.clientY, startPX: view.panX, startPY: view.panY,
+                   pointerId: e.pointerId, captured: false, downX: e.clientX, downY: e.clientY }
+    canvasViewport.style.cursor = 'grabbing'
+    canvasViewport.classList.add('is-panning')
+  }
+
   canvasViewport.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return
+    if (e.button !== 0 && e.button !== 1) return
     // Overlay UI inside the viewport (menus, bars, chips, the Brain Dump card)
     // carries data-canvas-ui and handles its own presses.
     if (e.target.closest('[data-canvas-ui]')) return
     // Text being edited on a card: the press places the caret or selects
     // words, it must not start dragging the card.
     if (e.target.closest('[contenteditable="true"]')) return
+    if (e.button === 1 || nav.spaceHeld) { startHandPan(e); return }
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
     // Two-finger pinch: cancel any single-pointer interaction and switch to pinch
@@ -180,14 +210,17 @@ export function setupCanvasPointerEvents() {
       e.stopPropagation()
       const bid  = port.dataset.bid
       const pp   = portPos(bid, port.dataset.port); if (!pp) return
-      pointer.ix = { type: 'arrow', fromId: bid, fromPort: port.dataset.port, x1: pp.x, y1: pp.y, d1: pp.dir }
+      pointer.ix = { type: 'arrow', fromId: bid, fromPort: port.dataset.port, x1: pp.x, y1: pp.y, d1: pp.dir,
+                     detail: e.detail }
       arrowPreview.setAttribute('d', '')
       arrowPreview.setAttribute('marker-end', isLight() ? 'url(#arrowhead-light-pre)' : 'url(#arrowhead-pre)')
 
     } else if (block) {
       const id = block.dataset.id
-      if (ui.readOnly) { selectBlock(id); pointer.ix = null; return }
+      // Selecting is not editing: Shift+click adds to the selection in a
+      // view-only link too (Shift+2 then frames what was picked).
       if (e.shiftKey) { addToSelection(id); pointer.ix = null; return }
+      if (ui.readOnly) { selectBlock(id); pointer.ix = null; return }
       const alreadyInMulti = selection.ids.has(id) && selection.ids.size > 1
       if (!alreadyInMulti) selectBlock(id)
       const startPositions = {}
@@ -218,6 +251,7 @@ export function setupCanvasPointerEvents() {
       } else {
         pointer.ix = { type: 'pan', startX: e.clientX, startY: e.clientY, startPX: view.panX, startPY: view.panY }
         canvasViewport.style.cursor = 'grabbing'
+        canvasViewport.classList.add('is-panning')
       }
     }
     if (pointer.ix) Object.assign(pointer.ix, { pointerId: e.pointerId, captured: false, downX: e.clientX, downY: e.clientY })
@@ -251,12 +285,15 @@ export function setupCanvasPointerEvents() {
 
     const ix = pointer.ix
     if (!ix) return
+    const far = ix.pointerId === e.pointerId && Math.hypot(e.clientX - ix.downX, e.clientY - ix.downY) > 3
     if (!ix.captured && ix.pointerId === e.pointerId) {
       // Drawing a connection captures on its first move; everything else
       // waits for 3px so a click stays a click.
-      const far = Math.hypot(e.clientX - ix.downX, e.clientY - ix.downY) > 3
       if (far || ix.type === 'arrow' || ix.type === 'aend') { capture(ix.pointerId); ix.captured = true }
     }
+    // A press on a port that never travels 3px is a click (quick create),
+    // not a connection being drawn.
+    if (far) ix.dragged = true
     if (ix.type === 'pan') {
       view.panX = ix.startPX + (e.clientX - ix.startX)
       view.panY = ix.startPY + (e.clientY - ix.startY)
@@ -331,6 +368,7 @@ export function setupCanvasPointerEvents() {
       }
 
     } else if (ix.type === 'arrow' || ix.type === 'aend') {
+      if (ix.type === 'arrow' && !ix.dragged) return
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
       const c1 = cpOffset(ix.x1, ix.y1, ix.d1, 80)
@@ -357,6 +395,7 @@ export function setupCanvasPointerEvents() {
     if (!ix) return
     if (ix.type === 'pan') {
       canvasViewport.style.cursor = 'default'
+      canvasViewport.classList.remove('is-panning')
 
     } else if (ix.type === 'select') {
       selectBox.style.display = 'none'
@@ -416,16 +455,39 @@ export function setupCanvasPointerEvents() {
 
     } else if (ix.type === 'arrow') {
       arrowPreview.setAttribute('d', '')
+      if (!ix.dragged) {
+        // A click on a port grows a connected block out of that side; the
+        // second click of a double-click does nothing more.
+        pointer.ix = null
+        if (!isPortRepeat(ix.fromId, e.clientX, e.clientY, ix.detail)) {
+          createInDirection(ix.fromId, PORT_DIR[ix.fromPort] || 'right')
+        }
+        return
+      }
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
       // Pin the source port the user dragged from; pin the target port only if
       // they released directly on one. Unpinned sides keep auto-routing.
-      const portEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.port')
-      const tid = (portEl && portEl.dataset.bid) || blockAtWorld(w.x, w.y)
+      const under = document.elementFromPoint(e.clientX, e.clientY)
+      const portEl = under?.closest('.port')
+      // What is under the pointer wins over geometry: a card drawn on top of
+      // another, or its outline, is still that card.
+      const underBlock = under?.closest('.block')?.dataset.id
+      const tid = (portEl && portEl.dataset.bid) || (state.blocks[underBlock] ? underBlock : null) || blockAtWorld(w.x, w.y)
       if (tid && tid !== ix.fromId) {
         const toPort = portEl && portEl.dataset.bid === tid ? portEl.dataset.port : null
         const fromPort = ui.pinPorts ? ix.fromPort : null
         addArrow(ix.fromId, tid, fromPort, ui.pinPorts ? toPort : null)
+      } else if (!tid && under && canvasViewport.contains(under) && !under.closest('[data-canvas-ui]')) {
+        // Dropped on empty canvas: offer a block to connect, right there.
+        // The preview line stays up while the picker is open.
+        const c1 = cpOffset(ix.x1, ix.y1, ix.d1, 80)
+        arrowPreview.setAttribute('d', `M ${ix.x1} ${ix.y1} C ${c1.x} ${c1.y}, ${w.x - 50} ${w.y}, ${w.x} ${w.y}`)
+        pointer.ix = null
+        renderArrows({ cheap: false })
+        openQuickCreate({ fromId: ix.fromId, fromPort: ix.fromPort, clientX: e.clientX, clientY: e.clientY,
+          wx: w.x, wy: w.y, onClose: () => arrowPreview.setAttribute('d', '') })
+        return
       }
     }
     pointer.ix = null
@@ -439,7 +501,7 @@ export function setupCanvasPointerEvents() {
     if (activePointers.size < 2) pinchState = null
     const ix = pointer.ix
     if (ix?.type === 'arrow') arrowPreview.setAttribute('d', '')
-    if (ix?.type === 'pan') canvasViewport.style.cursor = 'default'
+    if (ix?.type === 'pan') { canvasViewport.style.cursor = 'default'; canvasViewport.classList.remove('is-panning') }
     if (ix?.type === 'select') selectBox.style.display = 'none'
     if (ix?.type === 'block') { clearGuides(); selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('dragging')) }
     pointer.ix = null
@@ -453,27 +515,65 @@ export function setupCanvasPointerEvents() {
   // reports as a wheel event with ctrlKey) and Cmd/Ctrl+wheel zoom at the
   // cursor. This matches Figma/Miro/tldraw so "just move to pan" works on a
   // trackpad without holding a drag.
+  // Safari reports a trackpad pinch as gesture events rather than
+  // Ctrl+wheel; without these it zooms the whole page instead of the canvas.
+  // A touch pinch is already handled by the pointer path above.
+  let gesture = null
+  canvasViewport.addEventListener('gesturestart', e => {
+    if (e.target.closest?.('[data-canvas-ui]')) return
+    e.preventDefault()
+    gesture = { zoom: view.zoom }
+  })
+  canvasViewport.addEventListener('gesturechange', e => {
+    if (!gesture) return
+    e.preventDefault()
+    if (pinchState || !Number.isFinite(e.scale)) return
+    const r = canvasViewport.getBoundingClientRect()
+    const vx = Number.isFinite(e.clientX) ? e.clientX - r.left : r.width / 2
+    const vy = Number.isFinite(e.clientY) ? e.clientY - r.top : r.height / 2
+    zoomAround(gesture.zoom * e.scale, vx, vy)
+  })
+  canvasViewport.addEventListener('gestureend', e => { if (gesture) { e.preventDefault(); gesture = null } })
+
   canvasViewport.addEventListener('wheel', e => {
     if (e.target.closest('[data-canvas-ui]')) return
     e.preventDefault()
+    // A Safari pinch in progress zooms through the gesture events.
+    if (gesture && e.ctrlKey) return
     const r  = canvasViewport.getBoundingClientRect()
     const vx = e.clientX - r.left, vy = e.clientY - r.top
 
     if (e.ctrlKey || e.metaKey) {
-      // Zoom toward the cursor. deltaY here is the pinch amount (or wheel with
-      // modifier); scale it gently so pinch feels smooth.
+      // Zoom toward the cursor. A trackpad pinch sends many small deltas and
+      // stays smooth; a mouse notch sends one big one, capped at x1.25 so a
+      // single click of the wheel cannot jump from 44% to 260%.
       const wx = (vx - view.panX) / view.zoom, wy = (vy - view.panY) / view.zoom
-      const factor = Math.exp(-e.deltaY * 0.01)
-      view.zoom = clamp(view.zoom * factor, MIN_ZOOM, MAX_ZOOM)
+      view.zoom = clamp(view.zoom * wheelZoomFactor(e.deltaY, e.deltaMode), MIN_ZOOM, MAX_ZOOM)
       view.panX = vx - wx * view.zoom
       view.panY = vy - wy * view.zoom
     } else {
       // Pan by the scroll delta (two-finger swipe on a trackpad, or wheel).
-      view.panX -= e.deltaX
-      view.panY -= e.deltaY
+      // Line and page deltas become pixels; Shift+wheel on a mouse pans
+      // sideways, as it scrolls sideways everywhere else.
+      const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? (canvasViewport.clientHeight || 400) : 1
+      let dx = e.deltaX * k, dy = e.deltaY * k
+      if (e.shiftKey && !dx) { dx = dy; dy = 0 }
+      view.panX -= dx
+      view.panY -= dy
     }
     applyTransform()
   }, { passive: false })
+
+  // Middle-button drags pan; stop the browser's autoscroll from starting too.
+  canvasViewport.addEventListener('mousedown', e => {
+    if (e.button === 1 && !e.target.closest('[data-canvas-ui]')) e.preventDefault()
+  })
+
+  // Ports say what they do: the tooltip is the only hint that a click
+  // (not just a drag) does something. Each card is one Tab stop.
+  if (!blockDecorators.includes(labelPorts)) blockDecorators.push(labelPorts)
+  if (!blockDecorators.includes(untabCardControls)) blockDecorators.push(untabCardControls)
+  canvasRoot.querySelectorAll('.block').forEach(el => untabCardControls(null, el))
 
   // Double-click: a card edits the field under the pointer, a connection
   // edits its label, empty canvas offers a block to add right there. Fit is
@@ -596,50 +696,122 @@ export function setupCanvasPointerEvents() {
 }
 
 // ── Keyboard shortcuts ───────────────────────────────────────
+// Every binding here is listed in SHORTCUTS (ui-panels.js); add both or
+// nobody learns the key exists.
+const noMods = e => !e.metaKey && !e.ctrlKey && !e.altKey
+
+function endSpacePan() {
+  nav.spaceHeld = false
+  $.canvasViewport()?.classList.remove('space-pan')
+}
+
 let keyboardWired = false
 export function setupKeyboardShortcuts() {
   if (keyboardWired) return
   keyboardWired = true
+  document.addEventListener('keyup', e => { if (e.code === 'Space' || e.key === ' ') endSpacePan() })
+  window.addEventListener('blur', endSpacePan)
   document.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
       e.preventDefault(); ui.searchOpen ? $.searchInput().focus() : openSearch(); return
     }
     // Nothing below this line may fire while the user is typing. `?` used to
     // sit above it, so a question mark in a description opened the help sheet.
-    const tag = document.activeElement?.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.contentEditable === 'true') return
+    if (isTyping()) return
+    const mod = e.metaKey || e.ctrlKey
+    const onCanvas = canvasHasFocus()
 
     if (e.key === '?') { e.preventDefault(); openShortcuts(); return }
-    if (e.altKey && e.key === 'h') { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
-    // Shift+1 fits every block in view. Matched on e.code: the key reads '!'
-    // on a US layout and something else elsewhere.
-    if (e.code === 'Digit1' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      e.preventDefault(); fitView(); return
+    // Matched on e.code too: Option+H types a symbol on a Mac.
+    if (e.altKey && !mod && (e.code === 'KeyH' || e.key === 'h')) { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
+
+    // ── View: about the window, not the map, so live in read-only and embed.
+    // Cmd/Ctrl + = - 0 zoom the canvas instead of the page, but only while
+    // the canvas has focus: from the side panel they stay the browser's own
+    // page zoom, which people with low vision rely on.
+    if (mod && !e.altKey && canvasZoomKeysApply()) {
+      if (e.key === '=' || e.key === '+' || e.code === 'NumpadAdd') { e.preventDefault(); zoomIn(); return }
+      if (e.key === '-' || e.code === 'NumpadSubtract') { e.preventDefault(); zoomOut(); return }
+      if (e.code === 'Digit0' || e.code === 'Numpad0') { e.preventDefault(); zoomTo(1); return }
+    }
+    if (onCanvas && noMods(e)) {
+      // Shift+digit matched on e.code: the key reads '!' on a US layout and
+      // something else elsewhere.
+      if (e.shiftKey && e.code === 'Digit1') { e.preventDefault(); fitView(); return }
+      if (e.shiftKey && e.code === 'Digit2') { e.preventDefault(); zoomToSelection(); return }
+      // The typed '=' wins over Shift+0: on a German keyboard '=' is Shift+0.
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn(); return }
+      if (e.shiftKey && e.code === 'Digit0') { e.preventDefault(); zoomTo(1); return }
+      if (e.key === '-' && !e.shiftKey) { e.preventDefault(); zoomOut(); return }
+      if (!e.shiftKey) {
+        const k = e.key.toLowerCase()
+        if (k === 'h') { e.preventDefault(); toggleChrome(); return }
+        if (k === 'z') { e.preventDefault(); toggleZen();   return }
+      }
+      if (e.code === 'Space' || e.key === ' ') {
+        // Held Space turns the next drag into a pan. The keydown still
+        // reaches a focused card first, which selects it.
+        e.preventDefault()
+        if (!nav.spaceHeld) { nav.spaceHeld = true; $.canvasViewport()?.classList.add('space-pan') }
+        return
+      }
     }
 
-    // View keys stay live in read-only and embed views: they are about the
-    // window, not about editing.
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      const k = e.key.toLowerCase()
-      if (k === 'h') { e.preventDefault(); toggleChrome(); return }
-      if (k === 'z') { e.preventDefault(); toggleZen();   return }
+    // ── Moving around. Selection and the camera are not edits, so these
+    // work in read-only too; nudging and creating do not.
+    const dir = ARROW_DIRS[e.key]
+    if (dir && onCanvas) {
+      if (mod && !e.altKey && !e.shiftKey) {
+        e.preventDefault()   // Cmd+Left is Back in some browsers
+        const from = currentBlockId()
+        const to = from ? nearestInDirection(from, dir) : readingOrder()[0]
+        if (to) selectFromKeyboard(to)
+        return
+      }
+      if (e.altKey && !mod && !e.shiftKey) {
+        if (ui.readOnly) return
+        e.preventDefault()   // Alt+Left is Back on Windows
+        const from = currentBlockId()
+        if (from) createInDirection(from, dir)
+        return
+      }
+      if (noMods(e)) {
+        e.preventDefault()
+        if (!ui.readOnly && selection.ids.size) nudgeSelection(dir, e.shiftKey)
+        else panBy(dir, e.shiftKey)
+        return
+      }
     }
 
-    if (ui.readOnly) return
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'l') {
-      e.preventDefault(); runTidy(); return
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); setSelection(Object.keys(state.blocks)); return }
     if (e.key === 'Escape') {
       if ($.shortcutOverlay().style.display !== 'none') { closeShortcuts(); return }
       if (ui.searchOpen) { closeSearch(); return }
       if (ui.votingMode) { setVotingMode(false); return }
-      deselectAll(); return
+      if (selection.ids.size || selection.arrowId || selection.groupId) { deselectAll(); return }
+      // Nothing left to deselect: let go of the canvas, so the keyboard is
+      // never stuck in it.
+      const ae = document.activeElement
+      if (ae && ae !== document.body && $.canvasViewport().contains(ae)) ae.blur()
+      return
+    }
+
+    // Selecting everything is not an edit either: it works in a view-only link.
+    if (mod && e.key === 'a') { e.preventDefault(); setSelection(Object.keys(state.blocks)); return }
+
+    if (ui.readOnly) return
+    if (onCanvas && noMods(e) && !e.shiftKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault(); runTidy(); return
+    }
+    // Cmd/Ctrl+Enter adds a connected block to the right of the selected one.
+    if (mod && !e.altKey && e.key === 'Enter' && onCanvas) {
+      const from = currentBlockId()
+      if (from) { e.preventDefault(); createInDirection(from, 'right') }
+      return
     }
     // Enter or F2 edits the selected card's title, Shift+Enter its
     // description. Only from the canvas or the page itself: Enter on a
     // focused button must press that button.
-    if ((e.key === 'Enter' || e.key === 'F2') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented) {
+    if ((e.key === 'Enter' || e.key === 'F2') && noMods(e) && !e.defaultPrevented) {
       const ae = document.activeElement
       // A control on the card (collapse, doc badge) keeps its own Enter.
       const fromCanvas = !ae || ae === document.body ||
@@ -651,14 +823,14 @@ export function setupKeyboardShortcuts() {
         return
       }
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
-    if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return }
+    if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
+    if (mod && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       if      (selection.ids.size > 1)  deleteBlocksBatch([...selection.ids])
       else if (selection.blockId)       deleteBlock(selection.blockId)
       else if (selection.arrowId)       deleteArrow(selection.arrowId)
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selection.blockId) {
+    if (mod && e.key === 'd' && selection.blockId) {
       e.preventDefault()
       const newId = duplicateBlock(selection.blockId)
       if (newId) selectBlock(newId)
@@ -672,21 +844,86 @@ let tabNavWired = false
 export function setupTabNavigation() {
   if (tabNavWired) return
   tabNavWired = true
-  // Tab / Shift+Tab cycles through blocks in visual order
-  $.canvasViewport().addEventListener('keydown', e => {
-    if (e.target.closest('[data-canvas-ui]')) return
-    if (e.key !== 'Tab') return
-    const ids = Object.keys(state.blocks); if (!ids.length) return
-    const sorted = [...ids].sort((a, b) => {
-      const ba = state.blocks[a], bb = state.blocks[b]
-      return ba.y !== bb.y ? ba.y - bb.y : ba.x - bb.x
-    })
-    const cur  = sorted.findIndex(id => getBlockEl(id) === document.activeElement)
-    const next = e.shiftKey
-      ? (cur <= 0 ? sorted.length - 1 : cur - 1)
-      : (cur < 0 || cur >= sorted.length - 1 ? 0 : cur + 1)
-    e.preventDefault()
-    getBlockEl(sorted[next])?.focus()
+  // Tab / Shift+Tab walk the blocks in reading order, selecting each, and
+  // then leave the canvas: Tab after the last block goes on to whatever
+  // follows the canvas, Shift+Tab before the first goes back to the canvas
+  // itself and from there out. It used to wrap forever (WCAG 2.1.2).
+  const viewport = $.canvasViewport()
+  viewport.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey) return
+    if (e.target.closest('[data-canvas-ui]') || e.target.isContentEditable) return
+    const order = readingOrder(); if (!order.length) return
+    const block = e.target.closest('.block')
+    const cur = block ? order.indexOf(block.dataset.id) : -1
+    if (!block) {
+      // On the canvas itself: Tab enters at the first block, Shift+Tab leaves.
+      if (e.target !== viewport || e.shiftKey) return
+      // Controls floating over the canvas (Find, the review bar) come first,
+      // in page order; the focusin handler below then lands on the first
+      // block in reading order.
+      if (controlsBeforeCanvas().length) return
+      e.preventDefault(); selectFromKeyboard(order[0]); return
+    }
+    const next = cur + (e.shiftKey ? -1 : 1)
+    if (cur >= 0 && next >= 0 && next < order.length) {
+      e.preventDefault(); selectFromKeyboard(order[next]); return
+    }
+    if (e.shiftKey) {
+      // Before the first block: the last floating control, else the canvas.
+      e.preventDefault()
+      const before = controlsBeforeCanvas()
+      ;(before[before.length - 1] || viewport).focus({ preventScroll: true })
+      return
+    }
+    // Past the last block. Cards come in DOM order, not reading order, so
+    // the browser's own next stop could be another card: skip them all.
+    const after = focusableAfterCanvas()
+    if (after) { e.preventDefault(); after.focus(); return }
+    // Nothing tabbable follows the canvas (an embed, say). Take the cards,
+    // and anything tabbable inside them, out of the tab order for this one
+    // key press, so the browser moves on out of the page instead of back to
+    // a card (or a card's button) that is later in the DOM.
+    const stops = [...$.canvasRoot().querySelectorAll('.block, .block *')].filter(el => el.tabIndex >= 0)
+    const was = stops.map(el => el.getAttribute('tabindex'))
+    stops.forEach(el => { el.tabIndex = -1 })
+    setTimeout(() => stops.forEach((el, i) => {
+      if (!el.isConnected) return
+      if (was[i] == null) el.removeAttribute('tabindex'); else el.setAttribute('tabindex', was[i])
+    }), 0)
+  })
+
+  // Tab can also reach the cards from a control beside them in the page (the
+  // Find button before, the status bar after). Cards sit in DOM order, so a
+  // plain Tab would land on whichever card was created first. Treat the
+  // canvas as one stop instead: going forwards lands on the first block in
+  // reading order, going backwards on the last.
+  let tabAt = -Infinity, tabBack = false
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Tab') { tabAt = performance.now(); tabBack = e.shiftKey }
+  }, true)
+  // Where focus last left from inside a card. Closing a title editor blurs
+  // the field before the card takes focus back, so that focusin arrives with
+  // no relatedTarget, exactly like focus coming from outside the page. A
+  // focusout inside the canvas just before says it is only moving within.
+  let leftAt = -Infinity, leftBlock = null
+  $.canvasRoot().addEventListener('focusout', e => {
+    leftBlock = e.target.closest?.('.block') || null
+    leftAt = performance.now()
+  })
+  const justLeft = block => performance.now() - leftAt < 100 && (!block || leftBlock === block)
+  $.canvasRoot().addEventListener('focusin', e => {
+    // Whatever inside a card the browser lands on (the card, or a button on
+    // it) counts as arriving at the canvas. A field being edited never does:
+    // Tab inside a title moves on to the description.
+    const block = e.target.closest?.('.block')
+    if (!block || e.target.isContentEditable || performance.now() - tabAt > 200) return
+    if (e.relatedTarget && $.canvasRoot().contains(e.relatedTarget)) return
+    if (justLeft()) return
+    const order = readingOrder(); if (!order.length) return
+    const want = tabBack ? order[order.length - 1] : order[0]
+    if (e.target !== block || block.dataset.id !== want || selection.ids.size !== 1 || selection.blockId !== want) {
+      selectFromKeyboard(want)
+    }
   })
 
   // Enter / Space on focused block → select it. Enter on the block that is
@@ -694,9 +931,12 @@ export function setupTabNavigation() {
   // Only the card itself: Enter or Space on a button inside it presses the button.
   $.canvasRoot().addEventListener('keydown', e => {
     if (e.key !== 'Enter' && e.key !== ' ') return
+    if (e.metaKey || e.ctrlKey || e.altKey) return   // Cmd/Ctrl+Enter creates, see setupKeyboardShortcuts
     if (e.target.isContentEditable) return
     const block = e.target.closest('.block'); if (!block || e.target !== block) return
     const id = block.dataset.id
+    // Holding Space to pan repeats the key; select once.
+    if (e.key === ' ' && e.repeat) { e.preventDefault(); return }
     if (e.key === 'Enter' && selection.ids.size === 1 && selection.blockId === id) return
     e.preventDefault(); selectBlock(id)
   })
@@ -717,18 +957,29 @@ export function setupTabNavigation() {
   // Auto-pan canvas when a focused block is off-screen
   $.canvasRoot().addEventListener('focusin', e => {
     const block = e.target.closest('.block'); if (!block) return
-    if (fromPress()) return
+    // A block the pointer just placed (quick create) stays where it was put.
+    if (fromPress() || isCameraHeld()) return
     // Focus moving within one card (into its title editor and back) is not
     // arriving at it.
     if (e.relatedTarget && block.contains(e.relatedTarget)) return
+    if (justLeft(block)) return
     const id = block.dataset.id; const b = state.blocks[id]; if (!b) return
     const { w, h } = getBlockDims(id)
     const vp  = $.canvasViewport(), pad = 60
+    const W = vp.offsetWidth, H = vp.offsetHeight
     const bX1 = b.x * view.zoom + view.panX, bY1 = b.y * view.zoom + view.panY
     const bX2 = bX1 + w * view.zoom,          bY2 = bY1 + h * view.zoom
-    if (bX1 >= pad && bY1 >= pad && bX2 <= vp.offsetWidth - pad && bY2 <= vp.offsetHeight - pad) return
-    view.panX = vp.offsetWidth  / 2 - (b.x + w / 2) * view.zoom
-    view.panY = vp.offsetHeight / 2 - (b.y + h / 2) * view.zoom
+    if (bX1 >= pad && bY1 >= pad && bX2 <= W - pad && bY2 <= H - pad) return
+    if (bX2 <= 0 || bY2 <= 0 || bX1 >= W || bY1 >= H) {
+      // Nowhere on screen: centre it, so what surrounds it shows too.
+      view.panX = W / 2 - (b.x + w / 2) * view.zoom
+      view.panY = H / 2 - (b.y + h / 2) * view.zoom
+    } else {
+      // Partly on screen: move only as far as it takes. Recentring a card
+      // that overhangs by a few pixels jumped the whole canvas.
+      view.panX += revealShift(bX1, bX2, W, pad)
+      view.panY += revealShift(bY1, bY2, H, pad)
+    }
     applyTransform()
   })
 }

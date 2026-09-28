@@ -190,7 +190,7 @@
   <section class="canvas-workspace" aria-label="Planning canvas">
   <div class="canvas-viewport" id="canvasViewport"
        role="application"
-       aria-label="Strategy canvas. Tab to navigate blocks, Enter to select, arrow keys to pan."
+       aria-label="Strategy canvas. Tab and Shift+Tab move between blocks in reading order. Enter or F2 edits the selected block. Arrow keys nudge it, or pan when nothing is selected. Ctrl or Command with an arrow selects the nearest block, Alt with an arrow adds a connected block. Escape deselects. Question mark lists every shortcut."
        tabindex="0">
 
     <!-- Empty state hint -->
@@ -303,8 +303,10 @@
   </div>
 
   <div class="canvas-statusbar" id="canvasStatusbar" data-canvas-ui>
-    <div class="zoom-controls" id="zoomControls" data-canvas-ui>
-      <span class="zoom-indicator" id="zoomIndicator" title="Canvas zoom" aria-label="Canvas zoom">100%</span>
+    <div class="zoom-controls" id="zoomControls" data-canvas-ui role="group" aria-label="Zoom">
+      <button type="button" class="zoom-btn zoom-step" id="zoomOutBtn" title="Zoom out (-)" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+      <button type="button" class="zoom-btn zoom-level-btn" id="zoomMenuBtn" title="Zoom options" aria-haspopup="menu" aria-expanded="false"><span class="sr-only">Zoom </span><span class="zoom-indicator" id="zoomIndicator">100%</span><svg class="zoom-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+      <button type="button" class="zoom-btn zoom-step" id="zoomInBtn" title="Zoom in (=)" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
       <button type="button" class="zoom-fit-btn" id="fitViewBtn" title="Fit all blocks in view (Shift+1)" aria-label="Fit all blocks in view">Fit</button>
     </div>
     <span class="backup-status" id="backupStatus" hidden></span>

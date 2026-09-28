@@ -200,54 +200,129 @@ export function setupSearchEvents() {
 }
 
 // ── Shortcuts overlay ────────────────────────────────────────
-const SHORTCUTS = [
-  ['\u2318/Ctrl + Z',        'Undo'],
-  ['\u2318/Ctrl + Shift+Z',  'Redo'],
-  ['\u2318/Ctrl + D',        'Duplicate selected block'],
-  ['\u2318/Ctrl + A',        'Select all blocks'],
-  ['\u2318/Ctrl + F',        'Search blocks'],
-  ['Delete / Backspace', 'Delete selected block or arrow'],
-  ['Enter / F2',         'Edit the selected card\u2019s title'],
-  ['Shift + Enter',      'Edit the selected card\u2019s description'],
-  ['Double-click card',  'Edit the title, or the description you clicked'],
-  ['Double-click line',  'Edit the connection\u2019s label'],
-  ['Double-click canvas','Add a block where you click'],
-  ['Shift + click',      'Add block to selection'],
-  ['Shift + drag',       'Rubber-band multi-select'],
-  ['Right-click block',  'Quick actions (duplicate, type, color\u2026)'],
-  ['Right-click canvas', 'Add a block where you click'],
-  ['Drag port \u25CF',        'Draw connection arrow'],
-  ['Two-finger scroll',  'Pan the canvas'],
-  ['Pinch / \u2318+scroll',   'Zoom in and out'],
-  ['Drag empty canvas',  'Pan the canvas'],
-  ['Shift + 1',          'Fit all blocks in view'],
-  ['Tab / Shift+Tab',    'Navigate between blocks'],
-  ['Enter / Space',      'Select the focused block'],
-  ['L',                  'Tidy: auto-arrange the canvas'],
-  ['H',                  'Hide the header and footer'],
-  ['Z',                  'Zen: hide every panel too'],
-  ['Alt + H',            'Toggle high-contrast mode'],
-  ['Escape',             'Finish editing / deselect / close overlay'],
-  ['?',                  'Show this help'],
+// Every binding the canvas has, by what it is for. The handlers live in
+// events.js (and inline-edit.js, arrow-edit.js, context-menu.js); a key
+// added there has to be added here too, or nobody learns it exists.
+export const SHORTCUTS = [
+  { group: 'Editing', keys: [
+    ['Enter / F2',             'Edit the selected card\u2019s title, or the selected connection\u2019s label'],
+    ['Shift + Enter',          'Edit the selected card\u2019s description'],
+    ['Double-click card',      'Edit the title, or the description where you click'],
+    ['Double-click line',      'Edit the connection\u2019s label'],
+    ['Tab (in a title)',       'Keep the title and edit the description'],
+    ['Shift + Tab (in a description)', 'Keep the description and go back to the title'],
+    ['Enter or Escape',        'Finish editing a title (Escape keeps what you typed)'],
+    ['\u2318/Ctrl + Enter or Escape', 'Finish editing a description'],
+    ['Arrow keys',             'Nudge the selected blocks 1px (a grid step when snapping)'],
+    ['Shift + Arrow',          'Nudge the selected blocks 10px'],
+    ['\u2318/Ctrl + D',        'Duplicate the selected block'],
+    ['Delete / Backspace',     'Delete the selected blocks or connection'],
+    ['\u2318/Ctrl + Z',        'Undo'],
+    ['\u2318/Ctrl + Shift + Z','Redo'],
+    ['Right-click',            'Quick actions for a card, a connection or the canvas'],
+    ['Shift + F10 / Menu key', 'Quick actions for the selected card'],
+    ['L',                      'Tidy: auto-arrange the canvas'],
+  ] },
+  { group: 'Navigation', keys: [
+    ['Tab / Shift + Tab',      'Select the next or previous block in reading order; past the last one, leave the canvas'],
+    ['\u2318/Ctrl + Arrow',    'Select the nearest block in that direction, connected ones first'],
+    ['Enter / Space',          'Select the focused block'],
+    ['Escape',                 'Deselect; press again to leave the canvas. Also closes overlays'],
+    ['Shift + click',          'Add a block to the selection'],
+    ['Shift + drag',           'Select blocks inside a box'],
+    ['\u2318/Ctrl + A',        'Select every block'],
+    ['\u2318/Ctrl + F',        'Find blocks'],
+    ['Arrow keys',             'Pan the canvas when nothing is selected (Shift pans further)'],
+    ['Drag empty canvas',      'Pan the canvas'],
+    ['Space + drag',           'Pan the canvas, even over cards'],
+    ['Middle-button drag',     'Pan the canvas'],
+    ['Scroll / two fingers',   'Pan the canvas (Shift + wheel pans sideways)'],
+  ] },
+  { group: 'Creating', keys: [
+    ['Double-click canvas',    'Add a block where you click'],
+    ['Right-click canvas',     'Add a block where you click'],
+    ['Drag a port \u25CF',     'Draw a connection; drop it on empty canvas to add a connected block there'],
+    ['Click a port \u25CF',    'Add a connected block on that side'],
+    ['Alt + Arrow',            'Add a connected block in that direction'],
+    ['\u2318/Ctrl + Enter',    'Add a connected block to the right'],
+  ] },
+  { group: 'View', keys: [
+    ['Shift + 1',              'Fit all blocks in view'],
+    ['Shift + 2',              'Zoom to the selection'],
+    ['Shift + 0',              'Zoom to 100%'],
+    ['= / -',                  'Zoom in / out'],
+    ['\u2318/Ctrl + = / - / 0','Zoom in / out / to 100% while the canvas has focus (elsewhere they zoom the page)'],
+    ['Pinch / \u2318/Ctrl + scroll', 'Zoom at the pointer'],
+    ['H',                      'Hide the header and footer'],
+    ['Z',                      'Zen: hide every panel too'],
+    ['Alt + H',                'High-contrast mode'],
+    ['?',                      'Show this help'],
+  ] },
 ]
 
+// A view-only link cannot edit or create, so its sheet lists only the keys
+// that work there instead of promising ones that do nothing.
+const READ_ONLY_GROUPS = ['Navigation', 'View']
+
 export function buildShortcutGrid() {
-  const grid = $.shortcutGrid()
-  SHORTCUTS.forEach(([key, desc]) => {
-    const k = document.createElement('span'); k.className = 'shortcut-key'; k.textContent = key
-    const d = document.createElement('span'); d.className = 'shortcut-desc'; d.textContent = desc
-    grid.appendChild(k); grid.appendChild(d)
+  const grid = $.shortcutGrid(); if (!grid) return
+  grid.textContent = ''
+  const note = document.createElement('p')
+  note.className = 'shortcut-note'
+  note.textContent = 'Single keys (letters, digits, =, -, arrows, Space) work while the canvas has focus: click it or press Tab to reach it.' +
+    (ui.readOnly ? ' This is a view-only link, so editing keys are off.' : '')
+  grid.appendChild(note)
+  const groups = ui.readOnly ? SHORTCUTS.filter(g => READ_ONLY_GROUPS.includes(g.group)) : SHORTCUTS
+  // Newspaper columns (CSS), so all four groups fit one screen on a laptop
+  // instead of the View keys waiting below the fold. Each key and its
+  // description share a row wrapper that never splits across columns.
+  const columns = document.createElement('div')
+  columns.className = 'shortcut-columns'
+  groups.forEach(({ group, keys }) => {
+    const section = document.createElement('section')
+    section.className = 'shortcut-section'
+    const h = document.createElement('h3')
+    h.className = 'shortcut-group'
+    h.textContent = group
+    const list = document.createElement('dl')
+    list.className = 'shortcut-list'
+    keys.forEach(([key, desc]) => {
+      const row = document.createElement('div'); row.className = 'shortcut-row'
+      const k = document.createElement('dt'); k.className = 'shortcut-key'; k.textContent = key
+      const d = document.createElement('dd'); d.className = 'shortcut-desc'; d.textContent = desc
+      row.appendChild(k); row.appendChild(d)
+      list.appendChild(row)
+    })
+    section.appendChild(h); section.appendChild(list)
+    columns.appendChild(section)
   })
+  grid.appendChild(columns)
 }
+
+// Where focus was before the sheet opened, so closing it puts you back.
+let shortcutsReturnFocus = null
 
 export function openShortcuts() {
   const overlay = $.shortcutOverlay()
+  if (overlay.style.display === 'none') {
+    shortcutsReturnFocus = document.activeElement
+    buildShortcutGrid()   // read-only may have changed since start-up
+  }
   overlay.style.display = ''
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
   requestAnimationFrame(() => document.getElementById('shortcutClose')?.focus())
 }
-export function closeShortcuts() { $.shortcutOverlay().style.display = 'none' }
+export function closeShortcuts() {
+  const overlay = $.shortcutOverlay()
+  const wasOpen = overlay.style.display !== 'none'
+  overlay.style.display = 'none'
+  const back = shortcutsReturnFocus
+  shortcutsReturnFocus = null
+  if (wasOpen && back && back.isConnected && back !== document.body && typeof back.focus === 'function') {
+    back.focus({ preventScroll: true })
+  }
+}
 
 // Generic focus trap: keeps Tab within a container
 function trapFocus(container, e) {
@@ -259,14 +334,21 @@ function trapFocus(container, e) {
   else { if (document.activeElement === last) { e.preventDefault(); first.focus() } }
 }
 
+let shortcutOverlayWired = false
 export function setupShortcutOverlay() {
-  document.getElementById('shortcutClose').addEventListener('click', closeShortcuts)
-  $.shortcutOverlay().addEventListener('click', e => {
+  const overlay = $.shortcutOverlay()
+  if (shortcutOverlayWired || !overlay) return
+  shortcutOverlayWired = true
+  document.getElementById('shortcutClose')?.addEventListener('click', closeShortcuts)
+  overlay.addEventListener('click', e => {
     if (e.target === $.shortcutOverlay()) closeShortcuts()
   })
-  $.shortcutOverlay().addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeShortcuts(); return }
-    trapFocus($.shortcutOverlay().querySelector('.shortcut-modal'), e)
+  overlay.addEventListener('keydown', e => {
+    // Escape closes the sheet and nothing else: without stopping here the
+    // canvas's own Escape also cleared the selection behind it.
+    if (e.key === 'Escape') { e.stopPropagation(); closeShortcuts(); return }
+    const modal = $.shortcutOverlay().querySelector('.shortcut-modal')
+    if (modal) trapFocus(modal, e)
   })
 }
 
