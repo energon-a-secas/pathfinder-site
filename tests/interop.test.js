@@ -35,7 +35,9 @@ describe('fromJsonCanvas()', () => {
     assert.eq(n1.type, 'problem')
     assert.eq(n1.title, 'checkout breaks')
     assert.includes(n1.description, 'Intermittent')
-    assert.eq(n1.color, '#f87171', 'preset color 1 maps to the red accent')
+    // A preset is a type hint (preset 1 was problem's), spent on the type:
+    // no colour override is kept, so the card follows the theme.
+    assert.eq(n1.color, null, 'preset color 1 resolves to the problem type, not an override')
     const n2 = payload.blocks.find(b => b.id === 'n2')
     assert.eq(n2.type, 'requirement')
   })
@@ -69,7 +71,9 @@ describe('toJsonCanvas()', () => {
     assert.eq(out.nodes.length, 2)
     const p = out.nodes.find(n => n.id === 'p1')
     assert.eq(p.type, 'text')
-    assert.eq(p.color, '1', 'problem maps to preset red')
+    // The type's own hex (lossless) replaced the shared presets in 2026-09.
+    assert.eq(p.color, '#f87171', 'problem exports its own hex, which maps back to one type')
+    assert.eq(p.pathfinderType, 'problem')
     assert.includes(p.text, '#### It breaks')
     const d = out.nodes.find(n => n.id === 'd1')
     assert.includes(d.text, 'Rationale: cheapest')

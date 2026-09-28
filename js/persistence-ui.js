@@ -1,6 +1,11 @@
 import { ui, saveState, saveStatus } from './state.js'
 import { exportJSON } from './export.js'
 
+// Set when this tab is about to reload onto a newer copy another tab saved:
+// flushing on the way out would write this tab's older copy over it.
+let flushSuspended = false
+export function suspendUnloadFlush() { flushSuspended = true }
+
 export function setupPersistence() {
   const host = document.getElementById('saveStatusBar')
   if (!host) return
@@ -24,6 +29,7 @@ export function setupPersistence() {
   document.getElementById('saveBackup').addEventListener('click', exportJSON)
   window.addEventListener('pf:save-status', refresh)
   const flush = () => {
+    if (flushSuspended) return true
     if (saveStatus.phase === 'pending' || saveStatus.phase === 'error') return saveState()
     return true
   }

@@ -11,12 +11,16 @@
 //  Switching flushes the current canvas, loads the target through
 //  the same normalize/import path a share link takes, and clears
 //  the undo stack, since undo must never cross canvases.
+//
+//  openAsNewMap() is where a link, a ?src= URL or an imported file
+//  lands by default (sharing.js asks first), and the backup stamps
+//  ('pathfinder-backup') record when each map was last exported.
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, view, canvasMeta, promptState, saveState, saveHooks, serializeCanvas,
          saveView, loadView, getUndoHistory, getRedoFuture } from './state.js'
 import { applyTransform } from './canvas.js'
-import { genId, showToast } from './utils.js'
+import { genId, showToast, STORAGE_KEY } from './utils.js'
 import { applyImport } from './export.js'
 import { normalizeCanvas } from './normalize.js'
 import { searchBlocks } from './search.js'
@@ -44,11 +48,57 @@ function loadIndex() {
 function saveIndex(index) {
   try { localStorage.setItem(INDEX_KEY, JSON.stringify(index)); return true } catch (_) { return false }
 }
+
+// ── Which map this tab has open ──────────────────────────────
+// CUR_KEY is shared by every tab and names the map a fresh load opens.
+// When another tab moves it (opens a link as a new map, switches maps),
+// this tab still shows its own map, and its saves must keep going to that
+// map's slot, not the other tab's. A storage event is the only signal: it
+// fires in the other tabs, never in the tab that wrote, so this tab's own
+// switches (and a test writing the key directly) never look foreign.
+let tabMap = null        // the map this tab last opened or adopted
+let pointerAway = false  // another tab has moved CUR_KEY off tabMap
+
 export function currentId() {
+  if (pointerAway && tabMap) return tabMap
   try { return localStorage.getItem(CUR_KEY) } catch (_) { return null }
 }
 function setCurrentId(id) {
-  try { localStorage.setItem(CUR_KEY, id); return true } catch (_) { return false }
+  try { localStorage.setItem(CUR_KEY, id) } catch (_) { return false }
+  tabMap = id || null
+  pointerAway = false
+  return true
+}
+
+/**
+ * storage listener: another tab moved the shared pointer. Returns whether
+ * this tab's map is now a different one from the pointer's.
+ */
+export function notePointerMove(e) {
+  if (!e || (e.storageArea && e.storageArea !== localStorage)) return pointerAway
+  if (e.key !== CUR_KEY && e.key !== null) return pointerAway
+  if (!tabMap) tabMap = e.oldValue || null
+  pointerAway = !!tabMap && e.newValue !== tabMap
+  return pointerAway
+}
+
+/** Test hook: forget which map this tab had open. */
+export function forgetTabMap() { tabMap = null; pointerAway = false }
+
+/**
+ * Make this tab's map the one a load opens: its latest saved copy goes to
+ * STORAGE_KEY and the pointer names it. The "changed in another tab"
+ * Reload uses it, so the reload shows this map as that tab left it rather
+ * than whichever map some tab saved last.
+ */
+export function pointAtThisMap() {
+  const id = currentId()
+  if (!id) return false
+  try {
+    const slot = localStorage.getItem(slotKey(id))
+    if (slot) localStorage.setItem(STORAGE_KEY, slot)
+  } catch (_) { return false }
+  return setCurrentId(id)
 }
 function readSlot(id) {
   try {
@@ -85,6 +135,10 @@ export function searchSavedMaps(query, filters = {}) {
 export function writeThrough() {
   const id = currentId()
   if (!id) return true
+  // Another tab moved the pointer, and this save just wrote this tab's map
+  // to STORAGE_KEY. Name it again, or a load would read this canvas as the
+  // other tab's map and file it under that map's slot.
+  if (pointerAway && !setCurrentId(id)) return false
   try { localStorage.setItem(slotKey(id), JSON.stringify(payloadOfState())) } catch (_) { return false }
   const index = loadIndex()
   const row = index.find(e => e.id === id) || (index.push({ id }), index[index.length - 1])
@@ -160,7 +214,8 @@ export function restoreSnapshot(snapId) {
 
 /** First run: adopt whatever canvas already exists as map number one. */
 export function ensureLibrary() {
-  if (currentId()) return
+  const cur = currentId()
+  if (cur) { if (!pointerAway) tabMap = cur; return }
   const id = genId()
   if (setCurrentId(id)) writeThrough()
 }
@@ -181,7 +236,7 @@ function loadPayload(payload, { resetExport = true } = {}) {
   // was there. A brand-new or never-visited map still fits to its content.
   const restored = loadView({ legacy: false })
   if (!restored) Object.assign(view, { panX: 0, panY: 0, zoom: 1 })
-  applyImport(payload, 'replace', { fit: !restored })
+  const result = applyImport(payload, 'replace', { fit: !restored })
   applyTransform()
   clearUndo()
   if (resetExport) promptState.lastSnapshot = null
@@ -192,6 +247,7 @@ function loadPayload(payload, { resetExport = true } = {}) {
   // Let listeners that key off canvas changes (readiness verdict, prompt
   // preview) re-evaluate against the map that just loaded.
   window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
+  return result
 }
 
 export function switchTo(id) {
@@ -235,6 +291,40 @@ export function duplicateCurrent() {
   showToast('Duplicated. You are now on the copy', 'success', 2200)
 }
 
+/**
+ * Open an incoming canvas (a share link, a ?src= URL, an imported file) as a
+ * map of its own, leaving the current one exactly as it was. This is the
+ * default for everything that arrives from outside: a teammate's link must
+ * never overwrite your work because you clicked it.
+ * Returns applyImport's { imported, dropped, idMap }, or false when nothing
+ * changed (storage full, or the current map could not be flushed first).
+ */
+export function openAsNewMap(data) {
+  if (ui.readOnly || ui.embed) return false
+  // The library may not be set up yet on a first visit, and its save hook
+  // may not be registered yet during init: adopt and mirror explicitly.
+  ensureLibrary()
+  if (!saveState()) return false
+  if (currentId() && !writeThrough()) {
+    showToast('Could not keep your current map, so nothing was opened. Free some storage and try again', 'warning', 4000)
+    return false
+  }
+  saveView()
+  const id = genId()
+  try { localStorage.setItem(slotKey(id), JSON.stringify(data)) } catch (_) {
+    showToast('No room left in this browser for another map. Your current map is unchanged', 'warning', 4000)
+    return false
+  }
+  if (!setCurrentId(id)) {
+    try { localStorage.removeItem(slotKey(id)) } catch (_) {}
+    showToast('Could not open a new map. Your current map is unchanged', 'warning', 4000)
+    return false
+  }
+  const result = loadPayload(data)
+  writeThrough()
+  return result
+}
+
 export function deleteMap(id) {
   if (id === currentId() && !saveState()) return false
   const index = loadIndex().filter(e => e.id !== id)
@@ -242,6 +332,8 @@ export function deleteMap(id) {
   try { localStorage.removeItem(slotKey(id)) } catch (_) {}
   try { localStorage.removeItem(snapKey(id)) } catch (_) {}
   try { localStorage.removeItem('pathfinder-view:' + id) } catch (_) {}
+  const backup = readBackup()
+  if (backup.maps[id]) { delete backup.maps[id]; writeBackup(backup) }
   if (id === currentId()) {
     const next = index[0]
     if (next) {
@@ -276,6 +368,52 @@ export function exportAllMaps() {
   a.download = 'pathfinder-maps.json'
   a.click()
   URL.revokeObjectURL(a.href)
+  recordBackup('all', Date.now(), bundle.maps.map(m => m.id))
+}
+
+// ── Backups: when this browser last exported a copy ───────────
+// localStorage is one browser's copy, capped at about 5 MiB, and Safari
+// evicts script-written data after seven days without a visit. A file
+// export is the only copy that survives all of that, so the app tracks
+// when one was last made, per map, and says so in the status bar.
+
+const BACKUP_KEY = 'pathfinder-backup'
+
+export function readBackup() {
+  try {
+    const b = JSON.parse(localStorage.getItem(BACKUP_KEY) || '{}')
+    return {
+      all: Number.isFinite(b.all) ? b.all : null,
+      maps: b.maps && typeof b.maps === 'object' ? b.maps : {},
+      since: Number.isFinite(b.since) ? b.since : null,
+      nagAt: Number.isFinite(b.nagAt) ? b.nagAt : null,
+    }
+  } catch (_) { return { all: null, maps: {}, since: null, nagAt: null } }
+}
+
+export function writeBackup(b) {
+  try { localStorage.setItem(BACKUP_KEY, JSON.stringify(b)); return true } catch (_) { return false }
+}
+
+/**
+ * Record an export: one map's id, or 'all' with the ids the bundle held.
+ * Stamped per map, so a map created after the last Export all still reads
+ * "never" rather than borrowing a date from before it existed.
+ */
+export function recordBackup(scope = 'all', at = Date.now(), ids = null) {
+  const b = readBackup()
+  if (scope === 'all') {
+    b.all = at
+    ;(ids || [currentId(), ...loadIndex().map(e => e.id)]).filter(Boolean).forEach(id => { b.maps[id] = at })
+  } else if (scope) b.maps[scope] = at
+  writeBackup(b)
+  window.dispatchEvent(new CustomEvent('pf:backup-recorded', { detail: { scope, at } }))
+}
+
+/** When the given map was last exported, by itself or in an Export all. */
+export function lastBackupAt(mapId = currentId()) {
+  const b = readBackup()
+  return (mapId && Number.isFinite(b.maps[mapId]) && b.maps[mapId]) || null
 }
 
 export function importMapsFile(file) {
@@ -425,6 +563,7 @@ export function setupLibrary() {
   ensureLibrary()
   saveHooks.push(writeThrough)
   saveState()
+  window.addEventListener('storage', notePointerMove)
 
   const btn = document.getElementById('mapsBtn')
   btn.addEventListener('click', e => {

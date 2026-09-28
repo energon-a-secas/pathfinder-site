@@ -67,10 +67,18 @@ describe('Shared link loading', () => {
     assert.ok(state.blocks.shared && !state.blocks.private)
     assert.eq(localStorage.getItem('pathfinder-v1'), 'private document')
   }))
-  it('editable share imports retain unrelated query options and save the incoming title', () => isolated(() => {
+  it('editable share imports retain unrelated query options and save the incoming title', () => isolated(async () => {
     history.replaceState(null, '', '?theme=default#s=' + btoa(encodeURIComponent(JSON.stringify(shared))))
-    window.confirm = () => true
+    // A map with content is never replaced without a choice: the link asks
+    // in a dialog (sharing.js), and a confirm() box is no longer involved.
+    let prompts = 0
+    window.confirm = () => { prompts++; return true }
     assert.eq(checkShareUrl(), true)
+    assert.eq(prompts, 0)
+    const choice = document.querySelector('#incomingDialog [data-choice="replace"]')
+    assert.ok(choice, 'the dialog offers Replace')
+    choice.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
     assert.eq(location.hash, '')
     assert.eq(location.search, '?theme=default')
     assert.eq(JSON.parse(localStorage.getItem('pathfinder-v1')).meta.title, '')

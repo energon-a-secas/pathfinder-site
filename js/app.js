@@ -47,7 +47,7 @@ function init() {
   // anything renders so nothing animates for a frame and then stops.
   applyPrefs()
 
-  const fromLink = location.hash.startsWith('#s=') || params.has('src')
+  const fromLink = /^#[sz]=/.test(location.hash) || params.has('src')
   // View-only arrivals must never display or merge the visitor's private map.
   if (!ui.embed && !(ui.readOnly && fromLink)) loadState()
   if (!checkShareUrl()) checkSrcUrl()

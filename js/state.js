@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { STORAGE_KEY, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, MIN_ZOOM, MAX_ZOOM, clamp, debounce } from './utils.js'
-import { normalizeCanvas } from './normalize.js'
+import { normalizeCanvas, normalizeBlock, normalizeArrow, normalizeSituation, normalizePromptOpts } from './normalize.js'
 
 // ── App state (mutable, shared by all modules) ──────────────
 export const state = { blocks: {}, arrows: [], groups: {} }
@@ -178,16 +178,188 @@ export function loadView({ legacy = true } = {}) {
 }
 
 // ── Share URL encoding ───────────────────────────────────────
+// Two link formats, both decoded forever:
+//   #s=  base64 of the URI-encoded JSON (the original; still produced when
+//        the browser has no CompressionStream).
+//   #z=  deflate-raw of the JSON, base64url. Several times shorter, which is
+//        what makes a link pasteable into chat, a ticket or an email.
+// Compression is asynchronous, but the Share menu copies synchronously, so
+// buildShareUrl() reads a cache kept fresh after every save (sharing.js
+// primes it) and falls back to #s= only when the cache is stale.
+
+/** The original #s= payload of the full canvas. Kept byte-for-byte. */
 export function encodeCanvas() {
   return btoa(encodeURIComponent(JSON.stringify(serializeCanvas())))
 }
 
+// null, false and empty values that normalize would restore on its own.
+const isBlank = v => v == null || v === false || v === '' ||
+  (Array.isArray(v) && !v.length) ||
+  (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length)
+
+/**
+ * Drop blank fields whose absence normalizes to the same thing. The check
+ * runs normalize itself rather than a list of defaults, so a field whose
+ * absence means something different (an arrow label of '' versus none) is
+ * kept, and a field added later is handled without touching this.
+ */
+function stripBlank(obj, norm) {
+  if (!obj || typeof obj !== 'object') return obj
+  const keys = Object.keys(obj).filter(k => isBlank(obj[k]))
+  if (!keys.length) return obj
+  const ref = JSON.stringify(norm(obj))
+  const all = { ...obj }
+  keys.forEach(k => delete all[k])
+  if (JSON.stringify(norm(all)) === ref) return all
+  const some = { ...obj }
+  keys.forEach(k => {
+    const v = some[k]
+    delete some[k]
+    if (JSON.stringify(norm(some)) !== ref) some[k] = v
+  })
+  return some
+}
+
+/**
+ * The canvas as a share link carries it: serializeCanvas() minus the blank
+ * fields every block repeats. Only links use it; autosave, the Maps library
+ * and file export keep the full shape.
+ */
+export function serializeForShare() {
+  const c = serializeCanvas()
+  const blocks = {}
+  Object.entries(c.blocks).forEach(([id, b]) => { blocks[id] = stripBlank(b, normalizeBlock) })
+  const meta = { ...c.meta }
+  if (meta.situation) meta.situation = stripBlank(meta.situation, normalizeSituation)
+  if (meta.prompt) meta.prompt = stripBlank(meta.prompt, normalizePromptOpts)
+  return {
+    blocks,
+    arrows: c.arrows.map(a => stripBlank(a, normalizeArrow)),
+    groups: c.groups,
+    meta: stripBlank(meta, m => normalizeCanvas({ meta: m }).meta),
+  }
+}
+
+export const canCompressLinks = () =>
+  typeof CompressionStream === 'function' && typeof DecompressionStream === 'function'
+
+function bytesToB64url(bytes) {
+  let bin = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function b64urlToBytes(str) {
+  const b64 = String(str).trim().replace(/-/g, '+').replace(/_/g, '/')
+  const bin = atob(b64 + '==='.slice((b64.length + 3) % 4))
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+// A link is untrusted input, and deflate expands up to about 1000x, so
+// inflating stops at a cap rather than trusting the stream to end.
+const MAX_INFLATED = 8_000_000
+
+async function readAll(stream, cap = Infinity) {
+  const reader = stream.getReader()
+  const chunks = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.length
+    if (total > cap) { try { await reader.cancel() } catch (_) {} throw new Error('Link payload too large') }
+    chunks.push(value)
+  }
+  const out = new Uint8Array(total)
+  let at = 0
+  chunks.forEach(c => { out.set(c, at); at += c.length })
+  return out
+}
+
+/** Text to deflate-raw base64url. */
+export async function compressText(text) {
+  const stream = new Blob([new TextEncoder().encode(text)]).stream().pipeThrough(new CompressionStream('deflate-raw'))
+  return bytesToB64url(await readAll(stream))
+}
+
+/** deflate-raw base64url back to text. Throws on damage or over the cap. */
+export async function decompressText(z) {
+  const stream = new Blob([b64urlToBytes(z)]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
+  return new TextDecoder().decode(await readAll(stream, MAX_INFLATED))
+}
+
+/** Decode a #s= hash synchronously. Throws when it is not one. */
+export function decodeLegacyShare(hash) {
+  const body = String(hash || '').replace(/^#?s=/, '')
+  return JSON.parse(decodeURIComponent(atob(body)))
+}
+
+/** Decode a #s= or #z= hash into the raw canvas object, or null. */
+export async function decodeShareHash(hash) {
+  const h = String(hash || '')
+  if (h.startsWith('#s=')) return decodeLegacyShare(h)
+  if (h.startsWith('#z=')) {
+    if (!canCompressLinks()) throw new Error('This browser cannot open compressed links')
+    return JSON.parse(await decompressText(h.slice(3)))
+  }
+  return null
+}
+
+/** Whether a hash is a share link this build can read (#s= or #z=). */
+export const isShareHash = hash => /^#[sz]=/.test(String(hash || ''))
+
+const linkCache = { json: null, z: null, job: null, jobJson: null }
+
+/**
+ * Compress the current canvas for the next link, unless the cache already
+ * holds it. Resolves to the #z= payload, or null when compression is
+ * unavailable or failed (the link then falls back to #s=).
+ */
+export function primeShareLink() {
+  if (!canCompressLinks()) return Promise.resolve(null)
+  const json = JSON.stringify(serializeForShare())
+  if (linkCache.json === json && linkCache.z) return Promise.resolve(linkCache.z)
+  if (linkCache.job && linkCache.jobJson === json) return linkCache.job
+  const job = compressText(json).then(z => {
+    linkCache.json = json; linkCache.z = z
+    return z
+  }, () => null).finally(() => {
+    if (linkCache.job === job) { linkCache.job = null; linkCache.jobJson = null }
+  })
+  linkCache.job = job; linkCache.jobJson = json
+  return job
+}
+
+function shareFragment() {
+  const json = JSON.stringify(serializeForShare())
+  if (linkCache.json === json && linkCache.z) return '#z=' + linkCache.z
+  // Stale: this link is the long form, the next one will not be.
+  primeShareLink()
+  return '#s=' + btoa(encodeURIComponent(json))
+}
+
+// `via` marks the arrival for the header kit's share counter, which reads
+// ?via= but only recognises #s= among the hashes, so a #z= link would not
+// count without it. The app removes it once the link is spent.
 export function buildShareUrl(viewOnly = false) {
-  return location.origin + location.pathname + (viewOnly ? '?readonly' : '') + '#s=' + encodeCanvas()
+  return location.origin + location.pathname + (viewOnly ? '?readonly&via=share' : '?via=share') + shareFragment()
 }
 
 export function buildEmbedUrl() {
-  return location.origin + location.pathname + '?embed&readonly#s=' + encodeCanvas()
+  return location.origin + location.pathname + '?embed&readonly&via=embed' + shareFragment()
+}
+
+/** buildShareUrl() once compression has caught up: always #z= when supported. */
+export async function buildShareUrlAsync(viewOnly = false) {
+  await primeShareLink()
+  return buildShareUrl(viewOnly)
+}
+
+export async function buildEmbedUrlAsync() {
+  await primeShareLink()
+  return buildEmbedUrl()
 }
 
 // ── Snap helper ──────────────────────────────────────────────

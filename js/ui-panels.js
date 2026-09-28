@@ -22,6 +22,8 @@ import { getDocsBase, setDocsBase } from './doc-panel.js'
 import { tidyCanvas, tidySummary } from './layout.js'
 import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
+import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } from './state.js'
+import { openIncoming, incomingMessage } from './sharing.js'
 
 // ── Search ───────────────────────────────────────────────────
 let searchReturnFocus = null
@@ -774,10 +776,12 @@ export function setupShareDropdown() {
 }
 
 // ── Import result toast ──────────────────────────────────────
-function reportImport(imported, dropped) {
+function reportImport(imported, dropped, mode = 'replace') {
   const skipped = dropped.blocks + dropped.arrows + dropped.groups
   if (!imported && !skipped) { showToast('Nothing to import', 'warning'); return }
   let msg = `Imported ${imported} block${imported === 1 ? '' : 's'}`
+  if (mode === 'new') msg += ' as a new map'
+  else if (mode === 'merge') msg += ' into your map'
   if (skipped) {
     const parts = []
     if (dropped.blocks) parts.push(`${dropped.blocks} block${dropped.blocks === 1 ? '' : 's'}`)
@@ -785,53 +789,61 @@ function reportImport(imported, dropped) {
     if (dropped.groups) parts.push(`${dropped.groups} group${dropped.groups === 1 ? '' : 's'}`)
     msg += `, skipped ${parts.join(', ')}`
   }
-  showToast(msg, skipped ? 'warning' : 'success')
+  if (mode === 'new') msg += '. Your previous map is under Maps'
+  showToast(msg, skipped ? 'warning' : 'success', mode === 'new' ? 3600 : 3000)
+}
+
+/**
+ * Turn the text of an imported file or a ?src= response into a canvas.
+ * One reader, three formats: pathfinder JSON, JSON Canvas (.canvas, an
+ * { nodes, edges } object), or a Mermaid flowchart. Returns
+ * { data, low, format } or { error } with a message fit for a toast.
+ */
+function parseIncomingText(text) {
+  const fmt = detectFormat(text)
+  if (!fmt) return { error: 'Could not read it: not JSON, JSON Canvas, or a Mermaid flowchart' }
+  if (fmt === 'mermaid') {
+    const r = parseMermaid(text)
+    if (!r.payload.blocks.length) return { error: 'No flowchart nodes found in it' }
+    return { data: r.payload, low: r.lowConfidence, format: fmt }
+  }
+  const json = JSON.parse(text)
+  if (fmt === 'canvas') {
+    const r = fromJsonCanvas(json)
+    if (!r.payload.blocks.length) return { error: 'That canvas has no nodes in it' }
+    return { data: r.payload, low: r.lowConfidence, format: fmt }
+  }
+  if (json && json.format === 'pathfinder-maps') return { error: 'That file holds several maps: use Maps, Import maps' }
+  if (!json || (!json.blocks && !json.arrows)) return { error: 'There is no canvas in it' }
+  return { data: json, low: [], format: fmt }
+}
+
+// Converted formats go through the classifier; the calls it was unsure of
+// are flagged for a person to confirm.
+function flagLowConfidence(low, idMap) {
+  if (!low.length) return
+  window.dispatchEvent(new CustomEvent('pf:show-type-chips', {
+    detail: low.map(id => ({ id: (idMap && idMap[id]) || id, confidence: 'low' })),
+  }))
 }
 
 // ── Import file handler ──────────────────────────────────────
+// A file that arrives while a map is open offers "Open as a new map"
+// first, never a bare replace (sharing.js openIncoming).
 export function setupImportHandler() {
   document.getElementById('importFile').addEventListener('change', e => {
     const file = e.target.files[0]; if (!file) return
     const reader = new FileReader()
     reader.onload = ev => {
-      const text = ev.target.result
-      // One picker, three formats: pathfinder JSON, JSON Canvas (.canvas,
-      // an { nodes, edges } object), or a Mermaid flowchart. Converted
-      // formats go through the classifier, so their low-confidence types
-      // surface as the same correction chips Brain Dump shows.
-      const fmt = detectFormat(text)
-      if (!fmt) { showToast('Could not read file: not JSON, JSON Canvas, or a Mermaid flowchart', 'error'); return }
-      let data, low = []
-      if (fmt === 'mermaid') {
-        const r = parseMermaid(text)
-        if (!r.payload.blocks.length) { showToast('No flowchart nodes found in that file', 'warning'); return }
-        data = r.payload; low = r.lowConfidence
-      } else if (fmt === 'canvas') {
-        const r = fromJsonCanvas(JSON.parse(text))
-        if (!r.payload.blocks.length) { showToast('That canvas has no nodes in it', 'warning'); return }
-        data = r.payload; low = r.lowConfidence
-      } else {
-        data = JSON.parse(text)
-      }
-
-      const hasContent = Object.keys(state.blocks).length > 0
-      const mode = !hasContent
-        ? 'replace'
-        : (confirm(
-            'Import canvas?\n\n' +
-            'OK  \u2192 Replace current canvas\n' +
-            'Cancel \u2192 Merge (add to existing canvas)'
-          ) ? 'replace' : 'merge')
-
-      const { imported, dropped, idMap } = applyImport(data, mode)
-      collapseTemplatesAfterUse()
-      refreshSituation(); refreshCardStyles(); refreshSpotlight()
-      reportImport(imported, dropped)
-      if (low.length) {
-        window.dispatchEvent(new CustomEvent('pf:show-type-chips', {
-          detail: low.map(id => ({ id: (idMap && idMap[id]) || id, confidence: 'low' })),
-        }))
-      }
+      let parsed
+      try { parsed = parseIncomingText(ev.target.result) }
+      catch (_) { parsed = { error: 'Could not read file: the JSON is malformed' } }
+      if (parsed.error) { showToast(parsed.error, 'error'); return }
+      openIncoming(parsed.data, { source: 'file', name: file.name }).then(r => {
+        if (!r) return
+        reportImport(r.imported, r.dropped, r.mode)
+        flagLowConfidence(parsed.low, r.idMap)
+      })
     }
     reader.onerror = () => showToast('Could not read file', 'error')
     reader.readAsText(file)
@@ -1324,74 +1336,94 @@ function syncModeButtons() {
 }
 
 // ── Share URL loader ─────────────────────────────────────────
+// Remove the link parts of the address once the canvas they carried is in
+// a map (or can never load), so a reload does not offer it again. `via` is
+// the arrival marker a built link carries (state.js buildShareUrl); the
+// header kit has counted it by then. Read-only documents live in the URL,
+// so they keep it for reloads and copies.
+function forgetLinkInUrl({ hash = false, src = false, via = false } = {}) {
+  if (ui.readOnly) return
+  const params = new URLSearchParams(location.search)
+  if (src) params.delete('src')
+  if (via) params.delete('via')
+  const query = params.toString()
+  history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + (hash ? '' : location.hash))
+}
+
+/**
+ * Load a #s= or #z= share link. Returns true when the hash held a canvas
+ * (for #s=, which decodes synchronously), a Promise for #z= (inflating is
+ * asynchronous; the promise is truthy, so init still skips ?src=), or
+ * undefined when there is no link. A map with content is never replaced
+ * without a choice: see sharing.js openIncoming.
+ */
 export function checkShareUrl() {
   const hash = location.hash
-  if (!hash.startsWith('#s=')) return
-  try {
-    const data = JSON.parse(decodeURIComponent(atob(hash.slice(3))))
-    if (!data.blocks) return
-    // Read-only documents live in the URL, so retain it for reloads and copies.
-    if (!ui.readOnly) {
-      const params = new URLSearchParams(location.search)
-      params.delete('src') // the hash takes precedence over a competing URL source
-      const query = params.toString()
-      history.replaceState(null, '', location.pathname + (query ? '?' + query : ''))
-    }
-    const isEmpty = Object.keys(state.blocks).length === 0
-    const mode = (isEmpty || ui.readOnly) ? 'replace'
-      : (confirm('Load shared canvas?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
-    const { dropped } = applyImport(data, mode)
-    collapseTemplatesAfterUse()
-    refreshSituation(); refreshCardStyles(); refreshSpotlight()
-    updateCanvasTitle()
-    syncContextBrief()
-    const skipped = dropped.blocks + dropped.arrows + dropped.groups
-    if (skipped) showToast(`Loaded shared canvas, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`, 'warning')
+  if (!isShareHash(hash)) return
+  const receive = data => {
+    if (!data || typeof data !== 'object' || !data.blocks) return false
+    // The hash takes precedence over a competing URL source.
+    forgetLinkInUrl({ src: true })
+    openIncoming(data, {
+      source: 'link',
+      onApplied: r => {
+        forgetLinkInUrl({ hash: true, via: true })
+        const msg = incomingMessage(r, 'shared map')
+        if (msg) showToast(msg, r.dropped && (r.dropped.blocks + r.dropped.arrows + r.dropped.groups) ? 'warning' : 'success', 3600)
+      },
+    })
     return true
-  } catch(_) { /* malformed hash -- silently ignore */ }
+  }
+  if (hash.startsWith('#s=')) {
+    let data
+    try { data = decodeLegacyShare(hash) } catch (_) { return /* malformed hash: ignore it */ }
+    return receive(data) || undefined
+  }
+  return decodeShareHash(hash).then(
+    data => receive(data) || (showToast('That share link has no map in it', 'warning'), false),
+    () => {
+      showToast(canCompressLinks()
+        ? 'Could not open that share link: it is damaged, cut short, or too large'
+        : 'This browser cannot open compressed share links. Update it, or ask for the map as a file', 'warning', 4500)
+      return false
+    })
 }
 
 // ── ?src= loader ─────────────────────────────────────────────
 /**
- * Load a canvas from a URL: ?src=https://... pointing at canvas JSON, the
- * pattern proctor-site established. It is the link an agent can hand over
- * when a #s= hash would be unwieldy: a gist, a raw file in a repo. Only
- * https, only hosts the CSP allows (GitHub raw/gist plus same-origin), a
- * 1 MB cap, and the same replace-or-merge confirmation a share link gets.
+ * Load a canvas from a URL: ?src=https://... pointing at canvas JSON (or a
+ * JSON Canvas file, or a Mermaid flowchart), the pattern proctor-site
+ * established. It is the link an agent can hand over when a #s= hash would
+ * be unwieldy: a gist, a raw file in a repo. Only https, only hosts the CSP
+ * allows (GitHub raw/gist plus same-origin), a 1 MB cap, and the same
+ * open-as-new-map choice a share link gets.
  */
 export async function checkSrcUrl() {
   const params = new URLSearchParams(location.search)
   const src = params.get('src')
   if (!src) return
-  if (!/^https:\/\//.test(src) && !src.startsWith('/')) {
-    showToast('?src= must be an https URL', 'warning'); return
-  }
-  // Editable imports autosave. Read-only documents need their source on reload.
-  if (!ui.readOnly) {
-    params.delete('src')
-    const query = params.toString()
-    history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash)
-  }
+  // A link that cannot load leaves the address, or every reload would fetch
+  // it and show the same error again. Cancelling the choice keeps it.
+  const fail = (msg, ms) => { forgetLinkInUrl({ src: true, via: true }); showToast(msg, 'warning', ms) }
+  if (!/^https:\/\//.test(src) && !src.startsWith('/')) { fail('?src= must be an https URL'); return }
+  let parsed
   try {
     const res = await fetch(src, { credentials: 'omit' })
-    if (!res.ok) { showToast(`Could not load ?src= (HTTP ${res.status})`, 'warning'); return }
+    if (!res.ok) { fail(`Could not load ?src= (HTTP ${res.status})`); return }
     const text = await res.text()
-    if (text.length > 1_000_000) { showToast('That canvas file is over 1 MB; import it as a file instead', 'warning'); return }
-    const data = JSON.parse(text)
-    if (!data || (!data.blocks && !data.arrows)) { showToast('That URL has no canvas in it', 'warning'); return }
-    const isEmpty = Object.keys(state.blocks).length === 0
-    const mode = (isEmpty || ui.readOnly) ? 'replace'
-      : (confirm('Load canvas from the link?\n\nOK \u2192 Replace current canvas\nCancel \u2192 Merge into existing') ? 'replace' : 'merge')
-    const { imported, dropped } = applyImport(data, mode)
-    collapseTemplatesAfterUse()
-    refreshSituation(); refreshCardStyles(); refreshSpotlight()
-    updateCanvasTitle()
-    syncContextBrief()
-    const skipped = dropped.blocks + dropped.arrows + dropped.groups
-    showToast(skipped
-      ? `Loaded ${imported} blocks from the link, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`
-      : `Loaded ${imported} block${imported === 1 ? '' : 's'} from the link`, skipped ? 'warning' : 'success')
+    if (text.length > 1_000_000) { fail('That canvas file is over 1 MB; import it as a file instead'); return }
+    try { parsed = parseIncomingText(text) } catch (_) { parsed = { error: 'The file at that URL is not valid JSON' } }
   } catch (_) {
-    showToast('Could not fetch ?src= (network, CORS, or a host the app does not allow)', 'warning')
+    fail('Could not fetch ?src= (network, CORS, or a host the app does not allow)')
+    return
   }
+  if (parsed.error) { fail('?src= ' + parsed.error.charAt(0).toLowerCase() + parsed.error.slice(1), 4000); return }
+  const r = await openIncoming(parsed.data, { source: 'src', onApplied: () => forgetLinkInUrl({ src: true, via: true }) })
+  if (!r) return
+  flagLowConfidence(parsed.low, r.idMap)
+  const skipped = r.dropped.blocks + r.dropped.arrows + r.dropped.groups
+  const where = r.mode === 'new' ? ' as a new map. Yours is under Maps' : r.mode === 'merge' ? ' into your map' : ''
+  showToast(skipped
+    ? `Loaded ${r.imported} blocks from the link${where}, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`
+    : `Loaded ${r.imported} block${r.imported === 1 ? '' : 's'} from the link${where}`, skipped ? 'warning' : 'success', 3600)
 }
