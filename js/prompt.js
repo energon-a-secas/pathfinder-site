@@ -482,14 +482,24 @@ export function computeHealthScore() {
     .reduce((sum, b) => sum + (HEAVY.has(b.type) ? 6 : 3), 0)
   score -= Math.min(noDescPenalty, 45)
 
-  // No goal block when canvas has content
-  const hasGoal = blocks.some(b => b.type === 'goal')
-  if (!hasGoal && n >= 3) score -= 12
+  // Nothing on the map says why the work exists. A Problem answers the Why
+  // as well as a Goal does, the same test as the canvas "no Why" finding,
+  // so a problem-rooted map is not docked for a goal it does not need.
+  const hasWhy = blocks.some(b => TYPES[b.type]?.step === 'why')
+  if (!hasWhy && n >= 3) score -= 12
 
-  // Goals without requirements
+  // Goals with nothing under them anywhere on the map. A metric or the work
+  // itself counts, matching the gap-no-req rule.
   const goals = blocks.filter(b => b.type === 'goal')
-  const reqs  = blocks.filter(b => b.type === 'requirement')
-  if (goals.length > 0 && reqs.length === 0) score -= 8
+  const support = blocks.filter(b => ['requirement', 'metric', 'implementation'].includes(b.type))
+  if (goals.length > 0 && support.length === 0) score -= 8
+
+  // Untyped blocks. Other has no gap rule, so without this a map imported as
+  // mostly Other scored higher than the same map typed honestly: removing
+  // meaning raised the score. Each one costs what a gap costs, since whatever
+  // gap it has is hidden from every check.
+  const untyped = blocks.filter(b => b.type === 'custom').length
+  score -= Math.min(untyped * 8, 40)
 
   // Connection bonus: reward canvases that are both connected AND described.
   // Title-only blocks don't earn the bonus even when wired together, so a
