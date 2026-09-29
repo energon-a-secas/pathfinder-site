@@ -130,6 +130,23 @@ function afterLoad() {
 }
 
 /**
+ * A map opened as a new one needs a name the Maps menu can tell apart from
+ * the one it came from: an untitled canvas was listed as "Untitled map" next
+ * to another "Untitled map". A file lends its name (without the extension),
+ * a link says what it was and when. A canvas with a title keeps it.
+ */
+export function withMapName(data, { source = 'link', name = '', now = new Date() } = {}) {
+  if (!data || typeof data !== 'object') return data
+  const meta = data.meta && typeof data.meta === 'object' ? data.meta : {}
+  if (typeof meta.title === 'string' && meta.title.trim()) return data
+  const base = source === 'file' ? String(name || '').replace(/\.[^./\\]+$/, '').trim() : ''
+  let when = ''
+  try { when = now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) } catch (_) {}
+  const title = base || (when ? `Shared map, ${when}` : 'Shared map')
+  return { ...data, meta: { ...meta, title } }
+}
+
+/**
  * Apply an incoming canvas in the chosen mode. 'new' opens it as its own
  * map; 'replace' keeps a named snapshot of the current map first and is
  * one undo step; 'merge' is one undo step. Read-only and embed views
@@ -139,7 +156,7 @@ function afterLoad() {
 export function applyIncoming(data, mode, { source = 'link', name = '' } = {}) {
   const live = !ui.readOnly && !ui.embed
   if (mode === 'new' && live) {
-    const r = openAsNewMap(data)
+    const r = openAsNewMap(withMapName(data, { source, name }))
     return r ? { mode, ...r } : null
   }
   const m = mode === 'merge' ? 'merge' : 'replace'

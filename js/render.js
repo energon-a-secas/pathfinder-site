@@ -227,8 +227,9 @@ export function mutateBlock(id, changes, { undo = false } = {}) {
 /**
  * Change several blocks as one undo step. `changesOrFn` is either an object
  * applied to every block or `(block) => changes`. Returns how many changed.
+ * `arrows` is passed to renderArrows (a nudge draws like a drag frame).
  */
-export function mutateBlocks(ids, changesOrFn, { undo = true } = {}) {
+export function mutateBlocks(ids, changesOrFn, { undo = true, arrows = null } = {}) {
   const live = ids.filter(id => state.blocks[id])
   if (!live.length) return 0
   if (undo) snapshot()
@@ -238,7 +239,7 @@ export function mutateBlocks(ids, changesOrFn, { undo = true } = {}) {
     if (changes) Object.assign(b, changes)
     renderBlock(id)
   })
-  renderArrows()
+  renderArrows(arrows || {})
   renderFrames()
   runGapDetection()
   debouncedSave()
@@ -391,8 +392,39 @@ function restoreEntry(raw) {
     window.dispatchEvent(new CustomEvent('pf:meta-restored'))
   }
   resetSnapshotToken()
+  // Undo keeps what was selected when it still exists, so "change it in the
+  // inspector, undo, change it again" needs no reselect. It used to deselect
+  // everything, which also emptied the inspector and dropped focus on the page.
+  const before = document.activeElement
+  const beforeId = before && before !== document.body ? before.id : ''
+  const keep = [...selection.ids].filter(id => state.blocks[id])
+  const arrowId = !keep.length && selection.arrowId && state.arrows.some(a => a.id === selection.arrowId)
+    ? selection.arrowId : null
+  selection.ids.clear(); keep.forEach(id => selection.ids.add(id))
+  selection.blockId = keep.length === 1 ? keep[0] : null
+  selection.arrowId = arrowId
+  if (selection.groupId && !state.groups[selection.groupId]) selection.groupId = null
   renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
-  deselectAll(); debouncedSave()
+  // The empty state follows the blocks: undoing a Clear must take the Brain
+  // Dump card away again, and undoing the only block must bring it back.
+  updateHint()
+  refocusAfterRestore(before, beforeId)
+  debouncedSave()
+  // Everything that listens for canvas changes (Attention, search, the
+  // comparison bar, the label editor) sees an undo like any other change.
+  afterMutation()
+}
+
+const shown = el => !!el && el.isConnected && el.getClientRects().length > 0
+
+// Focus stays on the control that was used, or on the card, when the
+// restore hid or replaced it. Focus somewhere still visible is left alone.
+function refocusAfterRestore(before, beforeId) {
+  const ae = document.activeElement
+  if (!before || before === document.body || (ae && ae !== document.body)) return
+  let target = shown(before) ? before : (beforeId ? document.getElementById(beforeId) : null)
+  if (!shown(target)) target = selection.blockId ? getBlockEl(selection.blockId) : null
+  if (shown(target)) target.focus({ preventScroll: true })
 }
 
 export function undo() {
@@ -443,5 +475,7 @@ export function updateCanvasTitle() {
   const el = $.canvasTitle()
   const t = canvasMeta.title || 'Strategy canvas'
   if (el.contentEditable !== 'true') el.textContent = t
+  // A long title ellipsizes in the header; the tooltip carries all of it.
+  el.title = t
   document.title = canvasMeta.title ? canvasMeta.title + ' | Pathfinder' : 'Pathfinder | Strategy Canvas'
 }

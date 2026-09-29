@@ -60,7 +60,7 @@ export function openMenu(items, opts = {}) {
   const returnFocus = opts.returnFocus || document.activeElement
   const el = buildMenu(items, { className, label, level: 0 })
   document.body.appendChild(el)
-  root = { el, anchor, onClose, returnFocus }
+  root = { el, anchor, onClose, returnFocus, openedAt: performance.now() }
   stack = [{ el, items, parentItem: null }]
   if (anchor) placeAtAnchor(el, anchor, placement)
   else placeAtPoint(el, x, y)
@@ -217,13 +217,24 @@ function placeAtAnchor(el, anchor, placement) {
   const { width: w, height: h } = el.getBoundingClientRect()
   const wantUp = placement.startsWith('top')
   const below = a.bottom + 4, above = a.top - 4 - h
+  const roomBelow = window.innerHeight - PAD - below, roomAbove = a.top - 4 - PAD
+  const fitsBelow = h <= roomBelow, fitsAbove = h <= roomAbove
   let top
-  if (wantUp) top = above >= PAD ? above : below
-  else top = below + h <= window.innerHeight - PAD || above < PAD ? below : above
-  if (top + h > window.innerHeight - PAD) top = Math.max(PAD, window.innerHeight - PAD - h)
+  if (wantUp ? fitsAbove : !fitsBelow && fitsAbove) top = above
+  else if (fitsBelow) top = below
+  else {
+    // Neither side holds the whole menu. Clamping it into the window used to
+    // lay it over its own anchor, so the second click of a double-click on a
+    // card's type badge landed on "Looks right". Take the roomier side and
+    // scroll inside it instead: a menu never covers what opened it.
+    const up = roomAbove > roomBelow
+    const room = Math.max(0, up ? roomAbove : roomBelow)
+    el.style.maxHeight = room + 'px'
+    top = up ? a.top - 4 - Math.min(h, room) : below
+  }
   const left = placement.endsWith('end') ? a.right - w : a.left
   el.style.left = clampLeft(left, w) + 'px'
-  el.style.top = Math.max(PAD, top) + 'px'
+  el.style.top = top + 'px'
 }
 
 function placeSubmenu(el, itemEl, parentEl) {
@@ -338,7 +349,14 @@ function pickSwatch(btn) {
   try { item.onPick?.(opt.value) } catch (err) { console.error(err) }
 }
 
+// The second click of a double-click that opened a menu is not a choice.
+// Placement keeps a menu off its anchor, so this only guards a menu opened
+// under a still pointer (a click-opened menu at the pointer).
+const REPEAT_GUARD_MS = 400
+const isRepeatClick = e => e.detail > 1 && !!root && performance.now() - root.openedAt < REPEAT_GUARD_MS
+
 function onClick(e) {
+  if (isRepeatClick(e)) { e.stopPropagation(); return }
   const sw = e.target.closest('.pf-menu-swatch')
   if (sw) { e.stopPropagation(); pickSwatch(sw); return }
   const itemEl = e.target.closest('.pf-menu-item')

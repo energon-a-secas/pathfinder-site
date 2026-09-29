@@ -142,6 +142,25 @@ function rememberOpen(name, open) {
   } catch (_) {}
 }
 
+/**
+ * Scroll the panel so a section just opened shows its controls: its bottom
+ * comes into view, but never at the cost of pushing its summary off the top.
+ * Only the panel's own scroller moves (not the page), and instantly: the
+ * panel is not a place for motion.
+ */
+export function revealDisclosure(d) {
+  let sc = d.parentElement
+  while (sc && sc !== document.body) {
+    const oy = getComputedStyle(sc).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break
+    sc = sc.parentElement
+  }
+  if (!sc || sc === document.body) return
+  const box = sc.getBoundingClientRect(), r = d.getBoundingClientRect()
+  const delta = Math.min(r.bottom - box.bottom, r.top - box.top)
+  if (delta > 0) sc.scrollTop += Math.ceil(delta)
+}
+
 // Applied only when a different block or arrow comes up, so re-rendering the
 // same one (after a status change, say) never slams a section shut.
 function applyDisclosures(root, auto = {}) {
@@ -858,10 +877,13 @@ export function setupInspectorEvents() {
 
   // Disclosures remember whether they were left open. The click fires before
   // the summary toggles its <details>, so the new state is the opposite.
+  // Opening one also brings its controls into view: Appearance sits last, and
+  // used to open below the fold, so the chips asked for were off screen.
   document.querySelectorAll('#inspectorPane details[data-disclosure] > summary').forEach(summary =>
     summary.addEventListener('click', () => {
       const d = summary.parentElement
       rememberOpen(d.dataset.disclosure, !d.open)
+      if (!d.open) d.addEventListener('toggle', () => { if (d.open) revealDisclosure(d) }, { once: true })
     }))
 
   // ── One block: header row ──
@@ -1168,6 +1190,13 @@ export function setupInspectorEvents() {
   // provenance: reversing is not the user choosing a side.
   on('arrowReverse', 'click', () => {
     const a = selectedArrow(); if (!a || ui.readOnly) return
+    // The same refusal as the right-click menu's Reverse: a connection that
+    // already runs the other way would become a second identical one, drawn
+    // on top of it, and a share link or import would keep only one.
+    if (state.arrows.some(x => x.id !== a.id && x.from === a.to && x.to === a.from)) {
+      showToast('A connection already runs the other way. Turn on Two-way instead', 'info', 2400)
+      return
+    }
     const changes = { from: a.to, to: a.from, fromPort: a.toPort, toPort: a.fromPort }
     if (a.portsBy) changes.portsBy = a.portsBy
     mutateArrow(a.id, changes)

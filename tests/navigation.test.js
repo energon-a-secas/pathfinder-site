@@ -7,7 +7,7 @@
 import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, ui, selection, pointer, view, getUndoHistory, getRedoFuture,
          resetSnapshotToken } from '../js/state.js'
-import { $, TYPES, MIN_ZOOM, MAX_ZOOM } from '../js/utils.js'
+import { $, TYPES, MIN_ZOOM, MAX_ZOOM, DEFAULT_WIDTH } from '../js/utils.js'
 import { renderBlock, undo, deselectAll, selectBlock } from '../js/render.js'
 import { setupCanvasPointerEvents, setupArrowEvents, setupKeyboardShortcuts,
          setupTabNavigation } from '../js/events.js'
@@ -15,7 +15,10 @@ import { isInlineEditing, commitInlineEdit } from '../js/inline-edit.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
 import { suggestedNextTypes } from '../js/create.js'
 import { readingOrder, nearestInDirection, describeBlock, quickCreateType,
-         facingSide, ROW_TOLERANCE, openQuickCreate, revealShift } from '../js/navigation.js'
+         facingSide, ROW_TOLERANCE, openQuickCreate, revealShift, flushNudge, NUDGE_SETTLE_MS } from '../js/navigation.js'
+import { routeStats } from '../js/arrow-routes.js'
+import { renderArrows } from '../js/canvas.js'
+import { selectArrow } from '../js/render.js'
 import { wheelZoomFactor, nextZoomStop, ZOOM_STOPS, WHEEL_MAX_STEP, zoomToSelection,
          contentInView, refreshBackToContent, openZoomMenu, setupZoomControls } from '../js/zoom-controls.js'
 import { SHORTCUTS, buildShortcutGrid, openShortcuts, setupShortcutOverlay } from '../js/ui-panels.js'
@@ -1115,5 +1118,225 @@ describe('Shortcut sheet layout', () => {
         assert.ok(r.top >= box.top && r.bottom <= box.bottom, `${h.textContent} heading is visible`)
       })
     } finally { host.remove() }
+  })
+})
+
+// ── QA round ────────────────────────────────────────────────
+describe('The canvas never scrolls (QA)', () => {
+  it('the stylesheet clips the viewport, so a caret cannot scroll it', async () => {
+    const css = await (await fetch('../css/style.css', { cache: 'no-store' })).text()
+    const sheet = new CSSStyleSheet()
+    sheet.replaceSync(css)
+    const host = document.createElement('div')
+    host.style.cssText = 'position:fixed;left:-3000px;top:0'
+    document.body.appendChild(host)
+    try {
+      const root = host.attachShadow({ mode: 'open' })
+      root.adoptedStyleSheets = [sheet]
+      root.innerHTML = '<div class="canvas-viewport" style="display:block;width:200px;height:100px"><div style="height:600px;width:900px"></div></div>'
+      const vp = root.querySelector('.canvas-viewport')
+      vp.scrollTop = 50; vp.scrollLeft = 40
+      assert.eq(vp.scrollTop, 0, 'not a scroll container')
+      assert.eq(vp.scrollLeft, 0)
+    } finally { host.remove() }
+  })
+
+  it('a scroll that happens anyway is folded into the pan, so pointer mapping stays true', () => {
+    wire(); reset()
+    return withViewport(async vp => {
+      const tall = document.createElement('div')
+      tall.style.cssText = 'position:absolute;left:0;top:0;width:2000px;height:2000px'
+      vp.appendChild(tall)
+      try {
+        view.panX = 0; view.panY = 0
+        vp.scrollTop = 15
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+        assert.eq(vp.scrollTop, 0, 'the scroll is undone')
+        assert.eq(view.panY, -15, 'and the drawing stays where it was painted')
+      } finally { tall.remove() }
+    })
+  })
+})
+
+describe('Selected connection ends and duplicates (QA)', () => {
+  function withElements(fn, list) {
+    const orig = document.elementsFromPoint
+    document.elementsFromPoint = () => list
+    try { return fn() } finally { document.elementsFromPoint = orig }
+  }
+  function underPointer(el, fn) {
+    const orig = document.elementFromPoint
+    document.elementFromPoint = () => el
+    try { return fn() } finally { document.elementFromPoint = orig }
+  }
+  function setup() {
+    wire(); reset()
+    block('a', { x: 0, y: 0 }); block('b', { x: 400, y: 0 }); block('c', { x: 400, y: 300 })
+    state.arrows = [
+      { id: 'ab', from: 'a', to: 'b', style: 'routed', fromPort: null, toPort: null },
+      { id: 'ac', from: 'a', to: 'c', style: 'routed', fromPort: null, toPort: null },
+    ]
+    renderArrows({ cheap: false })
+    selectArrow('ac')
+  }
+  const handleFor = (aid, end) => {
+    const h = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    h.classList.add('arrow-handle'); h.dataset.aid = aid; h.dataset.end = end
+    return h
+  }
+
+  it('a press on a port lying over the selected connection\'s handle drags that end', () => {
+    setup()
+    const port = document.querySelector('#b-c .port-left')
+    withElements(() => ptr(port, 'pointerdown', 400, 340), [port, document.getElementById('b-c'), handleFor('ac', 'to')])
+    assert.eq(pointer.ix?.type, 'aend', 'the handle wins over the port above it')
+    assert.eq(pointer.ix?.aid, 'ac')
+    ptr(port, 'pointerup', 400, 340)
+    pointer.ix = null
+  })
+
+  it('with no connection selected the port still draws a new connection', () => {
+    setup(); deselectAll()
+    const port = document.querySelector('#b-c .port-left')
+    withElements(() => ptr(port, 'pointerdown', 400, 340), [port, handleFor('ac', 'to')])
+    assert.eq(pointer.ix?.type, 'arrow')
+    pointer.ix = null
+  })
+
+  it('moving an end onto a card it is already connected to is refused, not doubled', () => {
+    setup()
+    const hist = getUndoHistory().length
+    const port = document.querySelector('#b-c .port-left')
+    withElements(() => ptr(port, 'pointerdown', 400, 340), [handleFor('ac', 'to')])
+    assert.eq(pointer.ix?.type, 'aend')
+    const target = document.querySelector('#b-b .port-left')
+    ptr($.canvasViewport(), 'pointermove', 400, 200)
+    underPointer(target, () => ptr(port, 'pointerup', 400, 40))
+    assert.eq(state.arrows.length, 2)
+    assert.deepEq(state.arrows.map(a => a.from + '>' + a.to), ['a>b', 'a>c'], 'no second a>b')
+    assert.eq(getUndoHistory().length, hist, 'nothing to undo')
+  })
+
+  it('moving an end onto a free card still re-targets it, as one undo step', () => {
+    setup()
+    block('d', { x: 800, y: 300 })
+    const hist = getUndoHistory().length
+    const port = document.querySelector('#b-c .port-left')
+    withElements(() => ptr(port, 'pointerdown', 400, 340), [handleFor('ac', 'to')])
+    ptr($.canvasViewport(), 'pointermove', 600, 340)
+    underPointer(document.querySelector('#b-d .port-left'), () => ptr(port, 'pointerup', 800, 340))
+    assert.eq(state.arrows.find(a => a.id === 'ac').to, 'd')
+    assert.eq(getUndoHistory().length, hist + 1)
+  })
+
+  it('a click on an end handle, with no drag, changes nothing and takes no undo step', () => {
+    setup()
+    state.arrows.find(a => a.id === 'ac').toPort = 'left'
+    const hist = getUndoHistory().length
+    const port = document.querySelector('#b-c .port-left')
+    withElements(() => ptr(port, 'pointerdown', 400, 340), [handleFor('ac', 'to')])
+    underPointer(port, () => ptr(port, 'pointerup', 400, 340))
+    const ac = state.arrows.find(a => a.id === 'ac')
+    assert.eq(ac.to, 'c'); assert.eq(ac.toPort, 'left', 'the pin stays')
+    assert.eq(getUndoHistory().length, hist)
+  })
+})
+
+describe('Keys that must not reach the map (QA)', () => {
+  it('behind the shortcut sheet Backspace, Delete and Cmd+Z do nothing; Escape closes it', () => {
+    wire(); reset(); setupShortcutOverlay()
+    block('a'); block('b', { x: 400 })
+    selectBlock('a')
+    const hist = getUndoHistory().length
+    openShortcuts()
+    try {
+      const close = document.getElementById('shortcutClose') || document.body
+      key('Backspace', {}, close)
+      assert.ok(state.blocks.a, 'Backspace behind the sheet leaves the selected card')
+      key('Delete', {}, document.body)
+      assert.ok(state.blocks.a, 'so does Delete')
+      key('d', { metaKey: true }, document.body)
+      assert.eq(Object.keys(state.blocks).length, 2, 'nothing duplicated')
+      assert.eq(getUndoHistory().length, hist, 'nothing recorded')
+      getUndoHistory().push(JSON.stringify({ blocks: {}, arrows: [], groups: {} }))
+      key('z', { metaKey: true }, document.body)
+      assert.eq(Object.keys(state.blocks).length, 2, 'Cmd+Z undoes nothing nobody can see')
+      getUndoHistory().pop()
+      key('Escape', {}, document.body)
+      assert.eq($.shortcutOverlay().style.display, 'none', 'Escape closes the sheet')
+    } finally { $.shortcutOverlay().style.display = 'none' }
+  })
+
+  it('a focused status-bar or header button keeps Delete; the canvas still deletes', () => {
+    wire(); reset()
+    block('a'); block('b', { x: 400 })
+    selectBlock('a')
+    const btn = document.createElement('button')
+    btn.id = 'qaFitBtn'
+    document.body.appendChild(btn)
+    try {
+      btn.focus()
+      key('Delete', {}, btn)
+      key('d', { metaKey: true }, btn)
+      assert.ok(state.blocks.a, 'Delete on a focused button leaves the card')
+      assert.eq(Object.keys(state.blocks).length, 2, 'Cmd+D on a button duplicates nothing')
+      btn.blur()
+      key('Delete', {}, document.body)
+      assert.ok(!state.blocks.a, 'from the canvas (the page) Delete still deletes')
+    } finally { btn.remove() }
+  })
+})
+
+describe('Card controls are one undo step each (QA)', () => {
+  it('the collapse caret is undoable, like Collapse in the menu', () => {
+    wire(); reset()
+    block('a')
+    const hist = getUndoHistory().length
+    document.querySelector('#b-a .block-collapse-btn').click()
+    assert.eq(state.blocks.a.collapsed, true)
+    assert.eq(getUndoHistory().length, hist + 1, 'one step')
+    undo()
+    assert.eq(state.blocks.a.collapsed, false, 'Cmd+Z expands it again')
+  })
+
+  it('a resize drag is one undo step; a click on the handle is none', () => {
+    wire(); reset()
+    block('a', { x: 0, y: 0 })
+    const handle = () => document.querySelector('#b-a .block-resize-handle')
+    const hist = getUndoHistory().length
+    withView(() => {
+      view.zoom = 1
+      ptr(handle(), 'pointerdown', 200, 50)
+      ptr(handle(), 'pointerup', 200, 50)
+      assert.eq(getUndoHistory().length, hist, 'a click is not an edit')
+      ptr(handle(), 'pointerdown', 200, 50)
+      ptr($.canvasViewport(), 'pointermove', 230, 50)
+      ptr($.canvasViewport(), 'pointermove', 260, 50)
+      ptr($.canvasViewport(), 'pointerup', 260, 50)
+    })
+    assert.eq(state.blocks.a.width, DEFAULT_WIDTH + 60, 'the card is wider')
+    assert.eq(getUndoHistory().length, hist + 1, 'one step for the whole drag')
+    undo()
+    assert.ok(!state.blocks.a.width || state.blocks.a.width === DEFAULT_WIDTH, 'Cmd+Z puts the width back')
+  })
+})
+
+describe('A keyboard nudge draws like a drag frame (QA)', () => {
+  it('a press re-routes only the moved card\'s lines, and the full pass follows the burst', async () => {
+    wire(); reset()
+    block('a', { x: 0, y: 0 }); block('b', { x: 400, y: 0 })
+    block('c', { x: 0, y: 400 }); block('d', { x: 400, y: 400 })
+    block('e', { x: 0, y: 800 }); block('f', { x: 400, y: 800 })
+    state.arrows = ['ab', 'cd', 'ef'].map(id => ({ id, from: id[0], to: id[1], style: 'routed', fromPort: null, toPort: null }))
+    renderArrows({ cheap: false })
+    selectBlock('a')
+    document.activeElement?.blur?.()
+    const before = routeStats.searches
+    key('ArrowDown'); key('ArrowDown'); key('ArrowDown')
+    assert.eq(state.blocks.a.y, 3, 'the card moved')
+    assert.eq(routeStats.searches - before, 0, 'no line was re-routed while the key is held')
+    await new Promise(r => setTimeout(r, NUDGE_SETTLE_MS + 60))
+    assert.ok(routeStats.searches - before >= 1, 'the full routing pass ran once the burst ended')
+    flushNudge()
   })
 })

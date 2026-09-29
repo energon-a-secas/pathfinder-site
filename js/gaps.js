@@ -8,7 +8,7 @@ import { dependencyEdges } from './relations.js'
 import { state, selection, ui, snapshot } from './state.js'
 import { getBlockEl, TYPES, TYPE_STEPS } from './utils.js'
 import { breakCycles } from './layout.js'
-import { mutateBlock, mutateBlocks, renderInspector } from './render.js'
+import { mutateBlock, mutateBlocks, renderInspector, blockDecorators } from './render.js'
 
 // ── Rules ────────────────────────────────────────────────────
 //
@@ -263,11 +263,15 @@ function canvasFindingsFor(blocks, arrows, groups, { inc, out }) {
     .filter(b => (b.title || '').trim() && !DEFAULT_TITLE.test(b.title.trim()))
     .map(b => ({ b, t: normTitle(b.title) }))
     .filter(x => x.t.trim())
+    // Word counts once per title, not once per pair: the pair loop is
+    // quadratic, and re-splitting both titles in it cost 40ms a keystroke
+    // at 300 blocks.
+    .map(x => ({ ...x, w: x.t.trim().split(' ').length }))
   const pairs = []
   for (let i = 0; i < titled.length; i++) {
     for (let j = i + 1; j < titled.length; j++) {
       const [s, l] = titled[i].t.length <= titled[j].t.length ? [titled[i], titled[j]] : [titled[j], titled[i]]
-      const sw = s.t.trim().split(' ').length, lw = l.t.trim().split(' ').length
+      const sw = s.w, lw = l.w
       if (s.t === l.t || (sw >= 2 && sw / lw >= DUPLICATE_COVERAGE && l.t.includes(s.t))) pairs.push([s.b, l.b])
     }
   }
@@ -312,19 +316,38 @@ export function nextEmptyStep(blocks = {}) {
 }
 
 // ── The DOM writer ───────────────────────────────────────────
+// The last result, per block. renderBlock rebuilds a card's class and empties
+// its gi- slot; several paths re-render a card without re-running detection
+// (an edit that changed nothing, a vote, a review note), and the card lost its
+// gap outline and icon while the checks still reported the gap. A block
+// decorator paints the last known gap back onto every card render.
+let lastGapById = new Map()
+let decoratorWired = false
+
+function paintGap(el, id, gap) {
+  GAP_ORDER.forEach(c => el.classList.remove(c))
+  if (gap) el.classList.add(gap)
+  const gi = el.querySelector('.block-gap-icons') || document.getElementById('gi-' + id)
+  if (gi) gi.innerHTML = gap ? gapIconHtml(gap) : ''
+}
+
+function paintLastGap(b, el) { paintGap(el, b.id, lastGapById.get(b.id) || null) }
+
 // Paints detectGaps' result onto the rendered cards: one gap class per card
 // and a line icon in its `gi-<id>` slot. Blocks with no element are still
 // detected (the result is about the canvas, not about what is on screen).
 export function runGapDetection() {
+  // Registered on first use rather than at load: render.js imports this
+  // module, so its exports are not ready while this one evaluates.
+  if (!decoratorWired) {
+    decoratorWired = true
+    if (!blockDecorators.includes(paintLastGap)) blockDecorators.push(paintLastGap)
+  }
   const result = detectGaps(state.blocks, state.arrows, { groups: state.groups })
-  const byId = new Map(result.details.map(d => [d.id, d.gaps[0]]))
+  lastGapById = new Map(result.details.map(d => [d.id, d.gaps[0]]))
   for (const id in state.blocks) {
     const el = getBlockEl(id); if (!el) continue
-    GAP_ORDER.forEach(c => el.classList.remove(c))
-    const gap = byId.get(id)
-    if (gap) el.classList.add(gap)
-    const gi = document.getElementById('gi-' + id)
-    if (gi) gi.innerHTML = gap ? gapIconHtml(gap) : ''
+    paintGap(el, id, lastGapById.get(id) || null)
   }
   return result
 }

@@ -875,12 +875,14 @@ export function setLayoutDir(dir) {
  * restores the whole arrangement. Arrows are re-rendered each frame during the
  * transition, then routed properly once it settles.
  */
-export function runTidy() {
+// `snapshot: false` is for a caller that already took this action's undo
+// step. Listeners pass an Event here, which has no `snapshot`: the default.
+export function runTidy({ snapshot: takeSnapshot = true } = {}) {
   if (ui.readOnly) return
   const count = Object.keys(state.blocks).length
   if (count < 2) { showToast('Add at least two blocks to arrange', 'info', 1600); return }
 
-  const tidied = tidyCanvas({ direction: layoutDir })
+  const tidied = tidyCanvas({ direction: layoutDir, snapshot: takeSnapshot !== false })
   document.body.classList.add('tidying')
   renderAllBlocks()
   renderFrames()
@@ -1260,7 +1262,8 @@ export function setupTemplates() {
     // The big templates exist to be read as a shape, so arrange them straight
     // away rather than dropping a knot of boxes and hoping the button is found.
     if (tpl.large) {
-      runTidy()
+      // The template click already took its undo step above: one click, one Cmd+Z.
+      runTidy({ snapshot: false })
       if (framed) showToast(`${tpl.name} added, arranged, and the Situation set to match`, 'success', 3200)
     } else {
       fitView()

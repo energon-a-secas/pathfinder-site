@@ -7,7 +7,7 @@ import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, ui, getUndoHistory, getRedoFuture } from '../js/state.js'
 import { $ } from '../js/utils.js'
 import { renderBlock, undo, selectBlock, deselectAll } from '../js/render.js'
-import { startInlineEdit, isInlineEditing, commitInlineEdit } from '../js/inline-edit.js'
+import { startInlineEdit, isInlineEditing, commitInlineEdit, editorText } from '../js/inline-edit.js'
 import { createBlockAt } from '../js/create.js'
 import { setupKeyboardShortcuts } from '../js/events.js'
 
@@ -268,5 +268,41 @@ describe('Keyboard: Enter, F2 and Shift+Enter on the selected card', () => {
       press('F2')
       assert.ok(!isInlineEditing(), 'read-only')
     } finally { ui.readOnly = false }
+  }))
+})
+
+// ── QA round ────────────────────────────────────────────────
+describe('Description editing keeps what the editor shows (QA)', () => {
+  const press = (k, extra = {}) =>
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }))
+
+  it('Shift+Enter opens the description with the caret at the end, not everything selected', () => visible(() => {
+    setupKeyboardShortcuts()
+    reset(); block('a', { description: '(Check if still used)' })
+    selectBlock('a')
+    document.activeElement?.blur?.()
+    press('Enter', { shiftKey: true })
+    assert.eq(document.activeElement, descEl('a'))
+    const sel = window.getSelection()
+    assert.ok(sel.isCollapsed, 'nothing is selected, so the next Enter adds a line')
+    assert.eq(sel.toString(), '')
+  }))
+
+  it('a <br> followed by a block line reads as one line break, as the editor shows it', () => {
+    const el = document.createElement('div')
+    const read = html => { el.innerHTML = html; return editorText(el).trimEnd() }
+    assert.eq(read('<br><div>after</div>'), '\nafter')
+    assert.eq(read('one<div>two</div><div><br></div><div>four</div>'), 'one\ntwo\n\nfour')
+    assert.eq(read('one<br>two<br><br>four'), 'one\ntwo\n\nfour')
+    assert.eq(read('<div>a<br></div><div>b</div>'), 'a\nb', 'a trailing <br> in a line is not a line of its own')
+  })
+
+  it('Enter over a selected description and typing stores one break, not two', () => visible(() => {
+    reset(); block('a', { description: 'old' })
+    startInlineEdit('a', 'description', { selectAll: false })
+    // What Chrome leaves after Enter replaced the whole selection and a word was typed.
+    descEl('a').innerHTML = '<br><div>after</div>'
+    key(descEl('a'), 'Escape')
+    assert.eq(state.blocks.a.description, '\nafter'.trimEnd())
   }))
 })

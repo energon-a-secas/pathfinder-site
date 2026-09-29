@@ -104,28 +104,49 @@ export function exportColorFor(color, type) {
   return [color, null]
 }
 
+// The types the pre-2026-09 export wrote as a preset. In a file from that
+// exporter a hex was either one of the other types' own colour (process,
+// terminator, context, custom), or a colour someone picked for the card,
+// and eight of its twelve swatches are exactly a type's hex (Red is
+// problem's). So in such a file one of these hexes is an override, not a type.
+const LEGACY_PRESET_WRITTEN = new Set(Object.values(JC_PRESET_TYPES).flat())
+
+/**
+ * Whether a JSON Canvas reads like the pre-2026-09 Pathfinder export: no
+ * node carries `pathfinderType` (every newer export writes it), and some
+ * text node carries a preset '1' to '6'.
+ */
+export function isLegacyPathfinderCanvas(data) {
+  const nodes = Array.isArray(data?.nodes) ? data.nodes : []
+  if (nodes.some(n => n && typeof n.pathfinderType === 'string')) return false
+  return nodes.some(n => n && n.type !== 'group' && Object.hasOwn(JC_TO_HEX, String(n.color ?? '')))
+}
+
 /**
  * Decide a text node's type from the strongest signal it carries:
  * 1. `pathfinderType` (written by our own export): exact, high.
- * 2. A colour that is exactly one type's hex: exact, high.
+ * 2. A colour that is exactly one type's hex: exact, high. Except in an old
+ *    export (`legacy`), where the hex of a type that exporter wrote as a
+ *    preset is a colour override: the classifier decides, flagged for a check.
  * 3. A preset colour: a hint between that preset's candidate types. It
  *    settles a low-confidence classifier call; a confident classifier
  *    that disagrees keeps its call but is flagged for a check.
  * 4. The classifier alone.
  * Returns { type, title, confidence }.
  */
-export function resolveNodeType(node, title) {
+export function resolveNodeType(node, title, { legacy = false } = {}) {
   const hinted = typeof node.pathfinderType === 'string' ? node.pathfinderType.trim() : ''
   // An unknown id is kept as-is: normalize turns it into custom + typeHint,
   // so a newer export read by an older build does not lose the type.
   if (hinted && TYPE_ID.test(hinted)) return { type: hinted, title, confidence: 'high' }
   const color = node.color == null ? '' : String(node.color).trim()
   const exact = typeForHex(color)
-  if (exact) return { type: exact, title, confidence: 'high' }
+  if (exact && !(legacy && LEGACY_PRESET_WRITTEN.has(exact))) return { type: exact, title, confidence: 'high' }
 
   const cat = categorizeLine(title || '(untitled)')
-  const candidates = JC_PRESET_TYPES[color] || null
   const catTitle = title ? (cat.title || title) : ''
+  if (exact) return { type: cat.type, title: catTitle, confidence: 'low' }
+  const candidates = JC_PRESET_TYPES[color] || null
   if (!candidates) return { type: cat.type, title: catTitle, confidence: cat.confidence }
   if (candidates.includes(cat.type)) return { type: cat.type, title: catTitle, confidence: cat.confidence }
   if (cat.confidence === 'high') return { type: cat.type, title: catTitle, confidence: 'low' }
@@ -149,6 +170,7 @@ export function fromJsonCanvas(data) {
   const blocks = []
   const lowConfidence = []
   const groupRects = []
+  const legacy = isLegacyPathfinderCanvas(data)
 
   ;(Array.isArray(data.nodes) ? data.nodes : []).forEach(n => {
     if (!n || typeof n !== 'object') return
@@ -181,7 +203,7 @@ export function fromJsonCanvas(data) {
     // Our own export writes "(untitled)" for an empty title; read it back empty.
     const title = split.title === '(untitled)' ? '' : split.title
     const description = split.description
-    const r = resolveNodeType(n, title)
+    const r = resolveNodeType(n, title, { legacy })
     const block = { ...base, type: r.type, color: overrideFor(hex, r.type), title: r.title ?? title, description }
     if (r.confidence === 'low') { block.typeCheck = true; lowConfidence.push(id) }
     blocks.push(block)

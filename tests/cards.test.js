@@ -8,7 +8,7 @@
 import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, ui, selection, pointer, view, getUndoHistory, getRedoFuture,
          resetSnapshotToken } from '../js/state.js'
-import { $, TYPES, TYPE_STEPS, typesByStep, SWATCH_COLORS } from '../js/utils.js'
+import { $, TYPES, TYPE_STEPS, typesByStep, SWATCH_COLORS, HIGHLIGHTS } from '../js/utils.js'
 import { renderBlock, undo, deselectAll, selectBlock } from '../js/render.js'
 import { setupCanvasPointerEvents } from '../js/events.js'
 import { runGapDetection, gapIconFor, GAP_META } from '../js/gaps.js'
@@ -813,5 +813,76 @@ describe('cards -- empty state', () => {
       s.page.classList.remove('readonly-mode')
       assert.eq(getComputedStyle(s.page.querySelector('.canvas-hint-view')).display, 'none')
     } finally { s.done() }
+  })
+})
+
+// ── QA round ────────────────────────────────────────────────
+describe('cards -- QA round', () => {
+  const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+
+  it('header preset: the gap icon on the coloured strip reads at 3:1 in both themes', async () => {
+    reset()
+    const types = ['requirement', 'metric', 'assumption', 'decision', 'question', 'context', 'goal']
+    const els = types.map((t, i) => block('h' + i, { type: t, cardStyle: 'header', x: 40 + i * 20 }))
+    runGapDetection()
+    for (const theme of ['', 'light-mode']) {
+      const s = await styled(theme)
+      try {
+        els.forEach((el, i) => {
+          const card = s.place(el)
+          const icon = card.querySelector('.gap-icon')
+          assert.ok(icon, `${types[i]}: an isolated card shows its gap icon`)
+          const page = over(rgb(getComputedStyle(s.page).backgroundColor), [255, 255, 255])
+          const fill = over(rgb(getComputedStyle(card).backgroundColor), page)
+          const strip = over(rgb(getComputedStyle(card.querySelector('.block-header')).backgroundColor), fill)
+          const r = contrast(over(rgb(getComputedStyle(icon).color), strip), strip)
+          assert.ok(r >= 3, `${theme || 'dark'} ${types[i]}: gap icon ${r.toFixed(2)}:1 on the strip`)
+        })
+      } finally { s.done() }
+    }
+    reset()
+  })
+
+  it('tinted cards keep their description at 4.5:1 on the lightest and darkest tints', async () => {
+    reset()
+    const el = block('t', { type: 'requirement', cardStyle: 'tint', description: 'Every lead sees it on Monday.' })
+    const s = await styled('light-mode')
+    try {
+      const card = s.place(el)
+      const ink = rgb(getComputedStyle(card.querySelector('.block-desc')).color)
+      // The light tint is the type colour at 14% over white, at its strongest.
+      Object.entries(TYPES).forEach(([id, t]) => {
+        const fill = hexRgb(t.light).map(c => c * 0.14 + 255 * 0.86)
+        const r = contrast(over(ink, fill), fill)
+        assert.ok(r >= 4.5, `light ${id} tint: description ${r.toFixed(2)}:1`)
+      })
+    } finally { s.done() }
+    reset()
+  })
+
+  it('the palette rail captions its section toggles, so + and - do not read as zoom', async () => {
+    const html = await (await fetch('../index.html')).text()
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const toggles = [...doc.querySelectorAll('.palette-section-toggle')]
+    assert.deepEq(toggles.map(t => t.dataset.rail), ['Tpl', 'Types'])
+    const s = await styled()
+    try {
+      s.page.innerHTML = '<aside class="palette collapsed">' + toggles.map(t => t.outerHTML).join('') + '</aside>'
+      s.page.querySelectorAll('.palette-section-toggle').forEach(t => {
+        const content = getComputedStyle(t, '::after').content
+        assert.ok(content && content !== 'none' && content !== 'normal', `the rail shows a caption (${content})`)
+      })
+      s.page.firstChild.classList.remove('collapsed')
+      if (window.innerWidth > 1024) {
+        const content = getComputedStyle(s.page.querySelector('.palette-section-toggle'), '::after').content
+        assert.ok(content === 'none' || content === 'normal', 'the full palette keeps its words and no caption')
+      }
+    } finally { s.done() }
+  })
+
+  it('highlight hints describe what is drawn at rest, and name the toggle that animates it', () => {
+    assert.ok(!/pulsing|moving/i.test(HIGHLIGHTS.alert.hint + HIGHLIGHTS.festive.hint), 'no motion promised at rest')
+    assert.includes(HIGHLIGHTS.alert.hint, 'Animate highlights')
+    assert.includes(HIGHLIGHTS.festive.hint, 'Animate highlights')
   })
 })

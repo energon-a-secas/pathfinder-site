@@ -9,7 +9,8 @@ import { $, genId, getBlockEl, showToast, TYPES, DEFAULT_WIDTH } from './utils.j
 import { renderArrows, updateHint } from './canvas.js'
 import { renderAllBlocks, mutateBlocks, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
-import { openDropdown } from './menu.js'
+import { openDropdown, isMenuOpen } from './menu.js'
+import { modalDialogOpen } from './navigation.js'
 import { typeMenuItems, retypeBlocks } from './type-menu.js'
 
 // ── Text → blocks classification ─────────────────────────────
@@ -201,11 +202,19 @@ export function createBlocksFromText(text, nest = true) {
   return created.map(c => c.id)
 }
 
+let pasteWired = false
 export function setupPasteHandler() {
+  if (pasteWired) return
+  pasteWired = true
   document.addEventListener('paste', e => {
     const tag = document.activeElement?.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.contentEditable === 'true') return
     if (ui.readOnly) return
+    // A modal dialog (the incoming-link chooser), an open menu or the
+    // shortcut sheet owns the keyboard: nothing lands on the map behind it.
+    if (modalDialogOpen() || isMenuOpen() || e.target?.closest?.('dialog, .pf-menu, #shortcutOverlay')) return
+    const sheet = document.getElementById('shortcutOverlay')
+    if (sheet && sheet.style.display !== 'none' && sheet.getAttribute('aria-modal') === 'true') return
     const text = e.clipboardData?.getData('text/plain')
     if (!text?.trim()) return
     e.preventDefault()

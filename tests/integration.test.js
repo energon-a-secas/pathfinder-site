@@ -16,8 +16,8 @@ import { $, TYPES, typesByStep, DEFAULT_ARROW_WEIGHT, askedQuestions } from '../
 import { renderBlock, undo, redo, deselectAll, selectBlock, setSelection } from '../js/render.js'
 import { runGapDetection } from '../js/gaps.js'
 import { setupContextMenu } from '../js/context-menu.js'
-import { setupTypeChips, openTypeChipMenu } from '../js/classify.js'
-import { closeMenus } from '../js/menu.js'
+import { setupTypeChips, openTypeChipMenu, setupPasteHandler } from '../js/classify.js'
+import { closeMenus, openMenu } from '../js/menu.js'
 import * as typeMenu from '../js/type-menu.js'
 import { typeMenuItems as inspectorTypeMenuItems } from '../js/inspector.js'
 import { openQuickCreate } from '../js/navigation.js'
@@ -208,6 +208,40 @@ describe('Integration: global shortcuts stop behind a modal dialog', () => {
       document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }))
       assert.ok(!state.blocks.a, 'with the dialog gone, Delete deletes')
     } finally { dlg.remove() }
+  })
+})
+
+describe('Integration: paste stops behind a modal dialog or an open menu (QA)', () => {
+  const paste = text => {
+    const dt = new DataTransfer()
+    dt.setData('text/plain', text)
+    document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+  }
+
+  it('Cmd+V adds nothing behind the incoming-link dialog or under a menu, and works otherwise', () => {
+    reset(); setupPasteHandler()
+    block('a')
+    document.activeElement?.blur?.()
+    const count = () => Object.keys(state.blocks).length
+    const dlg = document.createElement('dialog')
+    dlg.innerHTML = '<button type="button">Open as a new map</button>'
+    document.body.appendChild(dlg)
+    try {
+      dlg.showModal()
+      paste('Goal: one\nRisk: two')
+      assert.eq(count(), 1, 'the dialog says the map stays as it is, and it does')
+    } finally { dlg.close(); dlg.remove() }
+    document.activeElement?.blur?.()
+    openMenu([{ label: 'Add here' }], { x: 40, y: 40 })
+    try {
+      document.activeElement?.blur?.()
+      paste('Goal: one')
+      assert.eq(count(), 1, 'an open menu owns the keyboard too')
+    } finally { closeMenus() }
+    document.activeElement?.blur?.()
+    paste('Goal: one')
+    assert.eq(count(), 2, 'with nothing open, paste still makes blocks')
+    reset()
   })
 })
 

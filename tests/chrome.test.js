@@ -7,7 +7,7 @@
 
 import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, ui, canvasMeta, getUndoHistory, getRedoFuture,
-         resetSnapshotToken, GRID } from '../js/state.js'
+         resetSnapshotToken, GRID, snapshot } from '../js/state.js'
 import { $, CARD_STYLES, DEFAULT_CARD_STYLE } from '../js/utils.js'
 import { renderBlock, renderAllBlocks, undo, deselectAll } from '../js/render.js'
 import { renderFrames } from '../js/canvas.js'
@@ -15,7 +15,10 @@ import { runGapDetection } from '../js/gaps.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
 import { getPref, applyPrefs } from '../js/prefs.js'
 import { isVotingMode, setVotingMode } from '../js/voting.js'
-import { clearCanvas, getLayoutDir, setLayoutDir, undoKeyLabel } from '../js/ui-panels.js'
+import { clearCanvas, getLayoutDir, setLayoutDir, undoKeyLabel, setupTemplates } from '../js/ui-panels.js'
+import { TEMPLATES } from '../js/templates.js'
+import { showToast, placeToast } from '../js/utils.js'
+import { updateCanvasTitle } from '../js/render.js'
 import { mapsMenuItems } from '../js/library.js'
 import { viewMenuItems, fileMenuItems, shareMenuItems, tidyMenuItems, helpMenuItems, cardStyleItems,
          openViewMenu, openHeaderMenu, closeInlineMenus, setupViewMenu,
@@ -227,6 +230,37 @@ describe('chrome -- Clear this map', () => {
     assert.eq(state.arrows.length, 1)
     assert.ok(state.groups.g1)
     reset()
+  })
+
+  it('undoing a Clear takes the Brain Dump away again, and tells the listeners (QA)', () => {
+    reset()
+    const bd = document.createElement('div')
+    bd.id = 'brainDump'
+    document.body.appendChild(bd)
+    let changed = 0
+    const onChange = () => changed++
+    window.addEventListener('pf:canvas-changed', onChange)
+    try {
+      block('a'); block('b', { x: 400 })
+      assert.ok(clearCanvas({ ask: false }))
+      assert.eq(bd.style.display, '', 'the empty state shows on the cleared map')
+      changed = 0
+      undo()
+      assert.eq(Object.keys(state.blocks).length, 2, 'the blocks are back')
+      assert.eq(bd.style.display, 'none', 'and the Brain Dump card is gone from over them')
+      assert.ok(changed >= 1, 'undo announced the change')
+      // The other way: undoing the only block brings the empty state back.
+      reset()
+      snapshot()
+      block('only')
+      undo()
+      assert.eq(Object.keys(state.blocks).length, 0)
+      assert.eq(bd.style.display, '', 'the empty state is back')
+    } finally {
+      window.removeEventListener('pf:canvas-changed', onChange)
+      bd.remove()
+      reset()
+    }
   })
 
   it('does nothing on a view-only link, and nothing when the confirm is declined', () => {
@@ -948,5 +982,144 @@ describe('chrome -- H and Z in an embed', () => {
       if (saved === null) localStorage.removeItem(KEY)
       else localStorage.setItem(KEY, saved)
     }
+  })
+})
+
+// ── QA round ─────────────────────────────────────────────────
+
+// A page with the real stylesheet and some markup, at a given size.
+async function cssFrame(html, { width = 1200, height = 800, bodyClass = '', head = '' } = {}) {
+  const frame = document.createElement('iframe')
+  frame.style.cssText = `position:fixed;left:-5000px;top:0;width:${width}px;height:${height}px;border:0`
+  frame.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css">' + head +
+    `</head><body class="${bodyClass}">${html}</body></html>`
+  const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+  document.body.appendChild(frame)
+  await loaded
+  await nextFrame(frame.contentWindow)
+  return frame
+}
+const rgbOf = s => (String(s).match(/[\d.]+/g) || []).map(Number)
+const lumOf = ([r, g, b]) => {
+  const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+}
+const overOf = (fg, bg) => { const a = fg[3] ?? 1; return [0, 1, 2].map(i => fg[i] * a + bg[i] * (1 - a)) }
+const ratioOf = (a, b) => { const [x, y] = [lumOf(a), lumOf(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+
+let templatesWired = false
+describe('chrome -- QA round', () => {
+  it('a large template, added and arranged, is one undo step', async () => {
+    reset()
+    block('seed')
+    if (!templatesWired) { setupTemplates(); templatesWired = true }
+    const i = TEMPLATES.findIndex(t => t.name === 'Recurring Reporting Flow')
+    assert.ok(i >= 0 && TEMPLATES[i].large, 'the template exists and is arranged on apply')
+    const hist = getUndoHistory().length
+    $.templatesList().querySelector(`.template-item[data-tpl="${i}"]`).click()
+    assert.gt(Object.keys(state.blocks).length, 10, 'the template landed')
+    assert.eq(getUndoHistory().length, hist + 1, 'one click, one step (Tidy took none of its own)')
+    await new Promise(r => setTimeout(r, 560))   // the arrange animation
+    undo()
+    assert.deepEq(Object.keys(state.blocks), ['seed'], 'one Cmd+Z takes the whole template away')
+    reset()
+  })
+
+  it('light mode: the keyboard focus ring reads at 3:1 or better on the panel', async () => {
+    // A frame that is not focused never matches :focus-visible, so the
+    // cascade is replayed with the pseudo-class spelled as a class: same
+    // specificity, same winner.
+    const css = (await (await fetch('../css/style.css', { cache: 'no-store' })).text()).replace(/:focus-visible/g, '.fv-probe')
+    const html = '<div class="right-panel" style="width:320px;height:200px">' +
+      '<input id="field" class="insp-input fv-probe" value="Key Results">' +
+      '<button id="chip" class="insp-chip fv-probe" type="button">Status</button></div>' +
+      '<a class="skip-link" href="#x">Skip</a>'
+    const frame = await cssFrame(html, { bodyClass: 'light-mode', head: `<style>${css.replace(/<\/style/gi, '')}</style>` })
+    try {
+      const doc = frame.contentDocument, win = frame.contentWindow
+      const page = rgbOf(win.getComputedStyle(doc.body).backgroundColor)
+      const panel = overOf(rgbOf(win.getComputedStyle(doc.querySelector('.right-panel')).backgroundColor), page)
+      for (const id of ['field', 'chip']) {
+        const cs = win.getComputedStyle(doc.getElementById(id))
+        const r = ratioOf(overOf(rgbOf(cs.outlineColor), panel), panel)
+        assert.ok(r >= 3, `#${id} ring ${cs.outlineColor} on the panel: ${r.toFixed(2)}:1`)
+      }
+      const skipBg = rgbOf(win.getComputedStyle(doc.querySelector('.skip-link')).backgroundColor)
+      assert.ok(ratioOf(skipBg, page) >= 3, 'the skip link stands out from the page')
+    } finally { frame.remove() }
+  })
+
+  it('light mode: muted text and every toast kind read at 4.5:1', async () => {
+    const kinds = ['success', 'info', 'warning', 'error']
+    const frame = await cssFrame('<span id="muted" style="color:var(--text-muted)">Backed up: never</span>' +
+      kinds.map(k => `<div class="toast-notification toast-${k}" style="position:static;animation:none">${k}</div>`).join(''),
+      { bodyClass: 'light-mode' })
+    try {
+      const doc = frame.contentDocument, win = frame.contentWindow
+      const page = rgbOf(win.getComputedStyle(doc.body).backgroundColor)
+      const muted = ratioOf(rgbOf(win.getComputedStyle(doc.getElementById('muted')).color), page)
+      assert.ok(muted >= 4.5, `--text-muted on --bg: ${muted.toFixed(2)}:1`)
+      doc.querySelectorAll('.toast-notification').forEach(t => {
+        const bg = overOf(rgbOf(win.getComputedStyle(t).backgroundColor), page)
+        const r = ratioOf(rgbOf(win.getComputedStyle(t).color), bg)
+        assert.ok(r >= 4.5, `${t.textContent} toast: ${r.toFixed(2)}:1`)
+      })
+    } finally { frame.remove() }
+  })
+
+  it('a toast lands over the canvas, above its status bar, clear of the side panel', () => {
+    const bar = document.createElement('div')
+    bar.className = 'canvas-statusbar'
+    bar.style.cssText = 'position:fixed;left:300px;top:700px;width:800px;height:44px'
+    document.body.appendChild(bar)
+    try {
+      showToast('Arranged 12 blocks left to right', 'success', 50)
+      const t = document.querySelector('.toast-notification')
+      const tr = t.getBoundingClientRect(), br = bar.getBoundingClientRect()
+      assert.ok(tr.bottom <= br.top - 8, `above the status bar (${Math.round(tr.bottom)} vs ${Math.round(br.top)})`)
+      assert.ok(tr.left >= br.left && tr.right <= br.right, 'within the canvas width, so never over the inspector')
+      assert.ok(Math.abs((tr.left + tr.right) / 2 - (br.left + br.right) / 2) <= 1, 'centred on it')
+      t.remove()
+    } finally { bar.remove() }
+    // With no canvas on screen the stylesheet places it, as before.
+    const lone = document.createElement('div')
+    assert.eq(placeToast(lone), false)
+    assert.eq(lone.style.left, '')
+  })
+
+  it('a long map title ellipsizes instead of growing the header, and keeps its full text as a tooltip', async () => {
+    const long = 'Quarterly reporting, delivery lifecycle and every status note across the portfolio'
+    for (const width of [800, 1024]) {
+      const short = await headerFrame(width)
+      const tall = await headerFrame(width)
+      try {
+        tall.contentDocument.getElementById('canvasTitle').textContent = long
+        await nextFrame(tall.contentWindow)
+        const h = f => f.contentDocument.querySelector('.header-bar').getBoundingClientRect().height
+        assert.ok(h(tall) <= h(short) + 1, `${width}px: ${Math.round(h(tall))}px with the long title, ${Math.round(h(short))}px without`)
+        const t = tall.contentDocument.getElementById('canvasTitle')
+        assert.ok(t.scrollWidth > t.clientWidth, 'the title is cut with an ellipsis')
+      } finally { short.remove(); tall.remove() }
+    }
+    const saved = canvasMeta.title
+    try {
+      canvasMeta.title = long
+      updateCanvasTitle()
+      assert.eq($.canvasTitle().title, long, 'the full title is one hover away')
+    } finally { canvasMeta.title = saved; updateCanvasTitle() }
+  })
+
+  it('on a phone the overflow panel uses the height it has, not 320px', async () => {
+    const frame = await headerFrame(375)
+    try {
+      const doc = frame.contentDocument, win = frame.contentWindow
+      const wrap = doc.createElement('div'); wrap.className = 'header-overflow'
+      const panel = doc.createElement('div'); panel.className = 'header-menu header-overflow-menu open'
+      panel.innerHTML = '<div style="height:1036px"></div>'
+      wrap.appendChild(panel); doc.querySelector('.header-actions').appendChild(wrap)
+      const max = parseFloat(win.getComputedStyle(panel).maxHeight)
+      assert.gt(max, 320, `max-height ${max}px`)
+      assert.ok(max <= win.innerHeight, 'and never taller than the window')
+    } finally { frame.remove() }
   })
 })

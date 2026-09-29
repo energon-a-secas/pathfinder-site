@@ -3,13 +3,14 @@
 // ============================================================
 
 import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls } from './test-utils.js'
-import { state, ui, selection, getUndoHistory, getRedoFuture, devOpts } from '../js/state.js'
+import { state, ui, selection, getUndoHistory, getRedoFuture, devOpts, saveStatus } from '../js/state.js'
 import { runGapDetection, detectGaps, GAP_META, GAP_ORDER, gapIconFor, getGapFixes, gapExplain, nextEmptyStep,
          acceptGap, acceptFinding, unacceptGap, blockGap, hidesQuestion, FINDING_ACKS, FINDING_META } from '../js/gaps.js'
-import { attentionItems, acceptedItems, attentionModel, attentionRowsHtml, runAttentionAction, suggestTypes } from '../js/attention.js'
+import { attentionItems, acceptedItems, attentionModel, attentionRowsHtml, runAttentionAction, suggestTypes, setupAttention } from '../js/attention.js'
 import { computeHealthScore, generatePrompt } from '../js/prompt.js'
 import { relationOf, relationHint, dependencyEdges, impliedVerb } from '../js/relations.js'
-import { undo, deselectAll } from '../js/render.js'
+import { undo, deselectAll, renderBlock } from '../js/render.js'
+import { startInlineEdit, commitInlineEdit } from '../js/inline-edit.js'
 import { TEMPLATES } from '../js/templates.js'
 
 // Load a built-in template's data into state the way applyTemplate does,
@@ -402,7 +403,7 @@ const USER = [
   ['w8', 'Every End of Sprint', 'custom', 'terminator', ''],
   ['x9', 'Key Results', 'custom', 'metric', ''],
   ['xa', "On Quarter's end", 'custom', 'terminator', ''],
-  ['xb', 'Data Hub', 'custom', 'resource', 'Integrated with Jira and other sources'],
+  ['xb', 'Data Hub', 'custom', 'resource', 'Integrated with the tracker and other sources'],
 ]
 const USER_EDGES = [['w2', 'w4'], ['w3', 'w1'], ['w5', 'w1'], ['w7', 'w8'], ['w6', 'w8'], ['w8', 'w2'],
   ['w8', 'w5'], ['xa', 'x9'], ['w7', 'xa'], ['w4', 'w3'], ['xb', 'x9'], ['x9', 'w1']]
@@ -916,5 +917,96 @@ describe('Insights: attentionModel is one detection pass for both lists', () => 
     const m = attentionModel(c.blocks, c.arrows)
     assert.deepEq(m.items, attentionItems(c.blocks, c.arrows))
     assert.deepEq(m.accepted, acceptedItems(c.blocks, c.arrows))
+  })
+})
+
+// ── QA round ────────────────────────────────────────────────
+describe('Insights: QA round', () => {
+  const full = (id, extra = {}) => ({ id, type: 'goal', title: id, description: '', notes: '', x: 40, y: 40,
+    actions: [], questions: [], docRef: null, width: null, color: null, collapsed: false, groupId: null,
+    status: null, priority: null, criteria: [], ...extra })
+
+  it('a card keeps the gap outline and icon the checks report when it is re-rendered without a new check', () => {
+    cleanupMockEls()
+    state.blocks = { g: full('g', { title: 'Grow retention' }) }
+    state.arrows = []; state.groups = {}
+    renderBlock('g')
+    runGapDetection()
+    const el = () => document.getElementById('b-g')
+    const icon = () => document.getElementById('gi-g')?.innerHTML || ''
+    assert.ok(el().classList.contains('gap-isolated'), 'detected')
+    renderBlock('g')
+    assert.ok(el().classList.contains('gap-isolated'), 'a plain re-render keeps the outline')
+    assert.includes(icon(), '<svg', 'and the icon')
+    startInlineEdit('g', 'title')
+    commitInlineEdit()   // nothing changed: the card is re-rendered, no check runs
+    assert.ok(el().classList.contains('gap-isolated'), 'an edit that changed nothing keeps it too')
+    assert.includes(icon(), '<svg')
+    state.blocks = {}
+    cleanupMockEls()
+    runGapDetection()
+  })
+
+  it('the duplicate-title check splits each title once, not once per pair', () => {
+    const blocks = {}
+    for (let i = 0; i < 80; i++) blocks['d' + i] = full('d' + i, { type: 'requirement', title: `Weekly report number ${i} for the team` })
+    const split = String.prototype.split
+    let n = 0
+    String.prototype.split = function (...args) { n++; return split.apply(this, args) }
+    try { detectGaps(blocks, []) } finally { String.prototype.split = split }
+    assert.ok(n < 80 * 10, `${n} splits for 80 titles (a split per pair would be over 6000)`)
+  })
+
+  it('Attention refreshes on a settled save, not on every keystroke\'s pending one', () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<span id="attentionCount" hidden></span><select id="attentionFilter"><option value="">All items</option></select>' +
+      '<p id="attentionSummary"></p><ul id="attentionList"></ul>'
+    document.body.appendChild(host)
+    const phase = saveStatus.phase
+    try {
+      state.blocks = { a: full('a') }; state.arrows = []; state.groups = {}
+      setupAttention()
+      const count = () => document.getElementById('attentionCount').textContent
+      const first = count()
+      state.blocks.b = full('b', { type: 'problem' })
+      saveStatus.phase = 'pending'
+      window.dispatchEvent(new CustomEvent('pf:save-status'))
+      assert.eq(count(), first, 'a pending save does not re-run the checks')
+      saveStatus.phase = 'saved'
+      window.dispatchEvent(new CustomEvent('pf:save-status'))
+      assert.neq(count(), first, 'a settled save does')
+    } finally {
+      saveStatus.phase = phase
+      host.remove()
+      state.blocks = {}
+    }
+  })
+
+  it('light mode: the Prompt tab\'s score and gap badge are readable', async () => {
+    const frame = document.createElement('iframe')
+    frame.style.cssText = 'position:fixed;left:-5000px;top:0;width:600px;height:300px;border:0'
+    frame.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css"></head><body class="light-mode">' +
+      '<div class="right-panel"><span class="gap-badge">5 gaps</span>' +
+      ['a', 'b', 'c'].map(g => `<span class="health-score grade-${g}">58</span>`).join('') + '</div></body></html>'
+    const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+    document.body.appendChild(frame)
+    await loaded
+    try {
+      const doc = frame.contentDocument, win = frame.contentWindow
+      const rgbOf = c => (String(c).match(/[\d.]+/g) || []).map(Number)
+      const lum = ([r, g, b]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b) }
+      const over = (fg, bg) => { const a = fg[3] ?? 1; return [0, 1, 2].map(i => fg[i] * a + bg[i] * (1 - a)) }
+      const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+      const page = rgbOf(win.getComputedStyle(doc.body).backgroundColor)
+      const panel = over(rgbOf(win.getComputedStyle(doc.querySelector('.right-panel')).backgroundColor), page)
+      const badge = doc.querySelector('.gap-badge')
+      const badgeBg = over(rgbOf(win.getComputedStyle(badge).backgroundColor), panel)
+      const rb = ratio(rgbOf(win.getComputedStyle(badge).color), badgeBg)
+      assert.ok(rb >= 4.5, `gap badge ${rb.toFixed(2)}:1`)
+      doc.querySelectorAll('.health-score').forEach(el => {
+        const r = ratio(rgbOf(win.getComputedStyle(el).color), panel)
+        assert.ok(r >= 3, `${el.className} ${r.toFixed(2)}:1`)
+      })
+    } finally { frame.remove() }
   })
 })

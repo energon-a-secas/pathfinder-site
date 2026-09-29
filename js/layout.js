@@ -304,7 +304,7 @@ export function layoutGraph(nodes, edges, opts = {}) {
  * Block positions are written directly; the caller is responsible for
  * re-rendering and for any animation.
  */
-export function tidyCanvas({ direction = 'LR' } = {}) {
+export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } = {}) {
   const ids = Object.keys(state.blocks)
   if (ids.length < 2) return { moved: 0, crossings: 0, underCards: 0 }
 
@@ -323,7 +323,9 @@ export function tidyCanvas({ direction = 'LR' } = {}) {
   const anchorX = Math.min(...ids.map(id => state.blocks[id].x))
   const anchorY = Math.min(...ids.map(id => state.blocks[id].y))
 
-  snapshot()
+  // A caller that already took the step (applying a template arranges what
+  // it just added) passes snapshot: false, so one click stays one undo.
+  if (takeSnapshot) snapshot()
   let moved = 0
   ids.forEach(id => {
     const p = positions.get(id); if (!p) return

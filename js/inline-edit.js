@@ -93,8 +93,33 @@ export function startInlineEdit(blockId, field = 'title', { selectAll = true, ca
 
 function readValue(el, field) {
   if (field === 'title') return el.textContent.replace(/\s+/g, ' ').trim()
-  // innerText keeps the line breaks the user typed; store them as \n.
-  return el.innerText.replace(/ /g, ' ').replace(/\n{3,}/g, '\n\n').trimEnd()
+  return editorText(el).replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trimEnd()
+}
+
+const BLOCK_TAGS = /^(DIV|P|LI|H[1-6]|PRE|BLOCKQUOTE)$/
+
+/**
+ * The text of a contentEditable as the lines it shows: each <br> ends a line
+ * and each block element starts one, once. innerText counted a <br> followed
+ * by a <div> (what Enter leaves behind after replacing a selection) as two
+ * breaks, so the stored text gained a blank line the editor never showed.
+ */
+export function editorText(el) {
+  let out = ''
+  const walk = node => {
+    for (const n of node.childNodes) {
+      if (n.nodeType === 3) out += n.nodeValue
+      else if (n.nodeName === 'BR') out += '\n'
+      else if (n.nodeType === 1) {
+        const block = BLOCK_TAGS.test(n.nodeName)
+        if (block && out && !out.endsWith('\n')) out += '\n'
+        walk(n)
+        if (block && out && !out.endsWith('\n')) out += '\n'
+      }
+    }
+  }
+  walk(el)
+  return out
 }
 
 /** Commit the edit in progress. `refocus` hands focus back to the card. */

@@ -1,4 +1,4 @@
-import { state, ui } from './state.js'
+import { state, ui, saveStatus } from './state.js'
 import { escHtml, showToast, TYPES } from './utils.js'
 import { focusBlock } from './ui-panels.js'
 import { detectGaps, CRITERIA_GAPS, GAP_META, FINDING_ACKS, FINDING_META, gapExplain, hasCriteria,
@@ -250,6 +250,10 @@ export function setupAttention() {
     target?.scrollIntoView({ block: 'nearest' })
   })
   window.addEventListener('pf:canvas-changed', refresh)
-  window.addEventListener('pf:save-status', refresh)
+  // Saves settle what changed without an event of its own (a drag, a
+  // resize). 'pending' fires on every keystroke and adds nothing a change
+  // event has not already refreshed: at 300 blocks it doubled the checks
+  // run per key.
+  window.addEventListener('pf:save-status', () => { if (saveStatus.phase !== 'pending') refresh() })
   refresh()
 }

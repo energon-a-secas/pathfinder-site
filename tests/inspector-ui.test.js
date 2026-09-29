@@ -11,7 +11,7 @@
 import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, selection, ui, view, canvasMeta, getUndoHistory, getRedoFuture, resetSnapshotToken } from '../js/state.js'
 import { TYPES, TYPE_STEPS, getBlockEl } from '../js/utils.js'
-import { renderBlock, selectBlock, setSelection, selectArrow, deselectAll, undo, mutateBlock } from '../js/render.js'
+import { renderBlock, selectBlock, setSelection, selectArrow, deselectAll, undo, mutateBlock, duplicateBlock } from '../js/render.js'
 import { renderArrows, applyTransform } from '../js/canvas.js'
 import { runGapDetection } from '../js/gaps.js'
 import { setupInspectorEvents, typeMenuItems, typeCount } from '../js/inspector.js'
@@ -1103,6 +1103,78 @@ describe('Inspector: review fixes', () => {
       host.el.style.width = width
       byId('appearanceDetails').open = false
     }
+  })
+})
+
+describe('Inspector: QA round', () => {
+  it('undo keeps the block selected, the panel on it and focus on the control used', async () => {
+    await mount(); reset()
+    block('r', { title: 'Key Results' })
+    selectBlock('r')
+    open('inspTypeBtn')
+    pick('Metric')
+    assert.eq(state.blocks.r.type, 'metric')
+    byId('inspTypeBtn').focus()
+    undo()
+    assert.eq(state.blocks.r.type, 'goal', 'the type is restored')
+    assert.eq(selection.blockId, 'r', 'still selected')
+    assert.ok(getBlockEl('r').classList.contains('selected'), 'the card still shows it')
+    assert.ok(byId('inspectorContent').style.display !== 'none', 'the panel stays on the block')
+    assert.eq(document.activeElement, byId('inspTypeBtn'), 'focus stays on the type button')
+    open('inspTypeBtn'); pick('Metric')
+    assert.eq(state.blocks.r.type, 'metric', 'change again with no reselect')
+  })
+
+  it('undo drops only what no longer exists from the selection', async () => {
+    await mount(); reset()
+    block('a')
+    const c = duplicateBlock('a')
+    setSelection(['a', c])
+    undo()
+    assert.ok(!state.blocks[c], 'the duplicate is gone')
+    assert.deepEq([...selection.ids], ['a'], 'the block that is still there stays selected')
+    assert.eq(selection.blockId, 'a')
+    reset()
+  })
+
+  it('Reverse is refused when a connection already runs the other way, as in the right-click menu', async () => {
+    await mount(); reset()
+    block('a'); block('b', { x: 400 })
+    arrow('fw', 'a', 'b', { label: 'forward note' })
+    arrow('bk', 'b', 'a', { label: 'back' })
+    refresh()
+    selectArrow('fw')
+    const hist = history()
+    byId('arrowReverse').click()
+    assert.deepEq(state.arrows.map(a => a.from + '>' + a.to + ':' + a.label), ['a>b:forward note', 'b>a:back'],
+      'no second b>a drawn on top of the first')
+    assert.eq(history(), hist, 'no undo step for a refusal')
+    // Without the opposite connection, Reverse still works as one step.
+    state.arrows = state.arrows.filter(a => a.id !== 'bk')
+    refresh(); selectArrow('fw')
+    byId('arrowReverse').click()
+    assert.eq(state.arrows[0].from + '>' + state.arrows[0].to, 'b>a')
+    assert.eq(history(), hist + 1)
+    reset()
+  })
+
+  it('opening Appearance scrolls the panel so its controls are in view', async () => {
+    await mount(); reset()
+    block('r', { type: 'requirement', title: 'Key Results',
+      description: Array.from({ length: 14 }, (_, i) => 'Line ' + i).join('\n'), criteria: ['One', 'Two', 'Three'] })
+    selectBlock('r')
+    host.el.scrollTop = 0
+    const d = byId('appearanceDetails')
+    assert.eq(d.open, false)
+    d.querySelector('summary').click()
+    await tick(20)
+    assert.ok(d.open, 'the section opened')
+    const box = host.el.getBoundingClientRect(), chip = byId('inspColourBtn').getBoundingClientRect()
+    assert.ok(chip.bottom <= box.bottom + 0.5 && chip.top >= box.top - 0.5,
+      `the Colour chip (${Math.round(chip.top)}-${Math.round(chip.bottom)}) is inside the panel (${Math.round(box.top)}-${Math.round(box.bottom)})`)
+    assert.ok(d.querySelector('summary').getBoundingClientRect().top >= box.top - 0.5, 'the summary stays on screen')
+    d.open = false
+    reset()
   })
 })
 

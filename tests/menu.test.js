@@ -339,3 +339,53 @@ describe('menu.js -- openDropdown', () => {
     btn.remove()
   })
 })
+
+// ── QA round: a menu never covers what opened it ────────────
+describe('menu.js -- placement never covers the anchor (QA)', () => {
+  const overlaps = (a, b) => a.top < b.bottom && b.top < a.bottom
+  const tallItems = n => Array.from({ length: n }, (_, i) => ({ label: 'Row ' + i, action() {} }))
+
+  it('a tall menu from a badge mid-window scrolls on the roomier side instead of lying over the badge', () => {
+    fresh()
+    const btn = document.createElement('button')
+    btn.textContent = 'Metric'
+    // The middle of the window, where the QA saw "Looks right" land under the pointer.
+    btn.style.cssText = `position:fixed;left:200px;top:${Math.round(window.innerHeight / 2 - 10)}px;height:20px`
+    document.body.appendChild(btn)
+    try {
+      const m = openDropdown(btn, tallItems(80))
+      const r = m.el.getBoundingClientRect(), a = btn.getBoundingClientRect()
+      assert.ok(!overlaps(r, a), `menu ${Math.round(r.top)}-${Math.round(r.bottom)} covers the anchor ${Math.round(a.top)}-${Math.round(a.bottom)}`)
+      assert.ok(r.top >= 8 - 0.5 && r.bottom <= window.innerHeight - 8 + 0.5, 'still inside the window')
+      closeMenus()
+    } finally { btn.remove() }
+  })
+
+  it('near the bottom it opens above, near the top below, both without covering the anchor', () => {
+    fresh()
+    const btn = document.createElement('button')
+    document.body.appendChild(btn)
+    try {
+      for (const top of [window.innerHeight - 60, 40]) {
+        btn.style.cssText = `position:fixed;left:200px;top:${top}px;height:20px`
+        const m = openDropdown(btn, tallItems(80))
+        const r = m.el.getBoundingClientRect(), a = btn.getBoundingClientRect()
+        assert.ok(!overlaps(r, a), `anchor at ${top}: the menu covers it`)
+        closeMenus()
+      }
+    } finally { btn.remove() }
+  })
+
+  it('the second click of a double-click right after opening is not a choice', () => {
+    fresh()
+    let ran = 0
+    const m = openMenu([{ label: 'Looks right', action() { ran++ } }], { x: 40, y: 40 })
+    const row = m.el.querySelector('.pf-menu-item')
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 }))
+    assert.eq(ran, 0, 'a repeat click did not confirm anything')
+    assert.ok(isMenuOpen(), 'the menu stays open for a real choice')
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }))
+    assert.eq(ran, 1, 'a single click still picks')
+    closeMenus()
+  })
+})

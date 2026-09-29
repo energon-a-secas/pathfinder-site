@@ -303,11 +303,13 @@ export const BORDER_WIDTHS = [1, 1.5, 2, 3]
  * need five of its thirty boxes to be the ones people actually look at.
  */
 export const HIGHLIGHTS = {
-  alert:   { label: 'Alert',   color: '#f87171', hint: 'Pulsing red. The thing you want looked at first.' },
+  // Motion is off by default (View > Animate highlights), so the hints say
+  // what is drawn at rest and when it moves.
+  alert:   { label: 'Alert',   color: '#f87171', hint: 'Red ring. The thing you want looked at first (pulses on hover with Animate highlights on).' },
   focus:   { label: 'Focus',   color: '#38bdf8', hint: 'Steady blue ring. "This is what we are discussing."' },
   go:      { label: 'Go',      color: '#34d399', hint: 'Green. Settled, agreed, or done.' },
   hold:    { label: 'Hold',    color: '#fbbf24', hint: 'Amber. Blocked, or waiting on somebody.' },
-  festive: { label: 'Festive', color: '#f472b6', hint: 'A moving candy-cane border. Impossible to ignore, which is the point.' },
+  festive: { label: 'Festive', color: '#f472b6', hint: 'A candy-cane border, impossible to ignore (moves on hover with Animate highlights on).' },
 }
 
 export const SITUATION_FIELDS = {
@@ -669,6 +671,27 @@ function getOrCreateUserId() {
   }
 }
 
+// Toasts land over the canvas, centred just above its status bar. In the
+// page corner they covered the inspector's tabs and Type row, and an open
+// header menu hid them. Without a canvas on screen (the other pages, or a
+// window too narrow to have one) the stylesheet places them as before.
+export function placeToast(toast) {
+  const bar = document.querySelector('.canvas-statusbar')
+  const vp = document.querySelector('.canvas-viewport')
+  const ref = bar && bar.getClientRects().length ? bar : vp
+  if (!ref || !ref.getClientRects().length) return false
+  const r = ref.getBoundingClientRect()
+  if (r.width < 240 || r.height <= 0) return false
+  const floor = ref === bar ? r.top : r.bottom
+  toast.classList.add('toast-in-canvas')
+  Object.assign(toast.style, { position: 'fixed', top: 'auto', right: 'auto',
+    maxWidth: Math.min(420, r.width - 32) + 'px' })
+  const w = toast.getBoundingClientRect().width
+  toast.style.left = Math.round(r.left + (r.width - w) / 2) + 'px'
+  toast.style.bottom = Math.round(window.innerHeight - floor + 12) + 'px'
+  return true
+}
+
 // Toast notification + screen-reader announcement
 let toastTimeout
 export function showToast(message, type = 'info', duration = 3000) {
@@ -683,6 +706,7 @@ export function showToast(message, type = 'info', duration = 3000) {
   toast.setAttribute('aria-live', 'polite');
   toast.textContent = message
   document.body.appendChild(toast)
+  placeToast(toast)
 
   const live = document.getElementById('toastLive')
   if (live) live.textContent = message

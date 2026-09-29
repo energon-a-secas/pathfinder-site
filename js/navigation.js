@@ -270,13 +270,25 @@ export function nudgeSelection(dir, big = false) {
   lastNudge = { t: now, key }
   snapshotOnce('nudge:' + nudgeBurst)
   const step = big ? 10 : 1
+  // Same rule as a drag: pins the auto-layout chose no longer fit.
+  releaseTidyPins(ids)
+  // Each press draws like a drag frame: only the lines on the moved cards
+  // are redrawn, cheaply. Re-routing every routed line for a 1px move cost
+  // 150ms a press at 300 blocks. The full pass runs once the burst ends.
   mutateBlocks(ids, b => ui.snapToGrid
     ? { x: snapTo(b.x) + vec[0] * GRID, y: snapTo(b.y) + vec[1] * GRID }
-    : { x: b.x + vec[0] * step, y: b.y + vec[1] * step }, { undo: false })
-  // Same rule as a drag: pins the auto-layout chose no longer fit.
-  if (releaseTidyPins(ids)) renderArrows({ cheap: false })
+    : { x: b.x + vec[0] * step, y: b.y + vec[1] * step }, { undo: false, arrows: { cheap: true, moving: new Set(ids) } })
+  clearTimeout(nudgeSettle)
+  nudgeSettle = setTimeout(settleNudge, NUDGE_SETTLE_MS)
   return true
 }
+
+// How long after the last press the lines get their full route.
+export const NUDGE_SETTLE_MS = 220
+let nudgeSettle = null
+function settleNudge() { nudgeSettle = null; renderArrows({ cheap: false }) }
+/** Run a pending post-nudge routing pass now (tests, and anything that measures lines). */
+export function flushNudge() { if (nudgeSettle) { clearTimeout(nudgeSettle); settleNudge() } }
 
 /** Pan the camera 60px (240px with Shift) in a direction. */
 export function panBy(dir, big = false) {

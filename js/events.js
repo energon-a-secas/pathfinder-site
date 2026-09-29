@@ -73,6 +73,14 @@ function arrowPressPair(x, y) {
   return state.arrows.some(a => a.id === p.aid) ? p : null
 }
 
+// The selected connection's end handle under the pointer, when a card or its
+// port is drawn over it (the arrows layer sits under the cards).
+function handleUnder(e) {
+  if (!selection.arrowId || typeof document.elementsFromPoint !== 'function') return null
+  return document.elementsFromPoint(e.clientX, e.clientY)
+    .find(el => el.classList?.contains('arrow-handle') && el.dataset.aid === selection.arrowId) || null
+}
+
 export function setupArrowEvents() {
   $.arrowsLayer().addEventListener('pointerdown', e => {
     // Endpoint handles belong to the viewport's drag logic (re-pin/re-target).
@@ -174,7 +182,11 @@ export function setupCanvasPointerEvents() {
       return
     }
 
-    const arrowHandle  = e.target.closest('.arrow-handle')
+    // A selected connection's end handles are drawn in the arrows layer,
+    // under the cards, so at an end the card's port is the top element and a
+    // drag there drew a new connection instead of moving this one's end. With
+    // a connection selected, its handle wins over whatever sits on top.
+    const arrowHandle  = e.target.closest('.arrow-handle') || handleUnder(e)
     const resizeHandle = e.target.closest('.block-resize-handle')
     const collapseBtn  = e.target.closest('.block-collapse-btn')
     const docBadge     = e.target.closest('.block-doc-badge')
@@ -335,6 +347,12 @@ export function setupCanvasPointerEvents() {
       const dx = e.clientX - ix.startX
       const b  = state.blocks[ix.id]; if (!b) return
       const newW = clamp(ix.startW + dx / view.zoom, 140, 500)
+      // One undo step per resize, taken once it is really a drag and the
+      // width really changes (a click on the handle is not an edit).
+      if (!ix.snapshotted) {
+        if (!ix.dragged || newW === (b.width || DEFAULT_WIDTH)) return
+        snapshot(); ix.snapshotted = true
+      }
       b.width = newW
       const el = getBlockEl(ix.id)
       if (el) el.style.width = newW + 'px'
@@ -445,7 +463,9 @@ export function setupCanvasPointerEvents() {
 
     } else if (ix.type === 'aend') {
       arrowPreview.setAttribute('d', '')
-      const a = state.arrows.find(arr => arr.id === ix.aid)
+      // A click on an end handle is not a move: it used to unpin that end
+      // (and take an undo step) without the person dragging anything.
+      const a = ix.dragged ? state.arrows.find(arr => arr.id === ix.aid) : null
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
       const portEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.port')
@@ -453,7 +473,13 @@ export function setupCanvasPointerEvents() {
       const otherId = a && (ix.end === 'from' ? a.to : a.from)
       // Dropping on a port pins that side; dropping on the body of a block
       // re-targets and hands the side back to auto.
-      if (a && tid && tid !== otherId) {
+      const newFrom = a && (ix.end === 'from' ? tid : a.from), newTo = a && (ix.end === 'from' ? a.to : tid)
+      const duplicate = a && tid && state.arrows.some(x => x.id !== a.id && x.from === newFrom && x.to === newTo)
+      if (duplicate && tid !== (ix.end === 'from' ? a.from : a.to)) {
+        // Two identical connections draw on top of each other, and a share
+        // link or an import keeps only one of them (label included).
+        showToast('That connection already exists', 'info', 2000)
+      } else if (a && tid && tid !== otherId) {
         const side = portEl && portEl.dataset.bid === tid ? portEl.dataset.port : null
         snapshot()
         if (ix.end === 'from') { a.from = tid; a.fromPort = side }
@@ -573,6 +599,18 @@ export function setupCanvasPointerEvents() {
     applyTransform()
   }, { passive: false })
 
+  // The viewport pans by transform and must never scroll (the stylesheet
+  // clips it). Where a browser scrolls it anyway, to keep a caret in view,
+  // fold the scroll into the pan: the drawing stays where it was painted,
+  // and pointer-to-world mapping stays true.
+  canvasViewport.addEventListener('scroll', () => {
+    const dx = canvasViewport.scrollLeft, dy = canvasViewport.scrollTop
+    if (!dx && !dy) return
+    canvasViewport.scrollLeft = 0; canvasViewport.scrollTop = 0
+    view.panX -= dx; view.panY -= dy
+    applyTransform()
+  })
+
   // Middle-button drags pan; stop the browser's autoscroll from starting too.
   canvasViewport.addEventListener('mousedown', e => {
     if (e.button === 1 && !e.target.closest('[data-canvas-ui]')) e.preventDefault()
@@ -632,7 +670,8 @@ export function setupCanvasPointerEvents() {
   canvasRoot.addEventListener('click', e => {
     const btn = e.target.closest('.block-collapse-btn'); if (!btn) return
     const id = btn.dataset.bid; const b = state.blocks[id]; if (!b) return
-    mutateBlock(id, { collapsed: !b.collapsed })
+    // One undo step, as Collapse from the right-click menu is.
+    mutateBlock(id, { collapsed: !b.collapsed }, { undo: true })
     e.stopPropagation()
   })
 
@@ -736,6 +775,12 @@ export function setupKeyboardShortcuts() {
     // A modal dialog (the incoming-link chooser) owns the keyboard until it
     // closes: nothing behind it may delete, undo, search or zoom.
     if (modalDialogOpen()) return
+    // The shortcut sheet is modal as well: behind it Backspace deleted the
+    // selected card and Cmd+Z undid things nobody could see. Escape closes it.
+    if ($.shortcutOverlay()?.style.display !== 'none' && $.shortcutOverlay()?.getAttribute('aria-modal') === 'true') {
+      if (e.key === 'Escape') closeShortcuts()
+      return
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
       e.preventDefault(); ui.searchOpen ? $.searchInput().focus() : openSearch(); return
     }
@@ -843,18 +888,23 @@ export function setupKeyboardShortcuts() {
          !ae.closest('button, a[href], input, select, textarea'))
       if (fromCanvas && selection.ids.size === 1 && selection.blockId && state.blocks[selection.blockId]) {
         e.preventDefault()
-        startInlineEdit(selection.blockId, e.key === 'Enter' && e.shiftKey ? 'description' : 'title')
+        // The description opens with the caret at the end, as "Edit
+        // description" does: selected, the next Enter would replace it.
+        if (e.key === 'Enter' && e.shiftKey) startInlineEdit(selection.blockId, 'description', { selectAll: false })
+        else startInlineEdit(selection.blockId, 'title')
         return
       }
     }
     if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
     if (mod && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return }
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    // Deleting and duplicating are single keys on the canvas's selection: a
+    // focused header or status-bar button keeps its keys (canvasHasFocus).
+    if ((e.key === 'Delete' || e.key === 'Backspace') && onCanvas) {
       if      (selection.ids.size > 1)  deleteBlocksBatch([...selection.ids])
       else if (selection.blockId)       deleteBlock(selection.blockId)
       else if (selection.arrowId)       deleteArrow(selection.arrowId)
     }
-    if (mod && e.key === 'd' && selection.blockId) {
+    if (mod && e.key === 'd' && selection.blockId && onCanvas) {
       e.preventDefault()
       const newId = duplicateBlock(selection.blockId)
       if (newId) selectBlock(newId)

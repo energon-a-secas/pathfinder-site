@@ -298,6 +298,10 @@
     .canvas-viewport {
       flex: 1;
       overflow: hidden;
+      /* clip, not only hidden: a hidden box still scrolls to keep a caret
+         in view, and the canvas pans by transform, so a scroll put every
+         click, drop and selection box out of step with the pointer. */
+      overflow: clip;
       position: relative;
       cursor: default;
       touch-action: none;  /* let JS handle all touch events */
@@ -532,7 +536,9 @@
     .canvas-statusbar .zoom-indicator { flex-shrink: 0; min-width: 36px; font-variant-numeric: tabular-nums; }
     .save-status-bar { display: flex; align-items: center; flex-wrap: wrap; min-width: 0; gap: 4px 12px; }
     .save-status-bar[hidden] { display: none; }
-    #saveStatusText { white-space: nowrap; }
+    /* The text gives way inside its own box (ellipsis) rather than running
+       under the Copy prompt button when the bar is narrow. */
+    #saveStatusText { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .save-status-bar[data-phase="error"] { color: var(--text-primary); }
     .save-status-bar[data-phase="error"] #saveStatusText { color: var(--c-risk); font-weight: 600; }
     .save-status-bar button { background: none; color: var(--text-primary); border: 0; padding: 5px 0; font: inherit; text-decoration: underline; cursor: pointer; }
@@ -1964,7 +1970,9 @@
       --border-strong: rgba(15,23,42,.30);
       --text-primary: #0f172a;
       --text-secondary: #334155;
-      --text-muted: #64748b;
+      /* #64748b was 4.21:1 on --bg: under AA for the 10-12px status, menu
+         hint and palette text. This one is 5.25:1 on --bg. */
+      --text-muted: #56657a;
       background: var(--bg);
       color: var(--text-primary);
     }
@@ -3412,6 +3420,43 @@ body.light-mode .card-swatch-bar { border-left-color: var(--accent-bright); }
 body.light-mode .card-swatch-header { background: linear-gradient(var(--accent-bright) 0 4px, #fff 4px 100%); }
 body.light-mode .card-swatch-tint { background: color-mix(in srgb, var(--accent-bright) 18%, #fff); }
 
+/* QA round. The global focus ring is --accent-bright (#86efac), about 1.4:1
+   on the light panels. :where() keeps the global rule's weight, so a control
+   that draws its own focus colour keeps it; the rest take the blue the
+   palette and the cards already use (6.5:1). */
+body.light-mode :where(:focus-visible) { outline-color: var(--cards-focus); }
+body.light-mode .skip-link { background: var(--cards-focus); color: #fff; }
+
+/* Light toasts: the dark theme's hues are about 2:1 on white. The border
+   keeps the hue, the text takes a dark twin. */
+body.light-mode .toast-notification.toast-success { color: #047857; }
+body.light-mode .toast-notification.toast-info    { color: #0369a1; }
+body.light-mode .toast-notification.toast-warning { color: #b45309; }
+body.light-mode .toast-notification.toast-error   { color: #b91c1c; }
+
+/* Over the canvas (utils.js placeToast), a toast fades rather than sliding
+   in from the page edge it no longer sits on. */
+.toast-notification.toast-in-canvas { animation-name: toastFadeIn; }
+.toast-notification.toast-in-canvas.toast-exiting { animation-name: toastFadeOut; }
+@keyframes toastFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes toastFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* A long map title ellipsizes (its tooltip carries it in full, set by
+   updateCanvasTitle) instead of pushing the header to four rows. Renaming
+   shows it whole. */
+#canvasTitle:not([contenteditable="true"]) {
+  /* What the bar has left beside its 500px of controls: one row at 720px
+     to 1440px (measured), and never less than the default title's width. */
+  max-width: clamp(100px, calc(100vw - 680px), 420px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Phones: the kit caps its overflow panel at 320px, so View opened inline
+   was 1036px of content in a 318px box. Use the height the phone has. */
+@media (max-width: 700px) {
+  .header-overflow .header-overflow-menu { max-height: calc(100dvh - 80px); }
+}
+
 
 
 /* ════ [navigation] ════ */
@@ -3743,6 +3788,25 @@ body.light-mode .brain-dump-card textarea {
 body.light-mode .brain-dump-card textarea:focus { border-color: #4f46e5; }
 body.light-mode .brain-dump-card textarea::placeholder { color: #64748b; }
 
+/* QA round. Header preset: the gap icon sits on the coloured strip, where
+   the amber ink measured 1.0 to 1.3:1. Dark ink, like the type label. */
+.block[data-card="header"] .gap-icon { color: rgba(0,0,0,.72); }
+.block[data-card="header"][data-type=context]:not(.has-color) .gap-icon { color: #fff; }
+body.light-mode .block[data-card="header"] .gap-icon,
+body.light-mode .block[data-card="header"][data-type=context]:not(.has-color) .gap-icon { color: var(--gap-ink); }
+
+/* Tinted cards: muted description text fell under 4.5:1 on the tint. */
+.block[data-card="tint"] .block-desc { color: var(--text-secondary); }
+
+/* The palette rail (a narrow window, or the palette collapsed): a caption
+   under each section toggle, since a bare + or - read as zoom controls. */
+@media (max-width: 1024px) {
+  .palette .palette-section-toggle[data-rail] { flex-direction: column; gap: 2px; }
+  .palette .palette-section-toggle[data-rail]::after { content: attr(data-rail); font-size: 9px; line-height: 1.1; letter-spacing: .04em; }
+}
+.palette.collapsed .palette-section-toggle[data-rail] { flex-direction: column; gap: 2px; }
+.palette.collapsed .palette-section-toggle[data-rail]::after { content: attr(data-rail); font-size: 9px; line-height: 1.1; letter-spacing: .04em; }
+
 
 
 /* ════ [insights] ════ */
@@ -3785,6 +3849,13 @@ body.light-mode { --gap-ink: #946a05; }
   content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
   border: 1.5px solid var(--text-muted); border-radius: 50%; vertical-align: 0;
 }
+
+/* QA round: the Prompt tab's score and gap badge in light mode (amber on
+   near-white was 1.4 to 1.6:1). */
+body.light-mode .gap-badge { color: #92400e; }
+body.light-mode .health-score.grade-a { color: #047857; }
+body.light-mode .health-score.grade-b { color: #b45309; }
+body.light-mode .health-score.grade-c { color: #b91c1c; }
 
 
 
@@ -3875,8 +3946,9 @@ body.light-mode .other-tab-banner { background: #fff; box-shadow: 0 8px 24px rgb
 }
 .backup-status button:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
 .backup-status.backup-stale .backup-text { color: var(--text-primary); font-weight: 600; }
-/* A phone's bar has no room for it; the weekly reminder still says it. */
-@media (max-width: 700px) {
+/* A narrow bar has no room for it (at 800px it read "B..."); the weekly
+   reminder still says it, and File has Export all. */
+@media (max-width: 900px) {
   .backup-status { display: none; }
 }
 

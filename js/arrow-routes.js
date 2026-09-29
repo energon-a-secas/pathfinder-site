@@ -108,6 +108,9 @@ let routeStamp = null
 let sepMemo = null
 
 export function invalidateRoutes() { routeCache.clear(); routeStamp = null; sepMemo = null }
+// How many searches the router has run: what a keyboard nudge must not
+// multiply (tests read it; nothing in the app does).
+export const routeStats = { searches: 0 }
 
 // A side pinned by a person stays exactly where they put it. Pins written
 // by Tidy or by an import are layout, not intent, and may be adjusted.
@@ -242,6 +245,7 @@ export function resolveRoutes({ cheap = false, moving = null } = {}) {
         pts.points = routeCache.get(key)
       } else if (full || (moving && !touchesMoving)) {
         const pl = routeOrtho(pts, obstacles)
+        routeStats.searches++
         routeCache.set(key, pl)
         pts.points = pl
       }

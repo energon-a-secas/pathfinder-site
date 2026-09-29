@@ -7,16 +7,16 @@
 import { describe, it, assert } from './test-utils.js'
 import { state, ui, canvasMeta, devOpts, selection, saveStatus, serializeCanvas, applyPromptOpts, saveState,
          getUndoHistory, getRedoFuture, snapshot, serializeForShare, compressText, decompressText, decodeShareHash, buildShareUrl, buildEmbedUrl,
-         buildShareUrlAsync, primeShareLink, canCompressLinks, isShareHash } from '../js/state.js'
+         buildShareUrlAsync, primeShareLink, canCompressLinks, isShareHash, decodeLegacyShare, MAX_INFLATED } from '../js/state.js'
 import { normalizeCanvas, normalizeBlock, normalizeArrow } from '../js/normalize.js'
 import { TYPES } from '../js/utils.js'
 import { categorizeLine } from '../js/classify.js'
 import { fromJsonCanvas, toJsonCanvas, typeForHex, resolveNodeType, toMermaid, parseMermaid,
-         mermaidShapeFor, exportColorFor } from '../js/interop.js'
+         mermaidShapeFor, exportColorFor, isLegacyPathfinderCanvas } from '../js/interop.js'
 import { checkShareUrl, checkSrcUrl } from '../js/ui-panels.js'
 import { openIncoming, incomingDialog, hasContent, incomingMessage, backupStatusText, backupStale,
          maybeNagBackup, resetBackupNag, requestPersistence, showOtherTabBanner, touchesThisMap,
-         refreshBackupStatus, setupSharingSafety, backupNagText } from '../js/sharing.js'
+         refreshBackupStatus, setupSharingSafety, backupNagText, withMapName } from '../js/sharing.js'
 import { currentId, ensureLibrary, writeThrough, listSnapshots, readBackup, writeBackup,
          lastBackupAt, exportAllMaps, notePointerMove, forgetTabMap, pointAtThisMap } from '../js/library.js'
 import { undo, redo } from '../js/render.js'
@@ -41,7 +41,7 @@ const USER_CANVAS = {
     { id: 'rptdemow8', type: 'text', x: -493, y: 422, width: 220, height: 62, color: '#60a5fa', text: '#### Every End of Sprint' },
     { id: 'rptdemox9', type: 'text', x: 527, y: 577, width: 220, height: 62, color: '3', text: '#### Key Results' },
     { id: 'rptdemoxa', type: 'text', x: 187, y: 577, width: 220, height: 62, color: '#60a5fa', text: "#### On Quarter's end" },
-    { id: 'rptdemoxb', type: 'text', x: 187, y: 677, width: 220, height: 82, color: '#64748b', text: '#### Data Hub\n\nIntegrated with Jira and other sources' },
+    { id: 'rptdemoxb', type: 'text', x: 187, y: 677, width: 220, height: 82, color: '#64748b', text: '#### Data Hub\n\nIntegrated with the tracker and other sources' },
   ],
   edges: [
     { id: 'rptdemoxc', fromNode: 'rptdemow2', toNode: 'rptdemow4', fromSide: 'right' },
@@ -522,6 +522,26 @@ describe('Incoming canvases open as a new map by default', () => {
     assert.neq(currentId(), mine)
     assert.includes(incomingMessage(r), 'as a new map')
   }))
+
+  it('a file opened as a new map is named after the file, not "Untitled map" (QA)', () => sandbox(async () => {
+    seedPrivate()
+    const untitled = { ...SHARED, meta: {} }
+    const pending = openIncoming(untitled, { source: 'file', name: 'synthetic.canvas' })
+    incomingDialog().querySelector('[data-choice="new"]').click()
+    const r = await pending
+    assert.eq(r.mode, 'new')
+    assert.eq(canvasMeta.title, 'synthetic', 'the new map carries the file name')
+    const names = JSON.parse(localStorage.getItem('pathfinder-maps') || '[]').map(m => m.name)
+    assert.includes(names, 'synthetic', 'and the Maps menu lists it by that name')
+  }))
+
+  it('an untitled link is a dated "Shared map"; a titled canvas keeps its own title (QA)', () => {
+    const when = new Date(2026, 8, 28)
+    const named = withMapName({ blocks: {} }, { source: 'link', now: when })
+    assert.match(named.meta.title, /^Shared map, /)
+    assert.eq(withMapName({ ...SHARED }, { source: 'file', name: 'x.json' }).meta.title, 'Teammate map')
+    assert.eq(withMapName({ meta: { title: '  ' } }, { source: 'file', name: 'plan.v2.json' }).meta.title, 'plan.v2')
+  })
 
   it('incoming titles are text, never markup', () => sandbox(async () => {
     seedPrivate()
@@ -1168,4 +1188,83 @@ describe('A ?src= that cannot load leaves the address', () => {
     await checkSrcUrl()
     assert.eq(new URLSearchParams(location.search).get('src'), '/a.json')
   }))
+})
+
+// ── QA round ────────────────────────────────────────────────
+describe('Sharing: QA round', () => {
+  it('a link with a trailing &votes= segment still decodes, #s= and #z= alike', async () => {
+    const canvas = { blocks: { a: { id: 'a', type: 'goal', title: 'Grow' } }, arrows: [] }
+    const s1 = '#s=' + btoa(encodeURIComponent(JSON.stringify(canvas)))
+    assert.eq(decodeLegacyShare(s1 + '&votes=%7B%7D').blocks.a.title, 'Grow')
+    assert.eq((await decodeShareHash(s1 + '&votes=%7B%7D')).blocks.a.title, 'Grow')
+    if (canCompressLinks()) {
+      const z = '#z=' + await compressText(JSON.stringify(canvas))
+      assert.eq((await decodeShareHash(z + '&votes=%7B%7D')).blocks.a.title, 'Grow')
+    }
+  })
+
+  it('validate.mjs refuses what the app refuses: the same inflate cap, and the same segment rule', async () => {
+    const src = await (await fetch('../validate.mjs', { cache: 'no-store' })).text()
+    const m = /const MAX_INFLATED = ([\d_]+)/.exec(src)
+    assert.ok(m, 'the CLI declares its cap')
+    assert.eq(Number(m[1].replace(/_/g, '')), MAX_INFLATED, 'and it is the app\'s cap')
+    assert.includes(src, 'maxOutputLength: MAX_INFLATED', 'the cap is applied to the inflate')
+    assert.includes(src, '#z=([^&]+)', 'the payload stops at the first &')
+  })
+
+  it('an old export\'s recoloured card keeps its colour and is marked to check, not retyped', () => {
+    const old = { nodes: [
+      { id: 'r', type: 'text', x: 0, y: 0, width: 260, height: 100, color: '#f87171', text: '#### Deliverability to the mail provider' },
+      { id: 'o', type: 'text', x: 400, y: 0, width: 260, height: 100, color: '#34d399', text: '#### Launch report' },
+      { id: 'g', type: 'text', x: 800, y: 0, width: 260, height: 100, color: '6', text: '#### Ship onboarding v2' },
+      { id: 'p', type: 'text', x: 0, y: 300, width: 260, height: 100, color: '#60a5fa', text: '#### Every Monday' },
+    ], edges: [] }
+    assert.ok(isLegacyPathfinderCanvas(old), 'a preset and no pathfinderType: the old exporter')
+    const byId = Object.fromEntries(fromJsonCanvas(old).payload.blocks.map(b => [b.id, b]))
+    assert.ok(byId.r.typeCheck, 'the Red card is not read as a confirmed Problem')
+    assert.eq(byId.r.type === 'problem' ? null : byId.r.color, byId.r.type === 'problem' ? null : '#f87171', 'its colour stays unless the type already draws it')
+    assert.ok(byId.o.typeCheck, 'the Emerald card is not read as a confirmed Decision')
+    assert.eq(byId.p.type, 'process', 'a hex the old exporter wrote for a type still means that type')
+    assert.ok(!byId.p.typeCheck)
+    // A current export (it writes pathfinderType) keeps every hex exact.
+    const fresh = { nodes: [{ id: 'x', type: 'text', x: 0, y: 0, color: '#f87171', text: 'Churn', pathfinderType: 'problem' },
+      { id: 'y', type: 'text', x: 0, y: 0, color: '#fb923c', text: 'Vendor delay' }], edges: [] }
+    assert.ok(!isLegacyPathfinderCanvas(fresh))
+    const f = Object.fromEntries(fromJsonCanvas(fresh).payload.blocks.map(b => [b.id, b]))
+    assert.eq(f.y.type, 'risk'); assert.ok(!f.y.typeCheck)
+    // The user's own old export still imports typed where it wrote a type hex.
+    const user = Object.fromEntries(fromJsonCanvas(USER_CANVAS).payload.blocks.map(b => [b.id, b]))
+    assert.eq(user.rptdemow1.type, 'terminator')
+    assert.eq(user.rptdemow8.type, 'process')
+    assert.eq(user.rptdemoxb.type, 'context')
+  })
+
+  it('at 800px the status bar paints nothing under Copy prompt, and drops the backup status', async () => {
+    const html = await (await fetch('../index.html', { cache: 'no-store' })).text()
+    const bar = new DOMParser().parseFromString(html, 'text/html').getElementById('canvasStatusbar')
+    bar.querySelector('#backupStatus').removeAttribute('hidden')
+    bar.querySelector('#backupStatus').innerHTML = '<span class="backup-text">Backed up: never</span><button type="button" class="backup-export">Export all</button>'
+    bar.querySelector('#saveStatusText').textContent = 'Saved locally'
+    for (const [width, ws] of [[800, 472], [1024, 696]]) {
+      const frame = document.createElement('iframe')
+      frame.style.cssText = `position:fixed;left:-5000px;top:0;width:${width}px;height:400px;border:0`
+      frame.srcdoc = '<!doctype html><html><head><link rel="stylesheet" href="../css/style.css"></head><body style="margin:0">' +
+        `<section class="canvas-workspace" style="width:${ws}px;height:200px">${bar.outerHTML}</section></body></html>`
+      const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }))
+      document.body.appendChild(frame)
+      await loaded
+      try {
+        const doc = frame.contentDocument, win = frame.contentWindow
+        const text = doc.getElementById('saveStatusText'), copy = doc.getElementById('copyPromptPill')
+        assert.ok(rectOf(text).right <= rectOf(copy).left + 0.5, `${width}: the status text box ends before the button`)
+        assert.eq(win.getComputedStyle(text).overflowX, 'hidden', `${width}: and clips what it cannot show`)
+        const backup = doc.getElementById('backupStatus')
+        if (width <= 900) assert.eq(win.getComputedStyle(backup).display, 'none', 'no room for it at 800px')
+        else {
+          const t = backup.querySelector('.backup-text')
+          assert.ok(t.scrollWidth <= t.clientWidth + 1, `${width}: "Backed up: never" reads in full`)
+        }
+      } finally { frame.remove() }
+    }
+  })
 })

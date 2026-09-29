@@ -27,6 +27,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SITE = 'https://pathfinder.neorgon.com';
+// Same cap as js/state.js MAX_INFLATED (a test checks the two agree).
+const MAX_INFLATED = 8_000_000;
 const here = dirname(fileURLToPath(import.meta.url));
 
 const target = process.argv[2];
@@ -66,7 +68,15 @@ function decodeShare(hashOrUrl) {
     // Compressed links: deflate-raw bytes, base64url. The inflated text is
     // the JSON itself, or percent-encoded JSON; both are accepted.
     const bytes = Buffer.from(z[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-    const text = inflateRawSync(bytes).toString('utf8');
+    // The app refuses a link that inflates past this many bytes, so the CLI
+    // must too (js/state.js MAX_INFLATED): an overflow throws, and reading the
+    // input fails with exit 2, as the app says the link is too large.
+    let text;
+    try { text = inflateRawSync(bytes, { maxOutputLength: MAX_INFLATED }).toString('utf8'); }
+    catch (e) {
+      if (e instanceof RangeError || e.code === 'ERR_BUFFER_TOO_LARGE') throw new Error(`link payload too large (over ${MAX_INFLATED} bytes once inflated)`);
+      throw e;
+    }
     return /^\s*[[{]/.test(text) ? text : decodeURIComponent(text);
   }
   const m = hashOrUrl.match(/#s=([^&]+)/);

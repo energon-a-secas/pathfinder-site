@@ -281,7 +281,8 @@ function b64urlToBytes(str) {
 
 // A link is untrusted input, and deflate expands up to about 1000x, so
 // inflating stops at a cap rather than trusting the stream to end.
-const MAX_INFLATED = 8_000_000
+// validate.mjs applies the same cap; tests/sharing-safety.test.js checks they match.
+export const MAX_INFLATED = 8_000_000
 
 async function readAll(stream, cap = Infinity) {
   const reader = stream.getReader()
@@ -314,7 +315,9 @@ export async function decompressText(z) {
 
 /** Decode a #s= hash synchronously. Throws when it is not one. */
 export function decodeLegacyShare(hash) {
-  const body = String(hash || '').replace(/^#?s=/, '')
+  // The canvas payload stops at the first '&': dot voting appends its own
+  // '&votes=' segment, which base64 never contains.
+  const body = String(hash || '').replace(/^#?s=/, '').split('&')[0]
   return JSON.parse(decodeURIComponent(atob(body)))
 }
 
@@ -324,7 +327,7 @@ export async function decodeShareHash(hash) {
   if (h.startsWith('#s=')) return decodeLegacyShare(h)
   if (h.startsWith('#z=')) {
     if (!canCompressLinks()) throw new Error('This browser cannot open compressed links')
-    return JSON.parse(await decompressText(h.slice(3)))
+    return JSON.parse(await decompressText(h.slice(3).split('&')[0]))
   }
   return null
 }

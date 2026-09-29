@@ -169,8 +169,9 @@ export function renderArrows(opts = {}) {
 
   // A drag re-renders arrows on every pointermove, so the A* router only
   // runs for what it must while one is in flight, and fully on release.
+  // A caller moving blocks without a pointer (a keyboard nudge) names them.
   const cheap = opts.cheap ?? !!pointer.ix
-  const routes = resolveRoutes({ cheap, moving: cheap ? movingBlocks() : null })
+  const routes = resolveRoutes({ cheap, moving: cheap ? (opts.moving || movingBlocks()) : null })
   const labels = placeLabels(routes)
   lastLabels = labels
   let handleAt = null
