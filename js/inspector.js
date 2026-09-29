@@ -15,11 +15,11 @@
 // ════════════════════════════════════════════════════════════
 
 import { relationHint, impliedVerb, RELATIONS } from './relations.js'
-import { state, selection, ui, canvasMeta, debouncedSave,
+import { state, selection, ui, view, canvasMeta, debouncedSave,
          snapshotOnce, resetSnapshotToken } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
          STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ARROW_LABEL_PRESETS, CARD_STYLES,
-         DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast } from './utils.js'
+         DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
 import { renderFrames, arrowRoute, arrowPattern } from './canvas.js'
 import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
          deleteBlock, deleteArrow, duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup } from './render.js'
@@ -27,10 +27,11 @@ import { applyGapFix } from './create.js'
 import { GAP_META, getGapFixes, acceptGap, unacceptGap } from './gaps.js'
 import { askQuestion, openDocPopup, detectSeeReference } from './doc-panel.js'
 import { arrangeSelection } from './align.js'
-import { openDropdown } from './menu.js'
+import { openDropdown, isMenuOpen } from './menu.js'
 import { typeMenuItems, retypeBlock, retypeBlocks, typeNoun } from './type-menu.js'
 import { showPanels } from './chrome.js'
 import { setSpotlight } from './view-menu.js'
+import { animateView } from './zoom-controls.js'
 
 // The type picker lives in type-menu.js; the inspector was its first home.
 export { typeMenuItems }
@@ -205,6 +206,11 @@ let lastArrowId = null
 let lastGroupId = null
 
 export function renderInspector() {
+  renderInspectorPane()
+  syncSheet()
+}
+
+function renderInspectorPane() {
   const inspectorEmpty   = $.inspectorEmpty()
   const inspectorContent = $.inspectorContent()
   const inspectorMulti   = $.inspectorMulti()
@@ -739,6 +745,9 @@ export function focusQuestion(blockId, index = -1) {
   showPanels()
   if (byId('rightPanel')?.classList.contains('collapsed')) byId('panelReopenBtn')?.click()
   document.querySelector('.panel-tab[data-tab="inspector"]')?.click()
+  // On a phone the questions sit below the fold of a half sheet. The app
+  // chose full here, not the person, so deselecting puts it away.
+  if (isPhoneSheet()) setSheet('full', { auto: true })
   const b = state.blocks[blockId]
   renderQuestions(b)
   setText('questionsCount', String((b.questions || []).length))
@@ -1229,6 +1238,7 @@ export function setupInspectorEvents() {
   }
 
   wirePaneKeys()
+  setupSheet()
 }
 
 function refreshFromCanvas() {
@@ -1275,4 +1285,427 @@ function wirePaneKeys() {
     }
     if (((e.key === 'Delete' || e.key === 'Backspace') && plain) || arrow || printable) e.stopPropagation()
   })
+}
+
+// ── Phone sheet ──────────────────────────────────────────────
+// At 700px and under the right panel is a bottom sheet (its rules close
+// the [inspector] section of style.css). #rightPanel[data-sheet] holds one
+// of three states: 'peek' is the handle row alone, 'half' comes up when a
+// card is selected, with its Title in view, 'full' is about 85% of the
+// screen. The handle names the selection; a tap on it expands to full or
+// collapses, a drag resizes it, Escape collapses it. Above 700px the
+// attribute is still kept, but no rule reads it, so desktop and tablet are
+// unchanged.
+
+export const SHEET_STATES = ['peek', 'half', 'full']
+// `force` pins phone mode on or off (the suite runs at desktop width).
+// `openDelay` is how long a tap on a card waits before the sheet comes up,
+// so the second tap of a double-tap (edit the title on the card) still
+// lands on the card rather than on a sheet or a moved camera.
+// `short` pins the short-screen check the same way. `media` is the phone
+// query's MediaQueryList once the sheet is wired. `auto` is true while the
+// sheet is full because the app put it there (a text field took focus, Add
+// question) rather than the person pulling it up: deselecting then puts it
+// away, as it does a half sheet.
+export const sheet = { state: 'peek', force: null, short: null, openDelay: 300, media: null, auto: false }
+const PHONE_QUERY = '(max-width: 700px)'
+// A phone on its side: a half sheet tall enough to show the Title leaves no
+// canvas above it, so a tap does not bring the sheet up there (the handle
+// still does). The CSS drops the half sheet's floor under the same query.
+const SHORT_QUERY = '(max-width: 700px) and (max-height: 500px)'
+const TAP_SLOP = 8         // px a finger may wander and still be a tap
+
+/**
+ * True when the right panel is a bottom sheet on screen now: 700px and
+ * under, and the panel is drawn. Zen hides it (chrome.js) and an embed
+ * never shows it; a sheet nobody can see must not move the camera or take
+ * Escape from the canvas.
+ */
+export function isPhoneSheet() {
+  const phone = sheet.force !== null ? sheet.force : !!window.matchMedia?.(PHONE_QUERY).matches
+  if (!phone || ui.embed) return false
+  const panel = byId('rightPanel')
+  return !!panel && panel.getClientRects().length > 0
+}
+
+function isShortSheet() {
+  if (sheet.short !== null) return sheet.short
+  return !!window.matchMedia?.(SHORT_QUERY).matches
+}
+
+let sheetKey = ''          // the selection the sheet last reacted to
+let pendingOpen = null     // a selection waiting for its tap to finish
+let openTimer = 0
+let eatClick = false       // the click a handle drag leaves behind
+let comparing = false
+let sheetWired = false
+const pointersDown = new Map()   // pointerId -> where and on what it went down
+// The pointers down now are a pan, a pinch or a drag rather than a tap: one
+// of them moved past the slop, or a second came down while one was held.
+let gesture = false
+
+function selectionKey() {
+  if (selection.ids.size > 1) return 'multi:' + selection.ids.size
+  if (selection.arrowId) return 'arrow:' + selection.arrowId
+  if (selection.blockId && state.blocks[selection.blockId]) return 'block:' + selection.blockId
+  return ''
+}
+
+// The heights live in CSS (--sheet-peek, --sheet-half, --sheet-full). A
+// probe reads what they come to on this screen, so they are never restated.
+function sheetHeight(which) {
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;height:var(--sheet-' + which + ')'
+  document.body.appendChild(probe)
+  const h = probe.getBoundingClientRect().height
+  probe.remove()
+  return h
+}
+
+// The handle row: the selected card's type dot and title, or what else is
+// selected, or "Nothing selected".
+function paintHandle() {
+  const title = byId('sheetTitle')
+  if (!title) return
+  const dot = byId('sheetDot'), kind = byId('sheetKind')
+  let text = 'Nothing selected', kindText = '', color = '', mark = 'empty'
+  const b = selection.ids.size === 1 && selection.blockId ? state.blocks[selection.blockId] : null
+  if (document.body.classList.contains('comparing-snapshot')) { text = 'Snapshot comparison'; mark = 'none' }
+  else if (selection.ids.size > 1) { text = selection.ids.size + ' blocks selected'; mark = 'none' }
+  else if (selection.arrowId) {
+    const a = selectedArrow()
+    const end = id => state.blocks[id]?.title || 'Untitled'
+    text = a ? end(a.from) + ' → ' + end(a.to) : 'Connection'
+    kindText = 'Connection: '; mark = 'none'
+  } else if (b) {
+    text = b.title || 'Untitled'
+    kindText = (TYPES[b.type] || TYPES.custom).label + ': '
+    color = typeColor(b.type); mark = 'type'
+  }
+  if (title.textContent !== text) title.textContent = text
+  title.classList.toggle('is-empty', mark === 'empty')
+  if (kind && kind.textContent !== kindText) kind.textContent = kindText
+  if (dot) {
+    dot.hidden = mark === 'none'
+    dot.classList.toggle('is-empty', mark === 'empty')
+    dot.style.background = color
+  }
+}
+
+/**
+ * Put the sheet in `next` ('peek', 'half' or 'full'). `reveal` moves the
+ * camera so the selected card is not under it. `auto` marks a full sheet
+ * the app chose rather than the person (see `sheet.auto`).
+ */
+export function setSheet(next, { reveal = false, auto = false } = {}) {
+  const panel = byId('rightPanel')
+  if (!panel || !SHEET_STATES.includes(next)) return false
+  const handle = byId('sheetHandle')
+  // Collapsing hides whatever had focus in the sheet: hand it to the
+  // handle rather than drop it on the page.
+  if (next === 'peek' && handle && isPhoneSheet() &&
+      panel.contains(document.activeElement) && document.activeElement !== handle) {
+    handle.focus({ preventScroll: true })
+  }
+  sheet.state = next
+  sheet.auto = auto && next === 'full'
+  panel.dataset.sheet = next
+  handle?.setAttribute('aria-expanded', String(next !== 'peek'))
+  setText('sheetAction', next === 'full' ? '. Collapse details' : '. Expand details')
+  if (reveal && next !== 'peek') revealSelection(next)
+  return true
+}
+
+/** Where the sheet is: 'peek', 'half' or 'full'. */
+export function sheetState() { return sheet.state }
+
+// A card the sheet is about to cover moves into the strip of canvas left
+// above it. Only the camera moves; the map does not change.
+function revealSelection(which) {
+  if (!selection.blockId || selection.ids.size !== 1) return
+  const el = getBlockEl(selection.blockId), vp = $.canvasViewport()
+  if (!el || !vp) return
+  const r = el.getBoundingClientRect(), v = vp.getBoundingClientRect()
+  const top = v.top + 12, left = v.left + 12, right = v.right - 12
+  const bottom = Math.min(v.bottom, window.innerHeight - sheetHeight(which)) - 12
+  if (bottom - top < 48 || right - left < 48) return
+  let dx = 0, dy = 0
+  // Centred in the strip when it fits, otherwise its head in view.
+  if (r.top < top || r.bottom > bottom) dy = r.height <= bottom - top ? (top + bottom - r.top - r.bottom) / 2 : top - r.top
+  if (r.left < left || r.right > right) dx = r.width <= right - left ? (left + right - r.left - r.right) / 2 : left - r.left
+  if (dx || dy) animateView(view.panX + dx, view.panY + dy, view.zoom)
+}
+
+const editingOnCanvas = () => !!document.querySelector('.block [contenteditable="true"], .arrow-edit')
+
+function scheduleOpen() {
+  clearTimeout(openTimer)
+  if (pendingOpen) openTimer = setTimeout(tryOpen, sheet.openDelay)
+}
+
+// A tap on a card or a line (not on one of its controls) asks to inspect
+// it, even when it was selected already: the sheet may have been put away.
+const CARD_CONTROLS = '[data-canvas-ui], button, a[href], .port, .block-resize-handle'
+function noteTap(target) {
+  if (!isPhoneSheet() || sheet.state !== 'peek' || !(target instanceof Element)) return
+  if (!target.closest('#canvasViewport') || !target.closest('.block, [data-aid]')) return
+  if (target.closest(CARD_CONTROLS + ', [contenteditable="true"]')) return
+  const key = selectionKey()
+  if (!key || key.startsWith('multi:')) return
+  const b = selection.blockId ? state.blocks[selection.blockId] : null
+  pendingOpen = { key, blockId: b ? b.id : null, x: b?.x, y: b?.y }
+}
+
+// What a selection asks of the sheet once its tap (if any) is over: a
+// collapsed sheet comes up to half; a sheet already up moves the camera so
+// the new card is not under it (keyboard focus included, WCAG 2.4.11).
+function tryOpen() {
+  const p = pendingOpen
+  if (!p || pointersDown.size) return          // the pointerup schedules it again
+  pendingOpen = null
+  if (!isPhoneSheet() || p.key !== selectionKey()) return
+  // Whatever the tap started (a title edit, the quick-add picker from a
+  // port) keeps the screen.
+  if (editingOnCanvas() || isMenuOpen()) return
+  // A press that moved the card was a drag, not a request to inspect it.
+  const b = p.blockId ? state.blocks[p.blockId] : null
+  if (b && (b.x !== p.x || b.y !== p.y)) return
+  if (sheet.state !== 'peek') { if (p.reveal) revealSelection(sheet.state); return }
+  // In dot voting a tap is a vote: the voter wants the canvas, not details.
+  if (ui.votingMode) return
+  // On a phone on its side the half sheet would cover the whole canvas.
+  if (isShortSheet()) return
+  // On a view-only link, selecting a card is how a reviewer aims the review
+  // bar at the foot of the canvas, which a half sheet would cover. The
+  // handle names the card; a tap on it shows the details.
+  const reviewBar = byId('reviewBar')
+  if (reviewBar && reviewBar.offsetParent !== null) return
+  if (ui.activeTab !== 'inspector' && !document.body.classList.contains('comparing-snapshot')) {
+    document.querySelector('.panel-tab[data-tab="inspector"]')?.click()
+  }
+  const content = byId('panelContent')
+  if (content) content.scrollTop = 0
+  setSheet('half', { reveal: true })
+}
+
+/**
+ * Keep the sheet in step with the selection (renderInspector calls this).
+ * Selecting a card or a line brings a collapsed sheet up to half, once the
+ * tap is over, and a sheet already up brings the new card into view above
+ * it; deselecting puts a half sheet on the Inspector away again, and a full
+ * one the app chose.
+ */
+export function syncSheet() {
+  if (!byId('rightPanel')) return
+  paintHandle()
+  const key = selectionKey()
+  if (key === sheetKey) return
+  sheetKey = key
+  if (!key) {
+    pendingOpen = null
+    clearTimeout(openTimer)
+    const away = sheet.state === 'half' || (sheet.state === 'full' && sheet.auto)
+    if (away && isPhoneSheet() && ui.activeTab === 'inspector') setSheet('peek')
+    return
+  }
+  if (!isPhoneSheet() || key.startsWith('multi:')) { pendingOpen = null; return }
+  // Another card on the Inspector starts at its top, where the Title is,
+  // not at the scroll position the last one was left at.
+  const content = byId('panelContent')
+  if (content && ui.activeTab === 'inspector') content.scrollTop = 0
+  const b = selection.blockId ? state.blocks[selection.blockId] : null
+  pendingOpen = { key, blockId: b ? b.id : null, x: b?.x, y: b?.y, reveal: sheet.state !== 'peek' }
+  scheduleOpen()
+}
+
+// Escape collapses an open sheet before it does anything else, as long as
+// nothing more on top has a claim on it: a menu, a dialog, the doc preview,
+// the search, the shortcut sheet, dot voting, a card or line being edited,
+// or a snapshot comparison being worked in. This listener runs on the
+// window in the capture phase, ahead of every other Escape handler, so
+// each of those has to be named here or it never sees the key.
+const COMPARISON_PARTS = '#comparisonHeader, #comparisonBar, #comparisonPane'
+function onSheetEscape(e) {
+  if (e.key !== 'Escape' || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return
+  if (!isPhoneSheet() || sheet.state === 'peek') return
+  const panel = byId('rightPanel')
+  if (!panel) return
+  const t = e.target
+  const inPanel = t instanceof Node && panel.contains(t)
+  const onPage = t === document.body || t === document.documentElement || !!t?.closest?.('#canvasViewport')
+  if (!inPanel && !onPage) return
+  if (isMenuOpen() || ui.searchOpen || ui.votingMode || editingOnCanvas()) return
+  if (document.querySelector('dialog[open], .doc-popup')) return
+  // The comparison's own controls close it on Escape (comparison-ui.js).
+  if (document.body.classList.contains('comparing-snapshot') && t?.closest?.(COMPARISON_PARTS)) return
+  const help = byId('shortcutOverlay')
+  if (help && help.style.display !== 'none') return
+  e.preventDefault()
+  e.stopPropagation()
+  setSheet('peek')
+}
+
+// Drag the handle to resize. On release a quick flick goes all the way it
+// was thrown (up to full, down to collapsed) and a slower drag settles on
+// the nearest state. The move and release are followed on the window
+// rather than through pointer capture: a touch is already captured by
+// whichever span of the handle it landed on, and moving that capture to
+// the button fired lostpointercapture from the span one move into every
+// drag.
+const FLICK = 0.6   // px per ms: faster than this at release is a flick
+function wireSheetDrag(panel, handle) {
+  let drag = null
+  // Let go of a drag without settling anywhere new (its release never came).
+  const drop = () => {
+    drag = null
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', end)
+    window.removeEventListener('pointercancel', end)
+    panel.classList.remove('sheet-dragging')
+    panel.style.height = ''
+  }
+  const move = e => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dy = e.clientY - drag.y0
+    if (!drag.moved) {
+      if (Math.abs(dy) < 6) return
+      drag.moved = true
+      panel.classList.add('sheet-dragging')
+    }
+    panel.style.height = Math.max(drag.min, Math.min(drag.max, drag.h0 - dy)) + 'px'
+    drag.trail.push({ y: e.clientY, t: e.timeStamp })
+    if (drag.trail.length > 6) drag.trail.shift()
+  }
+  const end = e => {
+    if (!drag || e.pointerId !== drag.id) return
+    const d = drag
+    const h = panel.getBoundingClientRect().height
+    drop()
+    if (!d.moved) return                        // a tap: the click toggles
+    // The click a mouse sends after its drag must not toggle the sheet as
+    // well. A touch drag sends none, so this is not a time window (that ate
+    // a real tap made soon after): the next press or key on the handle
+    // clears it.
+    eatClick = true
+    const a = d.trail[0], z = d.trail[d.trail.length - 1]
+    const speed = (z.y - a.y) / Math.max(16, z.t - a.t)   // px per ms over the last few moves, down is positive
+    const heights = { peek: d.min, half: sheetHeight('half'), full: d.max }
+    const best = speed < -FLICK ? 'full' : speed > FLICK ? 'peek'
+      : SHEET_STATES.reduce((m, k) => Math.abs(heights[k] - h) < Math.abs(heights[m] - h) ? k : m)
+    setSheet(best)
+  }
+  window.addEventListener('blur', () => { if (drag) drop() })
+  handle.addEventListener('pointerdown', e => {
+    eatClick = false
+    if (drag && e.isPrimary) drop()
+    if (drag || !isPhoneSheet() || (e.pointerType === 'mouse' && e.button !== 0)) return
+    drag = { id: e.pointerId, y0: e.clientY, h0: panel.getBoundingClientRect().height, moved: false,
+             min: sheetHeight('peek'), max: sheetHeight('full'), trail: [{ y: e.clientY, t: e.timeStamp }] }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  })
+}
+
+function onBodyClass() {
+  const now = document.body.classList.contains('comparing-snapshot')
+  if (now === comparing) return
+  comparing = now
+  paintHandle()
+  if (!isPhoneSheet()) return
+  // A snapshot comparison lives in the panel: bring it up, put it away after.
+  if (!now) { setSheet('peek'); return }
+  if (sheet.state === 'peek') setSheet('half')
+  // openComparison focused its Close button while the sheet was still
+  // collapsed, which hides it, so the focus never landed and its Escape
+  // could not close the comparison. Now it is in view, finish that move.
+  const panel = byId('rightPanel'), close = byId('comparisonClose')
+  if (close && panel && !panel.contains(document.activeElement)) close.focus({ preventScroll: true })
+}
+
+/** Wire the phone sheet. Safe to call again; a panel is wired once. */
+export function setupSheet() {
+  const panel = byId('rightPanel'), handle = byId('sheetHandle')
+  if (!panel || !handle || panel._pfSheet) return
+  panel._pfSheet = true
+  setSheet(SHEET_STATES.includes(panel.dataset.sheet) ? panel.dataset.sheet : 'peek')
+  sheetKey = selectionKey()
+  comparing = document.body.classList.contains('comparing-snapshot')
+
+  handle.addEventListener('click', () => {
+    if (eatClick) { eatClick = false; return }
+    setSheet(sheet.state === 'full' ? 'peek' : 'full')
+  })
+  // From the keyboard, Up and Down step through the three states.
+  handle.addEventListener('keydown', e => {
+    eatClick = false                  // Enter and Space click: never eaten
+    const step = { ArrowUp: 1, ArrowDown: -1 }[e.key]
+    if (!step || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return
+    e.preventDefault(); e.stopPropagation()
+    const i = SHEET_STATES.indexOf(sheet.state) + step
+    setSheet(SHEET_STATES[Math.max(0, Math.min(SHEET_STATES.length - 1, i))])
+  })
+  wireSheetDrag(panel, handle)
+  // A text field low in a half sheet is where a phone keyboard comes up:
+  // typing gets the full sheet, with the field near the top.
+  panel.addEventListener('focusin', e => {
+    if (!isPhoneSheet() || sheet.state !== 'half') return
+    const field = 'input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]), textarea, [contenteditable="true"]'
+    if (e.target.matches?.(field)) setSheet('full', { auto: true })
+  })
+  paintHandle()
+
+  if (sheetWired) return
+  sheetWired = true
+  window.addEventListener('keydown', onSheetEscape, true)
+  // The press on a card or a line selects it (events.js), which queues the
+  // open; what the pointers do before they all lift decides whether it was
+  // a tap. A pinch or a pan that starts on a card never moves the card, so
+  // the card's position alone cannot tell.
+  const far = (e, down) => Math.hypot(e.clientX - down.x, e.clientY - down.y) >= TAP_SLOP
+  document.addEventListener('pointerdown', e => {
+    // A new primary pointer means every earlier one has ended, even one
+    // whose pointerup never came: a stale entry would hold the sheet down.
+    if (e.isPrimary) { pointersDown.clear(); gesture = false }
+    if (pointersDown.size) gesture = true       // a second finger: a pinch
+    pointersDown.set(e.pointerId, { x: e.clientX, y: e.clientY, target: e.target })
+  }, true)
+  document.addEventListener('pointermove', e => {
+    const down = !gesture && pointersDown.get(e.pointerId)
+    if (down && far(e, down)) gesture = true
+  }, true)
+  // The last pointer up: a tap opens what it selected, anything else drops it.
+  const settle = () => {
+    if (!gesture) { scheduleOpen(); return }
+    gesture = false
+    pendingOpen = null
+    clearTimeout(openTimer)
+  }
+  const up = e => {
+    const down = pointersDown.get(e.pointerId)
+    if (!pointersDown.delete(e.pointerId)) return
+    // Cancelled means the browser took the gesture over.
+    if (e.type === 'pointercancel' || far(e, down)) gesture = true
+    if (!gesture) noteTap(down.target)
+    if (!pointersDown.size) settle()
+  }
+  document.addEventListener('pointerup', up, true)
+  document.addEventListener('pointercancel', up, true)
+  // A tap meant for a card's own control (collapse, the doc badge, a port)
+  // is not a request to inspect the card. Touch adjustment can send the
+  // press and release to the card's header while the click lands on the
+  // control, so the click, not the pointerup, is where that shows.
+  document.addEventListener('click', e => {
+    const t = e.target
+    if (!pendingOpen || !(t instanceof Element) || !t.closest('#canvasViewport')) return
+    if (!t.closest(CARD_CONTROLS)) return
+    pendingOpen = null
+    clearTimeout(openTimer)
+  }, true)
+  window.addEventListener('blur', () => { pointersDown.clear(); settle() })
+  window.addEventListener('pf:canvas-changed', paintHandle)
+  // Crossing 700px either way starts the sheet collapsed.
+  sheet.media = window.matchMedia?.(PHONE_QUERY) || null
+  sheet.media?.addEventListener?.('change', () => setSheet('peek'))
+  new MutationObserver(onBodyClass).observe(document.body, { attributes: true, attributeFilter: ['class'] })
 }

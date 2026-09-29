@@ -14,7 +14,10 @@ import { TYPES, TYPE_STEPS, getBlockEl } from '../js/utils.js'
 import { renderBlock, selectBlock, setSelection, selectArrow, deselectAll, undo, mutateBlock, duplicateBlock } from '../js/render.js'
 import { renderArrows, applyTransform } from '../js/canvas.js'
 import { runGapDetection } from '../js/gaps.js'
-import { setupInspectorEvents, typeMenuItems, typeCount } from '../js/inspector.js'
+import { setupInspectorEvents, typeMenuItems, typeCount, sheet, setSheet, sheetState, focusQuestion } from '../js/inspector.js'
+import { openDocPopup } from '../js/doc-panel.js'
+import { startInlineEdit, isInlineEditing } from '../js/inline-edit.js'
+import { setupTimer } from '../js/ui-panels.js'
 import { GAP_META } from '../js/gaps.js'
 import { closeMenus } from '../js/menu.js'
 
@@ -1195,4 +1198,1118 @@ describe('Inspector: shared pieces', () => {
     assert.eq(byId('inspTitle').style.display, 'none')
     assert.eq(getBlockEl('r'), null)
   })
+})
+
+// ── Phone: the right panel as a bottom sheet ─────────────────
+//
+// Behaviour runs here with phone mode pinned on (sheet.force) and the real
+// #rightPanel mounted in place of the harness stubs. Layout runs in an
+// iframe at phone sizes with the real stylesheets and the page's own
+// markup, since the sheet only exists under the 700px media query.
+
+const phone = { el: null, placeholders: [], mounted: false }
+const SHEET_VARS = { '--sheet-peek': '56px', '--sheet-half': '420px', '--sheet-full': '690px' }
+let pageHtml = null
+const pageMarkup = async () => pageHtml || (pageHtml = await (await fetch('../index.html', { cache: 'no-store' })).text())
+
+async function mountSheet() {
+  if (phone.mounted) return
+  const doc = new DOMParser().parseFromString(await pageMarkup(), 'text/html')
+  const panel = document.importNode(doc.getElementById('rightPanel'), true)
+  panel.querySelectorAll('[id]').forEach(n => {
+    const stub = document.getElementById(n.id)
+    if (!stub) return
+    const mark = document.createComment('stub ' + n.id)
+    stub.replaceWith(mark)
+    phone.placeholders.push({ mark, stub })
+  })
+  phone.el = document.createElement('div')
+  phone.el.style.cssText = 'position:fixed;left:0;top:0;width:375px;height:812px;display:flex;flex-direction:column;overflow:hidden;z-index:5;background:#040714'
+  phone.el.appendChild(panel)
+  document.body.appendChild(phone.el)
+  // The sheet heights are CSS variables set under the phone media query;
+  // the harness is wider, so they are set by hand for the drag maths.
+  Object.entries(SHEET_VARS).forEach(([k, v]) => document.documentElement.style.setProperty(k, v))
+  sheet.force = true
+  sheet.openDelay = 0
+  setupInspectorEvents()
+  phone.mounted = true
+}
+
+function unmountSheet() {
+  closeMenus()
+  phone.el?.remove()
+  phone.placeholders.forEach(({ mark, stub }) => mark.replaceWith(stub))
+  phone.placeholders = []
+  Object.keys(SHEET_VARS).forEach(k => document.documentElement.style.removeProperty(k))
+  sheet.force = null
+  sheet.short = null
+  sheet.openDelay = 300
+  sheet.state = 'peek'
+  document.body.classList.remove('comparing-snapshot')
+  ui.activeTab = 'inspector'
+  phone.mounted = false
+}
+
+async function phoneReset() {
+  await mountSheet()
+  reset()
+  sheet.force = true
+  sheet.short = null
+  ui.votingMode = false
+  ui.activeTab = 'inspector'
+  setSheet('peek')
+  byId('rightPanel').style.height = ''
+}
+
+const handleEl = () => byId('sheetHandle')
+const handleTitle = () => byId('sheetTitle').textContent
+const pointer = (target, type, x, y, id = 41) =>
+  target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y }))
+// A tap on a card: the press selects it, as the canvas does, then lifts.
+async function tapCard(id, { moveBy = 0, select = true } = {}) {
+  const el = getBlockEl(id)
+  pointer(el, 'pointerdown', 20, 20)
+  if (select) selectBlock(id)
+  if (moveBy) state.blocks[id].x += moveBy
+  pointer(el, 'pointerup', 20 + moveBy, 20)
+  await tick(20)
+}
+const escapeOn = target => {
+  const e = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+  target.dispatchEvent(e)
+  return e
+}
+// A drag on the handle, one step per entry of `ys`, `gap` ms apart. A
+// touch stays with the element it went down on, so every event targets
+// the handle (and bubbles to the window, where the sheet follows it).
+async function dragHandle(ys, gap = 30) {
+  const h = handleEl()
+  pointer(h, 'pointerdown', 180, ys[0], 42)
+  for (const y of ys.slice(1)) { await tick(gap); pointer(h, 'pointermove', 180, y, 42) }
+  pointer(h, 'pointerup', 180, ys[ys.length - 1], 42)
+  await tick(10)
+}
+
+describe('Inspector: phone sheet', () => {
+  it('the handle names the selection: type dot and title, or Nothing selected', async () => {
+    await phoneReset()
+    block('a', { type: 'requirement', title: 'Weekly numbers in one place' })
+    block('b', { type: 'output', title: 'Status notes pack', x: 400 })
+    arrow('ab', 'a', 'b'); refresh()
+    assert.eq(handleTitle(), 'Nothing selected')
+    assert.ok(byId('sheetDot').classList.contains('is-empty'), 'an empty ring, not a colour')
+    selectBlock('a')
+    assert.eq(handleTitle(), 'Weekly numbers in one place')
+    assert.eq(byId('sheetKind').textContent, 'Requirement: ', 'the type is read out before the title')
+    assert.ok(!byId('sheetDot').hidden && !byId('sheetDot').classList.contains('is-empty'))
+    assert.eq(byId('sheetDot').style.background, 'var(--c-requirement)')
+    mutateBlock('a', { title: 'Weekly numbers, one place' })
+    assert.eq(handleTitle(), 'Weekly numbers, one place', 'follows an edit to the title')
+    setSelection(['a', 'b'])
+    assert.eq(handleTitle(), '2 blocks selected')
+    assert.ok(byId('sheetDot').hidden)
+    selectArrow('ab')
+    assert.eq(handleTitle(), 'Weekly numbers, one place \u2192 Status notes pack')
+    assert.eq(byId('sheetKind').textContent, 'Connection: ')
+    deselectAll()
+    assert.eq(handleTitle(), 'Nothing selected')
+  })
+
+  it('a tap on a card opens a collapsed sheet at half, once the finger lifts', async () => {
+    await phoneReset()
+    block('a', { type: 'goal', title: 'Faster status notes' })
+    const el = getBlockEl('a')
+    pointer(el, 'pointerdown', 20, 20)
+    selectBlock('a')
+    await tick(20)
+    assert.eq(sheetState(), 'peek', 'not while the finger is still down: it may be a drag')
+    pointer(el, 'pointerup', 20, 20)
+    await tick(20)
+    assert.eq(sheetState(), 'half')
+    assert.eq(byId('rightPanel').dataset.sheet, 'half')
+    assert.eq(handleEl().getAttribute('aria-expanded'), 'true')
+    assert.eq(byId('panelContent').scrollTop, 0, 'the panel starts at its top, where the Title is')
+  })
+
+  it('a press that moved the card is a drag and leaves the sheet down', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a', { moveBy: 40 })
+    assert.eq(sheetState(), 'peek')
+    assert.eq(selection.blockId, 'a')
+  })
+
+  it('a tap on the card already selected brings the sheet back up', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a')
+    assert.eq(sheetState(), 'half')
+    setSheet('peek')
+    await tapCard('a', { select: false })
+    assert.eq(sheetState(), 'half', 'the selection did not change, the tap still asks for the details')
+  })
+
+  it('a double-tap that edits the title on the card keeps the sheet down', async () => {
+    await phoneReset()
+    block('a')
+    const title = getBlockEl('a').querySelector('.block-title')
+    pointer(getBlockEl('a'), 'pointerdown', 20, 20)
+    selectBlock('a')
+    pointer(getBlockEl('a'), 'pointerup', 20, 20)
+    title.contentEditable = 'true'          // the second tap's dblclick started the edit
+    await tick(20)
+    assert.eq(sheetState(), 'peek')
+    title.contentEditable = 'false'
+  })
+
+  it('opening on a tap brings the Inspector tab forward', async () => {
+    await phoneReset()
+    block('a')
+    ui.activeTab = 'prompt'
+    let clicked = 0
+    const tab = document.querySelector('#rightPanel .panel-tab[data-tab="inspector"]')
+    const count = () => clicked++
+    tab.addEventListener('click', count)
+    await tapCard('a')
+    tab.removeEventListener('click', count)
+    assert.eq(clicked, 1)
+    assert.eq(sheetState(), 'half')
+    ui.activeTab = 'inspector'
+  })
+
+  it('selecting several blocks names them on the handle without opening the sheet', async () => {
+    await phoneReset()
+    block('a'); block('b', { x: 400 })
+    setSelection(['a', 'b'])
+    await tick(20)
+    assert.eq(sheetState(), 'peek')
+  })
+
+  it('deselecting puts a half sheet away; a sheet pulled to full stays', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a')
+    assert.eq(sheetState(), 'half')
+    deselectAll()
+    assert.eq(sheetState(), 'peek')
+    selectBlock('a')
+    setSheet('full')
+    deselectAll()
+    assert.eq(sheetState(), 'full', 'a full sheet was asked for; deselecting does not take it away')
+  })
+
+  it('the handle: a tap expands to full or collapses; Up and Down step through the states', async () => {
+    await phoneReset()
+    const h = handleEl()
+    h.click()
+    assert.eq(sheetState(), 'full')
+    assert.match(h.textContent, /Collapse details/)
+    h.click()
+    assert.eq(sheetState(), 'peek')
+    assert.match(h.textContent, /Expand details/)
+    assert.eq(h.getAttribute('aria-expanded'), 'false')
+    const key = k => h.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }))
+    key('ArrowUp'); assert.eq(sheetState(), 'half')
+    key('ArrowUp'); assert.eq(sheetState(), 'full')
+    key('ArrowUp'); assert.eq(sheetState(), 'full', 'no state past full')
+    key('ArrowDown'); assert.eq(sheetState(), 'half')
+    key('ArrowDown'); key('ArrowDown'); assert.eq(sheetState(), 'peek')
+  })
+
+  it('a drag on the handle settles on the nearest state, a flick goes further', async () => {
+    await phoneReset()
+    const panel = byId('rightPanel')
+    // Slow, from collapsed (56px) up to about 390px: half (420px).
+    panel.style.height = '56px'
+    await dragHandle([760, 752, 600, 450, 400, 395, 392, 390, 388])
+    assert.eq(sheetState(), 'half')
+    assert.eq(panel.style.height, '', 'the drag height is handed back to the stylesheet')
+    assert.ok(!panel.classList.contains('sheet-dragging'))
+    // The click a drag leaves behind does not toggle the sheet as well.
+    handleEl().click()
+    assert.eq(sheetState(), 'half')
+    await tick(420)
+    // Slow, from half down to about 90px: collapsed.
+    panel.style.height = '420px'
+    await dragHandle([400, 410, 600, 700, 720, 725, 728, 730])
+    assert.eq(sheetState(), 'peek')
+    await tick(420)
+    // A quick flick up from collapsed goes past half to full.
+    panel.style.height = '56px'
+    await dragHandle([760, 740, 690], 16)
+    assert.eq(sheetState(), 'full')
+    await tick(420)
+    // Under 6px is a tap, not a drag: the state is the click's to change.
+    panel.style.height = ''
+    setSheet('half')
+    await dragHandle([500, 503])
+    assert.eq(sheetState(), 'half')
+    // A drag whose release never came does not jam the handle: the next
+    // press starts over.
+    pointer(handleEl(), 'pointerdown', 180, 500, 50)
+    pointer(handleEl(), 'pointermove', 180, 420, 50)
+    assert.ok(panel.classList.contains('sheet-dragging'))
+    await tick(420)
+    await dragHandle([400, 410, 600, 700, 720, 725, 728, 730])
+    assert.eq(sheetState(), 'peek')
+    assert.ok(!panel.classList.contains('sheet-dragging'))
+    assert.eq(panel.style.height, '')
+  })
+
+  it('Escape collapses the sheet, keeps the selection and hands focus to the handle', async () => {
+    await phoneReset()
+    block('a', { title: 'Faster status notes' })
+    await tapCard('a')
+    assert.eq(sheetState(), 'half')
+    const input = byId('inspTitle')
+    input.focus()
+    assert.eq(document.activeElement, input)
+    const e = escapeOn(input)
+    assert.eq(sheetState(), 'peek')
+    assert.ok(e.defaultPrevented, 'the canvas does not also deselect on the same key')
+    assert.eq(selection.blockId, 'a')
+    assert.eq(document.activeElement, handleEl())
+  })
+
+  it('Escape is left to an open menu first', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a')
+    byId('inspTypeBtn').click()
+    assert.ok(menu(), 'the type menu opened')
+    escapeOn(document.activeElement)
+    assert.eq(sheetState(), 'half', 'the menu takes the Escape, the sheet stays')
+    closeMenus()
+  })
+
+  it('a menu the tap opened (the quick-add picker from a port) keeps the screen', async () => {
+    await phoneReset()
+    block('a')
+    const el = getBlockEl('a')
+    pointer(el, 'pointerdown', 20, 20)
+    selectBlock('a')
+    pointer(el, 'pointerup', 20, 20)
+    byId('inspTypeBtn').click()               // any menu.js menu will do
+    assert.ok(menu())
+    await tick(20)
+    assert.eq(sheetState(), 'peek')
+    closeMenus()
+  })
+
+  it('Escape is left to a dialog, the search and dot voting', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a')
+    const dialog = document.createElement('dialog')
+    document.body.appendChild(dialog)
+    dialog.showModal()                          // as the incoming-link chooser is
+    try {
+      assert.ok(!escapeOn(document.body).defaultPrevented)
+      assert.eq(sheetState(), 'half')
+    } finally { dialog.close(); dialog.remove() }
+    for (const flag of ['searchOpen', 'votingMode']) {
+      ui[flag] = true
+      try {
+        assert.ok(!escapeOn(document.body).defaultPrevented, flag)
+        assert.eq(sheetState(), 'half', flag)
+      } finally { ui[flag] = false }
+    }
+    assert.ok(escapeOn(document.body).defaultPrevented, 'with nothing else open, Escape is the sheet\'s')
+    assert.eq(sheetState(), 'peek')
+  })
+
+  it('a pointer whose release never arrived does not hold the sheet down', async () => {
+    await phoneReset()
+    block('a')
+    pointer(document.body, 'pointerdown', 5, 5, 77)   // no pointerup follows
+    await tapCard('a')
+    assert.eq(sheetState(), 'half')
+  })
+
+  it('above 700px nothing moves: no opening on select, no Escape taken', async () => {
+    await phoneReset()
+    block('a')
+    sheet.force = false
+    await tapCard('a')
+    assert.eq(sheetState(), 'peek')
+    sheet.state = 'half'
+    const e = escapeOn(document.body)
+    assert.ok(!e.defaultPrevented)
+    assert.eq(sheetState(), 'half')
+    sheet.force = true
+  })
+
+  it('a text field in a half sheet takes the full sheet, where a phone keyboard leaves it room', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a')
+    // The headless window never has system focus, so focus() moves the
+    // caret without firing focusin; the event a person's tap fires is sent
+    // by hand (the CDP phone probe covers the real tap).
+    const focusIn = el => el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    focusIn(byId('inspTypeBtn'))
+    assert.eq(sheetState(), 'half', 'a button is not typing')
+    focusIn(byId('inspDesc'))
+    assert.eq(sheetState(), 'full')
+  })
+
+  it('Add question from a menu opens the full sheet on the question', async () => {
+    await phoneReset()
+    block('a', { questions: [{ text: 'Who reads the notes?' }] })
+    focusQuestion('a', 0)
+    assert.eq(sheetState(), 'full')
+    assert.eq(document.activeElement?.dataset.qi, '0')
+  })
+
+  it('a snapshot comparison brings the sheet up, and puts it away when it closes', async () => {
+    await phoneReset()
+    document.body.classList.add('comparing-snapshot')
+    await tick(0)
+    assert.eq(sheetState(), 'half')
+    assert.eq(handleTitle(), 'Snapshot comparison')
+    document.body.classList.remove('comparing-snapshot')
+    await tick(0)
+    assert.eq(sheetState(), 'peek')
+    assert.eq(handleTitle(), 'Nothing selected')
+  })
+
+  it('on a view-only link a tap leaves the sheet down, so the review bar stays in view', async () => {
+    await phoneReset()
+    block('a')
+    const bar = document.createElement('div')
+    bar.id = 'reviewBar'
+    bar.textContent = 'review'
+    document.body.appendChild(bar)
+    try {
+      await tapCard('a')
+      assert.eq(sheetState(), 'peek')
+      assert.eq(handleTitle(), 'a', 'the handle still names the card')
+    } finally { bar.remove() }
+  })
+
+  it('a started Session timer shows its time on the collapsed handle', async () => {
+    await phoneReset()
+    setupTimer()
+    const mirror = byId('sheetTimer')
+    assert.ok(mirror.hidden, 'nothing on the handle until the timer runs')
+    assert.eq(mirror.getAttribute('aria-hidden'), 'true', 'the timer row is what a screen reader reads')
+    byId('timerMinutes').value = '2'
+    byId('timerMinutes').dispatchEvent(new Event('input', { bubbles: true }))
+    byId('timerStartBtn').click()
+    try {
+      assert.ok(!mirror.hidden)
+      assert.eq(mirror.textContent, byId('timerDisplay').textContent)
+      assert.match(mirror.textContent, /^\d\d:\d\d$/)
+      assert.ok(mirror.classList.contains('warning'), 'the warning colour comes along')
+    } finally {
+      byId('timerResetBtn').click()
+    }
+    assert.ok(mirror.hidden)
+  })
+
+  // ── Review round: taps against gestures, and the guards ──
+  // A second finger is not the primary pointer, which is how the page
+  // tells a pinch from two taps.
+  const touch = (target, type, x, y, id, primary) =>
+    target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: 'touch', isPrimary: primary, clientX: x, clientY: y }))
+
+  it('a pinch that starts on a card zooms and leaves the sheet down', async () => {
+    await phoneReset()
+    block('a')
+    const el = getBlockEl('a'), saved = { ...view }
+    try {
+      touch(el, 'pointerdown', 20, 20, 41, true)
+      selectBlock('a')                              // the first finger selects it, as the canvas does
+      touch(el, 'pointerdown', 60, 20, 43, false)   // the second finger: a pinch
+      touch(el, 'pointermove', 90, 20, 43, false)
+      touch(el, 'pointerup', 90, 20, 43, false)
+      touch(el, 'pointerup', 20, 20, 41, true)
+      await tick(20)
+      assert.eq(sheetState(), 'peek', 'the card never moved, but the gesture was not a tap')
+      assert.eq(state.blocks.a.x, 40)
+      // Two fingers that never move are still not a tap.
+      touch(el, 'pointerdown', 20, 20, 41, true)
+      touch(el, 'pointerdown', 60, 20, 43, false)
+      touch(el, 'pointerup', 60, 20, 43, false)
+      touch(el, 'pointerup', 20, 20, 41, true)
+      await tick(20)
+      assert.eq(sheetState(), 'peek', 'a two-finger press')
+      // The next plain tap is a tap again.
+      await tapCard('a', { select: false })
+      assert.eq(sheetState(), 'half')
+    } finally { Object.assign(view, saved); applyTransform() }
+  })
+
+  it('a pan that starts on a line leaves the sheet down, even when it comes back to where it began', async () => {
+    await phoneReset()
+    block('a', { type: 'requirement' }); block('b', { type: 'output', x: 400 })
+    arrow('ab', 'a', 'b'); refresh()
+    const line = document.querySelector('#arrowsGroup [data-aid="ab"]') || document.body
+    // Control: a plain tap on the line opens the sheet.
+    pointer(line, 'pointerdown', 200, 60)
+    selectArrow('ab')
+    pointer(line, 'pointerup', 200, 60)
+    await tick(20)
+    assert.eq(sheetState(), 'half', 'the control: a tap on a line inspects it')
+    deselectAll(); setSheet('peek')
+    // A pan out and back: the release lands on the press, only the moves tell.
+    pointer(line, 'pointerdown', 200, 60)
+    selectArrow('ab')
+    pointer(line, 'pointermove', 200, 130)
+    pointer(line, 'pointermove', 201, 62)
+    pointer(line, 'pointerup', 201, 62)
+    await tick(20)
+    assert.eq(sheetState(), 'peek', 'a pan on a line')
+    assert.eq(selection.arrowId, 'ab')
+    // A swipe that ends away from where it began.
+    deselectAll()
+    pointer(line, 'pointerdown', 200, 60)
+    selectArrow('ab')
+    pointer(line, 'pointerup', 200, 160)
+    await tick(20)
+    assert.eq(sheetState(), 'peek', 'a swipe on a line')
+  })
+
+  it('a pointer the browser cancels (it took the gesture) leaves the sheet down', async () => {
+    await phoneReset()
+    block('a')
+    const el = getBlockEl('a')
+    pointer(el, 'pointerdown', 20, 20)
+    selectBlock('a')
+    pointer(el, 'pointercancel', 20, 20)
+    await tick(20)
+    assert.eq(sheetState(), 'peek')
+  })
+
+  it('in dot voting a tap is a vote: the sheet stays down', async () => {
+    await phoneReset()
+    block('a'); block('b', { x: 400 })
+    ui.votingMode = true
+    try {
+      await tapCard('a')
+      assert.eq(sheetState(), 'peek', 'a new selection')
+      await tapCard('a', { select: false })
+      assert.eq(sheetState(), 'peek', 'the card already selected')
+      await tapCard('b')
+      assert.eq(sheetState(), 'peek', 'the next vote')
+      assert.eq(handleTitle(), 'b', 'the handle still names the card')
+    } finally { ui.votingMode = false }
+    await tapCard('a')
+    assert.eq(sheetState(), 'half', 'out of voting, a tap inspects again')
+  })
+
+  it('Escape closes the doc preview first, then collapses the sheet', async () => {
+    await phoneReset()
+    block('a', { docRef: { label: 'Status notes guide', href: '', anchor: '' } })
+    await tapCard('a')
+    assert.eq(sheetState(), 'half')
+    const input = byId('inspTitle')
+    input.focus()
+    openDocPopup('a', input)
+    assert.ok(document.querySelector('.doc-popup'), 'the preview is open')
+    const e = escapeOn(input)
+    assert.eq(document.querySelector('.doc-popup'), null, 'the preview took the Escape')
+    assert.ok(!e.defaultPrevented)
+    assert.eq(sheetState(), 'half', 'the sheet stays up')
+    assert.ok(escapeOn(input).defaultPrevented)
+    assert.eq(sheetState(), 'peek', 'the next Escape is the sheet\'s')
+  })
+
+  it('Escape is left to the shortcut sheet and to an edit on the canvas', async () => {
+    await phoneReset()
+    block('a')
+    await tapCard('a')
+    const help = byId('shortcutOverlay'), was = help.style.display
+    help.style.display = 'flex'
+    try {
+      assert.ok(!escapeOn(document.body).defaultPrevented, 'the shortcut sheet')
+      assert.eq(sheetState(), 'half', 'the shortcut sheet')
+    } finally { help.style.display = was }
+    // The real editor on the card: its Escape commits the title.
+    startInlineEdit('a', 'title')
+    assert.ok(isInlineEditing(), 'editing the title on the card')
+    escapeOn(getBlockEl('a').querySelector('.block-title'))
+    assert.ok(!isInlineEditing(), 'the edit took the Escape and committed')
+    assert.eq(sheetState(), 'half', 'the title')
+    // The line label editor: its field takes Escape to commit, as
+    // arrow-edit.js does.
+    const edit = document.createElement('div')
+    edit.className = 'arrow-edit'
+    const field = document.createElement('input')
+    let committed = 0
+    field.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); committed++ } })
+    edit.appendChild(field)
+    getBlockEl('a').parentElement.appendChild(edit)
+    try {
+      escapeOn(field)
+      assert.eq(committed, 1, 'the line label editor got the key')
+      assert.eq(sheetState(), 'half', 'the line label')
+    } finally { edit.remove() }
+    assert.ok(escapeOn(document.body).defaultPrevented)
+    assert.eq(sheetState(), 'peek')
+  })
+
+  it('a snapshot comparison lands focus on its Close button, and Escape there is the comparison\'s', async () => {
+    await phoneReset()
+    const header = byId('comparisonHeader'), close = byId('comparisonClose')
+    header.hidden = false
+    try {
+      // openComparison focuses Close while the sheet is still collapsed,
+      // which hides it on a phone, so that focus goes nowhere.
+      document.activeElement?.blur()
+      document.body.classList.add('comparing-snapshot')
+      await tick(0)
+      assert.eq(sheetState(), 'half')
+      assert.eq(document.activeElement, close, 'focus is where openComparison meant it to be')
+      const e = escapeOn(close)
+      assert.ok(!e.defaultPrevented, 'comparison-ui.js closes the comparison on this key')
+      assert.eq(sheetState(), 'half', 'the sheet does not take it')
+    } finally {
+      header.hidden = true
+      document.body.classList.remove('comparing-snapshot')
+      await tick(0)
+    }
+    assert.eq(sheetState(), 'peek')
+    // A comparison opened on a full sheet keeps it full.
+    setSheet('full')
+    document.body.classList.add('comparing-snapshot')
+    await tick(0)
+    assert.eq(sheetState(), 'full')
+    document.body.classList.remove('comparing-snapshot')
+    await tick(0)
+  })
+
+  it('a tap on the handle right after a drag is a tap; only the drag\'s own click is eaten', async () => {
+    await phoneReset()
+    const panel = byId('rightPanel'), h = handleEl()
+    panel.style.height = '420px'
+    setSheet('half')
+    await dragHandle([400, 410, 600, 700, 720, 725, 728, 730])
+    assert.eq(sheetState(), 'peek')
+    // A touch drag sends no click. The next tap, at once, still toggles.
+    pointer(h, 'pointerdown', 180, 790)
+    pointer(h, 'pointerup', 180, 790)
+    h.click()
+    assert.eq(sheetState(), 'full', 'no time window swallows it')
+    // A mouse drag's click is still eaten; a key on the handle clears that.
+    panel.style.height = '690px'
+    await dragHandle([130, 140, 300, 420, 430, 432, 434, 435])
+    const settled = sheetState()
+    h.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    h.click()
+    assert.eq(sheetState(), settled === 'full' ? 'peek' : 'full', 'Enter on the handle is never eaten')
+    panel.style.height = ''
+  })
+
+  it('on a phone on its side a tap leaves the sheet down; the handle still opens it', async () => {
+    await phoneReset()
+    block('a')
+    sheet.short = true
+    try {
+      await tapCard('a')
+      assert.eq(sheetState(), 'peek')
+      handleEl().click()
+      assert.eq(sheetState(), 'full')
+    } finally { sheet.short = null }
+  })
+
+  it('opening on a tap moves the camera so the card sits above the sheet', async () => {
+    await phoneReset()
+    const vp = byId('canvasViewport'), prev = vp.getAttribute('style'), saved = { ...view }
+    vp.setAttribute('style', 'display:block;position:fixed;left:-4000px;top:0;width:375px;height:812px;overflow:hidden')
+    Object.assign(view, { panX: 0, panY: 0, zoom: 1 })
+    try {
+      block('a')
+      const el = getBlockEl('a'), v = vp.getBoundingClientRect()
+      // The harness has no card layout: the card's box follows the camera.
+      el.getBoundingClientRect = () => new DOMRect(v.left + 40 + view.panX, v.top + 700 + view.panY, 200, 80)
+      const before = el.getBoundingClientRect()
+      const floor = Math.min(v.bottom, window.innerHeight - 420)   // the top of the half sheet
+      assert.gt(before.bottom, floor, 'the card starts under where the sheet will be')
+      await tapCard('a')
+      assert.eq(sheetState(), 'half')
+      for (let i = 0; i < 40; i++) { await tick(25); if (el.getBoundingClientRect().bottom <= floor) break }
+      await tick(40)
+      const r = el.getBoundingClientRect()
+      assert.ok(r.bottom <= floor - 11 && r.top >= v.top + 11, `card ${Math.round(r.top)}-${Math.round(r.bottom)}, sheet from ${Math.round(floor)}`)
+      assert.eq(view.zoom, 1, 'only the camera position moves')
+      assert.eq(state.blocks.a.y, 40, 'the map does not change')
+    } finally {
+      Object.assign(view, saved)
+      applyTransform()
+      if (prev === null) vp.removeAttribute('style'); else vp.setAttribute('style', prev)
+    }
+  })
+
+  it('crossing 700px either way starts the sheet collapsed', async () => {
+    await phoneReset()
+    assert.ok(sheet.media, 'the phone query is kept')
+    setSheet('full')
+    sheet.media.dispatchEvent(new Event('change'))
+    assert.eq(sheetState(), 'peek')
+    assert.eq(byId('rightPanel').dataset.sheet, 'peek')
+  })
+
+  it('puts the harness back the way it found it', () => {
+    reset()
+    unmountSheet()
+    assert.eq(byId('rightPanel'), null)
+    assert.ok(byId('inspTitle') && byId('inspTitle').style.display === 'none', 'the stub is back')
+    assert.eq(sheet.force, null)
+  })
+})
+
+// A phone-sized page: the stylesheets and the page's own markup, no scripts.
+async function phoneFrame(width, height, { bodyClass = '', state: st = 'peek', selected = true, timerOpen = false, zen = false } = {}) {
+  const doc = new DOMParser().parseFromString(await pageMarkup(), 'text/html')
+  doc.querySelectorAll('script, img').forEach(n => n.remove())
+  doc.getElementById('rightPanel').dataset.sheet = st
+  if (selected) {
+    doc.getElementById('inspectorEmpty').style.display = 'none'
+    doc.getElementById('inspectorContent').style.display = ''
+    doc.getElementById('inspTitle').setAttribute('value', 'One place for the numbers')
+  }
+  if (timerOpen) doc.getElementById('timerControls').style.display = 'flex'
+  const frame = document.createElement('iframe')
+  frame.style.cssText = `position:fixed;left:-6000px;top:0;width:${width}px;height:${height}px;border:0`
+  frame.srcdoc = '<!DOCTYPE html><html><head>' +
+    ['style', 'neorgon-header', 'neorgon-footer', 'neorgon-themes'].map(n => `<link rel="stylesheet" href="../css/${n}.css">`).join('') +
+    `</head><body class="${bodyClass}"${zen ? ' data-zen="on"' : ''}>${doc.body.innerHTML}</body></html>`
+  const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+  document.body.appendChild(frame)
+  await loaded
+  return frame
+}
+const boxIn = (frame, sel) => frame.contentDocument.querySelector(sel).getBoundingClientRect()
+const styleIn = (frame, sel, pseudo) => frame.contentWindow.getComputedStyle(pseudo ? frame.contentDocument.querySelector(sel) : frame.contentDocument.querySelector(sel), pseudo || null)
+// Every sampled point of the Title field is the field, it sits inside the
+// panel's scroll box, and above the timer row.
+function titleClear(frame) {
+  const doc = frame.contentDocument
+  const r = boxIn(frame, '#inspTitle'), box = boxIn(frame, '#panelContent'), timer = boxIn(frame, '#timerWidget')
+  const hits = []
+  for (const fx of [0.05, 0.5, 0.95]) for (const fy of [0.1, 0.5, 0.9]) hits.push(doc.elementFromPoint(r.x + r.width * fx, r.y + r.height * fy)?.id || '?')
+  return { ok: r.height > 20 && hits.every(h => h === 'inspTitle') && r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5 && r.bottom <= timer.top + 0.5,
+    detail: `title ${Math.round(r.top)}-${Math.round(r.bottom)}, box ${Math.round(box.top)}-${Math.round(box.bottom)}, timer at ${Math.round(timer.top)}, hits ${[...new Set(hits)]}` }
+}
+
+describe('Inspector: phone sheet layout', () => {
+  for (const [W, H] of [[375, 812], [390, 844]]) {
+    it(`${W}x${H}: collapsed, the sheet is its 56px handle at the foot of the screen`, async () => {
+      const f = await phoneFrame(W, H, { selected: false })
+      try {
+        const p = boxIn(f, '#rightPanel')
+        assert.eq(styleIn(f, '#rightPanel').position, 'fixed')
+        assert.eq(Math.round(p.height), 56)
+        assert.eq(Math.round(p.bottom), H)
+        assert.eq(styleIn(f, '#sheetHandle').display, 'flex')
+        for (const sel of ['.panel-tabs', '#panelContent', '#timerWidget']) {
+          assert.eq(styleIn(f, sel).visibility, 'hidden', `${sel} is out of reach while collapsed`)
+        }
+        // The page keeps the handle's row free: the status bar ends above it.
+        assert.ok(boxIn(f, '#canvasStatusbar').bottom <= p.top + 0.5, 'the status bar is above the sheet')
+        assert.eq(styleIn(f, 'body', '::after').content, '""')
+      } finally { f.remove() }
+    })
+
+    it(`${W}x${H}: half shows the Title whole, with the Session timer below it`, async () => {
+      const f = await phoneFrame(W, H, { state: 'half' })
+      try {
+        const p = boxIn(f, '#rightPanel')
+        assert.ok(Math.abs(p.height - Math.max(300, H * 0.52)) <= 1, `about half: ${Math.round(p.height)}px`)
+        assert.eq(styleIn(f, '#panelContent').visibility, 'visible')
+        const t = titleClear(f)
+        assert.ok(t.ok, t.detail)
+        // The canvas above the sheet is still there to use.
+        assert.gt(p.top - boxIn(f, '#canvasViewport').top, 200)
+      } finally { f.remove() }
+    })
+
+    it(`${W}x${H}: half with the timer's controls open still clears the Title`, async () => {
+      const f = await phoneFrame(W, H, { state: 'half', timerOpen: true })
+      try {
+        const t = titleClear(f)
+        assert.ok(t.ok, t.detail)
+      } finally { f.remove() }
+    })
+
+    it(`${W}x${H}: full is about 85% of the screen`, async () => {
+      const f = await phoneFrame(W, H, { state: 'full' })
+      try {
+        const p = boxIn(f, '#rightPanel')
+        assert.ok(Math.abs(p.height - H * 0.85) <= 1, `${Math.round(p.height)}px`)
+        assert.ok(titleClear(f).ok)
+      } finally { f.remove() }
+    })
+  }
+
+  it('light mode: the sheet is opaque and light', async () => {
+    const f = await phoneFrame(375, 812, { state: 'half', bodyClass: 'light-mode' })
+    try {
+      assert.eq(styleIn(f, '#rightPanel').backgroundColor, 'rgb(251, 252, 254)')
+    } finally { f.remove() }
+  })
+
+  it('embed and Zen: no sheet and no reserved row', async () => {
+    for (const opts of [{ bodyClass: 'embed-mode readonly-mode' }, { zen: true }]) {
+      const f = await phoneFrame(375, 812, opts)
+      try {
+        assert.eq(styleIn(f, 'body', '::after').content, 'none', JSON.stringify(opts))
+        if (opts.bodyClass) assert.eq(styleIn(f, '#rightPanel').display, 'none')
+      } finally { f.remove() }
+    }
+  })
+
+  it('on a phone on its side half is plainly half: under full, with canvas above it', async () => {
+    for (const [W, H] of [[667, 375], [700, 400], [640, 340]]) {
+      const half = await phoneFrame(W, H, { state: 'half' })
+      const full = await phoneFrame(W, H, { state: 'full' })
+      try {
+        const ph = boxIn(half, '#rightPanel'), pf = boxIn(full, '#rightPanel')
+        assert.ok(Math.abs(ph.height - H * 0.52) <= 1, `${W}x${H}: half ${Math.round(ph.height)}px`)
+        assert.gt(pf.height - ph.height, 40, `${W}x${H}: full ${Math.round(pf.height)}px is taller than half`)
+        assert.gt(ph.top, boxIn(half, '#canvasViewport').top, `${W}x${H}: the half sheet starts below the canvas top`)
+      } finally { half.remove(); full.remove() }
+    }
+    // A portrait phone keeps the floor that shows the Title whole.
+    const tall = await phoneFrame(375, 560, { state: 'half' })
+    try { assert.eq(Math.round(boxIn(tall, '#rightPanel').height), 300) } finally { tall.remove() }
+  })
+
+  it('the Session timer on the handle reaches 4.5:1 in both themes, warning and critical', async () => {
+    const lum = ({ r, g, b }) => {
+      const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+    }
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
+    for (const bodyClass of ['', 'light-mode']) {
+      const f = await phoneFrame(375, 812, { bodyClass })
+      try {
+        const t = f.contentDocument.getElementById('sheetTimer')
+        t.hidden = false
+        t.textContent = '01:59'
+        const bg = channels(styleIn(f, '#rightPanel').backgroundColor)
+        assert.eq(bg.a, 1, 'the sheet is opaque, so its colour is the backdrop')
+        for (const level of ['warning', 'critical']) {
+          t.className = 'sheet-timer ' + level
+          const r = ratio(channels(styleIn(f, '#sheetTimer').color), bg)
+          assert.gte(r, 4.5, `${bodyClass || 'dark'} ${level} at ${r.toFixed(2)}:1`)
+        }
+      } finally { f.remove() }
+    }
+  })
+
+  it('above 700px the panel is a column again and the sheet state changes nothing', async () => {
+    for (const [W, H] of [[1280, 800], [768, 1024], [701, 900]]) {
+      const a = await phoneFrame(W, H, { state: 'peek' })
+      const b = await phoneFrame(W, H, { state: 'full' })
+      try {
+        assert.eq(styleIn(a, '#sheetHandle').display, 'none', `${W}: no handle`)
+        assert.neq(styleIn(a, '#rightPanel').position, 'fixed', `${W}: not a sheet`)
+        assert.eq(styleIn(a, 'body', '::after').content, 'none', `${W}: no reserved row`)
+        const pa = boxIn(a, '#rightPanel'), pb = boxIn(b, '#rightPanel')
+        assert.deepEq([pa.x, pa.y, pa.width, pa.height].map(Math.round), [pb.x, pb.y, pb.width, pb.height].map(Math.round), `${W}: data-sheet is ignored`)
+        assert.eq(styleIn(a, '.panel-tabs').visibility, 'visible')
+      } finally { a.remove(); b.remove() }
+    }
+  })
+})
+
+// ── Phone sheet: second review round ─────────────────────────
+// A sheet nobody can see, cards chosen while the sheet is already up, the
+// scroll a new card starts at, a card's own controls, a full sheet the app
+// chose, the handle's timer, and the pages that share the stylesheet.
+
+// The canvas at 375x812 with each card's box following the camera (the
+// harness has no card layout), so a camera move shows in the card's rect.
+function phoneCamera(boxes) {
+  const vp = byId('canvasViewport'), prev = vp.getAttribute('style'), saved = { ...view }
+  vp.setAttribute('style', 'display:block;position:fixed;left:-4000px;top:0;width:375px;height:812px;overflow:hidden')
+  Object.assign(view, { panX: 0, panY: 0, zoom: 1 })
+  const v = vp.getBoundingClientRect()
+  for (const [id, y] of Object.entries(boxes)) {
+    getBlockEl(id).getBoundingClientRect = () => new DOMRect(v.left + 40 + view.panX, v.top + y + view.panY, 200, 60)
+  }
+  return {
+    v,
+    floor: Math.min(v.bottom, window.innerHeight - 420),     // the top of the half sheet
+    restore() {
+      Object.assign(view, saved)
+      applyTransform()
+      if (prev === null) vp.removeAttribute('style'); else vp.setAttribute('style', prev)
+    },
+  }
+}
+async function settleCamera(el, floor) {
+  for (let i = 0; i < 40; i++) { await tick(25); if (el.getBoundingClientRect().bottom <= floor) break }
+  await tick(40)
+}
+
+describe('Inspector: phone sheet, second review', () => {
+  it('in Zen a tap on a card leaves the camera alone and Escape reaches the canvas', async () => {
+    await phoneReset()
+    block('a', { title: 'Status notes' })
+    const cam = phoneCamera({ a: 700 })                 // under where a half sheet would be
+    const panel = byId('rightPanel')
+    let reached = 0
+    const onKey = e => { if (e.key === 'Escape') reached++ }
+    document.addEventListener('keydown', onKey)
+    try {
+      // What chrome.js does for Z: the panel is not drawn at all.
+      panel.style.display = 'none'
+      document.body.dataset.zen = 'on'
+      await tapCard('a')
+      await tick(320)
+      assert.eq(sheetState(), 'peek', 'no sheet comes up where nobody can see it')
+      assert.eq(panel.dataset.sheet, 'peek')
+      assert.deepEq([view.panX, view.panY], [0, 0], 'the camera did not move')
+      const e = escapeOn(document.body)
+      assert.ok(!e.defaultPrevented, 'Escape is not taken by a hidden sheet')
+      assert.eq(reached, 1, 'Escape reaches the canvas handlers, which deselect')
+      // A sheet left up before Z does not take the key either.
+      panel.style.display = ''
+      setSheet('half')
+      panel.style.display = 'none'
+      assert.ok(!escapeOn(document.body).defaultPrevented, 'a half sheet hidden by Zen')
+      assert.eq(reached, 2)
+    } finally {
+      document.removeEventListener('keydown', onKey)
+      panel.style.display = ''
+      delete document.body.dataset.zen
+      cam.restore()
+    }
+  })
+
+  it('in an embed a tap on a card leaves the camera alone and Escape reaches the canvas', async () => {
+    await phoneReset()
+    block('a')
+    const cam = phoneCamera({ a: 700 })
+    let reached = 0
+    const onKey = e => { if (e.key === 'Escape') reached++ }
+    document.addEventListener('keydown', onKey)
+    ui.embed = true
+    document.body.classList.add('embed-mode')
+    try {
+      await tapCard('a')
+      await tick(320)
+      assert.eq(sheetState(), 'peek')
+      assert.deepEq([view.panX, view.panY], [0, 0], 'someone else\'s page keeps its view')
+      assert.ok(!escapeOn(document.body).defaultPrevented)
+      assert.eq(reached, 1)
+    } finally {
+      document.removeEventListener('keydown', onKey)
+      ui.embed = false
+      document.body.classList.remove('embed-mode')
+      cam.restore()
+    }
+    // Control: drawn and not embedded, the same tap opens the sheet.
+    await tapCard('a', { select: false })
+    assert.eq(sheetState(), 'half')
+  })
+
+  it('a card chosen while the sheet is up (Tab, a search, a gap row) moves above the sheet', async () => {
+    await phoneReset()
+    block('a', { title: 'Visible one' }); block('m', { title: 'Under the sheet', y: 700 })
+    const cam = phoneCamera({ a: 200, m: 700 })
+    try {
+      await tapCard('a')
+      assert.eq(sheetState(), 'half')
+      await tick(320)
+      assert.deepEq([view.panX, view.panY], [0, 0], 'a card already in view does not move the camera')
+      const el = getBlockEl('m')
+      assert.gt(el.getBoundingClientRect().top, cam.floor, 'the card starts wholly under the sheet')
+      selectBlock('m')                              // no pointer: the keyboard's path
+      await settleCamera(el, cam.floor)
+      const r = el.getBoundingClientRect()
+      assert.ok(r.bottom <= cam.floor - 11 && r.top >= cam.v.top + 11, `card ${Math.round(r.top)}-${Math.round(r.bottom)}, sheet from ${Math.round(cam.floor)}`)
+      assert.eq(sheetState(), 'half', 'the sheet stays where it was')
+      assert.eq(view.zoom, 1, 'only the camera position moves')
+    } finally { cam.restore() }
+  })
+
+  it('a card dragged while the sheet is up is not chased by the camera', async () => {
+    await phoneReset()
+    block('a'); block('m', { y: 700 })
+    const cam = phoneCamera({ a: 200, m: 700 })
+    try {
+      await tapCard('a')
+      assert.eq(sheetState(), 'half')
+      await tick(320)
+      const before = [view.panX, view.panY]
+      await tapCard('m', { moveBy: 40 })
+      await tick(320)
+      assert.deepEq([view.panX, view.panY], before, 'a drag is not a request to look at the card')
+      assert.eq(selection.blockId, 'm')
+    } finally { cam.restore() }
+  })
+
+  it('switching cards on a half sheet starts the new one at its Title', async () => {
+    await phoneReset()
+    block('g', { title: 'Faster status notes' })
+    block('r', { type: 'requirement', title: 'One place for the numbers', x: 400 })
+    const content = byId('panelContent'), prev = content.getAttribute('style')
+    content.setAttribute('style', 'display:block;overflow:auto;height:160px')
+    try {
+      await tapCard('g')
+      assert.eq(sheetState(), 'half')
+      content.scrollTop = 120
+      assert.gt(content.scrollTop, 0, 'the inspector scrolls in this box')
+      await tapCard('r')
+      assert.eq(byId('inspTitle').value, 'One place for the numbers')
+      assert.eq(content.scrollTop, 0, 'the second card starts at the top')
+      // Opening again on the card already selected starts at the top too.
+      setSheet('peek')
+      content.scrollTop = 120
+      await tapCard('r', { select: false })
+      assert.eq(sheetState(), 'half')
+      assert.eq(content.scrollTop, 0, 'the open resets the scroll')
+      // Another tab keeps its own place: the reset is the Inspector's.
+      ui.activeTab = 'prompt'
+      content.scrollTop = 120
+      const kept = content.scrollTop
+      selectBlock('g')
+      assert.eq(content.scrollTop, kept)
+    } finally {
+      ui.activeTab = 'inspector'
+      if (prev === null) content.removeAttribute('style'); else content.setAttribute('style', prev)
+    }
+  })
+
+  it('a tap that lands on a card\'s collapse button or doc badge leaves the sheet down', async () => {
+    await phoneReset()
+    block('a', { docRef: { label: 'Status notes guide', href: '', anchor: '' } })
+    block('b', { x: 400 })
+    // Touch adjustment: the press and release go to the card, the click to
+    // the button under the finger.
+    for (const sel of ['.block-collapse-btn', '.block-doc-badge']) {
+      deselectAll(); setSheet('peek')
+      const el = getBlockEl('a'), btn = el.querySelector(sel)
+      assert.ok(btn, `${sel} is on the card`)
+      pointer(el, 'pointerdown', 20, 20)
+      selectBlock('a')
+      pointer(el, 'pointerup', 20, 20)
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      await tick(20)
+      assert.eq(sheetState(), 'peek', sel)
+      assert.eq(selection.blockId, 'a', `${sel}: the card is still selected`)
+      document.querySelector('.doc-popup')?.remove()
+    }
+    // Control: the same tap whose click lands on the card itself opens it.
+    const el = getBlockEl('b')
+    pointer(el, 'pointerdown', 20, 20)
+    selectBlock('b')
+    pointer(el, 'pointerup', 20, 20)
+    el.querySelector('.block-title').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await tick(20)
+    assert.eq(sheetState(), 'half')
+  })
+
+  it('a full sheet a text field chose goes away on deselect; one the person pulled up stays', async () => {
+    await phoneReset()
+    block('a')
+    const focusIn = el => el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    await tapCard('a')
+    focusIn(byId('inspTitle'))
+    assert.eq(sheetState(), 'full')
+    assert.ok(sheet.auto, 'the app chose full')
+    deselectAll()
+    assert.eq(sheetState(), 'peek', 'deselecting does not leave 85% of the screen saying Nothing selected')
+    // Pulled up by the person after the field took it: theirs now.
+    await tapCard('a')
+    focusIn(byId('inspTitle'))
+    handleEl().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    handleEl().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }))
+    assert.eq(sheetState(), 'full')
+    assert.ok(!sheet.auto)
+    deselectAll()
+    assert.eq(sheetState(), 'full', 'a sheet the person put at full stays')
+    // Add question chose full too.
+    setSheet('peek')
+    block('q', { questions: [{ text: 'Who reads the notes?' }] })
+    focusQuestion('q', 0)
+    assert.eq(sheetState(), 'full')
+    deselectAll()
+    assert.eq(sheetState(), 'peek')
+  })
+
+  it('the handle shows the Session timer only while it counts down', async () => {
+    await phoneReset()
+    setupTimer()
+    const mirror = byId('sheetTimer'), display = byId('timerDisplay')
+    const realInterval = window.setInterval, realTimeout = window.setTimeout
+    let step = null, later = null
+    // The countdown's own clock, run by hand.
+    window.setInterval = fn => { step = fn; return 987654 }    // an id, as a real timer returns
+    window.setTimeout = (fn, ms, ...rest) => ms === 3000 ? (later = fn, 0) : realTimeout(fn, ms, ...rest)
+    try {
+      byId('timerMinutes').value = '1'
+      byId('timerMinutes').dispatchEvent(new Event('input', { bubbles: true }))
+      byId('timerStartBtn').click()
+      assert.ok(!mirror.hidden, 'running')
+      step()
+      assert.eq(mirror.textContent, '00:59')
+      byId('timerPauseBtn').click()
+      assert.ok(mirror.hidden, 'paused: a frozen time is not a countdown')
+      byId('timerStartBtn').click()
+      assert.ok(!mirror.hidden, 'resumed')
+      for (let i = 0; i < 59; i++) step()
+      assert.eq(display.textContent, '00:00')
+      assert.ok(mirror.hidden, 'the end')
+      assert.ok(later, 'the full time is put back after a moment')
+      later()
+      assert.eq(display.textContent, '01:00')
+      assert.ok(mirror.hidden, 'the time put back is not running')
+    } finally {
+      window.setInterval = realInterval
+      window.setTimeout = realTimeout
+      byId('timerResetBtn').click()
+    }
+    assert.ok(mirror.hidden)
+  })
+
+  it('puts the harness back the way it found it', () => {
+    reset()
+    unmountSheet()
+    assert.eq(byId('rightPanel'), null)
+    assert.eq(sheet.force, null)
+  })
+})
+
+// Another page that links style.css, at phone size: its own stylesheets and
+// markup, no scripts.
+async function pageFrame(file, width, height) {
+  const doc = new DOMParser().parseFromString(await (await fetch('../' + file, { cache: 'no-store' })).text(), 'text/html')
+  const links = [...doc.querySelectorAll('link[rel="stylesheet"]')].map(l => l.getAttribute('href')).filter(h => h && !/^[a-z]+:/i.test(h))
+  doc.querySelectorAll('script, img, iframe').forEach(n => n.remove())
+  const frame = document.createElement('iframe')
+  frame.style.cssText = `position:fixed;left:-6000px;top:0;width:${width}px;height:${height}px;border:0`
+  frame.srcdoc = '<!DOCTYPE html><html><head>' + links.map(h => `<link rel="stylesheet" href="../${h}">`).join('') +
+    `</head><body class="${doc.body.className}">${doc.body.innerHTML}</body></html>`
+  const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+  document.body.appendChild(frame)
+  await loaded
+  return frame
+}
+
+describe('Inspector: phone sheet rules stay on the app page', () => {
+  for (const file of ['trace.html', 'examples.html', 'tutorial.html']) {
+    it(`${file} at 375x812: no reserved row and no page height meant for the sheet`, async () => {
+      const f = await pageFrame(file, 375, 812)
+      try {
+        const d = f.contentDocument
+        assert.ok(d.querySelector('link[href="../css/style.css"]'), 'the page links style.css')
+        assert.eq(d.getElementById('rightPanel'), null)
+        const after = f.contentWindow.getComputedStyle(d.body, '::after')
+        assert.eq(after.content, 'none', 'no empty band under the footer')
+        // An iframe has no browser toolbar, so 100dvh and 100vh measure the
+        // same here: read the rule itself and check it does not reach the page.
+        const dvh = []
+        const walk = list => { for (const r of list) { if (r.cssRules) walk(r.cssRules); if (r.style?.height === '100dvh' && /^body\b/.test(r.selectorText || '')) dvh.push(r.selectorText) } }
+        for (const sh of d.styleSheets) { try { walk(sh.cssRules) } catch (_) {} }
+        assert.ok(dvh.length, 'the phone page-height rule is there to check')
+        for (const sel of dvh) assert.ok(!d.body.matches(sel), `${sel} does not reach ${file}`)
+      } finally { f.remove() }
+    })
+  }
 })

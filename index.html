@@ -324,7 +324,22 @@
   </section>
 
   <!-- Right panel -->
-  <aside class="right-panel" id="rightPanel">
+  <aside class="right-panel" id="rightPanel" data-sheet="peek">
+    <!-- Phones (700px and under): the panel is a bottom sheet and this row is
+         its handle. It names what is selected; a tap expands or collapses the
+         sheet and a drag resizes it (inspector.js, the phone sheet). Hidden
+         above 700px, where the panel is a column again. -->
+    <button type="button" class="sheet-handle" id="sheetHandle" aria-controls="panelContent" aria-expanded="false" data-canvas-ui>
+      <span class="sheet-grip" aria-hidden="true"></span>
+      <span class="sheet-row">
+        <span class="sheet-dot is-empty" id="sheetDot" aria-hidden="true"></span>
+        <span class="sr-only" id="sheetKind"></span>
+        <span class="sheet-title is-empty" id="sheetTitle">Nothing selected</span>
+        <span class="sheet-timer" id="sheetTimer" aria-hidden="true" hidden></span>
+        <span class="sr-only" id="sheetAction">. Expand details</span>
+        <svg class="sheet-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+      </span>
+    </button>
     <button class="panel-reopen" id="panelReopenBtn" title="Show details panel" aria-label="Show details panel" aria-controls="panelContent" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
     </button>

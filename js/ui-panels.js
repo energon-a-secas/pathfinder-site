@@ -1082,6 +1082,20 @@ export function setupTimer() {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
+  // On a phone the timer row is the foot of the right panel's sheet, out of
+  // sight while the sheet is collapsed; a running timer also shows its time
+  // on the sheet's handle (#sheetTimer, aria-hidden: the row itself is
+  // what a screen reader reads). Only while it counts down: a paused time,
+  // or the full time put back after the end, would read as a countdown.
+  const handleTime = document.getElementById('sheetTimer')
+  function mirrorToHandle() {
+    if (!handleTime) return
+    handleTime.hidden = !(interval && hasStarted && !isPaused && timeRemaining > 0)
+    handleTime.textContent = display.textContent
+    handleTime.classList.toggle('warning', display.classList.contains('warning'))
+    handleTime.classList.toggle('critical', display.classList.contains('critical'))
+  }
+
   function updateWarningClass() {
     const minsLeft = timeRemaining / 60
     display.classList.remove('warning', 'critical')
@@ -1095,6 +1109,7 @@ export function setupTimer() {
         display.classList.add('warning')
       }
     }
+    mirrorToHandle()
   }
 
   function updateDisplay() {
