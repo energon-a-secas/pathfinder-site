@@ -200,6 +200,9 @@ arrow has no label (it is never stored):
 - `meta.situation.codebase`: `none`, `current`, `other`, `greenfield`
 - `meta.situation.runtime`: `chat`, `code`, `ide`
 - `meta.situation.firstMove`: `read`, `ask`, `plan`, `act`
+- `meta.schema`: written by the app, not by you. A number stamping which
+  build saved the canvas (currently `2`). Omit it in canvases you write; the
+  app adds it on save and uses its absence to notice an older build's save
 
 #### Highlights are presentation, not meaning
 

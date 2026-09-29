@@ -54,6 +54,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/library.js` | ~545 | Maps library: per-map slots, write-through autosave, snapshots + diff, the Maps menu items |
 | `js/sharing.js` | ~400 | Incoming links and files (open as a new map by default), other-tab warning, backup status |
 | `js/chrome.js` | ~90 | `H` / `Z` expanded view |
+| `js/voting.js` | ~70 | Dot voting as an explicit mode (View ▾ → Dot voting): `setVotingMode`, the banner; a plain click never votes |
 | `js/doc-panel.js` | ~217 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
 | `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
 
