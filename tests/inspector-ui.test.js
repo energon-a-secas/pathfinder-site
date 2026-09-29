@@ -1169,8 +1169,13 @@ describe('Inspector: QA round', () => {
     host.el.scrollTop = 0
     const d = byId('appearanceDetails')
     assert.eq(d.open, false)
+    // Measured in the frame after the toggle, when the reveal has run. WebKit
+    // later resets this fixed test host's scroll on its own (the real panel
+    // keeps it), so a timer-based wait there read the chip back at the top.
+    const toggled = new Promise(r => d.addEventListener('toggle', r, { once: true }))
     d.querySelector('summary').click()
-    await tick(20)
+    await Promise.race([toggled, tick(200)])
+    await new Promise(r => requestAnimationFrame(r))
     assert.ok(d.open, 'the section opened')
     const box = host.el.getBoundingClientRect(), chip = byId('inspColourBtn').getBoundingClientRect()
     assert.ok(chip.bottom <= box.bottom + 0.5 && chip.top >= box.top - 0.5,
@@ -1706,12 +1711,17 @@ describe('Inspector: phone sheet', () => {
     assert.eq(sheetState(), 'half')
     const input = byId('inspTitle')
     input.focus()
+    // In a page with system focus, focusing the Title field opens the sheet
+    // to full (the phone keyboard rule); the headless runner fires no focus
+    // event, so it stays at half. Either way the preview's Escape must leave
+    // the sheet where it is.
+    const before = sheetState()
     openDocPopup('a', input)
     assert.ok(document.querySelector('.doc-popup'), 'the preview is open')
     const e = escapeOn(input)
     assert.eq(document.querySelector('.doc-popup'), null, 'the preview took the Escape')
     assert.ok(!e.defaultPrevented)
-    assert.eq(sheetState(), 'half', 'the sheet stays up')
+    assert.eq(sheetState(), before, 'the sheet stays up')
     assert.ok(escapeOn(input).defaultPrevented)
     assert.eq(sheetState(), 'peek', 'the next Escape is the sheet\'s')
   })
@@ -1873,12 +1883,18 @@ async function phoneFrame(width, height, { bodyClass = '', state: st = 'peek', s
   if (timerOpen) doc.getElementById('timerControls').style.display = 'flex'
   const frame = document.createElement('iframe')
   frame.style.cssText = `position:fixed;left:-6000px;top:0;width:${width}px;height:${height}px;border:0`
+  // The sheet's height transition is off: Firefox gives a srcdoc frame a
+  // few pixels of viewport at first, and a quarter of the frames were
+  // measured mid-transition from 52dvh of that. These tests are about the
+  // layout at rest.
   frame.srcdoc = '<!DOCTYPE html><html><head>' +
     ['style', 'neorgon-header', 'neorgon-footer', 'neorgon-themes'].map(n => `<link rel="stylesheet" href="../css/${n}.css">`).join('') +
+    '<style>#rightPanel { transition: none !important; }</style>' +
     `</head><body class="${bodyClass}"${zen ? ' data-zen="on"' : ''}>${doc.body.innerHTML}</body></html>`
   const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
   document.body.appendChild(frame)
   await loaded
+  frame.contentDocument.getAnimations().forEach(a => a.finish())
   return frame
 }
 const boxIn = (frame, sel) => frame.contentDocument.querySelector(sel).getBoundingClientRect()

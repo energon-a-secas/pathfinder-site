@@ -181,7 +181,10 @@ export function currentBlockId() {
 }
 
 // ── Announcements ───────────────────────────────────────────
-function announcer() {
+// index.html carries the region; this makes one where a page does not (the
+// test runner), and setupTabNavigation asks early, so it exists before the
+// first message rather than being inserted along with it.
+export function announcer() {
   let el = document.getElementById('canvasAnnouncer')
   if (el) return el
   el = document.createElement('div')

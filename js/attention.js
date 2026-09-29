@@ -216,7 +216,18 @@ export function setupAttention() {
         ? `${open.length} item${open.length === 1 ? '' : 's'} across ${count} block${count === 1 ? '' : 's'}${accText ? `, ${accText}` : ''}`
         : accText ? `No open items, ${accText}.` : filter.value ? 'No items in this category.' : 'No outstanding items in these checks.'
     }
+    // A rebuild under keyboard focus (the save that follows an action runs
+    // this again) used to drop focus to the page: keep it on the row at the
+    // same position, else the nearest row, else the filter.
+    const ae = document.activeElement
+    const fromRow = list.contains(ae) ? [...list.children].findIndex(li => li.contains(ae)) : -1
+    const act = fromRow >= 0 && ae.dataset.attentionAct
     list.innerHTML = attentionRowsHtml(shown)
+    if (fromRow < 0) return
+    const lis = [...list.children]
+    const pick = li => (act && li.querySelector(`[data-attention-act="${act}"]`)) || li.querySelector('button')
+    const next = [...lis.slice(fromRow), ...lis.slice(0, fromRow).reverse()].map(pick).find(Boolean)
+    ;(next || filter).focus({ preventScroll: true })
   }
   filter.addEventListener('change', refresh)
   list.addEventListener('click', e => {

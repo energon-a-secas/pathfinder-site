@@ -140,6 +140,8 @@
   await import('./sharing-safety.test.js')
   await import('./data-safety.test.js')
   await import('./integration.test.js')
+  // Open-items QA round (Firefox, WebKit, accessibility)
+  await import('./qa2.test.js')
 
   // Run everything and render results
   const results = await runAll()

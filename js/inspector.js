@@ -987,8 +987,15 @@ export function setupInspectorEvents() {
     const accept = e.target.closest('.gap-fix-accept')
     if (accept) {
       if (ui.readOnly) return
+      const hadFocus = document.activeElement === accept
       acceptGap(accept.dataset.bid, accept.dataset.accept)
       renderInspector()
+      // The accepted gap's row is gone: go on to the next fix, else the
+      // Reopen of what was just accepted, else the top of the panel.
+      if (hadFocus && !accept.isConnected) {
+        (byId('gapFixes')?.querySelector('button') || byId('gapAccepted')?.querySelector('[data-reopen]') ||
+          byId('inspTypeBtn'))?.focus({ preventScroll: true })
+      }
       return
     }
     const btn = e.target.closest('.gap-fix-btn'); if (!btn) return
@@ -1010,8 +1017,13 @@ export function setupInspectorEvents() {
     const b = selectedBlock()
     if (!btn || !b || ui.readOnly) return
     // unacceptGap drops the key once the list is empty, as normalize would.
+    const hadFocus = document.activeElement === btn
     unacceptGap(b.id, btn.dataset.reopen)
     renderInspector()
+    if (hadFocus && !btn.isConnected) {
+      (byId('gapFixes')?.querySelector('.gap-fix-accept') || byId('gapFixes')?.querySelector('button') ||
+        byId('inspTypeBtn'))?.focus({ preventScroll: true })
+    }
   })
 
   // ── Questions ──
@@ -1126,7 +1138,13 @@ export function setupInspectorEvents() {
     debouncedSave()
   })
   on('frameLabelInput', 'change', resetSnapshotToken)
-  on('deleteMultiBtn', 'click', () => { if (!ui.readOnly) deleteBlocksBatch([...selection.ids]) })
+  on('deleteMultiBtn', 'click', () => {
+    if (ui.readOnly) return
+    const hadFocus = document.activeElement === byId('deleteMultiBtn')
+    deleteBlocksBatch([...selection.ids])
+    // The button went with the selection: the canvas keeps the keyboard.
+    if (hadFocus) $.canvasViewport()?.focus({ preventScroll: true })
+  })
 
   // ── One connection ──
   // Arrow edits go through mutateArrow, so each one is an undo step. Text
@@ -1223,7 +1241,10 @@ export function setupInspectorEvents() {
     mutateArrow(a.id, { fromPort: null, toPort: null })
   })
   on('deleteArrowBtn', 'click', () => {
-    if (selection.arrowId && !ui.readOnly) deleteArrow(selection.arrowId)
+    if (!selection.arrowId || ui.readOnly) return
+    const hadFocus = document.activeElement === byId('deleteArrowBtn')
+    deleteArrow(selection.arrowId)
+    if (hadFocus) $.canvasViewport()?.focus({ preventScroll: true })
   })
 
   // The panel follows the canvas. The context menu, the type check on a

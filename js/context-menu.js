@@ -30,11 +30,11 @@ import { createBlockAt, createConnected, insertOnArrow, suggestedNextTypes,
          defaultConnectDirection } from './create.js'
 import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
-import { RELATIONS, relationOf, impliedVerb } from './relations.js'
+import { RELATIONS, relationOf, impliedVerb, connectionLabel } from './relations.js'
 import { arrangeSelection } from './align.js'
 import { createBlocksFromText } from './classify.js'
 import { focusBlock, runTidy } from './ui-panels.js'
-import { withCameraHeld } from './navigation.js'
+import { withCameraHeld, announce } from './navigation.js'
 import { zoomTo, zoomToBlocks } from './zoom-controls.js'
 import { focusQuestion } from './inspector.js'
 
@@ -406,6 +406,33 @@ function connectToItems(id) {
   ]
 }
 
+// This card's connections, one row each, so a connection can be selected
+// without a pointer: the lines are not Tab stops. Once one is selected, Enter
+// or F2 labels it, Delete removes it and Shift+F10 opens its own menu.
+function connectionRows(id) {
+  return state.arrows.filter(a => (a.from === id || a.to === id) && state.blocks[a.from] && state.blocks[a.to])
+}
+function connectionItems(id) {
+  return connectionRows(id).map(a => {
+    const out = a.from === id
+    const other = state.blocks[out ? a.to : a.from]
+    return {
+      label: `${out ? 'To' : 'From'} ${titleOf(other)}`, dot: typeDot(other.type),
+      hint: connectionLabel(a) || undefined,
+      action: () => selectConnectionFromKeyboard(a.id),
+    }
+  })
+}
+export function selectConnectionFromKeyboard(aid) {
+  const a = state.arrows.find(x => x.id === aid); if (!a) return false
+  selectArrow(aid)
+  $.canvasViewport()?.focus({ preventScroll: true })
+  const what = connectionLabel(a)
+  announce(`Connection from ${titleOf(state.blocks[a.from])} to ${titleOf(state.blocks[a.to])}${what ? ', ' + what : ''}. ` +
+    'Enter to label it, Delete to remove it')
+  return true
+}
+
 const blankQuestion = q => !String((typeof q === 'string' ? q : q?.text) || '').trim() && !String(q?.answer || '').trim()
 
 function addQuestion(id) {
@@ -436,6 +463,7 @@ function blockMenuItems(id) {
       action: () => startInlineEdit(id, 'description', { selectAll: false }) },
     { ctx: 'add-connected', label: 'Add connected', icon: I.add, submenu: () => addConnectedItems(id) },
     connectTargets(id).length && { ctx: 'connect', label: 'Connect to…', icon: I.connect, submenu: () => connectToItems(id) },
+    connectionRows(id).length && { ctx: 'connections', label: 'Select connection', icon: I.route, submenu: () => connectionItems(id) },
     { ctx: 'type', label: 'Change type', icon: I.type, submenu: () => changeTypeItems([id]) },
     { ctx: 'status', label: 'Status', icon: I.status, submenu: () => statusItems([id]) },
     { ctx: 'priority', label: 'Priority', icon: I.priority, submenu: () => priorityItems([id]) },

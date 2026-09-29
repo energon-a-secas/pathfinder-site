@@ -61,7 +61,7 @@
 <!-- ── Header ──────────────────────────────────────────────── -->
 <header class="header-bar" data-header-mode="app">
   <div class="header-logo">
-    <a href="./" class="header-title-link">
+    <a href="./" class="header-title-link" aria-label="Pathfinder">
         <img src="energon-classic-logo.png" class="header-logo-img" alt="">
         <div class="header-title-wrap">
       <h1>Pathfinder</h1>
@@ -344,9 +344,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
     </button>
     <div class="panel-tabs">
-      <button class="panel-tab active" data-tab="inspector">Inspector</button>
-      <button class="panel-tab"        data-tab="prompt">Prompt</button>
-      <button class="panel-tab" data-tab="attention" title="Needs attention">Attention<span class="tab-count" id="attentionCount" hidden></span></button>
+      <!-- The tablist holds the tabs only; the collapse button beside it is
+           not a tab. -->
+      <div class="panel-tablist">
+        <button class="panel-tab active" data-tab="inspector">Inspector</button>
+        <button class="panel-tab"        data-tab="prompt">Prompt</button>
+        <button class="panel-tab" data-tab="attention" title="Needs attention">Attention<span class="tab-count" id="attentionCount" hidden></span></button>
+      </div>
       <button class="panel-collapse-btn" id="panelCollapseBtn" title="Hide details panel" aria-label="Hide details panel" aria-controls="panelContent" aria-expanded="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
       </button>
@@ -732,11 +736,11 @@
         </div>
 
         <div class="dev-options" id="devOptions">
-          <div class="dev-options-header" id="devOptionsHeader">
+          <button type="button" class="dev-options-header" id="devOptionsHeader" aria-expanded="false" aria-controls="devOptionsBody">
             Dev Options
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-          </div>
-          <div class="dev-options-body">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div class="dev-options-body" id="devOptionsBody">
             <div class="dev-row">
               <div class="insp-label" style="margin-bottom:6px">Tone</div>
               <div class="dev-radio-group" id="toneGroup">
@@ -773,7 +777,7 @@
         </div>
 
         <div class="insp-label" style="margin-bottom:6px">Generated Prompt</div>
-        <textarea class="prompt-output" id="promptOutput" readonly></textarea>
+        <textarea class="prompt-output" id="promptOutput" readonly aria-label="Generated prompt"></textarea>
         <button class="copy-btn" id="copyPromptBtn">Copy Prompt</button>
       </div>
 
@@ -806,7 +810,7 @@
   <div class="shortcut-modal">
     <div class="shortcut-modal-header">
       <span>Keyboard Shortcuts</span>
-      <button class="shortcut-close" id="shortcutClose">✕</button>
+      <button class="shortcut-close" id="shortcutClose" aria-label="Close keyboard shortcuts"><span aria-hidden="true">✕</span></button>
     </div>
     <div class="shortcut-grid" id="shortcutGrid"></div>
     <div class="shortcut-modal-footer">
@@ -817,12 +821,15 @@
 
 <!-- Screen-reader live region for toasts and status messages -->
 <div id="toastLive" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+<!-- Canvas announcements (navigation.js announce). In the page from the
+     start: text in a live region inserted along with it is usually not read. -->
+<div id="canvasAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Neorgon + GitHub links live in the header (logo, home icon, GitHub icon).
      A hidden nav keeps them crawlable without spending screen space. -->
 <nav class="sr-only" aria-label="Neorgon navigation">
-  <a href="https://neorgon.com/">Back to Neorgon</a>
-  <a href="https://github.com/energon-a-secas/pathfinder-site">Star on GitHub</a>
+  <a href="https://neorgon.com/" tabindex="-1">Back to Neorgon</a>
+  <a href="https://github.com/energon-a-secas/pathfinder-site" tabindex="-1">Star on GitHub</a>
 </nav>
 
 <!-- data-stick="off": body is a 100vh overflow-hidden flex column. The app owns

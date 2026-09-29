@@ -215,7 +215,11 @@ describe('Integration: paste stops behind a modal dialog or an open menu (QA)', 
   const paste = text => {
     const dt = new DataTransfer()
     dt.setData('text/plain', text)
-    document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+    const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+    // Firefox drops clipboardData given to the constructor (a real paste
+    // carries it); set it on the event so every engine runs the same test.
+    Object.defineProperty(ev, 'clipboardData', { value: dt })
+    document.body.dispatchEvent(ev)
   }
 
   it('Cmd+V adds nothing behind the incoming-link dialog or under a menu, and works otherwise', () => {

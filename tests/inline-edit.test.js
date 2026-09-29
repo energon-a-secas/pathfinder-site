@@ -197,6 +197,9 @@ describe('startInlineEdit() -- description and paste', () => {
     dt.setData('text/plain', 'Pasted one\nPasted two')
     dt.setData('text/html', '<b>Pasted</b> <i>rich</i>')
     const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+    // Firefox drops clipboardData given to the constructor (a real paste
+    // carries it); set it on the event so every engine runs the same test.
+    Object.defineProperty(ev, 'clipboardData', { value: dt })
     titleEl('a').dispatchEvent(ev)
     assert.ok(ev.defaultPrevented, 'the browser paste was replaced')
     assert.eq(titleEl('a').querySelector('b, i'), null, 'no markup came in')

@@ -13,7 +13,7 @@ import { applyTransform, portPos, cpOffset, renderArrows, renderFrames, fitView,
 import { renderBlock, renderInspector,
          selectBlock, addToSelection, setSelection, selectArrow, deselectAll,
          mutateBlock, deleteBlock, addArrow, deleteArrow,
-         duplicateBlock, deleteBlocksBatch, undo, redo } from './render.js'
+         duplicateBlock, deleteBlocksBatch, undo, redo, updateCanvasTitle } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { openSearch, closeSearch, openShortcuts, closeShortcuts, runTidy } from './ui-panels.js'
 import { toggleChrome, toggleZen } from './chrome.js'
@@ -31,29 +31,49 @@ import { zoomIn, zoomOut, zoomTo, zoomAround, zoomToSelection, wheelZoomFactor }
 import { ARROW_DIRS, PORT_DIR, readingOrder, nearestInDirection, currentBlockId, selectFromKeyboard,
          focusableAfterCanvas, controlsBeforeCanvas, nudgeSelection, panBy, createInDirection,
          openQuickCreate, nav, isTyping, modalDialogOpen, canvasHasFocus, canvasZoomKeysApply, labelPorts,
-         untabCardControls, isCameraHeld, revealShift } from './navigation.js'
+         untabCardControls, isCameraHeld, revealShift, announce, announcer } from './navigation.js'
 
 // ── Canvas title editing ─────────────────────────────────────
+// The title sits inside the header's home link (the kit's markup contract),
+// so every press on it must stop there: left to the link it reloaded the
+// page instead of renaming. Enter, F2 or Space renames from the keyboard;
+// Enter commits and Escape puts the old title back. updateCanvasTitle gives
+// it its name and role.
 export function setupCanvasTitle() {
   const canvasTitleEl = $.canvasTitle()
-  canvasTitleEl.addEventListener('click', () => {
-    if (ui.readOnly) return
+  let before = ''
+  const editing = () => canvasTitleEl.contentEditable === 'true'
+  const start = () => {
+    if (ui.readOnly || editing()) return
+    before = canvasMeta.title || ''
     canvasTitleEl.contentEditable = 'true'
+    canvasTitleEl.setAttribute('role', 'textbox')
+    canvasTitleEl.setAttribute('aria-label', 'Map title')
     canvasTitleEl.focus()
     const r = document.createRange(); r.selectNodeContents(canvasTitleEl)
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(r)
+  }
+  canvasTitleEl.addEventListener('click', e => {
+    if (ui.readOnly) return   // view-only: the title is just the link's text
+    e.preventDefault(); e.stopPropagation()
+    start()
   })
   canvasTitleEl.addEventListener('blur', () => {
+    if (!editing()) return
     canvasTitleEl.contentEditable = 'false'
     canvasMeta.title = canvasTitleEl.textContent.trim()
-    const el = $.canvasTitle()
-    const t = canvasMeta.title || 'Strategy canvas'
-    if (el.contentEditable !== 'true') el.textContent = t
-    document.title = canvasMeta.title ? canvasMeta.title + ' | Pathfinder' : 'Pathfinder | Strategy Canvas'
+    updateCanvasTitle()
     debouncedSave()
   })
   canvasTitleEl.addEventListener('keydown', e => {
+    if (!editing()) {
+      if (!ui.readOnly && (e.key === 'Enter' || e.key === 'F2' || e.key === ' ')) {
+        e.preventDefault(); e.stopPropagation(); start()
+      }
+      return
+    }
     if (e.key === 'Enter') { e.preventDefault(); canvasTitleEl.blur() }
+    else if (e.key === 'Escape') { e.preventDefault(); canvasTitleEl.textContent = before; canvasTitleEl.blur() }
     e.stopPropagation()
   })
 }
@@ -546,6 +566,20 @@ export function setupCanvasPointerEvents() {
   document.addEventListener('pointerup', releaseStray)
   document.addEventListener('pointercancel', releaseStray)
 
+  // A press on the canvas never turns into a page text selection while it
+  // is held. user-select alone does not cover it: a pan that runs off the
+  // viewport selects the panel and status bar text, and WebKit also left a
+  // few characters of a card selected after every drag. Text being edited
+  // and the overlays keep their own selection.
+  let pressFromCanvas = false
+  canvasViewport.addEventListener('pointerdown', e => {
+    pressFromCanvas = !e.target.closest('[contenteditable="true"], input, textarea, select, [data-canvas-ui]')
+  }, true)
+  const endCanvasPress = () => { pressFromCanvas = false }
+  document.addEventListener('pointerup', endCanvasPress, true)
+  document.addEventListener('pointercancel', endCanvasPress, true)
+  document.addEventListener('selectstart', e => { if (pressFromCanvas) e.preventDefault() }, true)
+
   // Wheel: trackpad two-finger scroll pans; pinch-zoom (which the browser
   // reports as a wheel event with ctrlKey) and Cmd/Ctrl+wheel zoom at the
   // cursor. This matches Figma/Miro/tldraw so "just move to pan" works on a
@@ -553,9 +587,10 @@ export function setupCanvasPointerEvents() {
   // Safari reports a trackpad pinch as gesture events rather than
   // Ctrl+wheel; without these it zooms the whole page instead of the canvas.
   // A touch pinch is already handled by the pointer path above.
+  // Over an overlay too (the zoom bar, Find, the Brain Dump card): none of
+  // them needs a pinch, and one left unprevented scaled the whole page.
   let gesture = null
   canvasViewport.addEventListener('gesturestart', e => {
-    if (e.target.closest?.('[data-canvas-ui]')) return
     e.preventDefault()
     gesture = { zoom: view.zoom }
   })
@@ -856,7 +891,7 @@ export function setupKeyboardShortcuts() {
       if ($.shortcutOverlay().style.display !== 'none') { closeShortcuts(); return }
       if (ui.searchOpen) { closeSearch(); return }
       if (ui.votingMode) { setVotingMode(false); return }
-      if (selection.ids.size || selection.arrowId || selection.groupId) { deselectAll(); return }
+      if (selection.ids.size || selection.arrowId || selection.groupId) { deselectAll(); announce('Selection cleared'); return }
       // Nothing left to deselect: let go of the canvas, so the keyboard is
       // never stuck in it.
       const ae = document.activeElement
@@ -865,7 +900,13 @@ export function setupKeyboardShortcuts() {
     }
 
     // Selecting everything is not an edit either: it works in a view-only link.
-    if (mod && e.key === 'a') { e.preventDefault(); setSelection(Object.keys(state.blocks)); return }
+    if (mod && e.key === 'a') {
+      e.preventDefault()
+      const ids = Object.keys(state.blocks)
+      setSelection(ids)
+      announce(`${ids.length} ${ids.length === 1 ? 'block' : 'blocks'} selected`)
+      return
+    }
 
     if (ui.readOnly) return
     if (onCanvas && noMods(e) && !e.shiftKey && e.key.toLowerCase() === 'l') {
@@ -900,9 +941,16 @@ export function setupKeyboardShortcuts() {
     // Deleting and duplicating are single keys on the canvas's selection: a
     // focused header or status-bar button keeps its keys (canvasHasFocus).
     if ((e.key === 'Delete' || e.key === 'Backspace') && onCanvas) {
-      if      (selection.ids.size > 1)  deleteBlocksBatch([...selection.ids])
+      const n = selection.ids.size
+      if      (n > 1)                   deleteBlocksBatch([...selection.ids])
       else if (selection.blockId)       deleteBlock(selection.blockId)
       else if (selection.arrowId)       deleteArrow(selection.arrowId)
+      else return
+      // The focused card went with it: the canvas keeps the keyboard, as it
+      // does after the card menu's Delete, instead of the page.
+      const ae = document.activeElement
+      if (!ae || ae === document.body || !ae.isConnected) $.canvasViewport()?.focus({ preventScroll: true })
+      announce(n > 1 ? `Deleted ${n} blocks` : n ? 'Deleted the block' : 'Deleted the connection')
     }
     if (mod && e.key === 'd' && selection.blockId && onCanvas) {
       e.preventDefault()
@@ -918,6 +966,7 @@ let tabNavWired = false
 export function setupTabNavigation() {
   if (tabNavWired) return
   tabNavWired = true
+  announcer()
   // Tab / Shift+Tab walk the blocks in reading order, selecting each, and
   // then leave the canvas: Tab after the last block goes on to whatever
   // follows the canvas, Shift+Tab before the first goes back to the canvas
@@ -971,9 +1020,9 @@ export function setupTabNavigation() {
   // plain Tab would land on whichever card was created first. Treat the
   // canvas as one stop instead: going forwards lands on the first block in
   // reading order, going backwards on the last.
-  let tabAt = -Infinity, tabBack = false
+  let tabAt = -Infinity, tabBack = false, tabEvent = null
   document.addEventListener('keydown', e => {
-    if (e.key === 'Tab') { tabAt = performance.now(); tabBack = e.shiftKey }
+    if (e.key === 'Tab') { tabAt = performance.now(); tabBack = e.shiftKey; tabEvent = e }
   }, true)
   // Where focus last left from inside a card. Closing a title editor blurs
   // the field before the card takes focus back, so that focusin arrives with
@@ -991,7 +1040,13 @@ export function setupTabNavigation() {
     // Tab inside a title moves on to the description.
     const block = e.target.closest?.('.block')
     if (!block || e.target.isContentEditable || performance.now() - tabAt > 200) return
+    // A script took that Tab and put focus here itself (a menu closing back
+    // onto its card): the browser's own Tab order never moved it.
+    if (tabEvent?.defaultPrevented) return
     if (e.relatedTarget && $.canvasRoot().contains(e.relatedTarget)) return
+    // Focus left a field inside the canvas that re-rendered as it blurred
+    // (a card's description committing): it is moving within, not arriving.
+    if (e.relatedTarget && !e.relatedTarget.isConnected) return
     if (justLeft()) return
     const order = readingOrder(); if (!order.length) return
     const want = tabBack ? order[order.length - 1] : order[0]

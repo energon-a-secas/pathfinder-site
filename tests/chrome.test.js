@@ -510,12 +510,16 @@ describe('chrome -- View menu', () => {
 
 // ── Motion policy ────────────────────────────────────────────
 
+// Test frames sit on screen, invisible and inert: WebKit never runs
+// requestAnimationFrame in a frame parked off screen, and the suite hung.
+const ONSCREEN = 'position:fixed;left:0;top:0;opacity:0;pointer-events:none;border:0'
+
 // A live document with the real stylesheet, so animations actually run and
 // document.getAnimations() sees them. The canvas is rendered by the app's own
 // renderer and gap detector, then copied in.
 async function motionFrame() {
   const frame = document.createElement('iframe')
-  frame.style.cssText = 'position:fixed;left:-3000px;top:0;width:1200px;height:600px;border:0'
+  frame.style.cssText = `${ONSCREEN};width:1200px;height:600px`
   frame.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css"></head>' +
     '<body><div class="canvas-root" id="canvasRoot" style="position:relative;width:1200px;height:600px"></div></body></html>'
   const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
@@ -738,7 +742,7 @@ describe('chrome -- motion policy', () => {
 async function headerFrame(width, { light = false, extra = '' } = {}) {
   const doc = await page()
   const frame = document.createElement('iframe')
-  frame.style.cssText = `position:fixed;left:-4000px;top:0;width:${width}px;height:700px;border:0`
+  frame.style.cssText = `${ONSCREEN};width:${width}px;height:700px`
   frame.srcdoc = '<!DOCTYPE html><html><head>' +
     '<link rel="stylesheet" href="../css/style.css">' +
     '<link rel="stylesheet" href="../css/neorgon-header.css">' +
@@ -990,7 +994,7 @@ describe('chrome -- H and Z in an embed', () => {
 // A page with the real stylesheet and some markup, at a given size.
 async function cssFrame(html, { width = 1200, height = 800, bodyClass = '', head = '' } = {}) {
   const frame = document.createElement('iframe')
-  frame.style.cssText = `position:fixed;left:-5000px;top:0;width:${width}px;height:${height}px;border:0`
+  frame.style.cssText = `${ONSCREEN};width:${width}px;height:${height}px`
   frame.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css">' + head +
     `</head><body class="${bodyClass}">${html}</body></html>`
   const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))

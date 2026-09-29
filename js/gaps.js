@@ -324,11 +324,20 @@ export function nextEmptyStep(blocks = {}) {
 let lastGapById = new Map()
 let decoratorWired = false
 
+// Writes only what changed. classList.remove rewrites the class attribute
+// even when the class is absent, and this runs for every card on every
+// mutation: WebKit re-layered the whole canvas each time (140ms at 300
+// cards, for one nudge). The slot's data-gap says what it already shows; a
+// re-render empties the slot and drops the marker, so it is painted again.
 function paintGap(el, id, gap) {
-  GAP_ORDER.forEach(c => el.classList.remove(c))
-  if (gap) el.classList.add(gap)
+  for (const c of GAP_ORDER) if (c !== gap && el.classList.contains(c)) el.classList.remove(c)
+  if (gap && !el.classList.contains(gap)) el.classList.add(gap)
   const gi = el.querySelector('.block-gap-icons') || document.getElementById('gi-' + id)
-  if (gi) gi.innerHTML = gap ? gapIconHtml(gap) : ''
+  if (!gi) return
+  const want = gap || ''
+  if (gi.dataset.gap === want && !want === !gi.firstChild) return
+  gi.innerHTML = gap ? gapIconHtml(gap) : ''
+  gi.dataset.gap = want
 }
 
 function paintLastGap(b, el) { paintGap(el, b.id, lastGapById.get(b.id) || null) }

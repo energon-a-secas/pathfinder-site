@@ -74,7 +74,7 @@ body.trace-embed .neo-footer { display: none; }
   position: absolute; right: 14px; bottom: 14px; z-index: 5;
   display: flex; gap: 6px; align-items: center;
   background: rgba(8,13,25,.9); border: 1px solid rgba(255,255,255,.12);
-  border-radius: 10px; padding: 5px; backdrop-filter: blur(8px);
+  border-radius: 10px; padding: 5px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
 .trace-tools button {
   border: 0; background: transparent; color: rgba(255,255,255,.72);

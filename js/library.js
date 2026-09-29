@@ -129,9 +129,25 @@ export function rearmTabLoad() { loadSourceUsed = false }
  */
 export function notePointerMove(e) {
   if (!e || (e.storageArea && e.storageArea !== localStorage)) return pointerAway
-  if (e.key !== CUR_KEY && e.key !== null) return pointerAway
+  if (e.key !== CUR_KEY && e.key !== null) return syncPointer()
   if (!tabMap) tabMap = e.oldValue || null
   pointerAway = !!tabMap && e.newValue !== tabMap
+  return pointerAway
+}
+
+/**
+ * Re-read the pointer before a storage event is handled. Another tab writes
+ * the index, the new map's slot, then the pointer, and Firefox already
+ * returns that tab's later pointer while this tab is still handling the
+ * slot's event: currentId() would name the other tab's new map, and a save
+ * in that window would be filed under it. Only other tabs fire storage
+ * events, so this tab's own switches (and a test writing the key directly)
+ * never reach here.
+ */
+export function syncPointer() {
+  if (tabMap) {
+    try { pointerAway = localStorage.getItem(CUR_KEY) !== tabMap } catch (_) {}
+  }
   return pointerAway
 }
 

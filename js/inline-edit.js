@@ -167,6 +167,16 @@ function onKeydown(e) {
   } else {
     if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) { e.preventDefault(); commit(); return }
     if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); commit({ next: 'title' }); return }
+    if (e.key === 'Tab') {
+      // Out of the card, as Tab on the card itself goes: to the next card in
+      // reading order. Left to the browser, focus went to whichever card is
+      // next in the DOM, and the blur's re-render cut it loose.
+      e.preventDefault()
+      const { id } = cur
+      commit({ refocus: true })
+      getBlockEl(id)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+      return
+    }
   }
 }
 

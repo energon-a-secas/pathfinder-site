@@ -17,7 +17,7 @@ import { suggestedNextTypes } from '../js/create.js'
 import { readingOrder, nearestInDirection, describeBlock, quickCreateType,
          facingSide, ROW_TOLERANCE, openQuickCreate, revealShift, flushNudge, NUDGE_SETTLE_MS } from '../js/navigation.js'
 import { routeStats } from '../js/arrow-routes.js'
-import { renderArrows } from '../js/canvas.js'
+import { renderArrows, applyTransform } from '../js/canvas.js'
 import { selectArrow } from '../js/render.js'
 import { wheelZoomFactor, nextZoomStop, ZOOM_STOPS, WHEEL_MAX_STEP, zoomToSelection,
          contentInView, refreshBackToContent, openZoomMenu, setupZoomControls } from '../js/zoom-controls.js'
@@ -198,8 +198,12 @@ describe('Keyboard traversal', () => {
     })
   })
 
-  it('tabbing in from a control outside lands on the first block going forwards, the last going backwards', () => {
+  it('tabbing in from a control outside lands on the first block going forwards, the last going backwards', async () => {
     wire(); reset()
+    // In a page with system focus, reset() taking focus off the last test's
+    // card fired a real focusout in the canvas, and focus arriving within
+    // 100ms of one reads as moving inside the canvas. Let it pass.
+    if (document.hasFocus()) await sleep(120)
     block('upper', { x: 0, y: 0 })
     block('lower', { x: 0, y: 300 })
     // DOM order disagrees with reading order, as on a map edited over time:
@@ -208,17 +212,23 @@ describe('Keyboard traversal', () => {
     const el = id => document.getElementById('b-' + id)
     // A page without system focus (the headless runner) moves focus without
     // firing focus events, so send the focusin the browser would.
+    // A page with system focus fires the real one, and a second would run
+    // the Tab-entry handler twice.
     const arrive = (id, from = null) => {
+      const had = document.hasFocus()
       el(id).focus()
-      el(id).dispatchEvent(new FocusEvent('focusin', { bubbles: true, relatedTarget: from }))
+      if (!had) el(id).dispatchEvent(new FocusEvent('focusin', { bubbles: true, relatedTarget: from }))
     }
-    withViewport(() => {
+    return withViewport(async () => {
       // The browser's Tab: a keydown, then focus on the next card in DOM order.
       key('Tab', {}, document.body)
       arrive('lower')
       assert.eq(selection.blockId, 'upper', 'forwards: the first block in reading order')
       assert.eq(document.activeElement, el('upper'))
       document.activeElement.blur()
+      // Leaving the canvas and coming back is two key presses apart, not the
+      // same instant (see the wait above).
+      if (document.hasFocus()) await sleep(120)
       key('Tab', { shiftKey: true }, document.body)
       arrive('upper')
       assert.eq(selection.blockId, 'lower', 'backwards: the last block in reading order')
@@ -794,11 +804,14 @@ describe('Quick create keeps the camera still', () => {
     // The source card overhangs the left edge, as it does after a long drag.
     block('a', { x: -150, y: 40 })
     withViewport(vp => {
-      view.panX = 0; view.panY = 0; view.zoom = 1
       const r = vp.getBoundingClientRect()
       // A press on a port focuses its card; the picker used to hand focus back
       // there on close, and that alone panned the camera.
       document.getElementById('b-a').focus({ preventScroll: true })
+      // The camera starts here. A page with system focus (not the headless
+      // runner) fired a real focusin just now that revealed the card; the
+      // press that focuses it in the app never does (its grace period).
+      view.panX = 0; view.panY = 0; view.zoom = 1; applyTransform()
       const wx = 560, wy = 300
       openQuickCreate({ fromId: 'a', fromPort: 'right', clientX: r.left + wx, clientY: r.top + wy, wx, wy })
       endPressGrace()
@@ -817,8 +830,8 @@ describe('Quick create keeps the camera still', () => {
     wire(); reset()
     block('a', { x: -150, y: 40 })
     withViewport(vp => {
-      view.panX = 0; view.panY = 0; view.zoom = 1
       document.getElementById('b-a').focus({ preventScroll: true })
+      view.panX = 0; view.panY = 0; view.zoom = 1; applyTransform()   // after the setup focus, as above
       openQuickCreate({ fromId: 'a', fromPort: 'right', clientX: 400, clientY: 300, wx: 400, wy: 300 })
       endPressGrace()
       withFocusEvents(() => {

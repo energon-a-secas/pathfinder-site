@@ -118,14 +118,14 @@ export function renderBlock(id) {
 
   el.tabIndex = 0
   el.setAttribute('role', 'article')
-  el.setAttribute('aria-label', `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}` +
+  cardLabels.set(el, `${TYPES[b.type]?.label || b.type}: ${b.title || 'Untitled'}` +
     (hlTab ? `, highlighted ${hlTab}` : '') + (typeCheck ? ', type not confirmed' : '') +
     (ui.readOnly && b.collapsed ? ', collapsed' : ''))
+  labelSelected(el, selection.ids.has(id))
   // T opens the type check from the card itself (classify.js), since Tab
   // steps from card to card and never reaches the label's button.
   if (typeCheck) el.setAttribute('aria-keyshortcuts', 'T')
   else el.removeAttribute('aria-keyshortcuts')
-  el.setAttribute('aria-selected', selection.ids.has(id) ? 'true' : 'false')
 
   // The gi- slot belongs to gaps.js: runGapDetection paints it after every
   // render, from the same result that sets the card's gap class.
@@ -157,14 +157,27 @@ export function renderAllBlocks() {
 
 
 // ── Selection ────────────────────────────────────────────────
+// aria-selected is not supported on role=article (Chrome drops it, and it
+// went stale besides), so the card's name says it: "Goal: Ship it, selected".
+const cardLabels = new WeakMap()   // card element -> its name without the state
+function labelSelected(el, on) {
+  const base = cardLabels.get(el) ?? el.getAttribute('aria-label') ?? ''
+  el.setAttribute('aria-label', on ? base + ', selected' : base)
+}
+function paintSelected(id, on) {
+  const el = getBlockEl(id); if (!el) return
+  el.classList.toggle('selected', on)
+  if (cardLabels.has(el)) labelSelected(el, on)
+}
+
 export function selectBlock(id) {
-  selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('selected'))
+  selection.ids.forEach(sid => paintSelected(sid, false))
   selection.ids.clear()
   selection.blockId = null; selection.groupId = null
   if (selection.arrowId) { selection.arrowId = null; renderArrows() }
   if (id) {
     selection.ids.add(id); selection.blockId = id
-    getBlockEl(id)?.classList.add('selected')
+    paintSelected(id, true)
   }
   renderFrames()
   renderInspector()
@@ -173,27 +186,27 @@ export function selectBlock(id) {
 export function addToSelection(id) {
   if (selection.arrowId) { selection.arrowId = null; renderArrows() }
   if (selection.ids.has(id)) {
-    selection.ids.delete(id); getBlockEl(id)?.classList.remove('selected')
+    selection.ids.delete(id); paintSelected(id, false)
   } else {
-    selection.ids.add(id); getBlockEl(id)?.classList.add('selected')
+    selection.ids.add(id); paintSelected(id, true)
   }
   selection.blockId = selection.ids.size === 1 ? [...selection.ids][0] : null
   renderInspector()
 }
 
 export function setSelection(ids) {
-  selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('selected'))
+  selection.ids.forEach(sid => paintSelected(sid, false))
   selection.ids.clear()
   if (selection.arrowId) { selection.arrowId = null; renderArrows() }
   ids.forEach(id => {
-    if (state.blocks[id]) { selection.ids.add(id); getBlockEl(id)?.classList.add('selected') }
+    if (state.blocks[id]) { selection.ids.add(id); paintSelected(id, true) }
   })
   selection.blockId = selection.ids.size === 1 ? [...selection.ids][0] : null
   renderInspector()
 }
 
 export function selectArrow(id) {
-  selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('selected'))
+  selection.ids.forEach(sid => paintSelected(sid, false))
   selection.ids.clear(); selection.blockId = null
   selection.arrowId = id
   renderArrows()
@@ -201,7 +214,7 @@ export function selectArrow(id) {
 }
 
 export function deselectAll() {
-  selection.ids.forEach(sid => getBlockEl(sid)?.classList.remove('selected'))
+  selection.ids.forEach(sid => paintSelected(sid, false))
   selection.ids.clear(); selection.blockId = null; selection.groupId = null
   if (selection.arrowId) { selection.arrowId = null; renderArrows() }
   renderFrames()
@@ -474,7 +487,16 @@ export function deleteGroup(gid) {
 export function updateCanvasTitle() {
   const el = $.canvasTitle()
   const t = canvasMeta.title || 'Strategy canvas'
-  if (el.contentEditable !== 'true') el.textContent = t
+  if (el.contentEditable !== 'true') {
+    el.textContent = t
+    // A control that renames the map, except in a view-only page, where it
+    // is only the header link's text and no Tab stop.
+    if (ui.readOnly) {
+      el.removeAttribute('role'); el.removeAttribute('aria-label'); el.removeAttribute('tabindex')
+    } else {
+      el.setAttribute('role', 'button'); el.setAttribute('aria-label', 'Rename map, ' + t); el.tabIndex = 0
+    }
+  }
   // A long title ellipsizes in the header; the tooltip carries all of it.
   el.title = t
   document.title = canvasMeta.title ? canvasMeta.title + ' | Pathfinder' : 'Pathfinder | Strategy Canvas'

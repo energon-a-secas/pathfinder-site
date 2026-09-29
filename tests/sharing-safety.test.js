@@ -886,6 +886,33 @@ describe('Two tabs: no false alarm, and saves stay on their own map', () => {
       assert.eq(JSON.parse(localStorage.getItem('pathfinder-v1')).meta.title, 'Saved by the other tab')
     } finally { forgetTabMap() }
   }))
+  // QA2 (Firefox): another tab writes the index, the new map's slot, then the
+  // pointer. Firefox already reads that later pointer while this tab handles
+  // the slot's event, so currentId() used to name the other tab's new map:
+  // a false "changed in another tab" banner, and a save filed under that map.
+  it("another tab's new map raises no banner even when the pointer reads as moved before its event", () => sandbox(() => {
+    forgetTabMap()
+    const mine = seedPrivate()
+    try {
+      setupSharingSafety()
+      const theirs = JSON.stringify({ blocks: {}, arrows: [], meta: { title: 'Their new map' } })
+      localStorage.setItem('pathfinder-map-theirnew', theirs)
+      localStorage.setItem('pathfinder-map-current', 'theirnew')
+      // The slot's event arrives first, with the pointer already moved.
+      window.dispatchEvent(new StorageEvent('storage', { key: 'pathfinder-map-theirnew', storageArea: localStorage, oldValue: null, newValue: theirs }))
+      assert.eq(document.getElementById('otherTabBanner'), null, 'no banner for a different map')
+      assert.eq(currentId(), mine, "this tab's map, not the other tab's")
+      // A save in that window stays on this tab's map.
+      state.blocks.private.title = 'Saved before the pointer event'
+      saveState(); writeThrough()
+      assert.eq(slot(mine).blocks.private.title, 'Saved before the pointer event')
+      assert.eq(slot('theirnew').meta.title, 'Their new map', "the other tab's new map is untouched")
+      // Then the pointer's own event: still this tab's map.
+      window.dispatchEvent(pointerEvent(mine, 'theirnew'))
+      assert.eq(currentId(), mine)
+      assert.eq(document.getElementById('otherTabBanner'), null)
+    } finally { forgetTabMap() }
+  }))
 })
 
 describe('The incoming dialog holds the keyboard', () => {

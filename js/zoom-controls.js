@@ -25,10 +25,14 @@ export const ZOOM_STOPS = [...new Set([MIN_ZOOM, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 
 // notch with Ctrl reports deltaY 100 to 200, which used to jump 44% to 260%.
 export const WHEEL_MAX_STEP = 1.25
 
-/** The next stop above (dir > 0) or below (dir < 0) the zoom `z`. */
+/**
+ * The next stop above (dir > 0) or below (dir < 0) the zoom `z`, skipping a
+ * stop within 5% of it: from the fit zoom of 66% the next press went to 67%,
+ * a step nobody could see.
+ */
 export function nextZoomStop(z, dir) {
-  if (dir > 0) return ZOOM_STOPS.find(s => s > z * 1.001) ?? MAX_ZOOM
-  for (let i = ZOOM_STOPS.length - 1; i >= 0; i--) if (ZOOM_STOPS[i] < z / 1.001) return ZOOM_STOPS[i]
+  if (dir > 0) return ZOOM_STOPS.find(s => s > z * 1.05) ?? MAX_ZOOM
+  for (let i = ZOOM_STOPS.length - 1; i >= 0; i--) if (ZOOM_STOPS[i] < z / 1.05) return ZOOM_STOPS[i]
   return MIN_ZOOM
 }
 

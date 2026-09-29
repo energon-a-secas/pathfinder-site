@@ -370,10 +370,16 @@ export function setupPatchUI() {
     ui.promptDirty = true
     if (ui.activeTab === 'prompt') refreshPrompt()
     input.value = ''; preview.innerHTML = ''; applyBtn.disabled = true
+    const inside = panel.contains(document.activeElement)
     panel.style.display = 'none'
+    if (inside) openBtn.focus({ preventScroll: true })
     showToast(`Applied ${n} change${n === 1 ? '' : 's'}. One Cmd+Z undoes them all`, 'success', 2600)
   })
+  // Close hides the panel it sits in: hand focus back to the button that
+  // opened it rather than dropping it to the page.
   document.getElementById('patchCancelBtn')?.addEventListener('click', () => {
+    const inside = panel.contains(document.activeElement)
     panel.style.display = 'none'
+    if (inside) openBtn.focus({ preventScroll: true })
   })
 }

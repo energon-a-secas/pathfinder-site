@@ -19,7 +19,7 @@ import { STORAGE_KEY, showToast } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { applyImport } from './export.js'
 import { updateCanvasTitle } from './render.js'
-import { currentId, ensureLibrary, takeSnapshot, openAsNewMap, exportAllMaps, pointAtThisMap,
+import { currentId, syncPointer, ensureLibrary, takeSnapshot, openAsNewMap, exportAllMaps, pointAtThisMap,
          readBackup, writeBackup, recordBackup, lastBackupAt, checkStorageForOlderVersion,
          pendingOlderVersionLoss, restoreOlderVersionLoss, dismissOlderVersionLoss,
          checkLoadForOlderVersion, mapWithPendingLoss, settleOlderVersionLoss } from './library.js'
@@ -306,6 +306,9 @@ export function touchesThisMap(e) {
 
 function onStorage(e) {
   if (ui.readOnly || ui.embed) return
+  // Which map is this tab's, before anything below asks currentId(): the
+  // other tab's pointer may already read as moved (library.js syncPointer).
+  syncPointer()
   // An older build dropped blocks: that banner says more than this one,
   // and closing it brings this one up if the map still differs.
   if (checkStorageForOlderVersion(e)) return

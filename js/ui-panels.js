@@ -292,6 +292,22 @@ export function buildShortcutGrid() {
 // Where focus was before the sheet opened, so closing it puts you back.
 let shortcutsReturnFocus = null
 
+// While the sheet is open the page behind it is inert. aria-modal on a div
+// does not take the page out of a screen reader's browse mode, so the header
+// and canvas controls were still there to wander into. Live regions stay
+// live, so a toast behind the sheet is still read.
+let inertBehind = []
+function setPageInert(on) {
+  inertBehind.forEach(el => { el.inert = false })
+  inertBehind = []
+  if (!on) return
+  const overlay = $.shortcutOverlay()
+  inertBehind = [...document.body.children].filter(el =>
+    el !== overlay && !el.contains(overlay) && !el.inert && el.tagName !== 'SCRIPT' &&
+    !el.hasAttribute('aria-live') && !['status', 'alert', 'log'].includes(el.getAttribute('role')))
+  inertBehind.forEach(el => { el.inert = true })
+}
+
 export function openShortcuts() {
   const overlay = $.shortcutOverlay()
   if (overlay.style.display === 'none') {
@@ -301,12 +317,16 @@ export function openShortcuts() {
   overlay.style.display = ''
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
-  requestAnimationFrame(() => document.getElementById('shortcutClose')?.focus())
+  setPageInert(true)
+  // focusVisible: '?' after a click on the canvas left Firefox treating this
+  // focus as a mouse one, and the close button showed no ring.
+  requestAnimationFrame(() => document.getElementById('shortcutClose')?.focus({ focusVisible: true }))
 }
 export function closeShortcuts() {
   const overlay = $.shortcutOverlay()
   const wasOpen = overlay.style.display !== 'none'
   overlay.style.display = 'none'
+  setPageInert(false)
   const back = shortcutsReturnFocus
   shortcutsReturnFocus = null
   if (wasOpen && back && back.isConnected && back !== document.body && typeof back.focus === 'function') {
@@ -368,7 +388,7 @@ export function setupContextBrief() {
 // ── Panel tabs ───────────────────────────────────────────────
 export function setupPanelTabs() {
   const tabs = [...document.querySelectorAll('.panel-tab')]
-  const tablist = document.querySelector('.panel-tabs')
+  const tablist = document.querySelector('.panel-tablist') || document.querySelector('.panel-tabs')
   tablist.setAttribute('role', 'tablist')
   tablist.setAttribute('aria-label', 'Plan details')
   tabs.forEach(button => {
@@ -437,16 +457,21 @@ export function setupSituation() {
 
   const paint = () => {
     const sit = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}) }
+    // Rebuilding the buttons drops focus to the page: put it back on the
+    // same choice, so a keyboard user stays where they were.
+    const had = host.contains(document.activeElement) && document.activeElement.closest('[data-situation-value]')
+    const back = had && [had.closest('[data-situation]')?.dataset.situation, had.dataset.situationValue]
     host.innerHTML = Object.entries(SITUATION_FIELDS).map(([key, field]) => `
       <div class="situation-row">
-        <div class="insp-label situation-row-label">${escHtml(field.label)}
+        <div class="insp-label situation-row-label" id="situation-${key}-label">${escHtml(field.label)}
           <span class="insp-label-hint">${escHtml(field.hint)}</span></div>
-        <div class="dev-radio-group" data-situation="${key}">
+        <div class="dev-radio-group" data-situation="${key}" role="group" aria-labelledby="situation-${key}-label">
           ${Object.entries(field.options).map(([val, opt]) =>
-            `<button class="radio-opt${sit[key] === val ? ' active' : ''}" data-situation-value="${val}"
-                     title="${escHtml(opt.line)}">${escHtml(opt.label)}</button>`).join('')}
+            `<button type="button" class="radio-opt${sit[key] === val ? ' active' : ''}" data-situation-value="${val}"
+                     aria-pressed="${sit[key] === val}" title="${escHtml(opt.line)}">${escHtml(opt.label)}</button>`).join('')}
         </div>
       </div>`).join('')
+    if (back) host.querySelector(`[data-situation="${back[0]}"] [data-situation-value="${back[1]}"]`)?.focus({ preventScroll: true })
     if (repo && document.activeElement !== repo) repo.value = sit.repoHint || ''
     if (cons && document.activeElement !== cons) cons.value = sit.constraints || ''
     refreshSituationPreview()
@@ -490,9 +515,12 @@ export function setupDevOptions() {
   // Set initial aria-pressed on all radio groups
   document.querySelectorAll('.dev-radio-group').forEach(g => syncRadioAria(g))
 
-  document.getElementById('devOptionsHeader').addEventListener('click', () =>
-    document.getElementById('devOptions').classList.toggle('open')
-  )
+  // A real button, so Tone, Detail and the rest are reachable by keyboard.
+  const devHeader = document.getElementById('devOptionsHeader')
+  devHeader.addEventListener('click', () => {
+    const open = document.getElementById('devOptions').classList.toggle('open')
+    devHeader.setAttribute('aria-expanded', open ? 'true' : 'false')
+  })
   document.getElementById('toneGroup').addEventListener('click', e => {
     const btn = e.target.closest('.radio-opt'); if (!btn) return
     document.querySelectorAll('#toneGroup .radio-opt').forEach(b => b.classList.remove('active'))
