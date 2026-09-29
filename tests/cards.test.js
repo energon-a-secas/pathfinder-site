@@ -11,8 +11,7 @@ import { state, ui, selection, pointer, view, getUndoHistory, getRedoFuture,
 import { $, TYPES, TYPE_STEPS, typesByStep, SWATCH_COLORS } from '../js/utils.js'
 import { renderBlock, undo, deselectAll, selectBlock } from '../js/render.js'
 import { setupCanvasPointerEvents } from '../js/events.js'
-import { runGapDetection } from '../js/gaps.js'
-import * as gaps from '../js/gaps.js'
+import { runGapDetection, gapIconFor, GAP_META } from '../js/gaps.js'
 import { setupTypeChips, showTypeChips, resolveTypeCheck, openTypeChipMenu } from '../js/classify.js'
 import { renderPaletteTypes, renderStepStarter, setupPalette } from '../js/palette.js'
 import { lightAccentFor, highlightTabLabel } from '../js/cards.js'
@@ -409,20 +408,19 @@ describe('cards -- gap icon slot', () => {
       'no second writer rewrites or clears the slot')
   })
 
-  it('is filled by gap detection from gapIconFor when gaps.js provides it, named from GAP_META', async () => {
+  it('is filled by gap detection from gapIconFor, named from GAP_META', async () => {
     const el = goalWithGap()
     const slot = el.querySelector('.block-gap-icons')
     const painted = slot.innerHTML
     await Promise.resolve(); await settle()
     assert.eq(slot.innerHTML, painted, 'the slot holds what detection wrote, a task later too')
-    if (typeof gaps.gapIconFor === 'function') {
-      const icon = slot.querySelector('.gap-icon')
-      assert.ok(icon?.querySelector('svg'), 'the icon arrives with detection')
-      assert.ok((icon.getAttribute('title') || '').startsWith(gaps.GAP_META['gap-no-req'].short),
-        'its name comes from GAP_META')
-    } else {
-      assert.eq(slot.childElementCount, 0, 'without gapIconFor the slot stays empty')
-    }
+    const icon = slot.querySelector('.gap-icon')
+    assert.ok(icon?.querySelector('svg'), 'the icon arrives with detection')
+    const expected = document.createElement('template')
+    expected.innerHTML = gapIconFor('gap-no-req')
+    assert.eq(icon.querySelector('svg').outerHTML, expected.content.firstElementChild.outerHTML, 'the icon is gapIconFor\'s')
+    assert.ok((icon.getAttribute('title') || '').startsWith(GAP_META['gap-no-req'].short),
+      'its name comes from GAP_META')
   })
 })
 
@@ -531,7 +529,7 @@ describe('cards -- the type check fits and is reachable', () => {
       assert.eq(row.getAttribute('aria-haspopup'), 'menu')
       g.types.forEach(t => assert.includes(row.querySelector('.pf-menu-hint').textContent, TYPES[t].label))
     })
-    assert.ok(menu.querySelectorAll('.type-check-help p').length > 0, 'the lines that separate confusable types stay')
+    assert.ok(menu.querySelectorAll('.type-menu-notes p').length > 0, 'the lines that separate confusable types stay')
     closeMenus()
   })
 

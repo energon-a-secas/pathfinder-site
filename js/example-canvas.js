@@ -6,6 +6,8 @@
 //  tool is worse than no example.
 // ════════════════════════════════════════════════════════════
 
+import { DEFAULT_ARROW_WEIGHT } from './utils.js'
+
 const B = (id, type, title, description, x, y, extra = {}) => ({
   id, type, title, description,
   notes: '', x, y, actions: [], questions: [],
@@ -17,7 +19,7 @@ const B = (id, type, title, description, x, y, extra = {}) => ({
 
 const E = (id, from, to, label, note) => ({
   id, from, to, style: 'routed', bidirectional: false,
-  color: null, weight: 2, label, note, fromPort: null, toPort: null,
+  color: null, weight: DEFAULT_ARROW_WEIGHT, label, note, fromPort: null, toPort: null,
 })
 
 export const EXAMPLE_CANVAS = {

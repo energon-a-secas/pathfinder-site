@@ -4,9 +4,9 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
-         getUndoHistory, getRedoFuture, resetSnapshotToken } from './state.js'
+         getUndoHistory, getRedoFuture, resetSnapshotToken, undoEntry, applyPromptOpts } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
-         DEFAULT_WIDTH, DEFAULT_CARD_STYLE,
+         DEFAULT_WIDTH, DEFAULT_CARD_STYLE, DEFAULT_ARROW_WEIGHT,
          escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection } from './gaps.js'
@@ -21,8 +21,8 @@ export { renderInspector, renderQuestions } from './inspector.js'
 function afterMutation() {
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
-  // The readiness pill is always visible, so refresh it on every change
-  // regardless of the active tab. Decoupled via event to avoid a cycle.
+  // Attention, the quick copy bar and the backup status refresh on every
+  // change whatever tab is open. Decoupled via event to avoid a cycle.
   window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
 }
 
@@ -323,7 +323,7 @@ export function addArrow(fromId, toId, fromPort = null, toPort = null, { undo = 
   if (state.arrows.some(a => a.from === fromId && a.to === toId)) return null
   if (undo) snapshot()
   const arrow = { id: genId(), from: fromId, to: toId,
-    style: 'routed', bidirectional: false, color: null, weight: 1.5, fromPort, toPort }
+    style: 'routed', bidirectional: false, color: null, weight: DEFAULT_ARROW_WEIGHT, fromPort, toPort }
   if (relation) arrow.relation = relation
   state.arrows.push(arrow)
   renderArrows()
@@ -371,28 +371,44 @@ export function deleteBlocksBatch(ids) {
 }
 
 // ── Undo / Redo ──────────────────────────────────────────────
-export function undo() {
-  const history = getUndoHistory()
-  if (!history.length) return
-  const future = getRedoFuture()
-  future.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
-  const d = JSON.parse(history.pop())
+// Undo and redo swap the canvas with an entry of the same scope: a replace's
+// step (framing) trades the whole framing, any other step the map settings
+// it carries (state.js undoEntry).
+function restoreEntry(raw) {
+  const d = JSON.parse(raw)
   state.blocks = d.blocks; state.arrows = d.arrows; state.groups = d.groups || {}
+  if (d.meta) {
+    const { prompt, ...rest } = d.meta
+    Object.assign(canvasMeta, rest)
+    if (prompt) {
+      applyPromptOpts(prompt)
+      window.dispatchEvent(new CustomEvent('pf:prompt-opts-changed'))
+    }
+    document.body.classList.toggle('spotlight', !!canvasMeta.spotlight)
+    updateCanvasTitle()
+    ui.promptDirty = true
+    // Situation and brief controls live in ui-panels.js, which listens.
+    window.dispatchEvent(new CustomEvent('pf:meta-restored'))
+  }
   resetSnapshotToken()
   renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
   deselectAll(); debouncedSave()
 }
 
+export function undo() {
+  const history = getUndoHistory()
+  if (!history.length) return
+  const raw = history.pop()
+  getRedoFuture().push(undoEntry({ framing: JSON.parse(raw).framing }))
+  restoreEntry(raw)
+}
+
 export function redo() {
   const future = getRedoFuture()
   if (!future.length) return
-  const history = getUndoHistory()
-  history.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
-  const d = JSON.parse(future.pop())
-  state.blocks = d.blocks; state.arrows = d.arrows; state.groups = d.groups || {}
-  resetSnapshotToken()
-  renderAllBlocks(); renderArrows(); renderFrames(); runGapDetection(); renderInspector()
-  deselectAll(); debouncedSave()
+  const raw = future.pop()
+  getUndoHistory().push(undoEntry({ framing: JSON.parse(raw).framing }))
+  restoreEntry(raw)
 }
 
 // ── Groups ───────────────────────────────────────────────────

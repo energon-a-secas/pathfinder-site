@@ -74,7 +74,7 @@ Panel toggles share one icon style; native section buttons use plus/minus and
 `inert` content. Panel tabs use arrow-key navigation. The timer sits below panel
 content and remains compact until opened or started.
 
-**Brain Dump empty state:** when the canvas is empty (and not read-only/embed), a Brain Dump card replaces the text hint. `createBlocksFromText()` (shared by paste + Brain Dump) runs a sentence-level scoring classifier (`categorizeLine` in `events.js`) that strips a leading first-person/article prefix and scores against weighted keyword sets, so natural prose lands on a real type. Each imported block gets a sibling type-correction chip in `canvasRoot` (low-confidence blocks flagged with an amber dashed outline); chips dismiss on the next canvas pointerdown.
+**Brain Dump empty state:** when the canvas is empty (and not read-only/embed), a Brain Dump card replaces the text hint. `createBlocksFromText()` (shared by paste + Brain Dump) runs a sentence-level scoring classifier (`categorizeLine` in `classify.js`) that strips a leading first-person/article prefix and scores against weighted keyword sets, so natural prose lands on a real type. A low-confidence block is marked `typeCheck`: its card's type label becomes a button (and `T` opens it) with the shared type menu, "Looks right" first (`openTypeChipMenu`, `type-menu.js`). The floating correction chips this replaced are gone.
 
 **Dev options** (right panel "Prompt" tab):
 - Tone: Auto / Formal / Casual / Technical

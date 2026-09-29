@@ -223,6 +223,13 @@ export function typesByStep() {
 }
 
 /**
+ * The questions on a block that ask something. The inspector's + and the
+ * context menu's Add question start with a blank one to type into; until it
+ * has text, no export prints it (a bare bullet reads as a lost question).
+ */
+export const askedQuestions = b => (b?.questions || []).filter(q => typeof q?.text === 'string' && q.text.trim())
+
+/**
  * A type's registry entry, or a neutral stand-in named after the id when this
  * build does not know it (a hand-written canvas, a patch from newer code).
  * Exporters read through this, so a heading can never print as "undefined".
@@ -365,6 +372,9 @@ export const PROMPT_DETAILS = ['standard', 'brief', 'detailed']
 export const PRE_PROMPTS    = ['tasks', 'edge', 'errors', 'docs', 'security', 'typescript']
 export const PROMPT_OPTS_DEFAULT = { mode: 'plan', tone: 'auto', detail: 'standard', pre: [] }
 export const DEFAULT_WIDTH  = 220
+// A new connection's stroke. Saved ones without a weight keep drawing at 2
+// (arrow-geometry.js arrowWeight), so an old map does not change.
+export const DEFAULT_ARROW_WEIGHT = 1.5
 export const MIN_ZOOM       = 0.18
 export const MAX_ZOOM       = 2.6
 
@@ -470,15 +480,11 @@ export const $ = {
   searchResults:    () => document.getElementById('searchResults'),
   zoomIndicator:    () => document.getElementById('zoomIndicator'),
   canvasTitle:      () => document.getElementById('canvasTitle'),
-  typePicker:       () => document.getElementById('typePicker'),
   shortcutOverlay:  () => document.getElementById('shortcutOverlay'),
   shortcutGrid:     () => document.getElementById('shortcutGrid'),
   framesLayer:      () => document.getElementById('framesLayer'),
-  colorSwatches:    () => document.getElementById('colorSwatches'),
-  inspectorFrame:   () => document.getElementById('inspectorFrame'),
   frameLabelInput:  () => document.getElementById('frameLabelInput'),
-  templatesList:      () => document.getElementById('templatesList'),
-  arrowColorSwatches: () => document.getElementById('arrowColorSwatches'),
+  templatesList:    () => document.getElementById('templatesList'),
 }
 
 // ── Block element helpers ────────────────────────────────────

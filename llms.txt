@@ -244,21 +244,30 @@ old `dashed` style, describe a lossless reading and do not fail the check.
 ## Other formats, in and out
 
 - **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): File ▾ →
-  Download JSON Canvas writes the map as a `.canvas` file; File ▾ → Import
-  reads one, classifying text nodes into block types. An uncertain call is
-  marked `typeCheck` for a person to confirm.
+  Download JSON Canvas writes the map as a `.canvas` file, each text node in
+  its type's exact hex colour plus a `pathfinderType` field (and
+  `pathfinderColor` when the author recoloured it). File ▾ → Import reads one
+  and types each node from, in order: `pathfinderType`, an exact type hex
+  (dark or light palette, any case), then the classifier on its text, with a
+  preset colour (`"1"` to `"6"`) only as a hint. An uncertain call is marked
+  `typeCheck` for a person to confirm. Edge sides that came with the file are
+  kept as `portsBy: "import"`, so Tidy may move them.
 - **Mermaid flowcharts** import through the same picker (a fenced
-  ```mermaid block or a bare `flowchart`/`graph` file): shapes map to types
+  ```mermaid block or a bare `flowchart`/`graph` file): a `class <nodes>
+  <type id>` line types a node outright, otherwise shapes map to types
   (rhombus → decision, stadium/circle → Trigger / End), subgraphs become
-  groups, and positions come from the app's own layout. The Markdown export
-  writes its graph the same way: every block declared (connected or not),
-  decisions as rhombi, triggers and ends as stadiums, and a
-  `class <nodes> <type id>` line per type.
+  groups, and positions come from the app's own layout. File ▾ → Copy
+  Mermaid and the Markdown export write the same graph: every block declared
+  (connected or not), each type in its shape (decision `{}`, Trigger / End
+  `([])`, Resource / System `[()]`, Output `[//]`, Implementation `[[]]`,
+  Open Question `{{}}`, Context `>]`, the rest `[]`), groups as subgraphs,
+  and a `class` line per type, so it reads back without losing a type.
+  Quotes, `#`, `%` and backticks in labels travel as Mermaid entity codes.
 
 ## Writing results back: the patch
 
 Every exported prompt ends by asking for a fenced ```pathfinder-patch``` block.
-The app finds it inside a pasted reply (Prompt tab, "Bring the answer back"),
+The app finds it inside a pasted reply (Prompt tab, "Paste a reply or a review"),
 previews every operation, and applies them as one undo step. Address blocks by
 the ids the prompt lists (titles work too; exact matches are trusted, a unique
 fuzzy match is labeled, ambiguity is refused).

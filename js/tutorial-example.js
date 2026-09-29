@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  tutorial-example.js — Load the worked example into the canvas.
+//  tutorial-example.js: load the worked example into the canvas.
 //
 //  The canvas travels in the URL hash, the same route a Share link
 //  takes, so the app's existing importer handles it and an existing

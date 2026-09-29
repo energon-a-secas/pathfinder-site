@@ -17,50 +17,80 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 | File | Lines | Role |
 |------|-------|------|
-| `index.html` | ~703 | HTML shell + OG meta |
-| `css/style.css` | ~2544 | All CSS, variables, animations |
-| `js/app.js` | ~115 | Entry point: imports all modules, calls `init()` |
-| `js/state.js` | ~136 | State shape, `loadState()`/`saveState()`, camera persistence, `snapTo()` |
-| `js/utils.js` | ~378 | `TYPES`, `CARD_STYLES`, `genId()`, `escHtml()`, `clamp()`, `debounce()` |
-| `js/canvas.js` | ~538 | Pan/zoom, `resolveRoutes()` (lanes + routing), `pathFor()`, `renderArrows()` |
-| `js/gaps.js` | ~74 | `runGapDetection()`: appends gap CSS classes |
-| `js/prompt.js` | ~447 | `generatePrompt()`, `refreshPrompt()` |
-| `js/render.js` | ~580 | `renderBlock()`, `renderAllBlocks()`, `renderInspector()` |
-| `js/events.js` | ~1228 | Canvas pointer, keyboard shortcuts, palette, inspector events |
-| `js/ui-panels.js` | ~972 | Export, share, search, panel tabs, dev options, header buttons, Tidy, card-style default |
-| `js/context-menu.js` | ~203 | Right-click block quick menu (duplicate/type/color/collapse/delete) |
-| `js/image-export.js` | ~241 | High-quality diagram export: native SVG + 2× PNG, mirrors the canvas exactly |
+| `index.html` | ~820 | HTML shell + OG meta; `#fileActions` / `#shareActions` are hidden rows the header menus render |
+| `css/style.css` | ~4020 | All CSS. Ends with one marked section per area (`[menu]`, `[inspector]`, `[menus]`, `[lines]`, `[chrome]`, `[navigation]`, `[types]`, `[cards]`, `[insights]`, `[sharing]`) |
+| `js/app.js` | ~150 | Entry point: imports all modules, calls `init()` |
+| `js/state.js` | ~405 | State shape, `loadState()`/`saveState()`, undo entries (`undoEntry`, `snapshot`, `snapshotOnce`), camera persistence, share-link encoding (`#s=`, `#z=`) |
+| `js/utils.js` | ~700 | `TYPES` registry (16 types, `TYPE_STEPS`, `typesByStep()`), `CARD_STYLES`, `DEFAULT_ARROW_WEIGHT`, `askedQuestions()`, `$` element getters, helpers |
+| `js/normalize.js` | ~285 | The one choke point for load, import and share: coerces legacy shapes, keeps unknown types as `custom` + `typeHint` |
+| `js/render.js` | ~450 | `renderBlock()`, the mutation layer (`mutateBlock(s)`, `mutateArrow`), `addArrow`, undo/redo, `blockDecorators` |
+| `js/cards.js` | ~40 | Card painting helpers `renderBlock` uses (light-theme accent twin, highlight tab word) |
+| `js/create.js` | ~205 | `createBlockAt`, `createConnected`, `insertOnArrow`, `suggestedNextTypes`, `applyGapFix` |
+| `js/inline-edit.js` | ~170 | Title and description editing on the card |
+| `js/type-menu.js` | ~155 | The one type picker (`typeMenuItems`) and the one retype rule (`retypeBlock`) every menu shares |
+| `js/menu.js` | ~525 | The one menu component (`openMenu`, `openDropdown`): context menus, header menus and inspector pickers |
+| `js/context-menu.js` | ~890 | Right-click menus for a block, a selection, a connection and the canvas, plus the quick-add picker `openCanvasAddMenu` |
+| `js/inspector.js` | ~1255 | The right panel: one block, a selection, or a connection; `focusQuestion` |
+| `js/palette.js` | ~240 | Palette grouped by step, the six-step starter |
+| `js/classify.js` | ~330 | Line classifier, outline parser, paste and Brain Dump, the card's type check |
+| `js/events.js` | ~1010 | Canvas pointer and wheel handlers, keyboard shortcuts, Tab traversal |
+| `js/navigation.js` | ~370 | Reading order, nearest block by direction, nudge, announcements, quick create from a port |
+| `js/zoom-controls.js` | ~250 | The camera: zoom cluster, zoom steps, `zoomToBlocks`/`zoomToSelection`, wheel clamp, Back to content |
+| `js/canvas.js` | ~435 | `renderArrows()`, `resolveRoutes()`, `pathFor()`, `fitView()`; re-exports the `arrow-*.js` modules |
+| `js/arrow-geometry.js` / `arrow-routes.js` / `arrow-labels.js` / `arrow-hover.js` | ~210 / 330 / 170 / 115 | Heads, weights and dashes; lanes and route separation; label placement; hover rings |
+| `js/arrow-edit.js` | ~270 | The inline connection label editor |
+| `js/route.js` | ~655 | Orthogonal router: A* over a lattice of block edges. Pure, no DOM |
+| `js/layout.js` | ~425 | Layered auto-layout (`tidyCanvas`), `releaseTidyPins` |
+| `js/align.js` | ~195 | Drag guides; `arrangeSelection` (align and distribute) for the inspector and the context menu |
+| `js/gaps.js` | ~555 | Pure `detectGaps()`, the DOM writer `runGapDetection()`, `GAP_META`, `gapIconFor`, `acceptGap` |
+| `js/attention.js` | ~240 | The Attention tab |
+| `js/relations.js` | ~85 | Connection meanings, `relationOf`, `impliedVerb` |
+| `js/prompt.js` | ~650 | `generatePrompt()`, `refreshPrompt()`, `computeHealthScore()` |
+| `js/export.js` | ~445 | JSON / Markdown export, `applyImport`, meeting summary, Presentation Sage |
+| `js/interop.js` | ~570 | JSON Canvas in and out, Mermaid in and out (`toMermaid`, which the Markdown export uses too) |
+| `js/image-export.js` | ~315 | Diagram export: native SVG + 2x PNG, drawn to the card and line specs |
+| `js/view-menu.js` | ~445 | Header menus: Maps, File, Share, Tidy direction, View, Help; in place inside the phone overflow panel |
+| `js/ui-panels.js` | ~1390 | Search, shortcut sheet (`SHORTCUTS`), panel tabs, dev options, File and Share actions, Tidy, share-link arrival |
+| `js/library.js` | ~545 | Maps library: per-map slots, write-through autosave, snapshots + diff, the Maps menu items |
+| `js/sharing.js` | ~400 | Incoming links and files (open as a new map by default), other-tab warning, backup status |
+| `js/chrome.js` | ~90 | `H` / `Z` expanded view |
 | `js/doc-panel.js` | ~217 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
-| `js/route.js` | ~261 | Orthogonal router: A* over a lattice of block edges. Pure, no DOM |
-| `js/layout.js` | ~349 | Layered auto-layout (`tidyCanvas`). Pure `layoutGraph` + app wrapper |
-| `js/align.js` | ~138 | Drag guides, align, distribute |
-| `js/library.js` | ~411 | Maps library: per-map slots, write-through autosave, snapshots + diff, Maps menu |
-| `js/chrome.js` | ~73 | `H` / `Z` expanded view |
 | `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
 
-**JS modules:** `app.js` · `state.js` · `utils.js` · `canvas.js` · `route.js` · `layout.js` · `align.js` · `chrome.js` · `render.js` · `events.js` · `gaps.js` · `prompt.js` · `ui-panels.js` · `export.js` · `templates.js` · `context-menu.js` · `image-export.js` · `normalize.js` · `doc-panel.js` · `library.js` · `patch.js` · `interop.js` · `review.js` · `spec-export.js` · `zip.js`
+**Key interactions added 2026-09-28 (UI overhaul):**
+- **Types**: 16 in the `TYPES` registry (`utils.js`), grouped by `TYPE_STEPS` (Why, Who, Proof, What, How, Doubt, Other; `typesByStep()`). New: `stakeholder`, `metric`, `implementation`; `terminator` reads Trigger / End. Every exporter iterates the registry, and `tests/types-registry.test.js` fails when one leaves a type out. Ids never change.
+- **One type picker, one retype rule** (`type-menu.js`): the inspector's Type dropdown, Change type, the quick-add picker and the card's type check build from `typeMenuItems`; every pick goes through `retypeBlock` (clears `typeCheck` and `typeHint`, drops a colour that was only the old type's). Do not write a second picker.
+- **One menu component** (`menu.js`): right-click menus for a block, a selection, a connection and the canvas (`context-menu.js`, also `Shift+F10`); header menus Maps, File, Share, Tidy direction, View, Help (`view-menu.js`), rendered in place inside the kit's overflow panel on phones. Only the trace page still uses the old `.export-dropdown` markup.
+- **Editing on the card** (`inline-edit.js`): double-click, `Enter`/`F2`, `Shift+Enter` for the description; Escape commits. Double-click a line, or `Enter`/`F2` on a selected one, edits its label (`arrow-edit.js`). Double-click empty canvas opens the quick-add picker; Fit moved to `Shift+1` and the status bar.
+- **Quick create**: click a port, drop a port's line on empty canvas (the same quick-add picker, `suggestedNextTypes` first), `Alt+Arrow`, `Cmd/Ctrl+Enter`.
+- **Lines**: `arrow.style` is the route (`routed`, `curved`, `straight`, `elbow`) and `arrow.pattern` the dash (`solid`, `dashed`, `dotted`); a legacy `dashed`/`dotted` style loads as curved + pattern. New connections draw at `DEFAULT_ARROW_WEIGHT` (1.5); a saved arrow without a weight keeps drawing at 2 (`arrowWeight`). Labels are pills placed off bends and cards. `portsBy: 'import'` marks sides an imported file chose; Tidy and a drag release them like `tidy` pins, and a drag lands on whole pixels.
+- **Motion is off by default** (`prefs.js` `motion`, View ▾ → Animate highlights): gap states and highlights are static rings at rest; with `body.motion-on` they animate only on the hovered, selected or focused card; `prefers-reduced-motion` stops everything. A gap class names its colour in `--gap` and its motion in `--gap-anim`, never `animation` itself. Selection is an outline and never a shadow.
+- **Gaps** (`gaps.js`): a pure `detectGaps()` plus the DOM writer `runGapDetection()`, the only writer of a card's `gi-` icon slot; one gap per block. `gapAck` accepts a gap (the inspector's Suggestions, the Attention tab) and the prompt lists it under Accepted gaps.
+- **Undo carries the map settings**: every undo entry holds `cardStyle` and `spotlight` (their setters snapshot), and a replace's entry (`snapshot({ framing: true })`) holds the whole framing: title, brief, situation, prompt options. Title and brief edits take no snapshot of their own, which is why an ordinary entry leaves them alone.
+- **Sharing**: new links are `#z=` (deflate-raw, base64url) carrying `?via=share`; `#s=` still decodes. A link, `?src=` or an imported file opens as a new map by default, in a real dialog; Replace keeps a named snapshot first. A modal dialog owns the keyboard: the global key handler bails on `dialog:modal`.
+- **JSON Canvas and Mermaid round-trip every type**: `toMermaid` (File ▾ → Copy Mermaid, and the Markdown export's graph) writes a shape and a `class` line per type; JSON Canvas export writes each type's exact hex and `pathfinderType`. Import reads those before any guessing.
 
 **Key interactions added 2026-08-24 (async review):**
-- **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into Bring the answer back; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
+- **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into Paste a reply or a review; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
 
 **Key interactions added 2026-08-24 (user templates):**
 - **Save canvas as template** (foot of the Templates palette section): captures the live canvas into `pathfinder-templates` (max 12) in the exact shape built-ins use, positions normalised, arrows re-indexed, criteria/questions/situation/mode riding along; `applyTemplate` now carries `criteria`, `rationale`, `status` and `questions` for any template that has them. User templates render after the built-ins with a delete ×. Templates travel between browsers as canvases (export the canvas, import, save as template).
 
 **Key interactions added 2026-08-24 (snapshots, per-map camera):**
 - **Map snapshots** (`library.js`): Maps ▾ → "Snapshot this map" keeps a full copy under `pathfinder-snaps-<mapId>` (max 8, oldest dropped); the Snapshots submenu lists each with `fmtWhen` and a since-then diff (`diffPayloads`: ±blocks, changed, ±arrows); restoring auto-snapshots the pre-restore state first. Applying a patch auto-snapshots as "Before the patch": Cmd+Z covers the session, the snapshot covers next week.
-- **Per-map camera**: the view persists under `pathfinder-view:<mapId>` (legacy `pathfinder-view` is a read fallback); switching maps restores the target's camera and skips the fit (`applyImport(data, mode, { fit })`).
+- **Per-map camera**: the view persists under `pathfinder-view:<mapId>`, the map this tab has open (`mapIdHooks` in `state.js`, answered by `library.js` `currentId`) (legacy `pathfinder-view` is a read fallback); switching maps restores the target's camera and skips the fit (`applyImport(data, mode, { fit })`).
 - **The test suite no longer clobbers the live canvas**: `run-tests.html` snapshots every `pathfinder-*` localStorage key before importing test modules and restores them after the run (and on pagehide).
 
 **Key interactions added 2026-08-24 (interop):**
-- **JSON Canvas in and out, Mermaid in** (`js/interop.js`). The Import picker detects the format; converted nodes go through the Brain Dump classifier and surface correction chips via the `pf:show-type-chips` event (`applyImport` now returns `idMap` so chips survive a merge remap). Mermaid positions come from `layoutGraph`, not a guess.
+- **JSON Canvas in and out, Mermaid in** (`js/interop.js`). The Import picker detects the format; a node with no type signal goes through the Brain Dump classifier, and a low-confidence call is marked `typeCheck` for the card's type check (the `pf:show-type-chips` event still carries them; `applyImport` returns `idMap` so they survive a merge remap). Mermaid positions come from `layoutGraph`, not a guess.
 
 **Key interactions added 2026-08-24 (the round trip):**
-- **`pathfinder-patch`** (`js/patch.js`, spec in `llms.txt`): every prompt now ends with `## When you reply` plus a block-id map, asking the assistant to close with a fenced patch: answers into questions, assumptions verified/refuted **into decisions in place** (same id, arrows survive, evidence lands in `rationale`), status, criteria, new wired blocks. Prompt tab → "Bring the answer back" pastes the whole reply, previews every operation (fuzzy title matches labeled, ambiguity refused), applies as **one undo step**.
+- **`pathfinder-patch`** (`js/patch.js`, spec in `llms.txt`): every prompt now ends with `## When you reply` plus a block-id map, asking the assistant to close with a fenced patch: answers into questions, assumptions verified/refuted **into decisions in place** (same id, arrows survive, evidence lands in `rationale`), status, criteria, new wired blocks. Prompt tab → "Paste a reply or a review" takes the whole reply, previews every operation (fuzzy title matches labeled, ambiguity refused), applies as **one undo step**.
 
 **Key interactions added 2026-08-24 (agent channel):**
 - **`validate.mjs`**: Node CLI over the app's own `normalize.js` (fetched from the live site when run standalone), naming every dropped or coerced item. Exit 0 clean / 1 items dropped or coerced / 2 unreadable. The write-back contract's proof step; documented in `llms.txt`.
-- **`?src=<https url>`** loads canvas JSON from a URL (proctor's pattern): https or same-origin only, 1 MB cap, GitHub raw/gist whitelisted in the CSP `connect-src`, same replace-or-merge confirm as `#s=`, URL cleaned via `replaceState` either way (`checkSrcUrl` in `ui-panels.js`).
-- **Arrival counting** is fully kit-owned: the header kit's `shareArrivalLabel` pattern covers `#s=` since 2026-08-24 (the site-local `js/arrival.js` stopgap was retired the same day to avoid double counting).
+- **`?src=<https url>`** loads canvas JSON from a URL (proctor's pattern): https or same-origin only, 1 MB cap, GitHub raw/gist whitelisted in the CSP `connect-src`, the same new-map, replace or merge dialog as `#s=`, URL cleaned via `replaceState` either way (`checkSrcUrl` in `ui-panels.js`).
+- **Arrival counting** is kit-owned: the header kit's `shareArrivalLabel` pattern covers `#s=` since 2026-08-24 (the site-local `js/arrival.js` stopgap was retired the same day to avoid double counting). It does not match `#z=`, so the app's links also carry `?via=share` (embeds `?via=embed`), which the kit counts; the canonical fix is the kit's regex in `packages/neorgon-ui/header`.
 - **`pathfinder` skill** lives in `neorgon-forge` (`skills/before/pathfinder`): reads a canvas or brief, writes back a validated canvas or share link.
 
 **Key interactions added 2026-08-24 (tidy pins, pill, maps):**
@@ -68,11 +98,11 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **Copy prompt** lives in the bottom canvas utility bar alongside zoom and save status. It uses a standard copy icon with inline confirmation. Zen (`Z`) hides the bar. The older floating pill and its `pathfinder-pill` setting have been retired.
 - **Maps** (header, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
 - `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
-- **Acceptance criteria + decision rationale + Spec bundle**: `block.criteria[]` (requirement/goal/output) and `block.rationale` (decision) edit in the inspector, feed the prompt (Build's `[NEEDS INPUT]` placeholder only appears when criteria are missing), the Markdown export, and **Export ▾ → Download Spec bundle (zip)**: spec/plan/tasks/EARS-requirements built by `spec-export.js`, zipped by `zip.js`.
+- **Acceptance criteria + decision rationale + Spec bundle**: `block.criteria[]` (requirement/goal/output) and `block.rationale` (decision) edit in the inspector, feed the prompt (Build's `[NEEDS INPUT]` placeholder only appears when criteria are missing), the Markdown export, and **File ▾ → Download Spec bundle (zip)**: spec/plan/tasks/EARS-requirements built by `spec-export.js`, zipped by `zip.js`.
 - **Prompt options travel with the canvas** (`meta.prompt`). `serializeCanvas()` in `state.js` is the single serializer (autosave, share, Maps, JSON export); `applyPromptOpts()` applies a load back into `devOpts`; the `pf:prompt-opts-changed` event resyncs the Prompt tab (`syncPromptOptControls`). Preset chips (Claude Code, Cursor + TS, PM clarify) set the bundle in one click. The tutorial example carries `mode: investigate`. `flowSection()` orders workflow steps by whole-graph layering and numbers only process steps.
 
 **Key interactions added 2026-08-14 (presentation highlights):**
-- **`block.highlight`** (`alert` / `focus` / `go` / `hold` / `festive`) draws a ring *outside* the card, so it never disturbs the card border or the layout. `festive` is an animated candy-cane border built with the two-layer mask recipe, since a plain border cannot carry a repeating gradient and `border-image` cannot be animated. Registry: `HIGHLIGHTS` in `utils.js`.
+- **`block.highlight`** (`alert` / `focus` / `go` / `hold` / `festive`) draws a ring *outside* the card, so it never disturbs the card border or the layout. `festive` is a candy-cane border built with the two-layer mask recipe, since a plain border cannot carry a repeating gradient and `border-image` cannot be animated; it marches only with Animate highlights on. Alert, Focus, Go and Hold carry their word on a tab (`highlightTabLabel` in `cards.js`), so the ring never relies on colour alone. Registry: `HIGHLIGHTS` in `utils.js`.
 - **`canvasMeta.spotlight`** fades every block *without* a highlight. The emphasis is the contrast, which is why this exists as a mode rather than as a stronger colour. It is ignored when nothing is highlighted, on canvas and in the exporter, so turning it on with an empty selection cannot fade the whole diagram to nothing.
 - **Highlights are presentation, not semantics.** They are deliberately absent from the exported prompt: `type` says what a block is, `priority`/`status` say where it stands, and a highlight only says somebody wanted it looked at. Overloading colour with a second meaning is how a diagram stops being readable.
 - Applied from the multi-select inspector (the main path), the block inspector's Appearance section, or the right-click menu. Right-click also offers **Select all \<Type\>**, which is what makes "highlight the five problems" one action instead of five shift-clicks.
@@ -86,7 +116,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - Three **large templates** (`Investigate a Bug`, `Inherit a Codebase`, `Migrate a System`, 13-15 blocks) carry a `situation` + `mode` and auto-run Tidy on apply. A template's framing lands **only on a canvas that was empty**, on a merge the existing situation is somebody's deliberate choice.
 - **Palette**: the collapse control moved into a sticky `.palette-head` at the top. Templates folds itself away once the canvas has content (`collapseTemplatesAfterUse` in `ui-panels.js`) unless the user pinned it open. Palette and section state persist.
 - **`applyImport` now carries the whole meta** on replace (title, contextBrief, cardStyle, situation) and does it *before* blocks render, since `renderBlock` resolves each card against `canvasMeta.cardStyle`. A merge leaves the framing alone.
-- **`tutorial.html`** is a worked walkthrough; `js/tutorial-example.js` is a plain script (not a module) that loads the finished example through the share hash.
+- **`tutorial.html`** is a worked walkthrough; `js/tutorial-example.js` loads the finished example (`example-canvas.js`) through the share hash.
 - **`llms.txt` is hand-authored**: the generator marker was removed deliberately. It is the format spec: canvas JSON, every enum, and how to consume an export from a terminal session or a skill.
 
 **Key interactions added 2026-08-14 (connections, layout, card styling):**
@@ -95,16 +125,16 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **Connection points are pickable.** The arrow inspector has From/To side pickers writing `fromPort`/`toPort`, and a selected arrow shows draggable endpoint handles that re-pin or re-target it.
 - **Tidy** (`layout.js`, header button + `L`) re-lays the canvas with a layered/Sugiyama layout and points every connection along the flow. It takes exactly one `snapshot()`, so one Cmd+Z restores the whole arrangement.
 - **Alignment aids** (`align.js`): snap guides while dragging (suppressed when grid snapping is on), plus align/distribute for a multi-selection.
-- **Card presets** replace the fixed left stripe: `outline` (default), `bar` (the old look), `header`, `tint`, `plain`. Per block via the inspector, canvas-wide via the header **Cards ▾** menu (`canvasMeta.cardStyle`, so it travels through share links and JSON export).
+- **Card presets** replace the fixed left stripe: `outline` (default), `bar` (the old look), `header`, `tint`, `plain`. Per block via the inspector, canvas-wide via **View ▾ → Card style** (`canvasMeta.cardStyle`, so it travels through share links and JSON export, and one undo step).
 - **`H` hides the header and footer, `Z` hides the panels too** (`chrome.js`, persisted). Both stay live in read-only and embed views. `Alt+H` is still high contrast.
 
 **Key interactions added 2026-07-01:**
 - Multi-line descriptions render with `escHtmlMultiline` + `white-space: pre-wrap` (newlines preserved on the card and in exports).
 - Right-click any block for a quick-action menu (`context-menu.js`); also `Shift+F10`/ContextMenu key on the selected block.
-- Arrows carry an optional `note` (richer than `label`), hidden until hover/selection, or always shown via the header **Arrow text** toggle (`ui.showArrowText`, persisted `pathfinder-arrowtext`, body class `show-arrow-text`).
+- Arrows carry an optional `note` (richer than `label`), hidden until hover/selection, or always shown via **View ▾ → Always show connection notes** (`ui.showArrowText`, persisted `pathfinder-arrowtext`, body class `show-arrow-text`).
 - Right panel collapses via a chevron (persisted `pathfinder-panel-collapsed`).
-- Export ▾ → **Download Image (PNG 2×)** / **Download Vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`). No DOM screenshot.
-- Brain Dump folds indented/bulleted lines into the parent block's description (toggle in the card); `parseOutline()` in `events.js`.
+- File ▾ → **Download Image (PNG 2×)** / **Download Vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`) to the card and line specs. No DOM screenshot.
+- Brain Dump folds indented/bulleted lines into the parent block's description (toggle in the card); `parseOutline()` in `classify.js`.
 - Prompt pane shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
 - **Dark theme is the default** (no OS-preference opt-in); light mode only when explicitly saved.
 
@@ -168,7 +198,7 @@ break embedding.
 
 **Required assets:** `index.html` · `css/style.css` · `js/*.js` · `favicon.ico` · `energon-classic-logo.png` · `og-preview.jpg` · `CNAME`
 
-**Pages:** `index.html` (the app) · `tutorial.html` (walkthrough; example loads via `js/tutorial-example.js`) · `examples.html` (gallery: the checkout example plus the three large templates, converted by `js/examples-page.js` `templateToPayload()` and loaded through the share hash, so gallery content can never drift from the app's own).
+**Pages:** `index.html` (the app) · `tutorial.html` (walkthrough; example loads via `js/tutorial-example.js`) · `examples.html` (gallery: the checkout example plus the four large templates, converted by `js/examples-page.js` `templateToPayload()` and loaded through the share hash, so gallery content can never drift from the app's own).
 
 **📖 Read `docs/references/internals.md` before changing code in** `doc-panel.js` (Living Documentation, docRef, fetch gating/CSP, "See:" promotion, live questions), `canvas.js` (pan/zoom, ports, Bézier routing), or `prompt.js` (per-mode prompt generation, Brain Dump classifier, dev options). It also holds the full **Key Functions Reference** (per-module function lookup).
 
@@ -206,14 +236,20 @@ state = {
       criteria: [],                  // acceptance criteria (requirement/goal/output); feeds prompt, tasks.md, EARS
       rationale: '',                 // why a decision was made (decision blocks)
       borderWidth: null,             // 1 | 1.5 | 2 | 3 | null = preset default
-      highlight: null                // presentation emphasis | null. Never semantics
+      highlight: null,               // presentation emphasis | null. Never semantics
+      typeCheck,                     // true: typed automatically with low confidence, not confirmed yet
+      gapAck,                        // gap ids the author accepted: ['gap-no-criteria', ...]
+      typeHint                       // the original type when this build did not know it (kept as custom)
     }
   },
   arrows: [{
     id, from: blockId, to: blockId,
-    style,                           // 'routed' (default) | 'curved' | 'straight' | 'elbow' | 'dashed' | 'dotted'
+    style,                           // route: 'routed' (default) | 'curved' | 'straight' | 'elbow'
+    pattern,                         // 'solid' (default) | 'dashed' | 'dotted'
+    weight,                          // new: DEFAULT_ARROW_WEIGHT (1.5); missing = 2 (older maps)
+    relation,                        // 'precedes' | 'depends-on' | 'blocks' | 'informs' | 'related' | null
     fromPort, toPort,                // 'left'|'right'|'top'|'bottom' | null = auto
-    portsBy                          // 'tidy' when auto-layout wrote the pins (released when a block moves); absent = user/auto
+    portsBy                          // 'tidy' (auto-layout) | 'import' (an imported file); released when a block moves; absent = user/auto
   }]
 }
 
@@ -230,29 +266,27 @@ Auto-saved via `debouncedSave()` (300ms) on every change. The camera is saved
 separately under `'pathfinder-view'`, deliberately not inside the canvas payload:
 a share link should carry the diagram, not the sender's pan and zoom.
 
-**Backward compatibility:** `normalize.js` is the single choke point for load/import/share. It coerces legacy `questions` (plain `string[]`) into `[{text}]` objects and tolerates a missing `docRef` (→ `null`). Per the "don't silently mutate on load" rule, the normalized shape only persists on the next real edit.
+**Backward compatibility:** `normalize.js` is the single choke point for load/import/share. It coerces legacy `questions` (plain `string[]`) into `[{text}]` objects, tolerates a missing `docRef` (→ `null`), reads a legacy `dashed`/`dotted` style as `curved` plus that pattern, a label written where a type id belongs ("Start / End") as its type, and keeps an unknown type as `custom` with `typeHint`. Per the "don't silently mutate on load" rule, the normalized shape only persists on the next real edit.
+
+**Undo:** every entry holds blocks, arrows, groups and the map settings `cardStyle` and `spotlight`; a replace's entry holds the whole framing (`undoEntry` in `state.js`). Text fields coalesce a typing burst into one entry with `snapshotOnce`.
 
 ---
 
 ## Block Types
 
-13 types defined in the `TYPES` constant. Each has a unique accent colour, which the card preset renders as a full border, a left stripe, a header strip, or a tint (see **Card presets** above). The palette surfaces a **Core 6** by default; the rest live behind an "Advanced types" expander (`#advancedBlocks`), but all 13 are fully usable and no type is ever removed (deleting a type would drop existing blocks via `normalize.js`).
+16 types in the `TYPES` registry (`utils.js`), in the order the palette, the pickers and every exporter read them: grouped by the question each answers (`TYPE_STEPS`, `typesByStep()`). Each has a colour for each theme; the card shows it as an 8px dot beside a neutral label and a quiet edge, never as label text. The palette shows all 16 grouped by step; `tier` (core / more) decides what the canvas menu's Add here lists before **More types**. No type is ever removed (deleting a type would drop existing blocks via `normalize.js`), and ids never change, only labels. The README's table is the reader's copy; this is the shape:
 
-| Type | Color | CSS Var | Palette |
-|------|-------|---------|---------|
-| goal | #a78bfa (violet) | --c-goal | Core |
-| problem | #f87171 (red) | --c-problem | Core |
-| requirement | #fbbf24 (amber) | --c-requirement | Core |
-| assumption | #eab308 (gold) | --c-assumption | Core |
-| risk | #fb923c (orange) | --c-risk | Core |
-| decision | #34d399 (emerald) | --c-decision | Core |
-| question ("Open Question") | #38bdf8 (sky) | --c-question | Advanced |
-| resource | #2dd4bf (teal) | --c-resource | Advanced |
-| output | #818cf8 (indigo) | --c-output | Advanced |
-| process | #60a5fa (blue) | --c-process | Advanced |
-| terminator ("Start / End") | #f0abfc (pink, pill-shaped) | --c-terminator | Advanced |
-| context | #64748b (slate) | --c-context | Advanced |
-| custom | #d8b4fe (bright fuchsia) | --c-custom | Advanced |
+| Step | Types |
+|------|-------|
+| Why | goal, problem |
+| Who | stakeholder |
+| Proof | metric (its `criteria` are Targets) |
+| What | requirement, output |
+| How | implementation, process, terminator ("Trigger / End", pill-shaped), decision, resource ("Resource / System") |
+| Doubt | assumption, risk, question ("Open Question") |
+| Other | context, custom ("Other": untyped, checks skip it) |
+
+The confusable pairs (`TYPE_DISAMBIGUATION`): every time a flow runs is a Process, once to build or change something is an Implementation; a moment in time is a Trigger / End, a thing someone can hold is an Output; a number with a target is a Metric.
 
 **Flow node types (`process`, `terminator`):** for end-to-end workflows. `process` is a step/action, `terminator` bookends a flow (rendered pill-shaped). The prompt export adds a `## Workflow (end-to-end)` section that walks these in arrow order (light topological sort from arrow-less roots, terminators first). See `flowSection()` in `prompt.js`.
 
@@ -262,41 +296,52 @@ a share link should carry the diagram, not the sender's pan and zoom.
 
 ## Gap Detection
 
-`runGapDetection()` runs automatically on every canvas change. Gap branches are **mutually exclusive**. A block reports exactly ONE gap (isolation wins outright; type-specific gaps only apply to *connected* blocks wired wrongly):
+`detectGaps(blocks, arrows)` in `gaps.js` is pure (no DOM); `runGapDetection()` runs it on every canvas change and paints the result: one gap class per card and a line icon (`gapIconFor`) with its name in the card's `gi-<id>` slot. Gap branches are **mutually exclusive**: a block reports exactly ONE gap, isolation first, then the rules in this order (a type rule applies only to a *connected* block):
 
 | Class | Meaning | Trigger |
 |-------|---------|---------|
-| `gap-isolated` | No connections at all | Block has 0 incoming + 0 outgoing arrows (checked first; short-circuits) |
-| `gap-assumption` | Unvalidated assumption | **Connected** assumption-type block not linked to a Goal/Requirement and without a `validate` action |
-| `gap-no-req` | Goal without requirements | Connected Goal block has no arrow to a Requirement |
-| `gap-unaddressed` | Ignored problem | Connected Problem block lacks "resolve" action and has no outgoing arrows |
-| `gap-no-mitigation` | Unmitigated risk | Connected Risk with no outgoing arrows and no "prepare" action |
-| `gap-no-basis` | Decision without basis | Connected Decision with no incoming arrows and no `rationale` |
-| `gap-no-producer` | Output nothing produces | Connected Output with no incoming arrows |
-| `gap-no-criteria` | Done is undefined | Connected Requirement with empty `criteria` |
-| `gap-loose-step` | Step outside any flow | Connected Process linked to no process/terminator |
+| `gap-isolated` | No connections at all | 0 incoming + 0 outgoing arrows (short-circuits) |
+| `gap-assumption` | Dangling assumption | Assumption not linked to a Goal/Requirement and without `validate` |
+| `gap-no-req` | Goal with nothing under it | Goal linked to no requirement, metric or implementation |
+| `gap-unaddressed` | Ignored problem | Problem without `resolve` and no outgoing arrows |
+| `gap-no-mitigation` | Unmitigated risk | Risk with no outgoing arrows and no `prepare` |
+| `gap-no-basis` | Decision without basis | Decision with no incoming arrows and no `rationale` |
+| `gap-no-producer` | Output nothing produces | Output with no incoming arrows |
+| `gap-no-consumer` | Output nobody receives | Output with no way out and no stakeholder, once the map has a stakeholder or metric |
+| `gap-no-criteria` | Done is undefined | Requirement with empty `criteria` |
+| `gap-loose-step` | Step outside any flow | Process whose component holds no other flow node |
+| `gap-no-purpose` | Work with no reason | Implementation linked to no goal, requirement, problem, metric, output or stakeholder |
+| `gap-metric-no-goal` | Metric measuring no goal | Metric linked to no goal |
+| `gap-no-target` | Metric without a target | Metric with empty `criteria` |
+| `gap-unserved` | Stakeholder nothing serves | Stakeholder nothing is delivered to or asked of |
 
-`runGapDetection()` also returns `canvasFindings` (strings, not per-block): dependency
-cycles (via `breakCycles`) and named groups with no members. `GAP_META` in `gaps.js` is
-the single label source for the prompt's gap section and the Prompt tab's per-rule
-breakdown (`#gapBreakdown`, click jumps to the first offender).
+`GAP_META` is the single label source for the prompt, the card tooltip, the Attention tab and the Prompt tab's breakdown (`#gapBreakdown`). `getGapFixes(b)` offers the fixes (each carries the `gap` it answers; `create: { type, dir }` fixes go through `applyGapFix`). **Accepting a gap** (`acceptGap`, the inspector's Suggestions or the Attention tab) adds it to `block.gapAck`: it stops being reported, and the prompt lists it under "Accepted gaps" while its rule still holds.
 
-Gap icons pulse (1.8–2.5s animation) in the block header.
+Canvas findings (`findings`, per canvas rather than per block, in the Attention tab and the prompt): dependency cycles, empty groups, untyped blocks, no Goal or Problem, goals with no metric, metrics no work moves, likely duplicates, a question hidden in a description, types awaiting a check. The last four named can be accepted per block (`acceptFinding`).
+
+Gap states are a static ring at rest; they animate only with View ▾ → Animate highlights on, and only on the card in front of you (see the motion note above).
 
 ---
 
 ## Export / Import
 
-Accessed via "Export ▾" dropdown in the header:
+From **File ▾** in the header (the rows are hidden buttons in `#fileActions`; `view-menu.js` renders them through menu.js, and `data-readonly="ok"` keeps a row on view-only links):
 
 | Action | Output |
 |--------|--------|
+| Import JSON / Canvas / Mermaid | One picker, format-detected (`detectFormat`): pathfinder JSON, JSON Canvas, or a Mermaid flowchart. Opens as a new map by default; Replace (after a named snapshot) and Merge are the dialog's other choices (`sharing.js`) |
 | Copy Prompt | Clipboard: markdown AI prompt |
-| Download JSON | `pathfinder.json`: full canvas (blocks + arrows + timestamp) |
-| Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of `order` silently drops those blocks), labelled connections, and a Mermaid graph of the same topology |
+| Copy AI diagram-builder prompt | Clipboard: `DIAGRAM_BUILDER_PROMPT`, generated from the registry |
+| Download JSON | `pathfinder.json`: full canvas (blocks + arrows + meta + timestamp) |
+| Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of the order silently drops those blocks), labelled connections, and the Mermaid graph |
+| Copy Mermaid | Clipboard: `toMermaid()`, the same graph: every block declared, a shape and a `class` line per type, groups as subgraphs |
+| Download JSON Canvas | `<title>.canvas` (jsoncanvas.org): each node in its type's exact hex plus `pathfinderType`, criteria as checklists, groups as group nodes, edge sides from pinned ports |
 | Download Spec bundle | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
-| Download JSON Canvas | `<title>.canvas` (jsoncanvas.org): text nodes with type-mapped preset colors, criteria as checklists, groups as group nodes, edge sides from pinned ports (`js/interop.js`) |
-| Import JSON / Canvas / Mermaid | One picker, format-detected (`detectFormat`): pathfinder JSON, JSON Canvas (text nodes classified via `categorizeLine`, low-confidence typed calls get correction chips), or a Mermaid flowchart (shapes map to types, subgraphs to groups, positions from `layoutGraph`). Replace or merge as before |
+| Download Image / Vector | PNG 2x / SVG from `image-export.js` |
+| Export Meeting Summary / Open in Presentation Sage | Hand-offs |
+| Clear this map… | Danger; one undo step |
+
+Import reads a type before it guesses: `pathfinderType`, an exact type hex, a Mermaid `class` line, then the shape, and only then the classifier (`categorizeLine`), whose low-confidence calls are marked `typeCheck`.
 
 **Merge behavior:** existing blocks preserved; imported blocks get new IDs, arrow refs remapped.
 
@@ -304,42 +349,27 @@ Accessed via "Export ▾" dropdown in the header:
 
 ## Keyboard Shortcuts
 
-The displayed list is a **separate hardcoded array** (`SHORTCUTS` in `ui-panels.js`),
-not derived from the handler, so a new binding has to be added in both places or
-users never learn it exists.
+`SHORTCUTS` in `ui-panels.js` is the canonical list (the `?` sheet renders it, grouped Editing, Navigation, Creating, View). It is a hand-kept array, not derived from the handlers, so a binding added anywhere (`events.js`, `inline-edit.js`, `arrow-edit.js`, `context-menu.js`, `classify.js`) has to be added there too; `tests/integration.test.js` checks the ones bound outside `events.js`.
 
-| Shortcut | Action |
-|----------|--------|
-| `L` | Tidy: auto-arrange the canvas |
-| `H` | Hide the header and footer |
-| `Z` | Zen: hide every panel too |
-| `Alt + H` | Toggle high-contrast mode |
-| `?` | Shortcut overlay |
-| Delete / Backspace | Delete selected block or arrow |
-| Cmd/Ctrl + D | Duplicate selected block |
-| Double-click title | Inline edit |
-| Enter (in title edit) | Commit |
-| Double-click empty canvas | Fit view |
-
-`H`, `Z`, `?` and `Alt+H` sit above the read-only bail so they work in `?readonly`
-and `?embed`, and below the typing bail so they never fire inside an input.
+How the handler is layered (`setupKeyboardShortcuts` in `events.js`): a modal dialog bails everything; `Cmd/Ctrl+F` works anywhere; nothing below fires while typing; `?`, `Alt+H` and the View keys (`H`, `Z`, zoom, `Shift+1/2/0`) work in read-only and embed; single-letter keys act only while the canvas (or nothing) has focus, and `Cmd/Ctrl + = - 0` zoom the canvas only then, leaving page zoom alone elsewhere; editing keys stop at the read-only bail.
 
 ---
 
 ## CSS Class Patterns
 
-- `.block[data-type=goal]`: type-specific styling
-- `.block.selected` · `.block.dragging`
-- `.block.gap-isolated` · `.block.gap-assumption` · `.block.gap-no-req` · `.block.gap-unaddressed`
+- `.block[data-type=goal]`: type-specific styling; `--bc` is the type colour
+- `.block.selected` (an outline that wins over every state) · `.block.dragging`
+- `.block.gap-*`: one per block (see Gap Detection); `.gap-isolated` is a dashed edge, the rest a ring from `--gap` / `--gap-anim`
+- `.block.type-check` · `.block-type-check`: a type awaiting confirmation (the label is a button, `T` opens it)
 - `.block[data-card=outline|bar|header|tint|plain]`: card preset
-- `.block[data-highlight=alert|focus|go|hold|festive]`: presentation ring
-- `body.spotlight`: fade every block without a highlight
+- `.block[data-highlight=alert|focus|go|hold|festive]` + `.block-hl-tab`: presentation ring and its word
+- `body.motion-on`: View ▾ → Animate highlights; `body.spotlight`: fade every block without a highlight
 - `.port-left` · `.port-right` · `.port-top` · `.port-bottom` · `.arrow-handle`
 - `body.tidying`: transient, animates blocks to their new positions
 - `body[data-chrome=off]` · `body[data-zen=on]`: expanded view
-- `.panel-tab.active` · `.tab-pane.active`
-- `.type-pill.active` · `.action-toggle.active`
-- `.export-wrapper.open`
+- `.pf-menu` (+ `.pf-submenu`, `.pf-header-menu`, `.ctx-*-menu`, `.insp-type-menu`, `.type-check-menu`): menu.js menus; `.type-menu-notes` / `.type-menu-note` the type lists' foot
+- `.panel-tab.active` · `.tab-pane.active` · `.action-toggle.active`
+- Each stream's rules sit in its marked section at the end of `style.css`
 
 ---
 

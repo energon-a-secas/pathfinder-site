@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  view-menu.js: the header's menus.
 //
-//  File, Share, the Tidy caret, View and Help are menu.js dropdowns,
+//  Maps, File, Share, the Tidy caret, View and Help are menu.js dropdowns,
 //  so they share one keyboard model, one dismissal model and one
 //  look. On phones, where the header kit moves them into its
 //  overflow panel, the same items open in place inside that panel
@@ -26,8 +26,9 @@ import { isVotingMode, setVotingMode } from './voting.js'
 import { chrome, toggleChrome, toggleZen } from './chrome.js'
 import {
   applyTheme, setCanvasCardStyle, canvasCardStyle, refreshSpotlight,
-  runTidy, getLayoutDir, setLayoutDir, openShortcuts, setDropdownOpen,
+  runTidy, getLayoutDir, setLayoutDir, openShortcuts,
 } from './ui-panels.js'
+import { mapsMenuItems } from './library.js'
 
 const TINT_KEY = 'pathfinder-tint'
 
@@ -90,6 +91,8 @@ export function setHighContrast(on) { document.body.classList.toggle('high-contr
 /** Spotlight rides on the map. It needs something highlighted to be useful. */
 export function setSpotlight(on) {
   if (ui.readOnly) return false
+  // A map setting, so one undo step (the step carries it: state.js undoEntry).
+  if (!!canvasMeta.spotlight !== !!on) snapshot()
   canvasMeta.spotlight = !!on
   refreshSpotlight()
   saveState()
@@ -345,10 +348,9 @@ function toggleInlineMenu(btn, getItems, label) {
     closeInlineMenus()
     return null
   }
-  // One open list in the panel at a time, the Maps list included.
+  // One open list in the panel at a time.
   closeMenus()
   closeInlineMenus()
-  document.querySelectorAll('.header-overflow-menu .export-wrapper.open').forEach(w => setDropdownOpen(w.id, false))
   const list = document.createElement('div')
   list.className = INLINE
   list.setAttribute('role', 'group')
@@ -433,6 +435,7 @@ function wireInlineDismissal() {
 }
 
 export function setupViewMenu() {
+  wire('mapsBtn', mapsMenuItems, 'Maps')
   wire('exportBtn', () => fileMenuItems(), 'File')
   wire('shareBtn', () => shareMenuItems(), 'Share')
   wire('tidyMenuBtn', tidyMenuItems, 'Tidy direction')

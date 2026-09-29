@@ -15,21 +15,25 @@
 // ════════════════════════════════════════════════════════════
 
 import { relationHint, impliedVerb, RELATIONS } from './relations.js'
-import { state, selection, ui, canvasMeta, debouncedSave, saveState,
+import { state, selection, ui, canvasMeta, debouncedSave,
          snapshotOnce, resetSnapshotToken } from './state.js'
-import { $, TYPES, typesByStep, TYPE_DISAMBIGUATION, SWATCH_COLORS, SWATCH_NAMES,
+import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
          STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ARROW_LABEL_PRESETS, CARD_STYLES,
-         DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
-import { renderArrows, renderFrames, arrowRoute, arrowPattern } from './canvas.js'
-import { renderBlock, renderAllBlocks, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
+         DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast } from './utils.js'
+import { renderFrames, arrowRoute, arrowPattern } from './canvas.js'
+import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
          deleteBlock, deleteArrow, duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup } from './render.js'
 import { applyGapFix } from './create.js'
-// A namespace import, so a function the insights stream may or may not have
-// shipped yet (acceptGap) can be feature-detected instead of failing to link.
-import * as gaps from './gaps.js'
+import { GAP_META, getGapFixes, acceptGap, unacceptGap } from './gaps.js'
 import { askQuestion, openDocPopup, detectSeeReference } from './doc-panel.js'
-import { alignSelection, distributeSelection } from './align.js'
+import { arrangeSelection } from './align.js'
 import { openDropdown } from './menu.js'
+import { typeMenuItems, retypeBlock, retypeBlocks, typeNoun } from './type-menu.js'
+import { showPanels } from './chrome.js'
+import { setSpotlight } from './view-menu.js'
+
+// The type picker lives in type-menu.js; the inspector was its first home.
+export { typeMenuItems }
 
 // ── Small helpers ────────────────────────────────────────────
 const byId = id => document.getElementById(id)
@@ -78,17 +82,9 @@ const WEIGHTS = [1, 1.5, 2.5, 3.5]
 // a connection drawn before the rescale reads "Normal (2px)", not a bare size.
 const LEGACY_WEIGHT_NAMES = { 2: 'Normal', 5: 'Bold' }
 
-/**
- * "2 processes", "1 goal", "2 resources / systems". Labels come from the
- * registry and change, so this pluralises words rather than keeping a table.
- * Other reads as "other blocks": "2 others" says nothing.
- */
+/** "2 processes", "1 goal", "2 other blocks" (typeNoun, type-menu.js). */
 export function typeCount(t, n) {
-  if (typeKey(t) === 'custom') return `${n} other block${n === 1 ? '' : 's'}`
-  const label = (TYPES[t]?.label || t).toLowerCase()
-  if (n === 1) return `1 ${label}`
-  const pluralWord = w => /(s|x|z|ch|sh)$/.test(w) ? w + 'es' : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + 'ies' : w + 's'
-  return `${n} ` + label.split(' / ').map(part => part.replace(/(\S+)$/, pluralWord)).join(' / ')
+  return `${n} ${typeNoun(t, n)}`
 }
 
 const statusKey = b => (b && b.status && b.status !== 'not-started' && STATUS_DEFS[b.status]) ? b.status : ''
@@ -439,29 +435,24 @@ function renderAppearance(b) {
 }
 
 // ── Suggestions ──────────────────────────────────────────────
-function blockGapClass(id) {
-  const el = getBlockEl(id)
-  return el ? [...el.classList].find(c => c.startsWith('gap-')) || '' : ''
-}
-
 function gapShort(gid) {
-  return gaps.GAP_META?.[gid]?.short || gid.replace(/^gap-/, '').replace(/-/g, ' ')
+  return GAP_META[gid]?.short || gid.replace(/^gap-/, '').replace(/-/g, ' ')
 }
 
 function renderSuggestions(b) {
   const section = byId('gapFixesSection'), list = byId('gapFixes')
   if (!section || !list) return
   const ro = ui.readOnly
-  const fixes = typeof gaps.getGapFixes === 'function' ? gaps.getGapFixes(b) : []
+  const fixes = getGapFixes(b)
   section.hidden = !fixes.length
   // One block reports one gap, so the fixes usually share it. Accept is
   // offered once per gap rather than once per fix: two buttons doing the
-  // same thing on one card would read as two different choices.
-  const canAccept = !ro && typeof gaps.acceptGap === 'function'
-  const fallbackGap = blockGapClass(b.id)
+  // same thing on one card would read as two different choices. Every fix
+  // names the gap it answers (getGapFixes), so that is what gets accepted.
+  const canAccept = !ro
   const groups = new Map()
   fixes.forEach(f => {
-    const g = f.gap || fallbackGap
+    const g = f.gap || ''
     if (!groups.has(g)) groups.set(g, [])
     groups.get(g).push(f)
   })
@@ -716,38 +707,32 @@ function renderArrowInspector(a) {
   }
 }
 
-// ── Menus ────────────────────────────────────────────────────
+// ── Revealing a question ─────────────────────────────────────
 /**
- * The type picker's items: every type grouped by the step it answers, the
- * current one checked, each row with its one-line meaning. `current` is null
- * for a mixed selection. When the block was typed automatically, "Looks
- * right" comes first so confirming costs one click.
+ * Select the block, bring the inspector into view (panels, the right panel
+ * and its tab) and put the caret in question `index` (the last one when the
+ * index is out of range). The context menu's Add question and the panel's
+ * own + button both land here.
  */
-export function typeMenuItems(current, onPick, { unconfirmed = false, typeHint = '' } = {}) {
-  const items = []
-  if (unconfirmed && current && TYPES[current]) {
-    items.push({ label: `Looks right: keep ${TYPES[current].label}`, hint: 'Confirm the type it was given',
-      confirm: true, action: () => onPick(current) }, { type: 'divider' })
-  }
-  typesByStep().forEach(group => {
-    if (!group.types.length) return
-    items.push({ type: 'heading', label: group.label })
-    group.types.forEach(t => items.push({
-      label: TYPES[t].label, hint: TYPES[t].short, dot: typeColor(t),
-      checked: t === current, radio: true, action: () => onPick(t),
-    }))
-  })
-  items.push({ type: 'divider' }, {
-    type: 'custom',
-    render: el => {
-      el.classList.add('insp-type-notes')
-      el.innerHTML = (typeHint ? `<p>Imported as “${escHtml(typeHint)}”: pick the closest type.</p>` : '') +
-        (TYPE_DISAMBIGUATION || []).map(line => `<p>${escHtml(line)}</p>`).join('')
-    },
-  })
-  return items
+export function focusQuestion(blockId, index = -1) {
+  if (!state.blocks[blockId]) return false
+  if (selection.blockId !== blockId || selection.ids.size !== 1) selectBlock(blockId)
+  showPanels()
+  if (byId('rightPanel')?.classList.contains('collapsed')) byId('panelReopenBtn')?.click()
+  document.querySelector('.panel-tab[data-tab="inspector"]')?.click()
+  const b = state.blocks[blockId]
+  renderQuestions(b)
+  setText('questionsCount', String((b.questions || []).length))
+  const details = byId('questionsDetails')
+  if (details && !details.open) details.open = true
+  const inputs = [...($.questionsList()?.querySelectorAll('input[data-qi]') || [])]
+  const target = inputs[index] || inputs[inputs.length - 1]
+  if (!target) { showToast('Question added. Type it in the inspector', 'info', 2000); return false }
+  target.focus()
+  return true
 }
 
+// ── Menus ────────────────────────────────────────────────────
 function statusMenuItems(current, onPick) {
   return [['', 'No status'], ...Object.entries(STATUS_DEFS).filter(([k]) => k !== 'not-started').map(([k, v]) => [k, v.label])]
     .map(([k, label]) => ({
@@ -790,21 +775,13 @@ function editBlock(changes) {
   renderInspector()
 }
 
-// A type someone picks is a decision: it confirms a low-confidence automatic
-// type, and it supersedes the type a newer version wrote (typeHint), which
-// would otherwise come back on the next load.
-function typeChanges(b, t) {
-  const changes = { type: t }
-  if (b.typeCheck) changes.typeCheck = false
-  if (b.typeHint) changes.typeHint = undefined
-  return changes
-}
-
+// A picked type is a decision: retypeBlock (type-menu.js) clears the type
+// check and a newer version's typeHint, and drops a colour that was only
+// the old type's colour. Picking the same type still counts when it was a
+// guess.
 function setBlockType(t) {
   const b = selectedBlock(); if (!b || ui.readOnly || !TYPES[t]) return
-  // Picking the same type still counts when it was only a guess.
-  if (b.type === t && !b.typeCheck && !b.typeHint) return
-  editBlock(typeChanges(b, t))
+  if (retypeBlocks([b.id], t)) renderInspector()
 }
 
 function toggleBlockAction(action) {
@@ -916,7 +893,8 @@ export function setupInspectorEvents() {
     const b = selectedBlock(); if (!b || ui.readOnly) return
     const hadFocus = document.activeElement === e.currentTarget
     const actions = b.actions.includes('validate') ? b.actions : [...b.actions, 'validate']
-    editBlock({ ...typeChanges(b, 'assumption'), actions })
+    mutateBlocks([b.id], blk => ({ ...retypeBlock(blk, 'assumption'), actions }))
+    renderInspector()
     if (hadFocus) byId('inspTypeBtn')?.focus()
   })
 
@@ -977,15 +955,14 @@ export function setupInspectorEvents() {
   on('gapFixes', 'click', e => {
     const accept = e.target.closest('.gap-fix-accept')
     if (accept) {
-      if (ui.readOnly || typeof gaps.acceptGap !== 'function') return
-      gaps.acceptGap(accept.dataset.bid, accept.dataset.accept)
+      if (ui.readOnly) return
+      acceptGap(accept.dataset.bid, accept.dataset.accept)
       renderInspector()
       return
     }
     const btn = e.target.closest('.gap-fix-btn'); if (!btn) return
     const blockId = btn.dataset.bid; const b = state.blocks[blockId]; if (!b) return
-    const fixes = typeof gaps.getGapFixes === 'function' ? gaps.getGapFixes(b) : []
-    const fix = fixes.find(f => f.id === btn.dataset.fix) || { id: btn.dataset.fix }
+    const fix = getGapFixes(b).find(f => f.id === btn.dataset.fix) || { id: btn.dataset.fix }
     const hadFocus = document.activeElement === btn
     applyGapFix(fix, blockId)
     // A fix that closes the gap removes its own button. When the block is
@@ -1001,20 +978,16 @@ export function setupInspectorEvents() {
     const btn = e.target.closest('[data-reopen]')
     const b = selectedBlock()
     if (!btn || !b || ui.readOnly) return
-    editBlock({ gapAck: (b.gapAck || []).filter(g => g !== btn.dataset.reopen) })
+    // unacceptGap drops the key once the list is empty, as normalize would.
+    unacceptGap(b.id, btn.dataset.reopen)
+    renderInspector()
   })
 
   // ── Questions ──
   on('addQuestionBtn', 'click', () => {
     const b = selectedBlock(); if (!b || ui.readOnly) return
     mutateBlock(b.id, { questions: [...(b.questions || []), { text: '' }] }, { undo: true })
-    const fresh = state.blocks[b.id]
-    renderQuestions(fresh)
-    setText('questionsCount', String(fresh.questions.length))
-    const details = byId('questionsDetails')
-    if (details && !details.open) details.open = true
-    const inputs = $.questionsList()?.querySelectorAll('input[data-qi]')
-    inputs?.[inputs.length - 1]?.focus()
+    focusQuestion(b.id)
   })
 
   // ── Links and docs ──
@@ -1049,8 +1022,12 @@ export function setupInspectorEvents() {
     if (ui.readOnly) return null
     const ids = [...selection.ids]
     const common = commonValue(ids, b => b.type) || null
-    return typeMenuItems(common, t => bulkEdit(b => typeChanges(b, t),
-      n => `${plural(n)} set to ${TYPES[t].label}`))
+    return typeMenuItems(common, t => {
+      if (ui.readOnly) return
+      const n = retypeBlocks([...selection.ids], t)
+      renderInspector()
+      if (n) showToast(`${plural(n)} set to ${TYPES[t].label}`, 'success', 1500)
+    })
   }, 'Type for every selected block', { className: 'insp-type-menu', focusChecked: true })
   dropdown('multiStatusBtn', () => {
     if (ui.readOnly) return null
@@ -1074,40 +1051,31 @@ export function setupInspectorEvents() {
   })
 
   // Spotlight: the emphasis is the contrast, so fade everything unmarked.
+  // The same setter as View > Spotlight, so it is one undo step here too.
   on('spotlightBtn', 'click', () => {
+    if (ui.readOnly) return
     const any = Object.values(state.blocks).some(b => b.highlight)
     if (!any && !canvasMeta.spotlight) {
       showToast('Highlight something first, then Spotlight fades the rest', 'info', 2400)
       return
     }
-    canvasMeta.spotlight = !canvasMeta.spotlight
-    document.body.classList.toggle('spotlight', canvasMeta.spotlight)
-    saveState()
-    renderInspector()
+    setSpotlight(!canvasMeta.spotlight)
   })
 
-  const arrange = (fn, mode, done, tooFew) => () => {
-    const ids = [...selection.ids]
-    const n = fn(ids, mode)
-    if (!n) { showToast(tooFew, 'info', 1600); return }
-    renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
-    showToast(done(n), 'success', 1400)
-  }
+  // The context menu's Align and Distribute run the same function.
   dropdown('multiAlignBtn', () => {
     if (ui.readOnly) return null
     const few = selection.ids.size < 2
     return [['left', 'Left edges'], ['hcenter', 'Centres (horizontal)'], ['right', 'Right edges'],
       ['top', 'Top edges'], ['vcenter', 'Middles (vertical)'], ['bottom', 'Bottom edges']].map(([mode, label]) => ({
-      label, disabled: few,
-      action: arrange(alignSelection, mode, n => `Aligned ${n} blocks`, 'Select two or more blocks to align'),
+      label, disabled: few, action: () => arrangeSelection('align', [...selection.ids], mode),
     }))
   }, 'Align')
   dropdown('multiDistributeBtn', () => {
     if (ui.readOnly) return null
     const few = selection.ids.size < 3
     return [['h', 'Horizontally', 'Even horizontal gaps'], ['v', 'Vertically', 'Even vertical gaps']].map(([axis, label, hint]) => ({
-      label, hint, disabled: few,
-      action: arrange(distributeSelection, axis, n => `Spaced ${n} blocks evenly`, 'Select three or more blocks to distribute'),
+      label, hint, disabled: few, action: () => arrangeSelection('distribute', [...selection.ids], axis),
     }))
   }, 'Distribute')
 

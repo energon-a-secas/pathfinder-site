@@ -321,7 +321,7 @@ describe('Context menus: one block', () => {
     assert.deepEq(checked, [TYPES.custom.label])
     click('Risk', sub)
     assert.eq(state.blocks.a.type, 'risk')
-    assert.eq(state.blocks.a.typeCheck, false)
+    assert.ok(!('typeCheck' in state.blocks.a), 'the type check is settled')
     assert.eq(history(), 1)
     rclick(blockEl('a'))
     click('Risk', openSub('Change type'))
@@ -939,7 +939,7 @@ describe('Context menus: type lists', () => {
     reset(); block('a', { type: 'process' })
     rclick(blockEl('a'))
     const sub = openSub('Change type')
-    const note = sub.querySelector('.ctx-type-note')
+    const note = sub.querySelector('.type-menu-note')
     assert.ok(note, 'Change type has a note')
     assert.includes(note.textContent, 'Implementation', 'it opens on the current type, and Process is often confused with Implementation')
     await Promise.resolve()
@@ -949,7 +949,7 @@ describe('Context menus: type lists', () => {
     assert.includes(note.textContent, 'someone can hold')
     closeMenus()
     rclick(blockEl('a'))
-    assert.ok(openSub('Add connected').querySelector('.ctx-type-note'), 'Add connected has one too')
+    assert.ok(openSub('Add connected').querySelector('.type-menu-note'), 'Add connected has one too')
     closeMenus()
   })
 
@@ -1114,13 +1114,10 @@ describe('Context menus: the camera', () => {
     } finally { Object.assign(view, saved) }
   })
 
-  it("uses NAVIGATION's camera under the names it exports, once it exports any", async () => {
+  it('uses the camera functions zoom-controls.js exports, the ones the shortcuts run', async () => {
     const nav = await import('../js/zoom-controls.js')
-    const exported = Object.keys(nav).filter(k => k !== 'setupZoomControls')
-    // Before NAVIGATION merges, zoom-controls.js exports only its setup and
-    // the local fallbacks run. After, a rename there must fail here.
-    if (!exported.length) return
-    assert.eq(typeof nav.zoomTo, 'function', 'zoomTo(z)')
-    assert.eq(typeof nav.zoomToSelection, 'function', 'zoomToSelection()')
+    assert.eq(typeof nav.zoomTo, 'function', 'zoomTo(z), Shift+0')
+    assert.eq(typeof nav.zoomToSelection, 'function', 'zoomToSelection(), Shift+2')
+    assert.eq(typeof nav.zoomToBlocks, 'function', 'zoomToBlocks(ids), for a block that is not the selection')
   })
 })

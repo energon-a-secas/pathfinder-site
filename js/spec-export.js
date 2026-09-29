@@ -13,7 +13,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, canvasMeta } from './state.js'
-import { TYPES, PRIORITY_DEFS, showToast, typeInfo } from './utils.js'
+import { TYPES, PRIORITY_DEFS, showToast, typeInfo, askedQuestions } from './utils.js'
 import { situationSection } from './prompt.js'
 import { mermaidBlock } from './export.js'
 import { taskChecklist } from './task-plan.js'
@@ -36,7 +36,7 @@ function criteriaChecklist(b, indent = '') {
 }
 
 function questionLines(b) {
-  return (b.questions || []).map(q => {
+  return askedQuestions(b).map(q => {
     const ans = q.answer?.trim()
     return ans
       ? `- ${q.text}\n  - Answered: ${ans.replace(/\n/g, ' ')}\n`

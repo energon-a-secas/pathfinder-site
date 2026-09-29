@@ -4,11 +4,13 @@
 //  follows an import (a button on the card's type label).
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, view, snapshot, debouncedSave } from './state.js'
+import { state, ui, view, selection, snapshot, debouncedSave } from './state.js'
 import { $, genId, getBlockEl, showToast, TYPES, DEFAULT_WIDTH } from './utils.js'
 import { renderArrows, updateHint } from './canvas.js'
-import { renderAllBlocks, mutateBlock } from './render.js'
+import { renderAllBlocks, mutateBlocks, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
+import { openDropdown } from './menu.js'
+import { typeMenuItems, retypeBlocks } from './type-menu.js'
 
 // ── Text → blocks classification ─────────────────────────────
 //
@@ -218,13 +220,7 @@ export function setupPasteHandler() {
 // type menu with "Looks right" first; either choice clears the mark in one
 // undo step. This replaced chips floated above the cards, which covered their
 // neighbours, never dimmed, vanished on the next press anywhere and lost
-// their clicks to the viewport. Imported here, not at the top, so the
-// classifier's own import block stays untouched; the aliases keep these
-// bindings from clashing with anything that block imports later.
-import { mutateBlocks as mutateCheckedBlocks, renderInspector as renderCheckedInspector } from './render.js'
-import { selection as typeCheckSelection } from './state.js'
-import { openDropdown as openTypeDropdown } from './menu.js'
-import { typesByStep as typeCheckGroups, TYPE_DISAMBIGUATION as TYPE_CHECK_HINTS } from './utils.js'
+// their clicks to the viewport.
 
 /**
  * Mark the low-confidence blocks among `created` ([{ id, confidence }]) as
@@ -237,36 +233,23 @@ export function showTypeChips(created) {
   const ids = (Array.isArray(created) ? created : [])
     .filter(c => c && c.confidence === 'low' && state.blocks[c.id] && !state.blocks[c.id].typeCheck)
     .map(c => c.id)
-  if (ids.length) mutateCheckedBlocks(ids, { typeCheck: true }, { undo: false })
+  if (ids.length) mutateBlocks(ids, { typeCheck: true }, { undo: false })
   return ids.length
-}
-
-// A colour that is exactly the old type's colour (an import often sets one)
-// is not a choice anybody made: left in place, it would paint the corrected
-// block in the colour of the type it no longer is.
-function isTypeColour(color, type) {
-  const c = typeof color === 'string' ? color.trim().toLowerCase() : ''
-  const t = TYPES[type]
-  return !!c && !!t && (c === t.color.toLowerCase() || c === t.light.toLowerCase())
 }
 
 /**
  * Settle a block's type check: confirm the type it has (no `type`), or change
- * it. Either way the mark goes, as one undo step. Returns false when there
- * was nothing to do.
+ * it. Either way the mark goes, as one undo step, by the rule every type
+ * picker shares (retypeBlock). Returns false when there was nothing to do.
  */
 export function resolveTypeCheck(id, type = null) {
   const b = state.blocks[id]
   if (!b || ui.readOnly) return false
   if (type && !Object.hasOwn(TYPES, type)) return false
   if (!b.typeCheck && (!type || type === b.type)) return false
-  mutateCheckedBlocks([id], blk => {
-    delete blk.typeCheck
-    if (!type || type === blk.type) return null
-    return isTypeColour(blk.color, blk.type) ? { type, color: null } : { type }
-  }, { undo: true })
-  // The inspector shows the type too; mutateBlocks leaves it to the caller.
-  if (typeCheckSelection.ids.has(id)) renderCheckedInspector()
+  retypeBlocks([id], type)
+  // The inspector shows the type too; the retype leaves it to the caller.
+  if (selection.ids.has(id)) renderInspector()
   return true
 }
 
@@ -277,46 +260,20 @@ function refocusCard(id) {
   if (!ae || ae === document.body) getBlockEl(id)?.focus({ preventScroll: true })
 }
 
-// One row per step, each opening that step's types, with the type names as
-// the row's hint so nobody has to guess which step holds Resource. A flat
-// list of all sixteen under seven headings stood about 790px tall, covered
-// its own card and pushed the lines below out of sight.
+// The compact form of the shared type list: "Looks right", then one row per
+// step opening its types, so the menu hung off a small label never covers
+// its own card (all sixteen under headings stood about 790px tall).
 function typeCheckItems(id) {
   const b = state.blocks[id]
-  const pick = type => () => { resolveTypeCheck(id, type); refocusCard(id) }
-  const items = [
-    { label: 'Looks right', hint: `Keep it as ${TYPES[b.type]?.label || b.type}`, action: pick(null) },
-    { type: 'divider' },
-  ]
-  typeCheckGroups().forEach(g => {
-    if (!g.types.length) return
-    items.push({
-      label: g.label,
-      hint: g.types.map(t => TYPES[t].label).join(', '),
-      submenu: () => g.types.map(t => ({
-        label: TYPES[t].label, dot: `var(--c-${t})`, radio: true, checked: t === b.type, action: pick(t),
-      })),
-    })
-  })
-  items.push({ type: 'divider' }, {
-    type: 'custom',
-    render: c => {
-      c.classList.add('type-check-help')
-      TYPE_CHECK_HINTS.forEach(line => {
-        const p = document.createElement('p')
-        p.textContent = line
-        c.appendChild(p)
-      })
-    },
-  })
-  return items
+  return typeMenuItems(b.type, type => { resolveTypeCheck(id, type); refocusCard(id) },
+    { unconfirmed: true, steps: true, typeHint: b.typeHint || '' })
 }
 
 /** Open the type menu under a card's type-check button. */
 export function openTypeChipMenu(anchor) {
   const id = anchor?.dataset?.typeCheck
   if (!id || !state.blocks[id] || ui.readOnly) return null
-  return openTypeDropdown(anchor, typeCheckItems(id), { label: 'Block type', className: 'type-check-menu' })
+  return openDropdown(anchor, typeCheckItems(id), { label: 'Block type', className: 'type-check-menu' })
 }
 
 // ── Brain Dump empty state ───────────────────────────────────
@@ -363,7 +320,7 @@ export function setupTypeChips() {
     if (ae?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae?.tagName || '')) return
     const onPage = !ae || ae === document.body
     const card = (!onPage && ae.closest?.('.block')) ||
-      (onPage && typeCheckSelection.ids.size === 1 ? getBlockEl(typeCheckSelection.blockId) : null)
+      (onPage && selection.ids.size === 1 ? getBlockEl(selection.blockId) : null)
     const btn = card && $.canvasRoot().contains(card) ? card.querySelector('.block-type-check') : null
     if (!btn) return
     e.preventDefault()

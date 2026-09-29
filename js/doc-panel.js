@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  doc-panel.js — Living documentation: wire a block to an
+//  doc-panel.js: living documentation. Wire a block to an
 //  external doc, preview it in a floating popup, and turn a
 //  block's questions into grounded, ready-to-paste AI prompts.
 //
@@ -7,15 +7,15 @@
 //   • Fetch is attempted ONLY for same-origin URLs or ones under
 //     a single user-configured docs base (localStorage
 //     `pathfinder-docs-base`). Every other href degrades to an
-//     "Open in new tab" link — no request is made.
+//     "Open in new tab" link, and no request is made.
 //   • Fetched Markdown/text is HTML-escaped BEFORE the tiny
 //     renderer runs, so doc content can never inject markup.
 //   • No secrets, no proxy, no third-party calls. The live-AI
 //     path is intentionally scaffolded-but-disabled below.
 // ════════════════════════════════════════════════════════════
 
-import { state, canvasMeta } from './state.js'
-import { $, TYPES, escHtml, showToast, copyText } from './utils.js'
+import { state } from './state.js'
+import { $, escHtml, showToast, copyText } from './utils.js'
 import { buildQuestionPrompt } from './prompt.js'
 
 const DOCS_BASE_KEY = 'pathfinder-docs-base'
@@ -204,7 +204,7 @@ async function fetchDoc(url) {
 // ── Ask a live question ──────────────────────────────────────
 // Builds a focused, grounded prompt for one question and copies it. The
 // no-provider path is the product; a live call would slot in here behind an
-// explicit, user-configured key (intentionally not shipped — see module head).
+// explicit, user-configured key (intentionally not shipped: see module head).
 export function askQuestion(block, qIndex) {
   const q = block.questions?.[qIndex]
   if (!q || !q.text.trim()) { showToast('Write the question first', 'warning'); return }

@@ -54,9 +54,12 @@ export function defaultConnectDirection(fromType, toType) {
   return impliedVerb(toType, fromType) && !impliedVerb(fromType, toType) ? 'in' : 'out'
 }
 
-// Rendered size when the card is laid out, a sensible estimate when it is
-// not (a hidden viewport measures 0x0).
-function dimsOf(id) {
+/**
+ * A block's rendered size when the card is laid out, a sensible estimate
+ * when it is not (a hidden viewport measures 0x0). Placement, navigation
+ * and the camera all measure through this.
+ */
+export function blockSize(id) {
   const d = getBlockDims(id)
   const b = state.blocks[id]
   return { w: d.w || b?.width || DEFAULT_WIDTH, h: d.h || 100 }
@@ -66,7 +69,7 @@ function overlapsAny(x, y, w, h, skip) {
   const M = 12
   return Object.values(state.blocks).some(o => {
     if (o.id === skip) return false
-    const d = dimsOf(o.id)
+    const d = blockSize(o.id)
     return x < o.x + d.w + M && x + w + M > o.x && y < o.y + d.h + M && y + h + M > o.y
   })
 }
@@ -89,7 +92,7 @@ export function createBlockAt(type, wx, wy, { edit = true, select = true } = {})
   // the new one about 12px below the pointer.
   if (select || edit) selectBlock(id)
   const b = state.blocks[id]
-  const { w, h } = dimsOf(id)
+  const { w, h } = blockSize(id)
   b.x = Math.round(wx - w / 2)
   b.y = Math.round(wy - h / 2)
   renderBlock(id)
@@ -115,8 +118,8 @@ export function createConnected(fromId, type, { dir = 'right', incoming = false,
   snapshot()
   const id = createBlock(type, src.x, src.y, { undo: false })
   const b = state.blocks[id]
-  const s = dimsOf(fromId)
-  const n = dimsOf(id)
+  const s = blockSize(fromId)
+  const n = blockSize(id)
   let x, y
   if (dir === 'left')      { x = src.x - GAP - n.w;  y = src.y }
   else if (dir === 'up')   { x = src.x;              y = src.y - GAP - n.h }
@@ -152,14 +155,14 @@ export function insertOnArrow(aid, type, { edit = true } = {}) {
   } catch (_) {}
   if (!mid) {
     const f = state.blocks[a.from], t = state.blocks[a.to]
-    const fd = dimsOf(a.from), td = dimsOf(a.to)
+    const fd = blockSize(a.from), td = blockSize(a.to)
     mid = { x: (f.x + fd.w / 2 + t.x + td.w / 2) / 2, y: (f.y + fd.h / 2 + t.y + td.h / 2) / 2 }
   }
 
   snapshot()
   const id = createBlock(type, mid.x, mid.y, { undo: false })
   const nb = state.blocks[id]
-  const { w, h } = dimsOf(id)
+  const { w, h } = blockSize(id)
   nb.x = Math.round(mid.x - w / 2); nb.y = Math.round(mid.y - h / 2)
   const second = { ...JSON.parse(JSON.stringify(a)), id: genId(), from: id, fromPort: null, label: '', note: '' }
   if (!second.note) delete second.note

@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  diagram-instructions.js: copy-paste prompt for asking an AI
 //  (Claude or any model) to generate a Pathfinder canvas as JSON.
-//  Kept in one place so the Export menu and the docs stay in sync,
+//  Kept in one place so the File menu and the docs stay in sync,
 //  and built from the type registry so the allowed types, their
 //  meanings and the order worth mapping them in cannot drift from
 //  what the app actually accepts.

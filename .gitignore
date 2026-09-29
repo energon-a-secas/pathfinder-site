@@ -1,7 +1,7 @@
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
 
-# ── Playwright MCP (Claude Code browser automation — screenshots, logs) ───────
+# ── Playwright MCP (Claude Code browser automation: screenshots, logs) ───────
 .playwright-mcp/
 
 # ── Playwright test artifacts ─────────────────────────────────────────────────
@@ -13,7 +13,7 @@ blob-report/
 node_modules/
 npm-debug.log*
 
-# ── Secrets — never commit ────────────────────────────────────────────────────
+# ── Secrets: never commit ────────────────────────────────────────────────────
 .env
 .env.*
 

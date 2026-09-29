@@ -1,6 +1,6 @@
 // Shared by Build prompts and the spec bundle: both must hand an assistant
 // the same task order and the same evidence from the canvas.
-import { TYPES, PRIORITY_DEFS, STATUS_DEFS, typeInfo } from './utils.js'
+import { TYPES, PRIORITY_DEFS, STATUS_DEFS, typeInfo, askedQuestions } from './utils.js'
 import { dependencyEdges } from './relations.js'
 
 const priorityRank = block => ({ high: 0, medium: 1, low: 2 }[block.priority] ?? 3)
@@ -100,7 +100,7 @@ export function taskChecklist(blocks, arrows) {
       const url = (href || '') + (anchor ? '#' + anchor : '')
       out += `      Referenced doc: ${label || url}${label && url ? ` (${url})` : ''}\n`
     }
-    ;(b.questions || []).forEach(q => {
+    askedQuestions(b).forEach(q => {
       out += `      ${q.answer?.trim() ? 'Question' : '[NEEDS CLARIFICATION]'}: ${indent(q.text)}\n`
       if (q.answer?.trim()) out += `      Answer: ${indent(q.answer)}\n`
     })

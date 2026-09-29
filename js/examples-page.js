@@ -3,14 +3,15 @@
 //
 //  Every example travels the same route a Share link takes, so
 //  the app's importer handles it and an existing canvas still
-//  gets a replace-or-merge prompt. Three of the four ARE the
-//  large built-in templates: the gallery reuses the content the
-//  app already ships instead of maintaining a second copy that
-//  would drift.
+//  gets the new-map, replace or merge choice. Four of the five
+//  ARE the large built-in templates: the gallery reuses the
+//  content the app already ships instead of maintaining a second
+//  copy that would drift.
 // ════════════════════════════════════════════════════════════
 
 import { EXAMPLE_CANVAS } from './example-canvas.js'
 import { TEMPLATES } from './templates.js'
+import { DEFAULT_ARROW_WEIGHT } from './utils.js'
 
 /**
  * Convert a template (relative dx/dy blocks, index-based arrows) into a
@@ -32,7 +33,7 @@ export function templateToPayload(tpl) {
     }
   })
   const arrows = tpl.arrows.map(([fi, ti, label, relation], i) => {
-    const a = { id: 'ea' + i, from: ids[fi], to: ids[ti], style: 'routed' }
+    const a = { id: 'ea' + i, from: ids[fi], to: ids[ti], style: 'routed', weight: DEFAULT_ARROW_WEIGHT }
     if (label) a.label = label
     if (relation) a.relation = relation
     return a

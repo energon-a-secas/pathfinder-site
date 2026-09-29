@@ -20,8 +20,7 @@ import { DIAGRAM_BUILDER_PROMPT, allowedTypeLines, stepLines } from '../js/diagr
 import { TEMPLATES, applyTemplate } from '../js/templates.js'
 import { runGapDetection } from '../js/gaps.js'
 import { categorizeLine, createBlocksFromText } from '../js/classify.js'
-import { parseMermaid } from '../js/interop.js'
-import * as interop from '../js/interop.js'
+import { parseMermaid, toMermaid, mermaidShapeFor } from '../js/interop.js'
 
 const EM_DASH = String.fromCharCode(0x2014)
 const IDS = Object.keys(TYPES)
@@ -283,15 +282,17 @@ describe('registry coverage -- meeting summary', () => {
     reset()
   })
 
-  it('asks for the compressed link first, and says so when the link is too long to paste', async () => {
+  it('asks the compressed link builder, and says so when the link is too long to paste', async () => {
     const short = 'https://example.test/?readonly#z=abc'
     const long = 'https://example.test/?readonly#s=' + 'x'.repeat(5000)
-    const both = { buildShareUrl: () => long, buildShareUrlAsync: async () => short }
-    assert.deepEq(await summaryShareLink(both), { url: short }, 'the async builder wins over a stale long form')
-    assert.deepEq(await summaryShareLink({ buildShareUrl: () => short }), { url: short })
-    assert.deepEq(await summaryShareLink({ buildShareUrl: () => long }), { url: '', omitted: true })
-    assert.deepEq(await summaryShareLink({}), { url: '' })
-    assert.deepEq(await summaryShareLink({ buildShareUrl: () => { throw new Error('no') } }), { url: '' })
+    assert.deepEq(await summaryShareLink(async () => short), { url: short })
+    assert.deepEq(await summaryShareLink(() => long), { url: '', omitted: true })
+    assert.deepEq(await summaryShareLink(async () => ''), { url: '' })
+    assert.deepEq(await summaryShareLink(() => { throw new Error('no') }), { url: '' })
+    reset()
+    add('d', 'decision', 'Use Postgres')
+    const real = await summaryShareLink()
+    assert.match(real.url, /\?[^#]*readonly[^#]*#z=/, 'by default: the sharing code\'s compressed view-only link')
     reset()
     add('d', 'decision', 'Use Postgres')
     const md = buildMeetingSummary({ now: new Date(0), shareOmitted: true })
@@ -955,7 +956,7 @@ describe('prompt -- accepted gaps', () => {
 // ── Mermaid in the Markdown export ───────────────────────────
 
 describe('mermaidBlock() -- types survive, isolated blocks too', () => {
-  it('declares every block, shapes decisions and triggers, and classes each by type', () => {
+  it('is the interop exporter\'s graph: every block declared, shaped and classed by type', () => {
     reset()
     add('d', 'decision', 'Pick [the] {store}')
     add('t', 'terminator', 'Every end of sprint')
@@ -963,44 +964,44 @@ describe('mermaidBlock() -- types survive, isolated blocks too', () => {
     add('lone', 'metric', 'Lead time')
     link('t', 'p'); link('p', 'd', { label: 'feeds' })
     const m = mermaidBlock()
-    assert.includes(m, 'n1{"Pick (the) (store)"}')
+    assert.eq(m, '```mermaid\n' + toMermaid() + '```\n\n', 'one serializer for Markdown and Copy Mermaid')
+    assert.includes(m, 'n1{"Pick [the] {store}"}', 'brackets stay text inside the quoted label')
     assert.includes(m, 'n2(["Every end of sprint"])')
-    assert.includes(m, 'n3["Assemble status notes now"]')
+    assert.includes(m, 'n3["Assemble #quot;status notes#quot; | now"]', 'quotes travel as entity codes, not dropped')
     assert.includes(m, 'n4["Lead time"]', 'an isolated block is declared')
     assert.includes(m, 'n2 --> n3')
-    assert.includes(m, 'n3 -->|feeds| n1')
+    assert.includes(m, 'n3 -->|"feeds"| n1')
     assert.includes(m, `classDef metric stroke:${TYPES.metric.color}`)
     assert.includes(m, 'class n4 metric')
     reset()
   })
 
-  it('round-trips through the app’s own Mermaid importer without losing a block', () => {
+  it('round-trips through the app’s own Mermaid importer without losing a block or a title', () => {
     reset()
     add('d', 'decision', 'Use the queue')
     add('t', 'terminator', 'Quarter end')
+    add('p', 'process', 'Assemble "status notes" | now')
     add('lone', 'goal', 'Leaders see health')
     link('t', 'd')
     const { payload } = parseMermaid(mermaidBlock())
-    assert.eq(payload.blocks.length, 3, 'isolated block included')
+    assert.eq(payload.blocks.length, 4, 'isolated block included')
     const byTitle = Object.fromEntries(payload.blocks.map(b => [b.title, b.type]))
     assert.eq(byTitle['Use the queue'], 'decision')
     assert.eq(byTitle['Quarter end'], 'terminator')
+    assert.eq(byTitle['Assemble "status notes" | now'], 'process', 'the title comes back exactly')
+    assert.eq(byTitle['Leaders see health'], 'goal')
     assert.eq(payload.arrows.length, 1)
     reset()
   })
 
-  it('gives every other type a usable shape, the importer\'s own when it publishes one', () => {
-    // Decision and trigger are the only shapes this file owns. The rest are
-    // the sharing code's call once interop.js exports mermaidShapeFor, and a
-    // plain rectangle until then; either way each is a non-empty pair.
+  it('shapes every type the way the importer reads it', () => {
     reset()
     assert.deepEq(mermaidShape('decision'), ['{', '}'])
     assert.deepEq(mermaidShape('terminator'), ['([', '])'])
-    IDS.filter(t => t !== 'decision' && t !== 'terminator').forEach(t => {
+    IDS.forEach(t => {
       const pair = mermaidShape(t)
       assert.ok(Array.isArray(pair) && pair.length === 2 && pair.every(x => typeof x === 'string' && x), `${t}: ${pair}`)
-      const expected = typeof interop.mermaidShapeFor === 'function' ? interop.mermaidShapeFor(t) : ['[', ']']
-      assert.deepEq(pair, Array.isArray(expected) ? expected : [expected.open, expected.close], t)
+      assert.deepEq(pair, mermaidShapeFor(t), t)
     })
     assert.eq(mermaidBlock(), '')
   })
@@ -1013,8 +1014,10 @@ describe('mermaidBlock() -- types survive, isolated blocks too', () => {
     const m = mermaidBlock()
     const body = m.slice('```mermaid\n'.length, m.lastIndexOf('```'))
     assert.notIncludes(body, '`', 'no backtick inside the fenced graph')
-    assert.includes(m, "Ship '''now'''")
+    assert.includes(m, 'Ship #96;#96;#96;now#96;#96;#96;')
     assert.eq(m.split('```').length, 3, 'exactly one opening and one closing fence')
+    const back = Object.fromEntries(parseMermaid(m).payload.blocks.map(b => [b.type, b.title]))
+    assert.eq(back.decision, 'Ship ```now```', 'and the importer puts them back')
     reset()
   })
 })

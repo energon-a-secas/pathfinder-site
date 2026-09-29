@@ -14,7 +14,6 @@ import { TYPES, TYPE_STEPS, getBlockEl } from '../js/utils.js'
 import { renderBlock, selectBlock, setSelection, selectArrow, deselectAll, undo, mutateBlock } from '../js/render.js'
 import { renderArrows, applyTransform } from '../js/canvas.js'
 import { runGapDetection } from '../js/gaps.js'
-import * as gaps from '../js/gaps.js'
 import { setupInspectorEvents, typeMenuItems, typeCount } from '../js/inspector.js'
 import { GAP_META } from '../js/gaps.js'
 import { closeMenus } from '../js/menu.js'
@@ -257,7 +256,7 @@ describe('Inspector: one block', () => {
     assert.eq(checked.length, 1)
     assert.eq(rowLabel(checked[0]), TYPES.requirement.label)
     assert.includes(checked[0].textContent, TYPES.requirement.short, 'each row carries its one-line meaning')
-    assert.includes(m.querySelector('.insp-type-notes')?.textContent || '', 'Implementation')
+    assert.includes(m.querySelector('.type-menu-notes')?.textContent || '', 'Implementation')
     // Rows follow their step heading: Implementation sits under How.
     const how = [...m.querySelectorAll('.pf-menu-heading')].find(h => h.textContent === 'How')
     const impl = radios.find(r => rowLabel(r) === TYPES.implementation.label)
@@ -299,7 +298,7 @@ describe('Inspector: one block', () => {
     assert.match(rowLabel(first), /^Looks right/)
     first.click()
     assert.eq(state.blocks.c.type, 'process')
-    assert.eq(state.blocks.c.typeCheck, false)
+    assert.ok(!('typeCheck' in state.blocks.c), 'the type check is settled')
     assert.eq(history(), 1)
     assert.ok(!byId('inspTypeBtn').classList.contains('is-unconfirmed'))
   })
@@ -309,7 +308,7 @@ describe('Inspector: one block', () => {
     block('c', { type: 'custom', typeHint: 'hypothesis' })
     selectBlock('c')
     const m = open('inspTypeBtn')
-    assert.includes(m.querySelector('.insp-type-notes')?.textContent || '', 'hypothesis', 'says what it was imported as')
+    assert.includes(m.querySelector('.type-menu-notes')?.textContent || '', 'hypothesis', 'says what it was imported as')
     pick(TYPES.assumption.label)
     assert.eq(state.blocks.c.type, 'assumption')
     assert.ok(!state.blocks.c.typeHint, 'the hint no longer overrides the choice')
@@ -416,7 +415,7 @@ describe('Inspector: one block', () => {
     assert.eq(document.activeElement, byId('inspCriteria'), 'Add criteria goes to the criteria field')
   })
 
-  it('offers Accept only when the insights stream exports acceptGap', () => {
+  it('Accept keeps the gap on purpose, and Reopen brings it back, one undo step each', () => {
     reset()
     block('g')
     block('r', { type: 'requirement' })
@@ -424,11 +423,18 @@ describe('Inspector: one block', () => {
     refresh()
     selectBlock('r')
     const accept = byId('gapFixes').querySelector('.gap-fix-accept')
-    assert.eq(!!accept, typeof gaps.acceptGap === 'function')
-    if (accept) {
-      accept.click()
-      assert.includes(state.blocks.r.gapAck || [], 'gap-no-criteria')
-    }
+    assert.ok(accept, 'Accept is offered for the gap')
+    assert.eq(accept.dataset.accept, 'gap-no-criteria', 'it accepts the gap the fixes answer')
+    accept.click()
+    assert.deepEq(state.blocks.r.gapAck, ['gap-no-criteria'])
+    assert.eq(history(), 1)
+    assert.ok(byId('gapFixesSection').hidden, 'an accepted gap has no suggestions left')
+    const reopen = byId('gapAccepted').querySelector('[data-reopen]')
+    assert.ok(reopen, 'the accepted gap is listed with a way back')
+    reopen.click()
+    assert.ok(!('gapAck' in state.blocks.r), 'reopening the last one drops the list')
+    assert.eq(history(), 2)
+    assert.ok(byId('gapFixes').querySelector('.gap-fix-accept'), 'the gap is offered again')
   })
 
   it('the Colour menu starts with the type colour, and each pick is one undo step', () => {
@@ -596,7 +602,7 @@ describe('Inspector: several blocks', () => {
     assert.eq(m.querySelectorAll('[role=menuitemradio]').length, 16)
     pick(TYPES.risk.label)
     assert.deepEq(['a', 'b', 'c'].map(id => state.blocks[id].type), ['risk', 'risk', 'risk'])
-    assert.eq(state.blocks.c.typeCheck, false, 'choosing confirms an automatic type')
+    assert.ok(!('typeCheck' in state.blocks.c), 'choosing confirms an automatic type')
     assert.eq(history(), 1)
     assert.eq(byId('multiTypeText').textContent, TYPES.risk.label)
     undo()
@@ -1072,7 +1078,7 @@ describe('Inspector: review fixes', () => {
     const r = m.getBoundingClientRect()
     atMost(r.height, 640, `${Math.round(r.height)}px tall`)
     atMost(m.scrollHeight, m.clientHeight + 1, 'nothing below the fold of the menu')
-    const notes = m.querySelector('.insp-type-notes')
+    const notes = m.querySelector('.type-menu-notes')
     atMost(notes.getBoundingClientRect().bottom, r.bottom + 0.5, 'the notes that tell types apart are visible')
     assert.gte(r.top, byId('inspTypeBtn').getBoundingClientRect().bottom - 0.5, 'it does not cover its own button')
     closeMenus()

@@ -130,8 +130,10 @@ describe('buildSvg() -- highlights reach the export', () => {
     addBlock('b', { type: 'problem', highlight: 'focus', y: 400 })
     const withRing = new DOMParser().parseFromString(buildSvg().svg, 'image/svg+xml')
       .querySelectorAll('rect').length
-    // One more card, plus its ring.
-    assert.eq(withRing, plain + 2)
+    // One more card, plus its ring and the tab that names it (FOCUS), as the
+    // card draws it, so the export does not rely on colour either.
+    assert.eq(withRing, plain + 3)
+    assert.includes(buildSvg().svg, '>FOCUS</text>')
   })
 
   it('exports the festive border as a static dash, since a raster cannot animate', () => {

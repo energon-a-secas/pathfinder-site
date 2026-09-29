@@ -14,7 +14,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, view } from './state.js'
-import { $, genId } from './utils.js'
+import { $, genId, DEFAULT_ARROW_WEIGHT } from './utils.js'
 
 // SVG icons for templates (line icons rather than emoji: one palette, one weight)
 export const TICONS = {
@@ -343,7 +343,7 @@ export function applyTemplate(tpl) {
   tpl.arrows.forEach(([fi, ti, label, relation]) => {
     const fId = ids[fi], tId = ids[ti]
     if (fId && tId && fId !== tId) {
-      const arrow = { id: genId(), from: fId, to: tId, style: 'routed', bidirectional: false, color: null, weight: 2, fromPort: null, toPort: null }
+      const arrow = { id: genId(), from: fId, to: tId, style: 'routed', bidirectional: false, color: null, weight: DEFAULT_ARROW_WEIGHT, fromPort: null, toPort: null }
       if (label) arrow.label = label
       if (relation) arrow.relation = relation
       state.arrows.push(arrow)

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  app.js — Entry point: imports everything, initializes
+//  app.js: entry point. Imports everything and initializes.
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta, loadState, loadView } from './state.js'
@@ -129,15 +129,19 @@ function init() {
 
   renderAllBlocks()
   updateHint()
-  requestAnimationFrame(() => {
-    renderArrows()
-    renderFrames()
-    runGapDetection()
-    if (!restoredView && Object.keys(state.blocks).length) fitView()
-    renderInspector()
-    refreshPrompt()
-    refreshQuickCopy()
-  })
+  // Lines, frames and the fit need the cards laid out, and reading a card's
+  // size lays it out, so they run now rather than in requestAnimationFrame:
+  // a background tab or an off-screen embed gets no frames, and sat with no
+  // lines until it was shown. Web fonts arriving later change card heights,
+  // so the lines are drawn once more when they have.
+  renderArrows()
+  renderFrames()
+  runGapDetection()
+  if (!restoredView && Object.keys(state.blocks).length) fitView()
+  renderInspector()
+  refreshPrompt()
+  refreshQuickCopy()
+  document.fonts?.ready?.then(() => { renderArrows({ cheap: false }); renderFrames() }, () => {})
 }
 
 init()

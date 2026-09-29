@@ -77,7 +77,6 @@
       <!-- Canvas library -->
       <div class="export-wrapper" id="mapsWrapper">
         <button class="header-btn" id="mapsBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Your maps">Maps<span class="hdr-caret" aria-hidden="true">▾</span></button>
-        <div class="export-dropdown" id="mapsDropdown"></div>
       </div>
       <input type="file" id="importMapsFile" accept=".json" style="display:none">
 
@@ -94,6 +93,7 @@
           <button type="button" id="copyDiagramInstructions" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 14H6v-2h2v2zm0-3H6V9h2v2zm0-3H6V6h2v2zm7 6h-5v-2h5v2zm3-3h-8V9h8v2zm0-3h-8V6h8v2z"/></svg> Copy AI diagram-builder prompt</button>
           <button type="button" id="exportJSON" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg> Download JSON</button>
           <button type="button" id="exportMarkdown" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12C21.35 6 22 6.63 22 7.41v9.18c0 .78-.65 1.41-1.44 1.41zM6.81 15.19v-3.33l1.56 1.88 1.56-1.88v3.33h1.61V8.81H9.94L8.38 10.7 6.81 8.81H5.2v6.38h1.61zm7.26-3.81h-1.61V8.81h-1.61v2.57H9.24l2.9 3.64 2.9-3.64z"/></svg> Download Markdown</button>
+          <button type="button" id="exportMermaid" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h5v5H5zM14 3h5v5h-5zM9.5 16h5v5h-5zM7 8h2v3.5h6V8h2v5.5h-4V16h-2v-2.5H7z"/></svg> Copy Mermaid</button>
           <button type="button" id="exportJsonCanvas" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg> Download JSON Canvas</button>
           <button type="button" id="exportSpecBundle" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg> Download Spec bundle (zip)</button>
           <button type="button" id="exportPNG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg> Download Image (PNG 2×)</button>
@@ -200,7 +200,7 @@
            is a view-only link, so each view says only what it can do. -->
       <p class="canvas-hint-view">This map is empty.</p>
       <p class="canvas-hint-edit">Double-click empty canvas to add a block, or drag one in from the palette.<br>
-        Double-click a card to edit it.</p>
+        Double-click a card to edit it; click a dot on its edge to add the next block.</p>
     </div>
 
     <!-- Brain Dump empty state: fastest on-ramp from messy text to a canvas -->
@@ -223,7 +223,7 @@
         <section class="map-steps" aria-labelledby="mapStepsTitle">
           <h3 class="map-steps-title" id="mapStepsTitle">Or map it in six steps</h3>
           <div class="map-steps-row" id="mapSteps"></div>
-          <p class="map-steps-hint">Double-click empty canvas to add a block. Double-click a card to edit it.</p>
+          <p class="map-steps-hint">Double-click empty canvas to add a block. Double-click a card to edit it. Click a dot on a card's edge to add the next block there.</p>
         </section>
       </div>
     </div>
@@ -664,7 +664,7 @@
         <div id="promptDiff" class="prompt-diff" style="display:none"></div>
 
         <div class="insp-section" id="patchSection">
-          <div class="insp-label">Bring the answer back <span class="insp-label-hint">paste the assistant's reply; the patch inside updates this canvas</span></div>
+          <div class="insp-label">Paste a reply or a review <span class="insp-label-hint">an assistant's reply or a reviewer's notes; the patch inside updates this canvas</span></div>
           <button class="add-btn" id="patchOpenBtn">Paste a reply…</button>
           <div id="patchPanel" style="display:none">
             <textarea class="insp-textarea" id="patchInput" rows="5"

@@ -30,3 +30,19 @@ describe('templateToPayload()', () => {
     assert.eq(clean.meta.prompt.mode, 'investigate')
   })
 })
+
+describe('the Examples gallery', () => {
+  it('every Load button names an example that exists, the Recurring Reporting Flow included', async () => {
+    const html = await (await fetch('../examples.html', { cache: 'no-store' })).text()
+    const keys = [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('[data-example]')]
+      .map(b => b.dataset.example)
+    assert.includes(keys, 'Recurring Reporting Flow')
+    keys.filter(k => k !== 'checkout').forEach(k =>
+      assert.ok(TEMPLATES.some(t => t.name === k), `"${k}" is a built-in template`))
+    const p = templateToPayload(TEMPLATES.find(t => t.name === 'Recurring Reporting Flow'))
+    assert.eq(Object.keys(p.blocks).length, 16)
+    assert.eq(p.meta.prompt.mode, 'plan')
+    const clean = normalizeCanvas(p)
+    assert.eq(clean.dropped.blocks + clean.dropped.arrows, 0, 'loads without losses')
+  })
+})

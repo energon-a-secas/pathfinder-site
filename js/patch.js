@@ -44,7 +44,7 @@ export function extractPatch(text) {
   }
   if (!data || typeof data !== 'object') return { error: 'The patch is not an object' }
   if (data.blocks && !data.format) {
-    return { error: 'That looks like a whole canvas, not a patch. Use Export ▾ → Import JSON for it' }
+    return { error: 'That looks like a whole canvas, not a patch. Use File, Import JSON / Canvas / Mermaid for it' }
   }
   if (data.format !== 'pathfinder-patch') {
     return { error: 'Missing "format": "pathfinder-patch"' }

@@ -5,6 +5,7 @@ import { detectGaps, CRITERIA_GAPS, GAP_META, FINDING_ACKS, FINDING_META, gapExp
          acceptGap, acceptFinding, unacceptGap } from './gaps.js'
 import { categorizeLine } from './classify.js'
 import { mutateBlocks } from './render.js'
+import { retypeBlocks } from './type-menu.js'
 
 // Open-issue kinds first, in the order the tab lists them. `accepted` is last
 // and is not an open issue: it is listed so an accepted gap stays visible and
@@ -113,6 +114,18 @@ export function suggestTypes(ids = Object.keys(state.blocks)) {
 }
 
 /**
+ * Keep the automatic type on every listed block awaiting a type check, as
+ * one undo step, by the rule every type picker uses (type-menu.js). The
+ * cards' own check is still the way to change one. Returns how many.
+ */
+export function confirmTypes(ids) {
+  if (ui.readOnly || ui.embed) return 0
+  const n = retypeBlocks(ids.filter(id => state.blocks[id]?.typeCheck), null)
+  if (n) showToast(`Kept the type on ${n} block${n === 1 ? '' : 's'}`)
+  return n
+}
+
+/**
  * The action button that sits beside a row ('' for none). A button cannot sit
  * inside the row's own button, so actions are siblings. Nothing in read-only
  * or embed views, where the canvas is someone else's.
@@ -124,6 +137,7 @@ function rowAction(item, i) {
     `<button type="button" class="attention-act" data-attention-act="${act}" data-attention="${i}" aria-label="${escHtml(label)}">${text}</button>`
   if (item.kind === 'canvas') {
     if (item.finding === 'untyped') return btn('suggest-types', 'Suggest types', 'Suggest a type for each untyped block')
+    if (item.finding === 'type-check') return btn('confirm-types', 'Keep all', 'Keep the automatic type on every block awaiting a type check')
     if (item.ack) return btn('accept', 'Accept', `Accept "${item.title}": keep these blocks as they are and stop raising it`)
     return ''
   }
@@ -163,6 +177,7 @@ export function attentionRowsHtml(rows) {
 export function runAttentionAction(act, item) {
   if (!item) return false
   if (act === 'suggest-types') return suggestTypes(item.ids || undefined) > 0
+  if (act === 'confirm-types') return confirmTypes(item.ids || []) > 0
   if (act === 'accept') {
     if (item.kind === 'canvas') {
       const n = acceptFinding({ kind: item.finding, ids: item.ids })

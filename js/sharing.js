@@ -13,13 +13,11 @@
 //  for persistent storage after the first save.
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, canvasMeta, saveStatus, snapshot, primeShareLink, serializeCanvas, isShareHash,
-         getUndoHistory, getRedoFuture, applyPromptOpts, debouncedSave } from './state.js'
+import { state, ui, canvasMeta, saveStatus, snapshot, primeShareLink, serializeCanvas, isShareHash } from './state.js'
 import { STORAGE_KEY, showToast } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { applyImport } from './export.js'
-import { updateCanvasTitle, renderAllBlocks } from './render.js'
-import { renderArrows, renderFrames } from './canvas.js'
+import { updateCanvasTitle } from './render.js'
 import { currentId, ensureLibrary, takeSnapshot, openAsNewMap, exportAllMaps, pointAtThisMap,
          readBackup, writeBackup, recordBackup, lastBackupAt } from './library.js'
 import { collapseTemplatesAfterUse, refreshSituation, refreshCardStyles,
@@ -154,12 +152,12 @@ export function applyIncoming(data, mode, { source = 'link', name = '' } = {}) {
       return null
     }
   }
-  const metaBefore = had && m === 'replace' ? cloneMeta() : null
-  if (had) snapshot()
-  const entry = getUndoHistory().at(-1)
+  // A replace swaps the title, brief, card style, situation and prompt
+  // options too, so its undo step carries the whole framing: one undo brings
+  // back your blocks under your own title, not the teammate's.
+  if (had) snapshot({ framing: m === 'replace' })
   const r = applyImport(data, m)
   afterLoad()
-  if (metaBefore) armMetaUndo(entry, metaBefore, cloneMeta())
   return { mode: m, replacedContent: had && m === 'replace', ...r }
 }
 
@@ -194,76 +192,6 @@ export function incomingMessage(r, what = 'map') {
   if (r.mode === 'merge') return `Merged ${plural(r.imported, 'block')} into your map${tail}`
   if (r.replacedContent) return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back`
   return skipped ? `Loaded the ${what}${tail}` : null
-}
-
-// ── Undo of a replace ────────────────────────────────────────
-// An undo step holds blocks, arrows and groups, but a replace also swaps the
-// title, brief, card style, situation and prompt options. Without this, one
-// undo would bring back your blocks under the teammate's title and save the
-// mix. Undo and redo both end in debouncedSave(), whose 'pending' status
-// event runs this check: the replace's own entry leaving the history while
-// the canvas equals that entry means it was undone, and the canvas equalling
-// the entry the undo pushed means it was redone.
-
-// One entry per replace still in the undo history, so two replaces in a row
-// each put their own framing back.
-let metaUndos = []
-
-const cloneMeta = () => JSON.parse(JSON.stringify(serializeCanvas().meta))
-const canvasJson = () => JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups })
-
-function applyMeta(meta) {
-  const { prompt, ...rest } = JSON.parse(JSON.stringify(meta))
-  const repaint = rest.cardStyle !== canvasMeta.cardStyle
-  Object.assign(canvasMeta, rest)
-  applyPromptOpts(prompt)
-  window.dispatchEvent(new CustomEvent('pf:prompt-opts-changed'))
-  ui.promptDirty = true
-  if (repaint) { renderAllBlocks(); renderArrows({ cheap: false }); renderFrames() }
-  refreshSituation(); refreshCardStyles(); refreshSpotlight()
-  updateCanvasTitle()
-  syncContextBrief()
-}
-
-let metaUndoWired = false
-function armMetaUndo(entry, before, after) {
-  if (!entry) return
-  metaUndos.push({ map: currentId(), before, after, undone: false, entry, at: getUndoHistory().length - 1 })
-  if (metaUndos.length > 10) metaUndos.shift()
-  if (!metaUndoWired) {
-    metaUndoWired = true
-    window.addEventListener('pf:save-status', syncMetaUndo)
-  }
-}
-
-// Whether one replace's undo step still stands, moved (and its framing was
-// put back), or is gone from the history for good.
-function stepMeta(m, history, future) {
-  if (currentId() !== m.map) return false
-  const [here, there] = m.undone ? [future, history] : [history, future]
-  if (here[m.at] === m.entry) return true
-  if (here.length === m.at && there.length && canvasJson() === m.entry) {
-    // The entry this move pushed on the other stack is what the next move
-    // (redo after an undo, undo after a redo) will pop.
-    Object.assign(m, { undone: !m.undone, entry: there.at(-1), at: there.length - 1 })
-    applyMeta(m.undone ? m.before : m.after)
-    return 'moved'
-  }
-  return false
-}
-
-/** Put the framing back to match an undo or redo of a replace. Exported for the tests. */
-export function syncMetaUndo() {
-  if (!metaUndos.length) return
-  const history = getUndoHistory(), future = getRedoFuture()
-  let moved = false
-  metaUndos = metaUndos.filter(m => {
-    const r = stepMeta(m, history, future)
-    if (r === 'moved') moved = true
-    return !!r
-  })
-  // The undo already queued a save; this one carries the framing too.
-  if (moved) debouncedSave()
 }
 
 // ── Another tab changed this map ─────────────────────────────

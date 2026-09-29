@@ -1,20 +1,21 @@
-import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  image-export.js: render the canvas to a crisp SVG / PNG
 //
 //  The diagram is redrawn as a self-contained, native SVG (vector, so
 //  it stays sharp at any size) rather than screenshotting the DOM. Blocks
-//  become rounded rects with a type badge, title, and description; arrows
-//  reuse the same routing math as the live canvas. PNG output rasterizes
-//  that SVG at 2× for a high-resolution bitmap.
+//  follow the card spec (a neutral type label beside a type dot, 14px
+//  titles, 12px descriptions clamped to three lines, 10px badges, the
+//  highlight ring with its word); arrows reuse the same routing math as
+//  the live canvas. PNG output rasterizes that SVG at 2x.
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta } from './state.js'
-import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, DEFAULT_WIDTH, escHtml, showToast } from './utils.js'
+import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, escHtml, showToast } from './utils.js'
+import { lightAccentFor, highlightTabLabel } from './cards.js'
 import { resolveRoutes, pathFor, placeLabels, arrowRoute, arrowPattern, arrowWeight, dashArrayFor,
          headLength, headTrim, colorKey } from './canvas.js'
 
-const PAD = 48          // outer margin; also covers the 6px highlight ring
+const PAD = 48          // outer margin; also covers the 8px highlight ring and its tab
 const BADGE_H = 14
 
 // Rough per-character width for the sans title/desc, used to wrap text
@@ -36,18 +37,33 @@ function wrapText(text, maxWidth, charW) {
   return out
 }
 
-// Connection colours are the canvas's --edge tokens (style.css [lines]), as
-// literals because an exported file carries no stylesheet.
+// Connection colours are the canvas's --edge tokens (style.css [lines]), and
+// card text the --text-* tokens, as literals because an exported file
+// carries no stylesheet.
 function themeColors() {
   return ui.lightMode
-    ? { bg: '#f0f1f5', card: '#ffffff', cardBorder: 'rgba(0,0,0,.14)',
-        title: '#1a1a2e', desc: 'rgba(0,0,0,.62)', meta: 'rgba(0,0,0,.55)',
+    ? { bg: '#f0f1f5', card: '#ffffff', cardBorder: 'rgba(15,23,42,.16)',
+        title: '#0f172a', type: '#334155', desc: '#64748b', meta: '#475569', badge: 'rgba(15,23,42,.06)',
         arrow: '#6b7280', label: '#334155', pill: '#ffffff', pillBorder: 'rgba(15,23,42,.16)',
         frame: 'rgba(0,0,0,.12)', frameLabel: 'rgba(0,0,0,.5)' }
     : { bg: '#040714', card: '#0a0a1a', cardBorder: 'rgba(255,255,255,.14)',
-        title: '#f9f9f9', desc: 'rgba(255,255,255,.6)', meta: 'rgba(255,255,255,.5)',
+        title: '#f9f9f9', type: '#cacaca', desc: 'rgba(255,255,255,.55)', meta: '#cacaca', badge: 'rgba(255,255,255,.08)',
         arrow: '#7c8196', label: '#cacaca', pill: '#0d1020', pillBorder: 'rgba(255,255,255,.12)',
         frame: 'rgba(255,255,255,.1)', frameLabel: 'rgba(255,255,255,.5)' }
+}
+
+// The card box model (style.css .block, .block-header, .block-title,
+// .block-desc): padding, the header row, and the text sizes.
+const CARD = { padX: 12, padTop: 10, header: 20, headerGap: 4, title: 14, titleLine: 19,
+  desc: 12, descLine: 17, descGap: 4, descLines: 3, badge: 10 }
+
+// The first `max` wrapped lines, the last one ending in an ellipsis when
+// text was cut, as -webkit-line-clamp draws it.
+function clampLines(lines, max) {
+  if (lines.length <= max) return lines
+  const out = lines.slice(0, max)
+  out[max - 1] = out[max - 1].replace(/\s*\S*$/, '').trimEnd() + '…'
+  return out
 }
 
 // Build the diagram SVG string plus its intrinsic pixel size.
@@ -156,63 +172,91 @@ export function buildSvg() {
   ids.forEach(id => {
     const b = state.blocks[id], { w, h } = dims[id]
     const x = b.x, y = b.y
-    const accent = b.color || TYPES[b.type]?.color || '#888'
-    const label = TYPES[b.type]?.label || b.type
+    const type = TYPES[b.type] || TYPES.custom
+    const typeColour = ui.lightMode ? type.light : type.color
+    const accent = b.color ? ((ui.lightMode && lightAccentFor(b.color)) || b.color) : typeColour
+    const label = type === TYPES[b.type] ? type.label : String(b.type || type.label)
     const rx = b.type === 'terminator' ? 22 : 10
-    // Match the canvas preset. Before this the export always drew an accent bar
-    // over a neutral border, which was not what any on-screen card looked like.
+    // The canvas preset. The default outline is a quiet edge in the type
+    // colour; the colour's loud part is the dot beside the label.
     const card = b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE
     const bw = b.borderWidth || (card === 'bar' ? 1 : 1.5)
     const edge = card === 'plain' || card === 'header' ? C.cardBorder : accent
+    const edgeOpacity = card === 'bar' ? 0.28 : card === 'plain' || card === 'header' ? 1 : 0.5
     parts.push(`<g${spotlit && !b.highlight ? ' opacity="0.3"' : ''}>`)
-    // Highlight ring first, so the card sits on top of it exactly as on screen.
-    // The festive border animates in the browser and cannot in a raster, so it
-    // exports as a static candy-cane dash rather than as a plain line.
+    // Highlight ring first, so the card sits on top of it exactly as on
+    // screen: 8px out, 2.5px wide, with its word on a tab at the top right.
+    // The festive border marches in the browser only when asked to, and
+    // exports as its still candy-cane dash.
     if (b.highlight && HIGHLIGHTS[b.highlight]) {
       const hc = HIGHLIGHTS[b.highlight].color
-      const dash = b.highlight === 'festive' ? ' stroke-dasharray="9 9"' : ''
-      parts.push(`<rect x="${(x - 6).toFixed(1)}" y="${(y - 6).toFixed(1)}" width="${w + 12}" height="${h + 12}" rx="${rx + 5}" fill="none" stroke="${hc}" stroke-width="3"${dash}/>`)
-      if (b.highlight === 'festive') {
-        parts.push(`<rect x="${(x - 6).toFixed(1)}" y="${(y - 6).toFixed(1)}" width="${w + 12}" height="${h + 12}" rx="${rx + 5}" fill="none" stroke="#34d399" stroke-width="3" stroke-dasharray="9 9" stroke-dashoffset="9"/>`)
+      const ring = `x="${(x - 8).toFixed(1)}" y="${(y - 8).toFixed(1)}" width="${w + 16}" height="${h + 16}" rx="${b.type === 'terminator' ? 30 : rx + 8}" fill="none" stroke-width="2.5"`
+      parts.push(`<rect ${ring} stroke="${hc}"${b.highlight === 'festive' ? ' stroke-dasharray="9 9"' : ''}/>`)
+      if (b.highlight === 'festive') parts.push(`<rect ${ring} stroke="#34d399" stroke-dasharray="9 9" stroke-dashoffset="9"/>`)
+      const word = highlightTabLabel(b.highlight)
+      if (word) {
+        const tw = Math.ceil(word.length * 6.4 + 10), tx = x + w - 14 - tw, ty = y - 7 - 7
+        parts.push(`<rect x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw}" height="14" rx="4" fill="${hc}"/>`)
+        parts.push(`<text x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 7).toFixed(1)}" font-size="9" font-weight="700" letter-spacing="0.5" text-anchor="middle" dominant-baseline="central" fill="#0b0b16">${escHtml(word.toUpperCase())}</text>`)
       }
     }
-    parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${C.card}" stroke="${edge}" stroke-width="${bw}"/>`)
+    parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${C.card}" stroke="${escHtml(edge)}" stroke-opacity="${edgeOpacity}" stroke-width="${bw}"/>`)
     if (card === 'tint') {
       // An overlay rather than a computed blend: the card fill is a theme
       // token that is not always a parseable hex.
-      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${accent}" opacity="0.14"/>`)
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${escHtml(accent)}" opacity="0.14"/>`)
     } else if (card === 'bar') {
-      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="3" height="${h}" rx="1.5" fill="${accent}"/>`)
-    } else if (card === 'header') {
-      parts.push(`<path d="M ${x} ${(y + rx).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${-rx} h ${(w - rx * 2).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${rx} v 16 h ${-w} Z" fill="${accent}"/>`)
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="3" height="${h}" rx="1.5" fill="${escHtml(accent)}"/>`)
     }
-    // Type badge. On the header preset it sits on the accent strip, so it flips
-    // to dark ink for the same reason the canvas does.
-    const badgeFill = card === 'header' ? 'rgba(0,0,0,.78)' : accent
-    parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(y + 18).toFixed(1)}" font-size="9" font-weight="700" letter-spacing="0.7" fill="${badgeFill}">${escHtml(label.toUpperCase())}</text>`)
-    // Title (wrapped)
-    let ty = y + 38
-    if (b.title) {
-      wrapText(b.title, w - 26, 6.6).slice(0, 3).forEach((ln, i) => {
-        parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(ty + i * 15).toFixed(1)}" font-size="13" font-weight="600" fill="${C.title}">${escHtml(ln)}</text>`)
-      })
-      ty += Math.min(3, wrapText(b.title, w - 26, 6.6).length) * 15
+    // The header row. On the header preset it is a strip in the type colour
+    // (tinted in light mode, where the label stays neutral); elsewhere the
+    // label sits beside an 8px dot.
+    let top = y + CARD.padTop
+    let labelInk = C.type, dot = true
+    if (card === 'header') {
+      const sh = CARD.header + 10
+      parts.push(`<path d="M ${x} ${(y + rx).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${-rx} h ${(w - rx * 2).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${rx} v ${sh - rx} h ${-w} Z" fill="${escHtml(accent)}"${ui.lightMode ? ' fill-opacity="0.22"' : ''}/>`)
+      top = y + 5
+      if (!ui.lightMode) { labelInk = b.type === 'context' && !b.color ? '#ffffff' : 'rgba(0,0,0,.82)'; dot = false }
     }
-    // Meta (priority / status)
-    const meta = []
-    if (b.priority) meta.push((PRIORITY_DEFS[b.priority]?.label || b.priority).toUpperCase())
-    if (b.status && b.status !== 'not-started') meta.push(STATUS_DEFS[b.status]?.label || b.status)
-    if (meta.length && !b.collapsed) {
-      ty += 4
-      parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(ty + 8).toFixed(1)}" font-size="9" font-weight="700" fill="${C.meta}">${escHtml(meta.join('  •  '))}</text>`)
-      ty += 14
+    const midY = top + CARD.header / 2
+    let lx = x + CARD.padX
+    if (dot) {
+      parts.push(`<circle cx="${(lx + 4).toFixed(1)}" cy="${midY.toFixed(1)}" r="4" fill="${escHtml(accent)}"/>`)
+      lx += 14
     }
-    // Description (wrapped, multi-line); skipped when the block is collapsed
-    if (b.description && !b.collapsed) {
-      ty += 6
-      wrapText(b.description, w - 26, 5.6).slice(0, 8).forEach((ln, i) => {
-        parts.push(`<text x="${(x + 12).toFixed(1)}" y="${(ty + i * 13).toFixed(1)}" font-size="11" fill="${C.desc}">${escHtml(ln)}</text>`)
-      })
+    parts.push(`<text x="${lx.toFixed(1)}" y="${midY.toFixed(1)}" font-size="10" font-weight="600" letter-spacing="0.4" dominant-baseline="central" fill="${labelInk}">${escHtml(label.toUpperCase())}</text>`)
+    let cy = top + CARD.header + (card === 'header' ? 8 : CARD.headerGap)
+    // Title: 14px/600, every line, as on the card.
+    const inner = w - CARD.padX * 2
+    const titleLines = b.title ? wrapText(b.title, inner, 7.4) : []
+    titleLines.forEach((ln, i) => {
+      parts.push(`<text x="${(x + CARD.padX).toFixed(1)}" y="${(cy + i * CARD.titleLine + 14).toFixed(1)}" font-size="${CARD.title}" font-weight="600" fill="${C.title}">${escHtml(ln)}</text>`)
+    })
+    cy += titleLines.length * CARD.titleLine
+    if (!b.collapsed) {
+      // Description: 12px, muted, clamped to three lines like the card.
+      if (b.description) {
+        cy += CARD.descGap
+        clampLines(wrapText(b.description, inner, 6.2), CARD.descLines).forEach((ln, i) => {
+          parts.push(`<text x="${(x + CARD.padX).toFixed(1)}" y="${(cy + i * CARD.descLine + 12).toFixed(1)}" font-size="${CARD.desc}" fill="${C.desc}">${escHtml(ln)}</text>`)
+        })
+        cy += Math.min(CARD.descLines, wrapText(b.description, inner, 6.2).length) * CARD.descLine
+      }
+      // Priority and status: 10px/600 badges under the text, as on the card.
+      const badges = []
+      if (b.priority) badges.push((PRIORITY_DEFS[b.priority]?.label || b.priority).toUpperCase())
+      if (b.status && b.status !== 'not-started') badges.push(STATUS_DEFS[b.status]?.label || b.status)
+      if (badges.length) {
+        cy += 5
+        let bx = x + CARD.padX
+        badges.forEach(text => {
+          const bwid = Math.ceil(text.length * 6.2 + 12)
+          parts.push(`<rect x="${bx.toFixed(1)}" y="${cy.toFixed(1)}" width="${bwid}" height="16" rx="3" fill="${C.badge}"/>`)
+          parts.push(`<text x="${(bx + bwid / 2).toFixed(1)}" y="${(cy + 8).toFixed(1)}" font-size="${CARD.badge}" font-weight="600" text-anchor="middle" dominant-baseline="central" fill="${C.meta}">${escHtml(text)}</text>`)
+          bx += bwid + 4
+        })
+      }
     }
     parts.push(`</g>`)
   })

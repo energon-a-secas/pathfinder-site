@@ -4,8 +4,8 @@ import { dependencyEdges, connectionLabel, impliedVerb, relationOf } from './rel
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
-import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, escHtml, typeInfo } from './utils.js'
-import { runGapDetection, GAP_META } from './gaps.js'
+import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, typeInfo, askedQuestions } from './utils.js'
+import { runGapDetection, GAP_META, nextEmptyStep } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 import { taskChecklist } from './task-plan.js'
 
@@ -158,9 +158,10 @@ export function generatePrompt() {
       const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
       s += `\n  Referenced doc: ${ref}${b.docRef.href && b.docRef.label ? ` (${b.docRef.href}${anchor})` : anchor}`
     }
-    if ((b.questions||[]).length) {
+    const asked = askedQuestions(b)
+    if (asked.length) {
       s += '\n  Open questions:'
-      b.questions.forEach(q => {
+      asked.forEach(q => {
         s += `\n    - ${q.text}`
         if (q.answer?.trim()) s += `\n      Answer: ${q.answer.trim().replace(/\n/g, '\n      ')}`
       })
@@ -583,9 +584,16 @@ export function refreshPrompt() {
       const grade = score >= 80 ? 'a' : score >= 50 ? 'b' : 'c'
       const label = score >= 80 ? 'Healthy' : score >= 50 ? 'Needs attention' : 'Critical gaps'
       const tips  = []
-      if (gCount)                                                      tips.push(`${gCount} gap${gCount>1?'s':''}`)
-      if (!Object.values(state.blocks).some(b => b.type === 'goal') && bCount >= 3) tips.push('no goal defined')
-      if (Object.values(state.blocks).filter(b => !b.description?.trim()).length > 2) tips.push('blocks missing descriptions')
+      const blocks = Object.values(state.blocks)
+      if (gCount) tips.push(`${gCount} gap${gCount>1?'s':''}`)
+      // The same test as the score and the canvas "no Why" finding: a Problem
+      // answers the Why as well as a Goal does.
+      if (!blocks.some(b => TYPES[b.type]?.step === 'why') && bCount >= 3) tips.push('no Goal or Problem')
+      if (blocks.filter(b => !b.description?.trim()).length > 2) tips.push('blocks missing descriptions')
+      // The next question to ask: the first of the six steps with no block
+      // (a missing Why already has its own tip above).
+      const next = nextEmptyStep(state.blocks)
+      if (next && next.id !== 'why' && bCount >= 3) tips.push(`next: ${next.label}, ${next.hint}`)
       healthBar.style.display = ''
       healthBar.innerHTML =
         `<div class="health-score grade-${grade}">${score}</div>` +

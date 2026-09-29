@@ -9,7 +9,7 @@
 //  items (no id/type) are dropped and counted.
 // ════════════════════════════════════════════════════════════
 
-import { resolveTypeId, DEFAULT_WIDTH, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
+import { resolveTypeId, STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS,
          CARD_STYLES, DEFAULT_CARD_STYLE, BORDER_WIDTHS,
          SITUATION_FIELDS, SITUATION_DEFAULT, HIGHLIGHTS,
          PROMPT_MODES, PROMPT_TONES, PROMPT_DETAILS, PRE_PROMPTS, PROMPT_OPTS_DEFAULT } from './utils.js'

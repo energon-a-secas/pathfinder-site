@@ -43,9 +43,12 @@ export function closeMenus({ restoreFocus = false } = {}) {
   root = null
   stack.forEach(m => m.el.remove())
   stack = []
+  // preventScroll: the element a menu hands focus back to may be a card
+  // partly off screen, and the canvas pans by transform, so a scroll there
+  // would put everything drawn out of step with the pointer.
   if (restoreFocus) {
     const target = r.returnFocus
-    if (target && target.isConnected && typeof target.focus === 'function') target.focus()
+    if (target && target.isConnected && typeof target.focus === 'function') target.focus({ preventScroll: true })
   }
   try { r.onClose?.() } catch (err) { console.error(err) }
 }

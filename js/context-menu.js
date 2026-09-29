@@ -14,34 +14,29 @@
 //     picker (double-click on empty canvas, port drop). opts:
 //     { suggested, title, onPick(type, world), onCancel }
 //   openBlockMenu / openMultiMenu / openArrowMenu / openCanvasMenu
-//   zoomToBlocks(ids), zoomToActualSize()
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, ui, view, pointer, snapshot, toWorld, debouncedSave,
-         getUndoHistory, getRedoFuture } from './state.js'
-import { $, TYPES, typesByStep, TYPE_DISAMBIGUATION, STATUS_DEFS, PRIORITY_DEFS, HIGHLIGHTS,
-         SWATCH_COLORS, SWATCH_NAMES, MIN_ZOOM, MAX_ZOOM, DEFAULT_WIDTH,
-         clamp, genId, getBlockEl, getBlockDims, showToast } from './utils.js'
+import { state, selection, ui, view, pointer, snapshot, toWorld, debouncedSave } from './state.js'
+import { $, TYPES, typesByStep, STATUS_DEFS, PRIORITY_DEFS, HIGHLIGHTS,
+         SWATCH_COLORS, SWATCH_NAMES, DEFAULT_WIDTH, genId, getBlockEl, showToast } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint,
          arrowRoute, arrowPattern, ARROW_ROUTES } from './canvas.js'
-import { selectBlock, setSelection, selectArrow, renderAllBlocks, renderInspector,
+import { selectBlock, setSelection, selectArrow, renderInspector,
          mutateBlock, mutateBlocks, mutateArrow, deleteBlock, deleteBlocksBatch,
          deleteArrow, duplicateBlock, addArrow, createGroup } from './render.js'
 import { openMenu, isMenuOpen } from './menu.js'
+import { typeDot, typeRow, typeNoteItem, typeMenuItems, retypeBlocks, typeNoun } from './type-menu.js'
 import { createBlockAt, createConnected, insertOnArrow, suggestedNextTypes,
          defaultConnectDirection } from './create.js'
 import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
 import { RELATIONS, relationOf, impliedVerb } from './relations.js'
-import { alignSelection, distributeSelection } from './align.js'
+import { arrangeSelection } from './align.js'
 import { createBlocksFromText } from './classify.js'
-import { runGapDetection } from './gaps.js'
 import { focusBlock, runTidy } from './ui-panels.js'
-import { showPanels } from './chrome.js'
-// Feature-detected: NAVIGATION may export zoom helpers and INSPECTOR a way
-// to reveal a question field. Until they do, the local fallbacks below run.
-import * as zoomNav from './zoom-controls.js'
-import * as inspectorMod from './inspector.js'
+import { withCameraHeld } from './navigation.js'
+import { zoomTo, zoomToBlocks } from './zoom-controls.js'
+import { focusQuestion } from './inspector.js'
 
 // ── Small helpers ────────────────────────────────────────────
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '')
@@ -90,22 +85,12 @@ const I = {
   group:     svg('<rect x="3" y="3" width="18" height="18" rx="3" stroke-dasharray="3 2.5"/><rect x="7" y="7" width="4" height="4" rx="1"/><rect x="13" y="13" width="4" height="4" rx="1"/>'),
 }
 
-const typeColor = t => (ui.lightMode ? TYPES[t]?.light : null) || TYPES[t]?.color || '#94a3b8'
 const titleOf = b => (b?.title || '').trim() || 'Untitled'
 const arrowById = aid => state.arrows.find(a => a.id === aid)
 
-function pluralWord(w) {
-  if (/(s|x|ch|sh)$/i.test(w)) return w + 'es'
-  if (/[^aeiou]y$/i.test(w)) return w.slice(0, -1) + 'ies'
-  return w + 's'
-}
-
-/** "risk" / "risks", "open question" / "open questions", "trigger / ends" style. */
-export function typeNoun(type, n = 1) {
-  const label = (TYPES[type]?.label || type || 'block').toLowerCase()
-  if (n === 1) return label
-  return label.split(' / ').map(part => part.replace(/(\S+)$/, pluralWord)).join(' / ')
-}
+// The words for a type come from type-menu.js, so the menus' tally and the
+// inspector's read the same.
+export { typeNoun }
 
 /** "5 blocks: 3 problems, 2 requirements", or "3 problems" when all match. */
 export function selectionTally(ids) {
@@ -163,16 +148,10 @@ function keepFocus() {
 }
 
 // The viewport is overflow:hidden and pans by transform, so it must never
-// scroll. A plain focus() on a card that is partly or wholly off-screen
-// scrolls it anyway, and from then on the canvas is drawn out of step with
-// view.pan: every click and drop maps to the wrong world point. menu.js
-// hands focus back with a plain focus(), so the menus here give it a target
-// that focuses without scrolling, and undo any scroll that slipped through.
-function focusBack(el) {
-  if (!el || typeof el.focus !== 'function') return undefined
-  return { get isConnected() { return el.isConnected }, focus: () => el.focus({ preventScroll: true }) }
-}
-
+// scroll: from then on the canvas is drawn out of step with view.pan, and
+// every click and drop maps to the wrong world point. menu.js hands focus
+// back without scrolling; these menus also undo any scroll that slipped
+// through (a focused card the chosen action moved, say).
 function unscrollViewport() {
   const vp = $.canvasViewport()
   if (vp && (vp.scrollLeft || vp.scrollTop)) { vp.scrollLeft = 0; vp.scrollTop = 0 }
@@ -190,7 +169,6 @@ function openCtxMenu(items, opts) {
   const onClose = opts.onClose
   const m = openMenu(items, {
     ...opts,
-    returnFocus: focusBack(opts.returnFocus || document.activeElement),
     onClose: () => { guardScroll(); onClose?.() },
   })
   tagRows(m.el, items)
@@ -256,66 +234,18 @@ function applyArrow(aid, changes) {
   return mutateArrow(aid, diff)
 }
 
-// Choosing a type is also the answer to "is this typed right?", so it
-// clears a pending type check.
-const typeChange = t => b => ({ type: t, ...(b.typeCheck ? { typeCheck: false } : {}) })
+// Choosing a type is also the answer to "is this typed right?": retypeBlock
+// (type-menu.js) settles the check the same way every type picker does.
+// Blocks the pick would not change take no undo step.
+function retypeAll(ids, t) {
+  const n = retypeBlocks(ids, t)
+  if (n) renderInspector()
+  return n
+}
 
 // ── View helpers ─────────────────────────────────────────────
-// NAVIGATION owns the camera (zoom-controls.js: zoomTo(z) and
-// zoomToSelection(), which frames the current selection and takes no
-// arguments). These run its functions when they exist, so a menu row and its
-// shortcut do the same thing. The local fallbacks below only cover a build
-// without them, and can go once NAVIGATION has merged.
-const sameAsSelection = ids => ids.length === selection.ids.size && ids.every(id => selection.ids.has(id))
-
-function animateView(target) {
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  if (reduce) { Object.assign(view, target); applyTransform(); return }
-  const start = performance.now()
-  const from = { panX: view.panX, panY: view.panY, zoom: view.zoom }
-  ;(function step(now) {
-    const t = Math.min((now - start) / 280, 1)
-    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
-    view.panX = from.panX + (target.panX - from.panX) * ease
-    view.panY = from.panY + (target.panY - from.panY) * ease
-    view.zoom = from.zoom + (target.zoom - from.zoom) * ease
-    applyTransform()
-    if (t < 1) requestAnimationFrame(step)
-  })(start)
-}
-
-/**
- * Frame the given blocks: one block the way focusBlock does (at least 100%,
- * centred), several fitted, never zooming in past 100% (or the current zoom).
- */
-export function zoomToBlocks(ids) {
-  const live = ids.filter(id => state.blocks[id])
-  if (!live.length) return
-  if (typeof zoomNav.zoomToSelection === 'function' && sameAsSelection(live)) { zoomNav.zoomToSelection(); return }
-  if (live.length === 1) { focusBlock(live[0]); return }
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  live.forEach(id => {
-    const b = state.blocks[id], { w, h } = getBlockDims(id)
-    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
-    maxX = Math.max(maxX, b.x + (w || 220)); maxY = Math.max(maxY, b.y + (h || 100))
-  })
-  const vp = $.canvasViewport()
-  const vpW = vp.offsetWidth, vpH = vp.offsetHeight
-  if (!vpW || !vpH) return
-  const pad = 80
-  const zoom = clamp(Math.min(vpW / (maxX - minX + pad * 2), vpH / (maxY - minY + pad * 2)),
-    MIN_ZOOM, Math.min(MAX_ZOOM, Math.max(1, view.zoom)))
-  animateView({ zoom, panX: vpW / 2 - (minX + maxX) / 2 * zoom, panY: vpH / 2 - (minY + maxY) / 2 * zoom })
-}
-
-/** 100%, keeping whatever is at the centre of the viewport where it is. */
-export function zoomToActualSize() {
-  if (typeof zoomNav.zoomTo === 'function') { zoomNav.zoomTo(1); return }
-  const vp = $.canvasViewport()
-  const cx = vp.offsetWidth / 2, cy = vp.offsetHeight / 2
-  const w = toWorld(cx, cy)
-  animateView({ zoom: 1, panX: cx - w.x, panY: cy - w.y })
-}
+// The camera is zoom-controls.js's: a menu row and its shortcut (Shift+2,
+// Shift+0) run the same function, so they cannot frame differently.
 
 // ── Graph helpers ────────────────────────────────────────────
 // The block one step along `a` from `cur`, going down (with the arrow) or
@@ -376,68 +306,22 @@ function connectHint(id, other) {
 }
 
 // ── Shared submenus ──────────────────────────────────────────
-/**
- * What a type is for, in one line: the sentence that separates it from the
- * type people confuse it with when there is one, else its short text.
- */
-function typeNote(t) {
-  const label = TYPES[t]?.label
-  if (!label) return ''
-  return TYPE_DISAMBIGUATION.find(s => s.includes(label)) || `${label}: ${TYPES[t].short}`
-}
+// Type lists come from type-menu.js. These menus are narrow, so they end on
+// one line describing the row under the pointer rather than every line.
 
-// A type row. `short` rides along as the hint, so a filter finds a type by
-// what it means ("deliverable", "measurable") and the row carries it as its
-// description. Lists with a type note hide the hint line and show the
-// pointed-at row's note once, at the foot, instead of doubling every row.
-const typeRow = (t, extra) => ({ label: TYPES[t].label, dot: typeColor(t), hint: TYPES[t].short, ...extra })
-
-const NOTE_PROMPT = 'Point at a type to see when to use it.'
-
-/** The foot of a type list: describes the row under the pointer or focus. */
-function typeNoteItem(initialType = null) {
-  return { type: 'custom', render: c => {
-    c.classList.add('ctx-type-note-wrap')
-    const p = document.createElement('p')
-    p.className = 'ctx-type-note'
-    p.textContent = (initialType && typeNote(initialType)) || NOTE_PROMPT
-    c.appendChild(p)
-    const byLabel = new Map(Object.keys(TYPES).map(t => [TYPES[t].label, t]))
-    const show = node => {
-      const row = node?.closest?.('.pf-menu-item')
-      const t = row && byLabel.get(row.querySelector('.pf-menu-label')?.textContent)
-      if (t) p.textContent = typeNote(t)
-    }
-    // menu.js appends this node to its menu once render returns.
-    queueMicrotask(() => {
-      const menu = c.parentElement
-      if (!menu) return
-      menu.addEventListener('mouseover', e => show(e.target))
-      menu.addEventListener('focusin', e => show(e.target))
-      if (menu.contains(document.activeElement)) show(document.activeElement)
-    })
-  } }
-}
-
-function groupedTypeRows(makeRow, exclude = new Set()) {
+// Every type grouped by step, for a list of actions rather than a choice.
+function groupedTypeRows(makeRow) {
   const out = []
   typesByStep().forEach(g => {
-    const types = g.types.filter(t => !exclude.has(t))
-    if (!types.length) return
+    if (!g.types.length) return
     out.push({ type: 'heading', label: g.label })
-    types.forEach(t => out.push(makeRow(t)))
+    g.types.forEach(t => out.push(makeRow(t)))
   })
   return out
 }
 
 function changeTypeItems(ids) {
-  const cur = shared(ids, b => b.type)
-  return [
-    ...groupedTypeRows(t => typeRow(t, {
-      radio: true, checked: cur === t, action: () => applyBlocks(ids, typeChange(t)),
-    })),
-    typeNoteItem(cur),
-  ]
+  return typeMenuItems(shared(ids, b => b.type) ?? null, t => retypeAll(ids, t), { notes: 'pointer' })
 }
 
 function statusItems(ids) {
@@ -480,7 +364,7 @@ function colourItems(id) {
   return [{
     type: 'swatches', label: 'Colour',
     options: [
-      { value: '', color: typeColor(b.type), label: 'Type colour (default)', active: !b.color, className: 'ctx-sw-default' },
+      { value: '', color: typeDot(b.type), label: 'Type colour (default)', active: !b.color, className: 'ctx-sw-default' },
       ...SWATCH_COLORS.map(c => ({ value: c, color: c, label: SWATCH_NAMES[c] || c, active: b.color === c })),
     ],
     onPick: v => applyBlocks([id], { color: v || null }),
@@ -512,7 +396,7 @@ function connectToItems(id) {
   return [
     { type: 'search', placeholder: 'Find a block', label: 'Find a block to connect to' },
     ...targets.map(o => ({
-      label: titleOf(o), hint: connectHint(id, o.id), dot: typeColor(o.type),
+      label: titleOf(o), hint: connectHint(id, o.id), dot: typeDot(o.type),
       action: () => {
         const plan = connectPlan(id, o.id)
         const aid = addArrow(plan.from, plan.to)
@@ -535,19 +419,7 @@ function addQuestion(id) {
     mutateBlock(id, { questions: [...qs, { text: '' }] }, { undo: true })
     index = qs.length
   }
-  selectBlock(id)
-  if (typeof inspectorMod.focusQuestion === 'function') { inspectorMod.focusQuestion(id, index); return }
-  // Questions are edited in the inspector: bring the panel back, then put
-  // the caret in the new, empty question.
-  showPanels()
-  if (document.getElementById('rightPanel')?.classList.contains('collapsed')) document.getElementById('panelReopenBtn')?.click()
-  document.querySelector('.panel-tab[data-tab="inspector"]')?.click()
-  const inputs = document.querySelectorAll('#questionsList input[data-qi]')
-  const last = inputs[inputs.length - 1]
-  if (!last) { showToast('Question added. Type it in the inspector', 'info', 2000); return }
-  const details = last.closest('details')
-  if (details) details.open = true
-  last.focus()
+  focusQuestion(id, index)
 }
 
 function blockMenuItems(id) {
@@ -605,30 +477,6 @@ const ALIGN_ROWS = [
   ['top', 'Top edges'], ['vcenter', 'Middles'], ['bottom', 'Bottom edges'],
 ]
 
-/**
- * Run an align or distribute. align.js snapshots before it knows whether
- * anything will move, so a pick that moves nothing takes that undo step back
- * (and the redo steps it cleared): Cmd+Z must never land on a no-op.
- */
-function arrange(ids, run, verb, already) {
-  const pos = new Map(ids.filter(id => state.blocks[id]).map(id => [id, [state.blocks[id].x, state.blocks[id].y]]))
-  const hist = getUndoHistory()
-  const top = hist[hist.length - 1], redo = [...getRedoFuture()]
-  const n = run()
-  const moved = [...pos].some(([id, [x, y]]) => state.blocks[id] && (state.blocks[id].x !== x || state.blocks[id].y !== y))
-  if (!moved) {
-    if (hist.length && hist[hist.length - 1] !== top) { hist.pop(); getRedoFuture().push(...redo) }
-    if (n) showToast(already, 'info', 1400)
-    return
-  }
-  renderAllBlocks()
-  renderArrows({ cheap: false })
-  renderFrames()
-  // renderAllBlocks rebuilds each card's classes; paint the gaps back.
-  runGapDetection()
-  showToast(`${verb} ${n} blocks`, 'success', 1400)
-}
-
 function duplicateAll(ids) {
   const live = ids.filter(id => state.blocks[id])
   if (!live.length) return []
@@ -665,13 +513,13 @@ function multiMenuItems(ids) {
     { ctx: 'status', label: 'Status', icon: I.status, submenu: () => statusItems(ids) },
     { ctx: 'highlight', label: 'Highlight', icon: I.highlight, submenu: () => highlightItems(ids) },
     n >= 2 && { ctx: 'align', label: 'Align', icon: I.align, submenu: () => tidyItems(ALIGN_ROWS.map(r => r ? {
-      label: r[1], action: () => arrange(ids, () => alignSelection(ids, r[0]), 'Aligned', 'Already aligned'),
+      label: r[1], action: () => arrangeSelection('align', ids, r[0]),
     } : DIV)) },
     n >= 3 && { ctx: 'distribute', label: 'Distribute', icon: I.distribute, submenu: () => [
       { label: 'Horizontally', hint: 'Even gaps left to right',
-        action: () => arrange(ids, () => distributeSelection(ids, 'h'), 'Spaced', 'Already evenly spaced') },
+        action: () => arrangeSelection('distribute', ids, 'h') },
       { label: 'Vertically', hint: 'Even gaps top to bottom',
-        action: () => arrange(ids, () => distributeSelection(ids, 'v'), 'Spaced', 'Already evenly spaced') },
+        action: () => arrangeSelection('distribute', ids, 'v') },
     ] },
     !oneGroup && { ctx: 'group', label: 'Group into frame', icon: I.group, action: () => {
       if (createGroup(ids)) showToast(`Grouped ${n} blocks. Name the frame in the inspector`, 'success', 2000)
@@ -816,9 +664,6 @@ export function movePastedTo(ids, w) {
     // low-confidence classes the paste just painted.
     const el = getBlockEl(id)
     if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px' }
-    // Type chips float above their cards as siblings; keep them attached.
-    const chip = document.querySelector(`.type-chip[data-bid="${CSS.escape(id)}"]`)
-    if (chip) { chip.style.left = b.x + 'px'; chip.style.top = (b.y - 26) + 'px' }
   })
   renderArrows({ cheap: false })
   renderFrames()
@@ -838,7 +683,7 @@ async function pasteAsBlocks(w) {
 function canvasMenuItems(clientX, clientY) {
   const nav = [
     { ctx: 'fit', label: 'Fit', icon: I.fit, shortcut: 'Shift+1', action: () => fitView() },
-    { ctx: 'actual-size', label: 'Zoom to 100%', icon: I.actual, shortcut: 'Shift+0', action: () => zoomToActualSize() },
+    { ctx: 'actual-size', label: 'Zoom to 100%', icon: I.actual, shortcut: 'Shift+0', action: () => zoomTo(1) },
   ]
   if (ui.readOnly) return nav
   const w = worldAt(clientX, clientY)
@@ -870,12 +715,16 @@ export function openCanvasMenu(clientX, clientY) {
  * The quick-add picker, the canvas menu's add section on its own: the
  * suggested types (when given), the core types and More types, under a
  * filter box that searches all of them, by name or by meaning. Double-
- * clicking empty canvas opens it; the block lands centred on the pointer and
+ * clicking empty canvas opens it, and so does a connection dropped on empty
+ * canvas (navigation.js openQuickCreate). By default the block lands centred
+ * on the pointer, with the camera held so it stays under the pointer, and
  * opens in title editing. Optional `opts`:
  *   suggested: type ids listed first under "Suggested"
  *   title: heading text (default "Add block here")
  *   onPick(type, worldPoint): replaces the default createBlockAt
  *   onCancel(): the menu closed without a pick
+ *   onClose(): the menu closed, picked or not
+ *   returnFocus, className: passed to the menu
  */
 export function openCanvasAddMenu(clientX, clientY, opts = {}) {
   if (ui.readOnly) return null
@@ -885,7 +734,7 @@ export function openCanvasAddMenu(clientX, clientY, opts = {}) {
   const pick = t => {
     picked = true
     if (typeof opts.onPick === 'function') opts.onPick(t, w)
-    else createBlockAt(t, w.x, w.y)
+    else withCameraHeld(() => createBlockAt(t, w.x, w.y))
   }
   const suggested = [...new Set((opts.suggested || []).filter(t => Object.hasOwn(TYPES, t)))]
   const rest = Object.keys(TYPES).filter(t => !suggested.includes(t))
@@ -907,10 +756,11 @@ export function openCanvasAddMenu(clientX, clientY, opts = {}) {
     typeNoteItem(),
   ])
   const m = openCtxMenu(items, {
-    x: clientX, y: clientY, className: 'ctx-add-menu', label: 'Add a block here',
+    x: clientX, y: clientY, className: ('ctx-add-menu ' + (opts.className || '')).trim(), label: opts.label || 'Add a block here',
+    ...(opts.returnFocus ? { returnFocus: opts.returnFocus } : {}),
     // menu.js closes before it runs the chosen action, so decide "cancelled"
-    // once that action has had its turn.
-    onClose: () => queueMicrotask(() => { if (!picked) opts.onCancel?.() }),
+    // once that action has had its turn. onClose runs at once, like menu.js's.
+    onClose: () => { opts.onClose?.(); queueMicrotask(() => { if (!picked) opts.onCancel?.() }) },
   })
   const filterOnly = items.map((it, i) => it.filterOnly && m.el.children[i]).filter(Boolean)
   const input = m.el.querySelector('.pf-menu-search-input')

@@ -11,12 +11,12 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, view, GRID, snapshotOnce, snapTo } from './state.js'
-import { $, TYPES, STATUS_DEFS, DEFAULT_WIDTH, getBlockDims, getBlockEl, typesByStep } from './utils.js'
+import { $, TYPES, STATUS_DEFS, getBlockEl } from './utils.js'
 import { applyTransform, renderArrows } from './canvas.js'
 import { renderBlock, selectBlock, addArrow, mutateBlocks } from './render.js'
-import { createBlockAt, createConnected, suggestedNextTypes, defaultConnectDirection } from './create.js'
+import { createBlockAt, createConnected, suggestedNextTypes, defaultConnectDirection, blockSize } from './create.js'
 import { startInlineEdit } from './inline-edit.js'
-import { openMenu } from './menu.js'
+import { openCanvasAddMenu } from './context-menu.js'
 import { releaseTidyPins } from './layout.js'
 
 // Blocks whose tops are within this many pixels read as one row.
@@ -37,6 +37,15 @@ export function isTyping() {
   const ae = document.activeElement
   const tag = ae?.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable === true
+}
+
+/**
+ * A modal dialog (the incoming-link chooser) owns the keyboard until it
+ * closes: nothing behind it may delete, undo or zoom. `:modal` matches only
+ * a dialog opened with showModal(), which is what makes the page inert.
+ */
+export function modalDialogOpen() {
+  try { return !!document.querySelector('dialog:modal') } catch (_) { return false }
 }
 
 /**
@@ -110,15 +119,9 @@ export function revealShift(a1, a2, size, pad) {
   return 0
 }
 
-// Rendered size, or a fair estimate when the card is not laid out.
-function dimsOf(id) {
-  const d = getBlockDims(id)
-  const b = state.blocks[id]
-  return { w: d.w || b?.width || DEFAULT_WIDTH, h: d.h || 100 }
-}
 
 function centreOf(b) {
-  const { w, h } = dimsOf(b.id)
+  const { w, h } = blockSize(b.id)
   return { x: b.x + w / 2, y: b.y + h / 2 }
 }
 
@@ -318,7 +321,7 @@ export function createFromDrop(fromId, fromPort, type, wx, wy) {
   const id = createBlockAt(type, wx, wy, { edit: false, select: true })   // the one snapshot
   if (!id) return null
   const b = state.blocks[id]
-  const { w, h } = dimsOf(id)
+  const { w, h } = blockSize(id)
   if (side === 'left')       { b.x = wx;         b.y = wy - h / 2 }
   else if (side === 'right') { b.x = wx - w;     b.y = wy - h / 2 }
   else if (side === 'top')   { b.x = wx - w / 2; b.y = wy }
@@ -338,37 +341,24 @@ export function createFromDrop(fromId, fromPort, type, wx, wy) {
   return id
 }
 
-function typeItem(t, onPick) {
-  const cfg = TYPES[t]
-  return { label: cfg.label, dot: `var(--c-${t}, ${cfg.color})`, hint: cfg.short || '', action: () => onPick(t) }
-}
-
 /**
- * The type picker for a connection dropped on empty canvas: suggested
- * successors of the source type first, then every other type by step.
- * Typing filters, Enter picks the first match, Escape creates nothing.
+ * The type picker for a connection dropped on empty canvas: the quick-add
+ * picker (context-menu.js) with the source type's suggested successors
+ * first. Typing filters, Enter picks the first match, Escape creates
+ * nothing. Closing hands focus to the canvas, not to the source card the
+ * press happened to focus: refocusing a card that is partly off screen pans
+ * the camera before the new block has even been placed.
  */
 export function openQuickCreate({ fromId, fromPort = null, clientX, clientY, wx, wy, onClose } = {}) {
   const src = state.blocks[fromId]
   if (!src || ui.readOnly) { onClose?.(); return null }
-  const pick = t => createFromDrop(fromId, fromPort, t, wx, wy)
-  const suggested = suggestedNextTypes(src.type)
-  const items = [{ type: 'search', placeholder: 'Filter types', label: 'Filter block types' }]
-  if (suggested.length) {
-    items.push({ type: 'heading', label: `Suggested after ${TYPES[src.type]?.label || src.type}` })
-    suggested.forEach(t => items.push(typeItem(t, pick)))
-  }
-  typesByStep().forEach(g => {
-    const rest = g.types.filter(t => !suggested.includes(t))
-    if (!rest.length) return
-    items.push({ type: 'heading', label: g.label })
-    rest.forEach(t => items.push(typeItem(t, pick)))
-  })
-  // Closing hands focus to the canvas, not to the source card the press
-  // happened to focus: refocusing a card that is partly off screen pans the
-  // camera, before the new block has even been placed.
-  return openMenu(items, {
-    x: clientX, y: clientY, className: 'pf-quick-create', label: 'Add a connected block', onClose,
+  return openCanvasAddMenu(clientX, clientY, {
+    suggested: suggestedNextTypes(src.type),
+    title: `Add after ${TYPES[src.type]?.label || src.type}`,
+    label: 'Add a connected block',
+    className: 'pf-quick-create',
     returnFocus: $.canvasViewport(),
+    onPick: t => createFromDrop(fromId, fromPort, t, wx, wy),
+    onClose,
   })
 }

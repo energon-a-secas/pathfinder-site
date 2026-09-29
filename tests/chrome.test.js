@@ -15,7 +15,8 @@ import { runGapDetection } from '../js/gaps.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
 import { getPref, applyPrefs } from '../js/prefs.js'
 import { isVotingMode, setVotingMode } from '../js/voting.js'
-import { clearCanvas, getLayoutDir, setLayoutDir, setupDropdownKeyboard, undoKeyLabel } from '../js/ui-panels.js'
+import { clearCanvas, getLayoutDir, setLayoutDir, undoKeyLabel } from '../js/ui-panels.js'
+import { mapsMenuItems } from '../js/library.js'
 import { viewMenuItems, fileMenuItems, shareMenuItems, tidyMenuItems, helpMenuItems, cardStyleItems,
          openViewMenu, openHeaderMenu, closeInlineMenus, setupViewMenu,
          setLightMode, setArrowText, setSnapToGrid } from '../js/view-menu.js'
@@ -103,9 +104,9 @@ describe('chrome -- header markup', () => {
 
   it('keeps every id that other modules look up', async () => {
     const doc = await page()
-    ;['mapsWrapper', 'mapsBtn', 'mapsDropdown', 'importMapsFile', 'exportWrapper', 'exportBtn',
+    ;['mapsWrapper', 'mapsBtn', 'importMapsFile', 'exportWrapper', 'exportBtn',
       'importFile', 'importJSON', 'exportCopyPrompt', 'copyDiagramInstructions', 'exportJSON',
-      'exportMarkdown', 'exportJsonCanvas', 'exportSpecBundle', 'exportPNG', 'exportSVG',
+      'exportMarkdown', 'exportMermaid', 'exportJsonCanvas', 'exportSpecBundle', 'exportPNG', 'exportSVG',
       'exportMeetingSummary', 'exportToPresentationSage', 'clearBtn', 'shareWrapper', 'shareBtn',
       'shareCopyLink', 'shareCopyReadOnly', 'shareCopyEmbed', 'tidyBtn', 'helpBtn',
       'readonlyBadge', 'canvasTitle'].forEach(id =>
@@ -181,14 +182,14 @@ describe('chrome -- File menu', () => {
     assert.eq(last.rowId, 'clearBtn')
     assert.ok(last.danger, 'Clear is a danger item')
     assert.eq(items[items.length - 2].type, 'divider', 'a divider before Clear')
-    assert.eq(rows.length, 12)
+    assert.eq(rows.length, 13)
     assert.ok(rows.every(r => r.icon && r.icon.startsWith('<svg')))
   })
 
-  it('a view-only link keeps only the image and Markdown downloads', async () => {
+  it('a view-only link keeps only the image, Markdown and Mermaid exports', async () => {
     const doc = await page()
     const items = fileMenuItems(doc.getElementById('fileActions'), { readOnly: true })
-    assert.deepEq(items.filter(i => !i.type).map(i => i.rowId), ['exportMarkdown', 'exportPNG', 'exportSVG'])
+    assert.deepEq(items.filter(i => !i.type).map(i => i.rowId), ['exportMarkdown', 'exportMermaid', 'exportPNG', 'exportSVG'])
   })
 
   it('picking an entry clicks its row, so the existing listener runs', () => {
@@ -612,7 +613,7 @@ describe('chrome -- motion policy', () => {
     } finally { frame.remove(); reset() }
   })
 
-  it('a selected, focused or dragged gap card keeps its ring and its own shadow, in both themes', async () => {
+  it('a selected, focused or dragged gap card keeps its ring, and its state adds its own channel, in both themes', async () => {
     const html = seedMotionCanvas()
     const frame = await motionFrame()
     try {
@@ -625,12 +626,15 @@ describe('chrome -- motion policy', () => {
       const RING = /0px 0px 0px 2px/
       gap.classList.add('selected')
       await nextFrame(win)
+      // Selection's channel is the outline (the [cards] section), never a
+      // shadow, so a gap card selects the way every other card does.
       assert.match(shadow(), RING, 'dark, selected: the ring stays')
-      assert.match(shadow(), /0px 4px 24px/, 'dark, selected: and so does the selection shadow')
+      assert.ok(!/0px 4px 24px/.test(shadow()), 'dark, selected: no selection shadow under it')
+      assert.neq(win.getComputedStyle(gap).outlineStyle, 'none', 'dark, selected: the outline marks it')
       doc.body.classList.add('light-mode')
       await nextFrame(win)
       assert.match(shadow(), RING, 'light, selected: the ring stays')
-      assert.match(shadow(), /rgba\(15, 23, 42, 0\.16\) 0px 4px 24px/, 'light, selected: with the light selection shadow')
+      assert.neq(win.getComputedStyle(gap).outlineStyle, 'none', 'light, selected: the outline marks it')
       doc.body.classList.remove('light-mode')
       gap.classList.remove('selected')
       gap.classList.add('dragging')
@@ -760,7 +764,7 @@ describe('chrome -- header layout', () => {
     } finally { frame.remove() }
   })
 
-  it('on phones the Maps list and the in-place menus take the panel colours, in light mode too', async () => {
+  it('on phones the in-place menus take the panel colours, in light mode too', async () => {
     const frame = await headerFrame(375, { light: true })
     try {
       const doc = frame.contentDocument, win = frame.contentWindow
@@ -773,12 +777,7 @@ describe('chrome -- header layout', () => {
       wrap.className = 'header-overflow'
       wrap.appendChild(panel)
       actions.appendChild(wrap)
-      const maps = doc.getElementById('mapsWrapper')
-      panel.appendChild(maps)
-      maps.classList.add('open')
-      doc.getElementById('mapsDropdown').innerHTML =
-        '<div class="export-item map-row" tabindex="-1"><span class="map-item-text"><span class="map-item-name">A map</span>' +
-        '<div class="map-item-meta">2 blocks</div></span><button class="map-del">×</button></div>'
+      panel.appendChild(doc.getElementById('mapsWrapper'))
       panel.appendChild(doc.getElementById('viewBtn'))
       const list = doc.createElement('div')
       list.className = 'hdr-inline-menu'
@@ -790,13 +789,6 @@ describe('chrome -- header layout', () => {
       actions.insertBefore(stray, actions.firstChild)
       await nextFrame(win)
 
-      const dd = win.getComputedStyle(doc.getElementById('mapsDropdown'))
-      assert.eq(dd.backgroundColor, 'rgba(0, 0, 0, 0)', 'no white card inside the dark panel')
-      assert.eq(dd.boxShadow, 'none')
-      assert.eq(dd.borderTopWidth, '0px')
-      const row = doc.querySelector('#mapsDropdown .export-item')
-      assert.match(win.getComputedStyle(row).color, /255, 255, 255/, 'light text on the dark panel')
-      assert.match(win.getComputedStyle(doc.querySelector('.map-item-meta')).color, /255, 255, 255/)
       assert.eq(win.getComputedStyle(list).display, 'block', 'an in-place menu shows in the panel')
       assert.match(win.getComputedStyle(list.querySelector('button')).color, /249, 249, 249|255, 255, 255/)
       // offsetHeight, not the box: the kit's panel scales in as it opens.
@@ -806,36 +798,24 @@ describe('chrome -- header layout', () => {
   })
 })
 
-// ── Maps list keys (the one .export-wrapper dropdown left) ───
+// ── Maps (a menu.js list like the other header menus) ────────
 
-describe('chrome -- Maps list keys', () => {
-  it("a key the list handles never reaches the header kit's document handler", () => {
-    const wrap = document.createElement('div')
-    wrap.id = 'chromeTestWrapper'
-    wrap.className = 'export-wrapper open'
-    wrap.innerHTML = '<button class="header-btn">Maps</button><div class="export-dropdown">' +
-      '<div class="export-item">A</div><div class="export-item">B</div><div class="export-item">C</div></div>'
-    document.body.appendChild(wrap)
-    let seen = 0
-    const spy = () => { seen++ }
-    document.addEventListener('keydown', spy)
-    try {
-      setupDropdownKeyboard('chromeTestWrapper')
-      const items = [...wrap.querySelectorAll('.export-item')]
-      items[0].focus()
-      const press = key => document.activeElement.dispatchEvent(
-        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
-      press('ArrowDown')
-      assert.eq(document.activeElement, items[1], 'one row per press')
-      press('ArrowDown')
-      assert.eq(document.activeElement, items[2])
-      press('ArrowUp')
-      assert.eq(document.activeElement, items[1])
-      press('Escape')
-      assert.eq(seen, 0, 'the kit saw none of them')
-      assert.ok(!wrap.classList.contains('open'), 'Escape closed the list')
-      assert.eq(document.activeElement, wrap.querySelector('.header-btn'), 'and focus went back to its button')
-    } finally { document.removeEventListener('keydown', spy); wrap.remove() }
+describe('chrome -- Maps menu', () => {
+  it('lists the maps with the open one checked, then the map actions, and deleting last in its own list', () => {
+    const items = mapsMenuItems()
+    assert.eq(items[0].type, 'heading')
+    const maps = items.filter(i => i.radio)
+    assert.eq(maps.filter(i => i.checked).length, maps.length ? 1 : 0, 'the open map is the checked one')
+    const labels = items.filter(i => !i.type).map(i => i.label)
+    ;['New map', 'Duplicate this map', 'Snapshot this map', 'Export all maps (JSON)', 'Import maps (JSON)']
+      .forEach(l => assert.includes(labels, l))
+    if (maps.length) {
+      const del = items[items.length - 1]
+      assert.eq(del.label, 'Delete a map')
+      assert.ok(del.danger && typeof del.submenu === 'function', 'a danger submenu, never a row beside the map you meant to open')
+      assert.eq(del.submenu().length, maps.length)
+    }
+    assert.ok(!document.getElementById('mapsDropdown'), 'the old div list is gone')
   })
 })
 

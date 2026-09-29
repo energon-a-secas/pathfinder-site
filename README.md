@@ -30,9 +30,9 @@ Map your project visually. Export a structured prompt that front-loads everythin
 
 Pathfinder is a strategy canvas for planning work before anyone builds it. You place typed blocks (goals, stakeholders, metrics, requirements, implementation work, risks, questions, decisions, and more) on an infinite canvas, connect them with arrows, and watch the tool flag the gaps your plan hasn't addressed yet. When the picture looks right, one click collapses the whole diagram into a structured AI prompt that front-loads all that context, so the assistant can reason about your project rather than assume through it.
 
-It speaks other tools' formats too: JSON Canvas (Obsidian) imports and exports,
-and Mermaid flowcharts import, so a plan can arrive from a vault or a README
-and the result can live back in it.
+It speaks other tools' formats too: JSON Canvas (Obsidian) and Mermaid
+flowcharts import and export without losing a block's type, so a plan can
+arrive from a vault or a README and the result can live back in it.
 
 The core loop is: **diagram first, then generate a brief**. The canvas makes implicit relationships explicit. The prompt builder turns those relationships into a planning document you can hand to any AI.
 
@@ -57,7 +57,7 @@ Or open `index.html` directly in a browser.
 
 ### Phase 1: Build the map
 
-Add blocks from the palette on the left, or double-click empty canvas to add one where you clicked. Each block type carries a specific meaning (see the table below). Draw connections by dragging from the small port circles that appear on block edges when you hover.
+Add blocks from the palette on the left, or double-click empty canvas to add one where you clicked. Each block type carries a specific meaning (see the table below). Draw connections by dragging from the small port circles that appear on block edges when you hover; drop one on empty canvas, or just click a port, to add the next block there already connected.
 
 The gap detection layer runs automatically and flags structural problems:
 
@@ -66,8 +66,17 @@ The gap detection layer runs automatically and flags structural problems:
 - An **assumption** not anchored to a goal or requirement (unanchored assumptions compound)
 - A **risk** with nothing downstream and no "Prepare" action (what mitigates it?)
 - A **decision** with nothing leading to it and no rationale (why was this chosen?)
-- An **output** nothing produces, and a **requirement** with no acceptance criteria ("done" is undefined)
+- An **output** nothing produces, or (once the map has a stakeholder or metric) that nobody receives
+- A **requirement** with no acceptance criteria ("done" is undefined), and a **metric** with no target
+- **Implementation** work with no reason on the map, a **metric** that measures no goal, and a **stakeholder** nothing is delivered to
 - A workflow **step** wired into no flow, and any block with zero connections at all
+
+Each block reports one gap at a time, as a ring and a small line icon on the
+card. A gap you mean to keep can be accepted (the inspector's Suggestions, or
+the Attention tab): it stops being raised and the prompt lists it under
+"Accepted gaps" instead. Whole-canvas checks (no Goal or Problem, untyped
+blocks, likely duplicates, a question hidden in a description) sit in the
+Attention tab.
 - Canvas-wide: circular dependency orders and named groups with no members
 
 Each flagged block gets plain-language suggestions in the inspector, several with
@@ -144,7 +153,8 @@ one block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 
 | Action | How |
 |---|---|
-| Add block | Click any item in the palette |
+| Add block | Click any item in the palette, or right-click empty canvas |
+| Add a connected block | Click a port, drop a port's line on empty canvas and pick a type, or `Alt + Arrow` |
 | Move block | Drag the block body |
 | Select block | Click once |
 | Find a block | **Find blocks** on the canvas, or `Cmd/Ctrl + F`. Search content, then narrow by type or status |
@@ -157,14 +167,16 @@ one block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 | Change layout direction | Tidy's menu: arrange left to right, or top to bottom |
 | Align a selection | Select two or more blocks, then use Align / Distribute in the inspector |
 | Highlight for a presentation | Select blocks, pick a colour in the inspector. Spotlight fades the rest |
+| Quick changes | Right-click a card, a connection, a selection or the canvas (`Shift + F10` from the keyboard) |
 | Select every block of one type | Right-click a block, "Select all Problems" |
 | Hide the header and footer | `H`. `Z` hides the side panels too |
 | Delete selected | `Delete` or `Backspace` key |
-| Duplicate block | `Cmd/Ctrl + D`, or "Duplicate Block" in the Inspector |
+| Duplicate block | `Cmd/Ctrl + D`, or Duplicate in the inspector's ⋯ menu |
 | Pan canvas | Drag on empty canvas area, or scroll |
 | Zoom | `Ctrl/Cmd` + scroll, or pinch. Scroll alone pans |
 | Fit all blocks | `Shift + 1`, or **Fit** in the bar under the canvas |
-| Deselect | Click empty canvas |
+| Deselect | Click empty canvas, or `Escape` |
+| Every shortcut | `?` |
 
 Search includes descriptions, notes, acceptance criteria, decision rationale,
 questions, answers, and documentation labels. It shows matching excerpts, ranks
@@ -177,16 +189,14 @@ Use the arrow keys and Enter to jump to a block, or Escape to close search.
 
 Selecting a block opens its properties in the right panel:
 
-- **Type**: a dropdown grouped by the six steps; the colour and badge update immediately
-- **Title**: edit inline or in the inspector input
-- **Description**: a longer note shown on the canvas block
-- **Accent Color** and **Card style**: per-block overrides of the type colour and the canvas-wide card look
+- **Type**, **Status** and **⋯** (Duplicate, Delete) in one row at the top; the type is a dropdown grouped by the six steps
+- **Title** and **Description**: also editable on the card itself
 - **Actions**: the toggles that fit the type: Resolve on a problem, Prepare on a risk, Validate on an assumption (Recollect and Reinforce sit under Planning)
 - **Acceptance criteria**, or **Targets** on a metric: the block's definition of done
-- **Open Questions**: a list of specific unknowns attached to this block; each appears in the generated prompt
-- **Notes**: freeform annotation (not shown on the canvas block, for your reference only)
+- **Suggestions**: the block's gap, a fix for it, and **Accept** for a gap you mean to keep
+- Closed until you open them: **Questions**, **Notes**, **Links and docs**, **Planning** (priority), and **Appearance** (colour, card style, border, highlight)
 
-Delete and Duplicate buttons are at the bottom of the inspector.
+Every edit in the inspector is one undo step.
 
 ---
 
@@ -194,9 +204,12 @@ Delete and Duplicate buttons are at the bottom of the inspector.
 
 For the moment you share a canvas and five of its thirty boxes are the point.
 
-Select some blocks, pick a colour: **Alert** (pulsing red), **Focus** (blue),
-**Go** (green), **Hold** (amber), or **Festive** (a moving candy-cane border
-that nobody can ignore). Right-click a block and choose **Select all Problems**
+Select some blocks, pick a colour: **Alert** (red), **Focus** (blue),
+**Go** (green), **Hold** (amber), or **Festive** (a candy-cane border). Each is
+a ring around the card with its word on a tab, so it never relies on colour
+alone. Nothing moves by default; **View ▾ → Animate highlights** makes Alert
+and Festive move on the card you hover or select, and never under reduced
+motion. Right-click a block and choose **Select all Problems**
 to mark a whole type in one action.
 
 **Spotlight** fades everything that is not highlighted, which is where the drama
@@ -282,7 +295,7 @@ questions and answers, criteria, and documentation reference. The spec bundle's
 it as `satisfies:` with that requirement's acceptance criteria, instead of
 asking for criteria of its own. Circular connections are flagged for review.
 
-**Bring the answer back.** Paste an assistant's reply into the Prompt tab to
+**Paste a reply or a review.** Paste an assistant's reply (or a reviewer's notes) into the Prompt tab to
 preview its `pathfinder-patch`. Expand full before/after details and choose each
 operation independently. Accepting a connection includes its new endpoint blocks;
 excluding a new block excludes its connections. Apply the selection as one undo step.
@@ -301,9 +314,11 @@ since the last copy.
 | Copy prompt | Prompt tab → **Copy Prompt**, **Copy prompt** under the canvas, or File → Copy Prompt |
 | Download JSON | File → **Download JSON**: full canvas state including block positions |
 | Download Markdown | File → **Download Markdown**: one section per type, labelled connections, and a Mermaid graph that keeps every block and its type |
+| Copy Mermaid | File → **Copy Mermaid**: the same graph on its own, for a README or an issue; it imports back with every type |
+| Download JSON Canvas | File → **Download JSON Canvas**: a `.canvas` file for Obsidian, each node in its type's colour |
 | Download Spec bundle | File → **Download Spec bundle**: spec.md (stakeholders, goals, metrics, requirements), plan.md, tasks.md (work items included), EARS requirements |
 | Meeting summary | File → **Export Meeting Summary**: decisions, votes, actions, open questions, then every other type on the canvas |
-| Import | File → **Import JSON / Canvas / Mermaid**: choose Replace or Merge |
+| Import | File → **Import JSON / Canvas / Mermaid**: opens as a new map by default, or replaces or merges into the current one |
 
 The JSON export preserves everything: block positions, connections, actions, questions, notes. Use it to save snapshots, share canvases with a team, or resume planning sessions.
 

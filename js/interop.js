@@ -19,7 +19,7 @@ import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 
 import { state, canvasMeta } from './state.js'
-import { TYPES, genId, getBlockDims } from './utils.js'
+import { TYPES, DEFAULT_ARROW_WEIGHT, genId, getBlockDims } from './utils.js'
 import { categorizeLine } from './classify.js'
 import { layoutGraph } from './layout.js'
 
@@ -213,7 +213,8 @@ export function fromJsonCanvas(data) {
       bidirectional: e.fromEnd === 'arrow',
       // Routed, not the legacy curve: an imported canvas has no hand-drawn
       // lines worth preserving, and the router steers around the cards.
-      style: 'routed',
+      // New to this app, so drawn at the new-connection weight.
+      style: 'routed', weight: DEFAULT_ARROW_WEIGHT,
     }
     // Another tool's layout picked these sides, not a person here, so Tidy
     // may move them.
@@ -478,7 +479,7 @@ export function parseMermaid(text) {
             // Dotted Mermaid links keep their routing; the dash is a pattern.
             style: 'routed',
             pattern: op.includes('.') ? 'dashed' : 'solid',
-            weight: op.includes('==') ? 3.5 : undefined,
+            weight: op.includes('==') ? 3.5 : DEFAULT_ARROW_WEIGHT,
             bidirectional: op.startsWith('<') || undefined,
           })
         }))
@@ -510,9 +511,11 @@ export function parseMermaid(text) {
 
 // Mermaid's entity codes: #quot; for a double quote, and '#' itself as
 // #35; so a title like "issue #12; then" is not read as the code #12;. '%'
-// goes as #37; so "%%" in a label can never start a comment.
+// goes as #37; so "%%" in a label can never start a comment, and a backtick
+// as #96; so a title cannot close the ``` fence the Markdown export puts
+// the graph in.
 const mmText = s => String(s ?? '').replace(/\s+/g, ' ').trim()
-  .replace(/#/g, '#35;').replace(/%/g, '#37;').replace(/"/g, '#quot;')
+  .replace(/#/g, '#35;').replace(/%/g, '#37;').replace(/"/g, '#quot;').replace(/`/g, '#96;')
 const mmEdgeLabel = s => mmText(s).replace(/\|/g, '/')
 
 /**

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  state.js — State management, localStorage load/save, undo/redo
+//  state.js: state management, localStorage load/save, undo/redo
 // ════════════════════════════════════════════════════════════
 
 import { STORAGE_KEY, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, MIN_ZOOM, MAX_ZOOM, clamp, debounce } from './utils.js'
@@ -39,7 +39,7 @@ export const canvasMeta = { title: '', contextBrief: '', cardStyle: DEFAULT_CARD
 // dev-options
 export const devOpts = { tone: 'auto', detail: 'standard', prePrompts: new Set(), mode: 'plan' }
 
-// Prompt diff tracking — snapshot at last export, not persisted
+// Prompt diff tracking: a snapshot at the last export, not persisted
 export const promptState = { lastSnapshot: null }
 
 // Pointer interaction state
@@ -55,8 +55,24 @@ const MAX_HISTORY   = 50
 // whole burst is one undo step. Any plain snapshot() ends the burst.
 let lastSnapshotToken = null
 
-export function snapshot() {
-  undoHistory.push(JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups }))
+// The map settings an undo step carries. Card style and Spotlight change
+// only through controls that take a snapshot, so every step can hold them
+// without an unrelated undo ever reverting one. A replace swaps the whole
+// framing (title, brief, situation, prompt options too), so its step holds
+// all of it: `framing: true`. Title and brief edits take no snapshot of
+// their own, which is why an ordinary step leaves them alone.
+const LOOK_KEYS = ['cardStyle', 'spotlight']
+
+/** The undo entry for the canvas as it is now. `framing` holds the whole meta. */
+export function undoEntry({ framing = false } = {}) {
+  const meta = framing
+    ? JSON.parse(JSON.stringify(serializeCanvas().meta))
+    : Object.fromEntries(LOOK_KEYS.map(k => [k, canvasMeta[k] ?? null]))
+  return JSON.stringify({ blocks: state.blocks, arrows: state.arrows, groups: state.groups, meta, framing: !!framing })
+}
+
+export function snapshot({ framing = false } = {}) {
+  undoHistory.push(undoEntry({ framing }))
   if (undoHistory.length > MAX_HISTORY) undoHistory.shift()
   redoFuture.length = 0
   lastSnapshotToken = null
@@ -151,9 +167,15 @@ export function loadState() {
 // Per map since 2026-08-24: each map remembers its own camera. The legacy
 // single key stays as a read fallback so nobody's view jumps on upgrade.
 const VIEW_KEY = 'pathfinder-view'
+
+// Which map this tab has open. library.js answers (its currentId knows when
+// another tab has moved the shared pointer, and keeps this tab on its own
+// map); until it has loaded, the shared pointer itself.
+export const mapIdHooks = { current: null }
+
 const viewKey = () => {
   try {
-    const cur = localStorage.getItem('pathfinder-map-current')
+    const cur = mapIdHooks.current ? mapIdHooks.current() : localStorage.getItem('pathfinder-map-current')
     return cur ? 'pathfinder-view:' + cur : VIEW_KEY
   } catch (_) { return VIEW_KEY }
 }

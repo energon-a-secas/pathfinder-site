@@ -53,17 +53,12 @@
 <div id="searchResults" style="display:none"></div>
 <div id="zoomIndicator" style="display:none"></div>
 <div id="canvasTitle" style="display:none"></div>
-<div id="typePicker" style="display:none"></div>
 <div id="shortcutOverlay" style="display:none"></div>
 <div id="shortcutGrid" style="display:none"></div>
-<div id="colorSwatches" style="display:none"></div>
-<div id="inspectorFrame" style="display:none"></div>
 <input id="frameLabelInput" style="display:none">
 <div id="templatesList" style="display:none"></div>
-<div id="arrowColorSwatches" style="display:none"></div>
 <div id="arrowInfo" style="display:none"></div>
 <input id="arrowLabelInput" style="display:none">
-<button id="arrowBidir" style="display:none"></button>
 <div id="healthBar" style="display:none"></div>
 <div id="promptDiff" style="display:none"></div>
 
@@ -142,6 +137,7 @@
   await import('./cards.test.js')
   await import('./insights.test.js')
   await import('./sharing-safety.test.js')
+  await import('./integration.test.js')
 
   // Run everything and render results
   const results = await runAll()

@@ -1,20 +1,20 @@
 // ════════════════════════════════════════════════════════════
-//  ui-panels.js — Search, shortcuts overlay, panel tabs,
+//  ui-panels.js: search, shortcuts overlay, panel tabs,
 //                 dev options, export/share/import dropdowns, header buttons
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, view, canvasMeta, devOpts,
-         saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave, snapTo } from './state.js'
+         saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
 import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
-         clamp, escHtml, showToast, getBlockDims, getSmallIcon, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+         clamp, escHtml, showToast, getBlockDims, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
-import { renderAllBlocks, renderInspector, selectBlock, updateCanvasTitle } from './render.js'
+import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
          listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from './templates.js'
 import { refreshPrompt, markExported, generatePrompt, situationSection } from './prompt.js'
-import { applyImport, exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
+import { exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportSpecBundle } from './spec-export.js'
-import { detectFormat, fromJsonCanvas, parseMermaid, downloadJsonCanvas } from './interop.js'
+import { detectFormat, fromJsonCanvas, parseMermaid, downloadJsonCanvas, toMermaid } from './interop.js'
 import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
@@ -24,36 +24,21 @@ import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
 import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } from './state.js'
 import { openIncoming, incomingMessage } from './sharing.js'
+import { animateView } from './zoom-controls.js'
 
 // ── Search ───────────────────────────────────────────────────
 let searchReturnFocus = null
 
+/** Centre a block at 100% or more and select it, with the camera's easing. */
 export function focusBlock(id) {
   const b = state.blocks[id]; if (!b) return
   const { w, h } = getBlockDims(id)
   const canvasViewport = $.canvasViewport()
   const vpW = canvasViewport.offsetWidth, vpH = canvasViewport.offsetHeight
   const targetZoom = clamp(Math.max(view.zoom, 1.0), MIN_ZOOM, MAX_ZOOM)
-  const targetPanX = vpW/2 - (b.x + w/2) * targetZoom
-  const targetPanY = vpH/2 - (b.y + h/2) * targetZoom
-  const startPanX = view.panX, startPanY = view.panY, startZoom = view.zoom
-  // Honor reduced-motion: snap to target instead of animating the pan/zoom
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    view.panX = targetPanX; view.panY = targetPanY; view.zoom = targetZoom
-    applyTransform()
-    selectBlock(id)
-    return
-  }
-  const start = performance.now()
-  ;(function step(now) {
-    const t = Math.min((now - start) / 280, 1)
-    const ease = t < .5 ? 2*t*t : -1+(4-2*t)*t
-    view.panX = startPanX + (targetPanX - startPanX) * ease
-    view.panY = startPanY + (targetPanY - startPanY) * ease
-    view.zoom = startZoom + (targetZoom - startZoom) * ease
-    applyTransform()
-    if (t < 1) requestAnimationFrame(step)
-  })(start)
+  // zoom-controls.js eases it, jumps under reduced motion, and cancels an
+  // earlier move still running.
+  animateView(vpW / 2 - (b.x + w / 2) * targetZoom, vpH / 2 - (b.y + h / 2) * targetZoom, targetZoom)
   selectBlock(id)
 }
 
@@ -203,8 +188,10 @@ export function setupSearchEvents() {
 
 // ── Shortcuts overlay ────────────────────────────────────────
 // Every binding the canvas has, by what it is for. The handlers live in
-// events.js (and inline-edit.js, arrow-edit.js, context-menu.js); a key
-// added there has to be added here too, or nobody learns it exists.
+// events.js (and inline-edit.js, arrow-edit.js, context-menu.js,
+// classify.js); a key added there has to be added here too, or nobody
+// learns it exists. tests/integration.test.js checks the ones outside
+// events.js are listed.
 export const SHORTCUTS = [
   { group: 'Editing', keys: [
     ['Enter / F2',             'Edit the selected card\u2019s title, or the selected connection\u2019s label'],
@@ -223,13 +210,14 @@ export const SHORTCUTS = [
     ['\u2318/Ctrl + Shift + Z','Redo'],
     ['Right-click',            'Quick actions for a card, a connection or the canvas'],
     ['Shift + F10 / Menu key', 'Quick actions for the selected card'],
+    ['T',                      'Confirm or change the type of a card marked for a type check'],
     ['L',                      'Tidy: auto-arrange the canvas'],
   ] },
   { group: 'Navigation', keys: [
     ['Tab / Shift + Tab',      'Select the next or previous block in reading order; past the last one, leave the canvas'],
     ['\u2318/Ctrl + Arrow',    'Select the nearest block in that direction, connected ones first'],
     ['Enter / Space',          'Select the focused block'],
-    ['Escape',                 'Deselect; press again to leave the canvas. Also closes overlays'],
+    ['Escape',                 'Deselect; press again to leave the canvas. Also closes overlays and ends dot voting'],
     ['Shift + click',          'Add a block to the selection'],
     ['Shift + drag',           'Select blocks inside a box'],
     ['\u2318/Ctrl + A',        'Select every block'],
@@ -366,6 +354,8 @@ export function setupContextBrief() {
   const el = document.getElementById('contextBrief')
   if (!el) return
   syncContextBrief()
+  // Undoing a replace puts the map's own framing back (render.js undo).
+  window.addEventListener('pf:meta-restored', () => { syncContextBrief(); refreshSituation() })
   if (ui.readOnly) { el.readOnly = true; return }
   el.addEventListener('input', () => {
     canvasMeta.contextBrief = el.value
@@ -531,7 +521,7 @@ export function setupDevOptions() {
   })
   refreshModeDesc()
 
-  // Docs base URL — powers inline doc previews for pages under this origin/path.
+  // Docs base URL: powers inline doc previews for pages under this origin/path.
   const docsBaseInput = document.getElementById('docsBaseInput')
   if (docsBaseInput) {
     docsBaseInput.value = getDocsBase()
@@ -652,51 +642,6 @@ export function setupQuickCopy() {
   refreshQuickCopy()
 }
 
-// ── Header dropdowns (Maps) ──────────────────────────────────
-// Maps (library.js) still uses the .export-wrapper pattern; the File, Share,
-// Tidy, View and Help menus are menu.js dropdowns (js/view-menu.js).
-export function setDropdownOpen(wrapperId, open) {
-  const el = document.getElementById(wrapperId)
-  if (!el) return
-  el.classList.toggle('open', open)
-  el.querySelector('.header-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false')
-  if (open) {
-    const first = el.querySelector('.export-item')
-    if (first) requestAnimationFrame(() => first.focus())
-  }
-}
-
-export function setupDropdownKeyboard(wrapperId) {
-  const wrapper = document.getElementById(wrapperId)
-  const dropdown = wrapper?.querySelector('.export-dropdown')
-  if (!dropdown) return
-  dropdown.setAttribute('role', 'menu')
-  dropdown.querySelectorAll('.export-item').forEach(item => {
-    item.setAttribute('role', 'menuitem')
-    item.setAttribute('tabindex', '-1')
-  })
-  dropdown.addEventListener('keydown', e => {
-    const items = [...dropdown.querySelectorAll('.export-item')]
-    const idx = items.indexOf(document.activeElement)
-    const handled = ['ArrowDown', 'ArrowUp', 'Enter', ' ', 'Escape'].includes(e.key)
-    // Inside the header kit's overflow panel on phones, the kit's own
-    // document-level keys would act on the same press: every arrow would
-    // move focus twice, and Escape would close the panel with the list.
-    if (handled) e.stopPropagation()
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault()
-      const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length
-      items[next]?.focus()
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      document.activeElement?.click()
-    } else if (e.key === 'Escape') {
-      setDropdownOpen(wrapperId, false)
-      wrapper.querySelector('.header-btn')?.focus()
-    }
-  })
-}
-
 /**
  * The File menu's actions. Each row in #fileActions is wired here by id. The
  * menu itself (fileMenuItems in js/view-menu.js) renders those rows through
@@ -728,6 +673,16 @@ export function setupExportDropdown() {
   on('exportJSON', () => exportJSON())
   on('exportMarkdown', () => exportMarkdown())
   on('exportSpecBundle', () => exportSpecBundle())
+
+  // The same graph the Markdown export carries (interop.js toMermaid): it
+  // pastes into a README, an issue or Obsidian and reads back into Pathfinder.
+  on('exportMermaid', () => {
+    const graph = toMermaid()
+    if (!graph) { showToast('Add a block first', 'warning'); return }
+    copyText(graph).then(ok => showToast(ok
+      ? 'Mermaid copied: it renders on GitHub and imports back into Pathfinder'
+      : 'Copy failed: try again', ok ? 'success' : 'warning'))
+  })
 
   on('exportJsonCanvas', () => {
     if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
@@ -860,6 +815,8 @@ export function setupImportHandler() {
  */
 export function setCanvasCardStyle(key) {
   if (!CARD_STYLES[key] || ui.readOnly) return false
+  // A map setting, so one undo step (the step carries it: state.js undoEntry).
+  if ((canvasMeta.cardStyle || DEFAULT_CARD_STYLE) !== key) snapshot()
   canvasMeta.cardStyle = key
   renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
   renderInspector()
@@ -1077,19 +1034,6 @@ export function setupPaletteSections() {
       setPaletteSection(id, false)
     }
   })
-
-  // Advanced types sub-section toggle (nested inside Blocks)
-  const advToggle = document.getElementById('advancedBlocksToggle')
-  if (advToggle) {
-    document.querySelector('#advancedBlocks .palette-subsection-body').inert = true
-    advToggle.addEventListener('click', () => {
-      const sub = document.getElementById('advancedBlocks')
-      sub.classList.toggle('collapsed')
-      const open = !sub.classList.contains('collapsed')
-      advToggle.setAttribute('aria-expanded', open)
-      sub.querySelector('.palette-subsection-body').inert = !open
-    })
-  }
 
   // Palette collapse button, now in the palette header
   const collapseBtn = document.getElementById('paletteCollapseBtn')

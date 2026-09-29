@@ -123,7 +123,7 @@ export function buildReviewReply(list) {
     notes: list.map(n => ({ block: n.block, note: n.text })),
   }
   return 'Review notes on your canvas. Paste this whole message into ' +
-    'Prompt → Bring the answer back.\n\n' +
+    'Prompt → Paste a reply or a review.\n\n' +
     '```pathfinder-patch\n' + JSON.stringify(patch, null, 1) + '\n```\n'
 }
 

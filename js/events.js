@@ -30,7 +30,7 @@ import { blockDecorators } from './render.js'
 import { zoomIn, zoomOut, zoomTo, zoomAround, zoomToSelection, wheelZoomFactor } from './zoom-controls.js'
 import { ARROW_DIRS, PORT_DIR, readingOrder, nearestInDirection, currentBlockId, selectFromKeyboard,
          focusableAfterCanvas, controlsBeforeCanvas, nudgeSelection, panBy, createInDirection,
-         openQuickCreate, nav, isTyping, canvasHasFocus, canvasZoomKeysApply, labelPorts,
+         openQuickCreate, nav, isTyping, modalDialogOpen, canvasHasFocus, canvasZoomKeysApply, labelPorts,
          untabCardControls, isCameraHeld, revealShift } from './navigation.js'
 
 // ── Canvas title editing ─────────────────────────────────────
@@ -417,7 +417,10 @@ export function setupCanvasPointerEvents() {
       if (!ix.moved && ix.willDeselect) selectBlock(ix.id)
       // A moved block releases tidy-written pins on its arrows: the auto-layout's
       // side choices were for positions that no longer exist. Hand pins stay.
-      if (ix.moved) { releaseTidyPins(selection.ids); renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true }
+      if (ix.moved) {
+        wholePixels(new Set([...selection.ids, ix.id]))
+        releaseTidyPins(selection.ids); renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true
+      }
 
     } else if (ix.type === 'resize') {
       debouncedSave(); renderArrows(); ui.promptDirty = true
@@ -431,6 +434,12 @@ export function setupCanvasPointerEvents() {
         renderFrames()
         renderInspector()
       } else {
+        // The frame carried its cards: they land on whole pixels, and the
+        // sides auto-layout or an import picked for them are released, as
+        // for a card dragged on its own.
+        const members = new Set(Object.keys(ix.startPositions || {}))
+        wholePixels(members)
+        releaseTidyPins(members)
         renderFrames(); debouncedSave(); runGapDetection(); ui.promptDirty = true
       }
 
@@ -700,6 +709,18 @@ export function setupCanvasPointerEvents() {
 // nobody learns the key exists.
 const noMods = e => !e.metaKey && !e.ctrlKey && !e.altKey
 
+// A drag at 44% moves a card by fractions of a pixel. Where it lands is
+// rounded, like every other placement: a fractional position blurs the
+// card's edges and leaves a half-pixel jog in the lines drawn to it.
+function wholePixels(ids) {
+  ids.forEach(id => {
+    const b = state.blocks[id]; if (!b) return
+    b.x = Math.round(b.x); b.y = Math.round(b.y)
+    const el = getBlockEl(id)
+    if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px' }
+  })
+}
+
 function endSpacePan() {
   nav.spaceHeld = false
   $.canvasViewport()?.classList.remove('space-pan')
@@ -712,6 +733,9 @@ export function setupKeyboardShortcuts() {
   document.addEventListener('keyup', e => { if (e.code === 'Space' || e.key === ' ') endSpacePan() })
   window.addEventListener('blur', endSpacePan)
   document.addEventListener('keydown', e => {
+    // A modal dialog (the incoming-link chooser) owns the keyboard until it
+    // closes: nothing behind it may delete, undo, search or zoom.
+    if (modalDialogOpen()) return
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
       e.preventDefault(); ui.searchOpen ? $.searchInput().focus() : openSearch(); return
     }

@@ -1,14 +1,11 @@
-import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 //  export.js: JSON/Markdown export/import
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts } from './state.js'
-// Namespace imports for helpers other streams own, feature-detected at call
-// time: interop.js may export mermaidShapeFor, state.js builds share links.
-import * as stateMod from './state.js'
-import * as interop from './interop.js'
-import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, typeInfo, showToast } from './utils.js'
+import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts,
+         buildShareUrlAsync } from './state.js'
+import { mermaidShapeFor, toMermaid } from './interop.js'
+import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, typeInfo, showToast, askedQuestions } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
@@ -184,9 +181,10 @@ export function buildMarkdown() {
         const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
         md += b.docRef.href ? `**Doc:** [${ref}](${b.docRef.href}${anchor})\n\n` : `**Doc:** ${ref}${anchor}\n\n`
       }
-      if (b.questions?.length) {
+      const asked = askedQuestions(b)
+      if (asked.length) {
         md += `**Open questions:**\n`
-        b.questions.forEach(q => { md += `- ${q.text}${q.answer?.trim() ? `\n  - _Answer:_ ${q.answer.trim().replace(/\n/g, ' ')}` : ''}\n` })
+        asked.forEach(q => { md += `- ${q.text}${q.answer?.trim() ? `\n  - _Answer:_ ${q.answer.trim().replace(/\n/g, ' ')}` : ''}\n` })
         md += '\n'
       }
       if (b.notes) md += `**Notes:** ${b.notes}\n\n`
@@ -209,60 +207,26 @@ export function exportMarkdown() {
 }
 
 /**
- * A Mermaid graph of the same connections.
+ * A Mermaid graph of the same connections, fenced for Markdown.
  *
  * The flat list above says what links to what, one pair at a time. A reader
  * (or an AI being handed this file) has to rebuild the shape in their head
  * from it. The graph states the shape directly, and Mermaid renders natively
  * in GitHub, Obsidian and most Markdown viewers.
  *
- * Every block is declared, connected or not, so an isolated block survives a
- * round trip. Shapes carry the two types Mermaid itself has a shape for
- * (rhombus decision, stadium trigger or end), and a classDef per type carries
- * the rest: the graph renders in the canvas's colours, and a `class` line
- * names each block's type for any importer that reads it.
+ * It is the interop exporter's graph (toMermaid), so the Markdown export and
+ * Copy Mermaid cannot disagree: every block declared (isolated ones too),
+ * each type in its conventional shape, a `class` line naming every node's
+ * type, groups as subgraphs, and a round trip through the app's own
+ * importer that keeps every type.
  */
-const MERMAID_SHAPES = { decision: ['{', '}'], terminator: ['([', '])'] }
-
 export function mermaidShape(type) {
-  // SHARING may publish the importer's own table; prefer it when it answers
-  // with a usable [open, close] pair so export and import cannot disagree.
-  // Its answer may be an [open, close] pair or an { open, close } object.
-  if (typeof interop.mermaidShapeFor === 'function') {
-    const got = interop.mermaidShapeFor(type)
-    const pair = Array.isArray(got) ? got : (got && typeof got === 'object' ? [got.open, got.close] : null)
-    if (pair && pair.length === 2 && pair.every(s => typeof s === 'string' && s)) return pair
-  }
-  return MERMAID_SHAPES[type] || ['[', ']']
+  return mermaidShapeFor(type)
 }
 
 export function mermaidBlock() {
-  const blocks = Object.values(state.blocks)
-  if (!blocks.length) return ''
-  const ids = new Map(blocks.map((b, i) => [b.id, 'n' + (i + 1)]))
-  // Quotes, pipes and brackets would end a label early, in Mermaid or in the
-  // app's own Mermaid importer; brackets become parentheses, which both read.
-  // A backtick run would close the ```mermaid fence the graph sits in.
-  const clean = s => String(s || 'Untitled').replace(/["\\|]/g, '').replace(/`/g, "'").replace(/[[{]/g, '(').replace(/[\]}]/g, ')')
-    .replace(/\s+/g, ' ').trim().slice(0, 60) || 'Untitled'
-  const lines = blocks.map(b => {
-    const [open, close] = mermaidShape(b.type)
-    return `  ${ids.get(b.id)}${open}"${clean(b.title)}"${close}`
-  })
-  state.arrows.forEach(a => {
-    if (!ids.has(a.from) || !ids.has(a.to)) return
-    const label = connectionLabel(a)
-    const edge = a.bidirectional ? '<-->' : '-->'
-    lines.push(`  ${ids.get(a.from)} ${edge}${label ? `|${clean(label)}|` : ''} ${ids.get(a.to)}`)
-  })
-  // Registry order keeps the class lines stable between exports.
-  exportTypeOrder().forEach(t => {
-    const members = blocks.filter(b => b.type === t).map(b => ids.get(b.id))
-    if (!members.length || !Object.hasOwn(TYPES, t)) return
-    lines.push(`  classDef ${t} stroke:${TYPES[t].color},stroke-width:2px`)
-    lines.push(`  class ${members.join(',')} ${t}`)
-  })
-  return '```mermaid\ngraph LR\n' + lines.join('\n') + '\n```\n\n'
+  const graph = toMermaid()
+  return graph ? '```mermaid\n' + graph + '```\n\n' : ''
 }
 
 // ── Export copy prompt ───────────────────────────────────────
@@ -317,15 +281,12 @@ const MAX_SUMMARY_LINK = 4000
 /**
  * The view-only link for this canvas: { url } when it is short enough to
  * paste, { omitted: true } when it is not. The link format belongs to the
- * sharing code, so this only asks it. The async builder comes first when
- * there is one: it waits for the compressed form, where the synchronous one
- * may answer with the long form from a stale cache.
+ * sharing code, so this only asks it, through the async builder: it waits
+ * for the compressed form, where the synchronous one may answer with the
+ * long form from a stale cache. `build` is a parameter so tests can pin it.
  */
-export async function summaryShareLink(mod = stateMod) {
+export async function summaryShareLink(build = buildShareUrlAsync) {
   try {
-    const build = typeof mod.buildShareUrlAsync === 'function' ? mod.buildShareUrlAsync
-      : typeof mod.buildShareUrl === 'function' ? mod.buildShareUrl : null
-    if (!build) return { url: '' }
     const url = await build(true)
     if (typeof url !== 'string' || !url) return { url: '' }
     return url.length <= MAX_SUMMARY_LINK ? { url } : { url: '', omitted: true }
@@ -414,7 +375,7 @@ export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmit
   if (questions.length || raised.length) {
     questions.forEach(b => {
       md += `- ${titleOf(b)}${b.description ? `: ${oneLine(b.description)}` : ''}`
-      ;(b.questions || []).forEach(q => {
+      askedQuestions(b).forEach(q => {
         md += `\n  - ${oneLine(q.text)}${q.answer?.trim() ? `: answered: ${oneLine(q.answer)}` : ''}`
       })
       md += '\n'

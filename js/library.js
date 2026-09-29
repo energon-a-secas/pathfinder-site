@@ -18,7 +18,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, view, canvasMeta, promptState, saveState, saveHooks, serializeCanvas,
-         saveView, loadView, getUndoHistory, getRedoFuture } from './state.js'
+         saveView, loadView, getUndoHistory, getRedoFuture, mapIdHooks } from './state.js'
 import { applyTransform } from './canvas.js'
 import { genId, showToast, STORAGE_KEY } from './utils.js'
 import { applyImport } from './export.js'
@@ -26,8 +26,7 @@ import { normalizeCanvas } from './normalize.js'
 import { searchBlocks } from './search.js'
 import { compareCanvases } from './comparison.js'
 import { updateCanvasTitle } from './render.js'
-import { setDropdownOpen, setupDropdownKeyboard,
-         refreshSituation, refreshCardStyles, refreshSpotlight,
+import { refreshSituation, refreshCardStyles, refreshSpotlight,
          syncContextBrief, collapseTemplatesAfterUse } from './ui-panels.js'
 
 const INDEX_KEY = 'pathfinder-maps'
@@ -81,6 +80,10 @@ export function notePointerMove(e) {
   pointerAway = !!tabMap && e.newValue !== tabMap
   return pointerAway
 }
+
+// The camera is saved per map (state.js viewKey): under this tab's map, not
+// whichever one another tab moved the pointer to.
+mapIdHooks.current = currentId
 
 /** Test hook: forget which map this tab had open. */
 export function forgetTabMap() { tabMap = null; pointerAway = false }
@@ -455,104 +458,70 @@ function fmtWhen(ts) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-function renderMenu() {
-  const dd = document.getElementById('mapsDropdown')
-  if (!dd) return
+const plural = (n, word) => `${n ?? 0} ${word}${n === 1 ? '' : 's'}`
+
+/**
+ * The Maps menu (menu.js, like File, View and Help; view-menu.js opens it
+ * from the header and in place in the phone panel). The maps, newest first,
+ * the open one checked, then what to do with this one, then the library as
+ * a whole. Deleting sits in its own submenu at the end, so it is never a
+ * mis-click beside the row you meant to open.
+ */
+export function mapsMenuItems() {
   const cur = currentId()
   const index = loadIndex().slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))
-  dd.innerHTML = ''
-
-  index.forEach(e => {
-    const row = document.createElement('div')
-    row.className = 'export-item map-row' + (e.id === cur ? ' active' : '')
-    row.setAttribute('role', 'menuitem'); row.setAttribute('tabindex', '-1')
-    const meta = `${e.blocks ?? 0} block${e.blocks === 1 ? '' : 's'} · ${e.arrows ?? 0} arrow${e.arrows === 1 ? '' : 's'} · ${fmtWhen(e.updated)}`
-    row.innerHTML = `<span class="map-dot"></span>
-      <span class="map-item-text"><span class="map-item-name"></span><div class="map-item-meta"></div></span>
-      <button class="map-del" title="Delete this map" aria-label="Delete map">×</button>`
-    row.querySelector('.map-item-name').textContent = e.name || 'Untitled map'
-    row.querySelector('.map-item-meta').textContent = meta
-    row.addEventListener('click', () => { setDropdownOpen('mapsWrapper', false); switchTo(e.id) })
-    row.querySelector('.map-del').addEventListener('click', ev => {
-      ev.stopPropagation()
-      const label = e.name || 'Untitled map'
-      if (!confirm(`Delete "${label}"?\n\nThis cannot be undone.`)) return
-      deleteMap(e.id)
-      renderMenu()
+  const name = e => e.name || 'Untitled map'
+  const meta = e => `${plural(e.blocks, 'block')} · ${plural(e.arrows, 'arrow')} · ${fmtWhen(e.updated)}`
+  const snaps = listSnapshots()
+  const items = [{ type: 'heading', label: 'Your maps' }]
+  index.forEach(e => items.push({
+    label: name(e), hint: meta(e), radio: true, checked: e.id === cur,
+    action: () => { if (e.id !== currentId()) switchTo(e.id) },
+  }))
+  items.push({ type: 'divider' },
+    { label: 'New map', action: newMap },
+    { label: 'Duplicate this map', action: duplicateCurrent },
+    { label: 'Snapshot this map', hint: 'Kept in this browser, to compare or restore', action: snapshotNow })
+  if (snaps.length) items.push({ label: `Snapshots (${snaps.length})`, submenu: snapshotItems })
+  items.push({ type: 'divider' },
+    { label: 'Export all maps (JSON)', action: exportAllMaps },
+    { label: 'Import maps (JSON)', action: () => document.getElementById('importMapsFile')?.click() })
+  if (index.length) {
+    items.push({ type: 'divider' }, {
+      label: 'Delete a map', danger: true,
+      submenu: () => index.map(e => ({
+        label: name(e), hint: e.id === cur ? 'The map you have open' : meta(e), danger: true,
+        action: () => {
+          if (!confirm(`Delete "${name(e)}"?\n\nThis cannot be undone.`)) return
+          deleteMap(e.id)
+        },
+      })),
     })
-    dd.appendChild(row)
-  })
-
-  const hr = document.createElement('hr')
-  hr.style.cssText = 'border:none;border-top:1px solid rgba(255,255,255,.08);margin:4px 0'
-  dd.appendChild(hr)
-
-  const action = (label, fn) => {
-    const it = document.createElement('div')
-    it.className = 'export-item'
-    it.setAttribute('role', 'menuitem'); it.setAttribute('tabindex', '-1')
-    it.textContent = label
-    it.addEventListener('click', event => {
-      // Opening a submenu replaces this node. Stop the detached click from
-      // looking like an outside click to the document's dismissal listener.
-      event.stopPropagation()
-      setDropdownOpen('mapsWrapper', false); fn()
-    })
-    dd.appendChild(it)
   }
-  action('New map', newMap)
-  action('Duplicate this map', duplicateCurrent)
-  const nSnaps = listSnapshots().length
-  const snapNow = document.createElement('div')
-  snapNow.className = 'export-item'
-  snapNow.setAttribute('role', 'menuitem'); snapNow.setAttribute('tabindex', '-1')
-  snapNow.textContent = 'Snapshot this map'
-  snapNow.addEventListener('click', () => {
-    const when = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    const snap = takeSnapshot('Snapshot · ' + when)
-    setDropdownOpen('mapsWrapper', false)
-    showToast(snap ? 'Snapshot kept. Restore it any time from Maps' : 'No room left for a snapshot', snap ? 'success' : 'warning', 2200)
-  })
-  dd.appendChild(snapNow)
-  if (nSnaps) action(`Snapshots (${nSnaps})…`, () => renderSnapshotMenu())
-  action('Export all maps (JSON)', exportAllMaps)
-  action('Import maps (JSON)', () => document.getElementById('importMapsFile')?.click())
+  return items
 }
 
-function renderSnapshotMenu() {
-  const dd = document.getElementById('mapsDropdown')
-  if (!dd) return
-  setDropdownOpen('mapsWrapper', true)
+function snapshotNow() {
+  const when = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const snap = takeSnapshot('Snapshot · ' + when)
+  showToast(snap ? 'Snapshot kept. Restore it any time from Maps' : 'No room left for a snapshot', snap ? 'success' : 'warning', 2200)
+}
+
+// Each snapshot opens the comparison against the map as it is now; the last
+// row deletes one.
+function snapshotItems() {
   const now = serializeCanvas()
-  dd.innerHTML = ''
-  const back = document.createElement('div')
-  back.className = 'export-item'
-  back.setAttribute('role', 'menuitem'); back.setAttribute('tabindex', '-1')
-  back.textContent = '← Maps'
-  back.addEventListener('click', ev => { ev.stopPropagation(); renderMenu() })
-  dd.appendChild(back)
   const snaps = listSnapshots().slice().reverse()
-  snaps.forEach(sn => {
-    const row = document.createElement('div')
-    row.className = 'export-item map-row'
-    row.setAttribute('role', 'menuitem'); row.setAttribute('tabindex', '-1')
-    row.innerHTML = `<span class="map-item-text"><span class="map-item-name"></span><div class="map-item-meta"></div></span>
-      <button class="map-del" title="Delete this snapshot" aria-label="Delete snapshot">×</button>`
-    row.querySelector('.map-item-name').textContent = 'Compare: ' + sn.name
-    row.querySelector('.map-item-meta').textContent =
-      `${fmtWhen(sn.at)} · since then: ${diffPayloads(sn.payload, now)}`
-    row.addEventListener('click', () => {
-      setDropdownOpen('mapsWrapper', false)
-      window.dispatchEvent(new CustomEvent('pf:compare-snapshot', { detail: sn }))
-    })
-    row.querySelector('.map-del').addEventListener('click', ev => {
-      ev.stopPropagation()
-      deleteSnapshot(sn.id)
-      renderSnapshotMenu()
-    })
-    dd.appendChild(row)
-  })
-  if (!snaps.length) renderMenu()
+  return [
+    ...snaps.map(sn => ({
+      label: 'Compare: ' + sn.name, hint: `${fmtWhen(sn.at)} · since then: ${diffPayloads(sn.payload, now)}`,
+      action: () => window.dispatchEvent(new CustomEvent('pf:compare-snapshot', { detail: sn })),
+    })),
+    { type: 'divider' },
+    { label: 'Delete a snapshot', danger: true, submenu: () => snaps.map(sn => ({
+      label: sn.name, hint: fmtWhen(sn.at), danger: true, action: () => deleteSnapshot(sn.id),
+    })) },
+  ]
 }
 
 export function setupLibrary() {
@@ -565,17 +534,8 @@ export function setupLibrary() {
   saveState()
   window.addEventListener('storage', notePointerMove)
 
-  const btn = document.getElementById('mapsBtn')
-  btn.addEventListener('click', e => {
-    e.stopPropagation()
-    const open = !wrapper.classList.contains('open')
-    if (open) renderMenu()
-    setDropdownOpen('mapsWrapper', open)
-  })
-  document.addEventListener('click', e => {
-    if (!wrapper.contains(e.target)) setDropdownOpen('mapsWrapper', false)
-  })
-  setupDropdownKeyboard('mapsWrapper')
+  // The Maps button opens mapsMenuItems() through view-menu.js, with the
+  // other header menus.
 
   document.getElementById('importMapsFile')?.addEventListener('change', e => {
     const f = e.target.files?.[0]

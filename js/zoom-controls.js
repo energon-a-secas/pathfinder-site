@@ -9,10 +9,11 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, view } from './state.js'
-import { $, clamp, getBlockDims, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, clamp, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, fitView } from './canvas.js'
 import { openDropdown } from './menu.js'
 import { focusBlock } from './ui-panels.js'
+import { blockSize } from './create.js'
 
 // Round stops for the buttons and the = / - keys, so repeated presses land
 // on numbers people recognise (50%, 100%, 200%) instead of 83.3%.
@@ -95,12 +96,6 @@ export function animateView(panX, panY, zoom) {
   step(start)
 }
 
-// Rendered size, or a fair estimate when the card is not laid out yet.
-function dimsOf(id) {
-  const d = getBlockDims(id)
-  const b = state.blocks[id]
-  return { w: d.w || b?.width || DEFAULT_WIDTH, h: d.h || 100 }
-}
 
 /** The blocks "zoom to selection" frames: the selected blocks, or a selected connection's two ends. */
 export function selectionTargets() {
@@ -115,17 +110,19 @@ export function selectionTargets() {
 export function hasSelectionTarget() { return selectionTargets().length > 0 }
 
 /**
- * Frame the selection. One block goes to at least 100% (focusBlock's rule);
- * a larger selection fits, but never zooms in past 100% unless you already
- * were. Returns false when nothing is selected.
+ * Frame the given blocks. One block goes to at least 100% (focusBlock's
+ * rule, which also selects it); several fit, but never zoom in past 100%
+ * unless you already were. `single: false` frames one block without
+ * focusBlock, for a connection whose two ends are the same block. Returns
+ * false when none of the ids is a block.
  */
-export function zoomToSelection() {
-  const ids = selectionTargets()
-  if (!ids.length) return false
-  if (ids.length === 1 && !selection.arrowId) { focusBlock(ids[0]); return true }
+export function zoomToBlocks(ids, { single = true } = {}) {
+  const live = (ids || []).filter(id => state.blocks[id])
+  if (!live.length) return false
+  if (live.length === 1 && single) { focusBlock(live[0]); return true }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  ids.forEach(id => {
-    const b = state.blocks[id], { w, h } = dimsOf(id)
+  live.forEach(id => {
+    const b = state.blocks[id], { w, h } = blockSize(id)
     minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
     maxX = Math.max(maxX, b.x + w); maxY = Math.max(maxY, b.y + h)
   })
@@ -138,6 +135,15 @@ export function zoomToSelection() {
   return true
 }
 
+/**
+ * Frame the selection (Shift+2, the zoom menu, the context menus): the
+ * selected blocks, or a selected connection's two ends. Returns false when
+ * nothing is selected.
+ */
+export function zoomToSelection() {
+  return zoomToBlocks(selectionTargets(), { single: !selection.arrowId })
+}
+
 // ── Back to content ─────────────────────────────────────────
 /** True when at least one block overlaps the visible canvas (or there is nothing to judge). */
 export function contentInView() {
@@ -146,7 +152,7 @@ export function contentInView() {
   const { w: W, h: H } = viewportSize()
   if (!W || !H) return true
   return ids.some(id => {
-    const b = state.blocks[id], { w, h } = dimsOf(id)
+    const b = state.blocks[id], { w, h } = blockSize(id)
     const x1 = b.x * view.zoom + view.panX, y1 = b.y * view.zoom + view.panY
     const x2 = x1 + w * view.zoom, y2 = y1 + h * view.zoom
     return x2 > 0 && y2 > 0 && x1 < W && y1 < H

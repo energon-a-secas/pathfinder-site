@@ -879,7 +879,10 @@ describe('Insights: canvas findings can be accepted per block', () => {
     const rows = attentionItems(state.blocks, state.arrows).filter(i => i.kind === 'canvas')
     const acts = [...rowsDom(rows).querySelectorAll('li')].map(li => li.querySelector('[data-attention-act]')?.dataset.attentionAct || '')
     assert.deepEq(rows.map(r => r.finding), ['untyped', 'type-check'])
-    assert.deepEq(acts, ['suggest-types', ''])
+    // Each offers a fix, never an Accept: suggesting types for the untyped
+    // blocks, and keeping the automatic types (which settles each check).
+    assert.deepEq(acts, ['suggest-types', 'confirm-types'])
+    assert.ok(!acts.includes('accept'))
   })
   it('every finding ack has metadata the prompt can print', () => {
     Object.values(FINDING_ACKS).forEach(g => {
