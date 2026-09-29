@@ -38,60 +38,189 @@ const PREFIX_PATTERNS = [
 ]
 
 const UNITS = '(day|week|month|quarter|year|sprint|release|morning|evening|monday|tuesday|wednesday|thursday|friday)'
-const CADENCE_ANYWHERE = new RegExp(`\\b(every|each)\\s+(end|${UNITS})\\b|\\bend of (the )?${UNITS}\\b|\\b${UNITS}['’]?s end\\b`, 'i')
-const CADENCE_WHOLE = new RegExp(`^((on|at)\\s+)?((every|each)\\s+(end of (the )?)?${UNITS}(\\s+end)?|(the\\s+)?(end of (the )?${UNITS}|${UNITS}['’]?s end))$`, 'i')
+// Whitespace or a hyphen: "end of day" and "end-of-day" are the same phrase.
+const SEP = '[\\s-]+'
+// The end of a period, however it is written: "end of sprint", "end-of-day",
+// "quarter's end", "month end", "sprint-end".
+const periodEnd = units => `(end${SEP}of${SEP}(the${SEP})?${units}|${units}(['’]?s)?${SEP}end)`
+const PERIOD_END = periodEnd(UNITS)
+const CADENCE_ANYWHERE = new RegExp(`\\b(every|each)\\s+(end|${UNITS})\\b|\\b${PERIOD_END}\\b`, 'i')
+// A title that IS a cadence says when: "every" or "each" ("Every End of
+// Sprint", "Each month"), "on" or "at" ("On Quarter's end", "At month end"),
+// or the article prose puts in front of a moment ("The end of the quarter").
+const CADENCE_WHOLE = new RegExp(`^(((on|at)\\s+)?(every|each)\\s+(end${SEP}of${SEP}(the${SEP})?)?${UNITS}((['’]?s)?${SEP}end)?|(on|at)\\s+(the\\s+)?${PERIOD_END}|the\\s+end${SEP}of${SEP}(the${SEP})?${UNITS})$`, 'i')
+// A bare period end ("End of Sprint", "Month end") says no when. When the
+// period is one a team reports on (a sprint, month, quarter, year or
+// release), a label with no article on a map most often names what the
+// period produces, the sprint-end report or review, so it reads as an
+// Output; the moment it may also mean keeps it a guess. A shorter period
+// ("End of day", "End of week") produces no such thing and stays a guess at
+// a Trigger / End, the same type as the "Start of day" that opens its flow.
+// A start names no report, so "Start of sprint" stays a confident Trigger /
+// End: the pair is asymmetric on purpose. With "every" or "on" in front
+// either end is the cadence above.
+const PERIOD_NAME = new RegExp(`^${periodEnd('(sprint|month|quarter|year|release)')}$`, 'i')
+const CADENCE_WORDS = '(daily|weekly|monthly|quarterly|annual|yearly)'
+const REPORT_SUBJECTS = '(status|progress|performance|financial|finance|sales|incident|usage|cost|spend|compliance)'
+// A cadence, a period or a subject in front of a report word is the report
+// itself: "Weekly reporting", "Monthly digest", "Year-end reporting", "Q3
+// reporting", "Financial reporting".
+const REPORT_PERIODS = `(${CADENCE_WORDS}|${PERIOD_END}|${UNITS}|q[1-4])`
+const REPORT_ITSELF = new RegExp(`^(${REPORT_PERIODS}\\s+(reporting|summar(y|ies)|digests?|updates?|newsletters?|briefs?|briefings?)|${REPORT_SUBJECTS}\\s+reporting)$`, 'i')
 const AUDIENCE_WORDS = '(executives?|stakeholders?|customers?|leadership|owners?|team leads?|sponsors?)'
 const AUDIENCE = new RegExp(`\\b${AUDIENCE_WORDS}\\b`, 'i')
 const AUDIENCE_WHOLE = new RegExp(`^${AUDIENCE_WORDS}(\\s+(team|group|committee|board|council))?$`, 'i')
+// "<Someone> Reporting" can name a reporting line, and a line is named for
+// whom it reports to. But most words in front of "reporting" name what is
+// reported on, when, or how ("Tax reporting", "Sprint reporting", "Supply
+// Chain Reporting"), and those are not a who. So it is a guess (2) only when
+// the word next to "reporting" is one a line reports to ("Board reporting",
+// "Weekly Board Reporting"), or the words read as a name: capitalised, none
+// a subject, period or manner, and either led by an acronym ("ACME Model
+// Reporting") or ending in an organisational unit ("Retail Division
+// Reporting"). Title Case alone is not a name: canvases are written in it.
+// An audience word is left to AUDIENCE, so the two never add up to a
+// confident call.
+const REPORTING = /^([\w'’&.-]+(?:\s+[\w'’&.-]+){0,2})\s+reporting$/i
+const REPORTS_TO = /^(board|investors?|portfolios?|management|partners?|regulators?|clients?|shareholders?|donors?|funders?|execs?|pmo|steering|committees?|councils?)$/i
+// After another noun "management" is a discipline ("Project Management
+// Reporting"), so it names a who only alone or after a rank or a cadence.
+const MANAGEMENT_WHO = new RegExp(`^((senior|top|upper|line|general|${CADENCE_WORDS})\\s+)*management$`, 'i')
+const ORG_UNIT = /^(divisions?|units?|regions?|segments?|offices?|groups?|departments?|subsidiar(y|ies))$/i
+const NOT_A_WHO = new RegExp(`^(${CADENCE_WORDS}|${REPORT_SUBJECTS}|${UNITS}s?|q[1-4]|h[12]|fy\\d*|ytd|end|mid|of|the|to|date|period|` +
+  'manual|automated|automatic|ad|hoc|real|time|self|serve|service|' +
+  'regulatory|esg|tax|errors?|crash(es)?|expenses?|projects?|epics?|internal|external|operational|consolidated|centrali[sz]ed|' +
+  'custom|dashboards?|data|quality|security|audit|risks?|defects?|bugs?|tests?|budgets?|revenue|pipeline|capacity|delivery|kpis?|metrics?|' +
+  'okrs?|slas?|slos?|apis?|seo|etl|assets?)$', 'i')
+const notAWho = w => NOT_A_WHO.test(w) || w.split('-').some(part => NOT_A_WHO.test(part))
+const REPORTING_LINE = {
+  // An object with test(), so the case-sensitive "reads as a name" check
+  // can sit in SCORE_RULES beside the regular expressions.
+  test(line) {
+    const m = line.match(REPORTING)
+    if (!m || AUDIENCE.test(line)) return false
+    const words = m[1].split(/\s+/)
+    const head = words[words.length - 1]
+    if (REPORTS_TO.test(head) && (!/^management$/i.test(head) || MANAGEMENT_WHO.test(m[1]))) return true
+    return words.length >= 2 && words.every(w => /^[A-Z]/.test(w)) &&
+      (/^[A-Z]{2,}$/.test(words[0]) || ORG_UNIT.test(head)) && !words.some(notAWho)
+  },
+}
+// A metric in the line: the work word in front is then usually naming the
+// measure ("Rework rate above 20%", "Schedule variance").
+const METRIC_HINT = '(%|\\b(rates?|targets?|baselines?|percent(age)?|variance|adherence)\\b)'
+const DETERMINER = '(the|a|an|our|its|their|this|that|these|those|every|each|all)'
+// A leading verb for work that changes something, where the verb alone
+// cannot say whether it happens once (an Implementation) or on every run of
+// a flow (a Process step): "Schedule status notes", "Consolidate the
+// trackers". Several of these words are nouns too, and only the word that
+// follows says which. So it is not work when:
+//  - a noun it modifies follows ("Upgrade path", "Install guide",
+//    "Prototype results", "Wire fees"), for the words that are also nouns;
+//  - a preposition follows, which only a noun takes directly ("Schedule for
+//    the migration", "Rework from the integration", "Rebuild vs buy");
+//  - a verb or a state follows, directly or after one word that is not an
+//    article, so the work word is the subject ("Schedule slipped again",
+//    "Upgrade path is unclear", "Upgrade blocked by the integration",
+//    "Rework caused by the migration"). A state counts only before a
+//    preposition or the end, so "Install pending updates" is still work;
+//  - it is "connect with" someone;
+//  - a measure follows, unless an article makes it an object ("Rework rate
+//    above 20%" is a metric, "Upgrade the rate limiter" is work).
+// Only the words listed here are detected: a noun or verb missing from them
+// still reads as work, which is one reason the call stays a guess.
+const WORK_WORDS = '(schedule|consolidate|centrali[sz]e|standardi[sz]e|streamline|unify|connect(?!\\s+with\\b)|replace|rebuild|rewrite|refactor|redesign|rework|upgrade|configure|install|wire|hook up|expose|deprecate|retire|decommission|replatform|prototype|roll out)'
+const WORK_NOUNS = '(schedule|rebuild|rewrite|redesign|rework|upgrade|install|wire|prototype|roll out)'
+const WORK_NOUN_HEAD = '(paths?|guides?|notes|costs?|delays?|overruns?|pressure|results?|feedback|windows?|dates?|times?|fees?|plans?|instructions|estimates?|overview|impact|failures?|drift|downtime|transfers?)'
+const SUBJECT_VERBS = '(is|are|was|were|has|have|had|keeps?|kept|still|slips?|slipped|slipping|conflicts?|changed|changes|moved|moves|fails?|failed|failing|breaks?|broke|broken|could|might|may|will|would|delays|causes|costs|looks|assumes)'
+const SUBJECT_STATES = '(blocked|stuck|delayed|stalled|pending|overdue|ready|expected|caused|done)(?=\\s*$|\\s*[,.;:!?(]|\\s+(by|on|in|until|for|at|from|after|since|to|due|because|again|now|yet)\\b)'
+const WORK_VERB = new RegExp(`^(?!(${WORK_NOUNS}\\s+${WORK_NOUN_HEAD}|install\\s+base)\\b)${WORK_WORDS}\\b` +
+  `(?!\\s+(of|for|from|after|during|vs|versus)\\b)` +
+  `(?!(\\s+(?!${DETERMINER}\\b)[\\w'’-]+)?\\s+(${SUBJECT_VERBS}\\b|${SUBJECT_STATES}))` +
+  `(?!(?!\\s+${DETERMINER}\\b).*${METRIC_HINT})`, 'i')
+// The work word takes an object only when an article or a determiner follows
+// it ("Replace the integration", "Hook up the alerts"). Without one it may
+// still be a noun neither list knows ("Rework budget for the migration"), so
+// it stays a guess however many other cues agree.
+const WORK_OBJECT = new RegExp(`^${WORK_WORDS}(\\s+(up|out|over|off))?\\s+${DETERMINER}\\b`, 'i')
+const WORK_GUESS = { test: line => WORK_VERB.test(line) && !WORK_OBJECT.test(line) }
+const WORK_ON_OBJECT = { test: line => WORK_VERB.test(line) && WORK_OBJECT.test(line) }
 
-// Weighted keyword cues. Each entry: [regex, points]. Highest-scoring type wins.
-// On a tie the earlier type wins, which is why the three newer types come
-// last: a line that already classified one way keeps doing so, and they only
-// take lines nothing else claimed or claimed weakly. Nouns are plural-safe
-// ("Reports", "Key Results"): the singular-only cues sent both to Other.
+// A period's ceremony is a step the flow repeats, not the moment it starts
+// or ends: "Month-end close", "End of quarter review", "Sprint retro",
+// "Weekly sync". A guess, since a review can also be the document.
+const PERIOD_EVENT = new RegExp(`^(${PERIOD_END}|${UNITS}|${CADENCE_WORDS})\\s+(close|closing|reviews?|retros?|retrospectives?|planning|demos?|syncs?|stand-?ups?|meetings?|reconciliations?|kick-?offs?|wrap-?ups?)$`, 'i')
+
+// Weighted keyword cues. Each entry: [regex, points, cap?]. Highest-scoring
+// type wins. On a tie the earlier type wins, which is why the three newer
+// types come last: a line that already classified one way keeps doing so,
+// and they only take lines nothing else claimed or claimed weakly. Nouns are
+// plural-safe ("Reports", "Key Results"): the singular-only cues sent both to
+// Other.
+// A total of 3 is a confident call; under 3 is a guess that the card asks a
+// person to check (typeCheck), so a cue that can mislead stays under 3. The
+// optional cap is the most the type can total when that cue fires, so a
+// guess cannot stack with another cue into a confident call that outranks a
+// stronger reading ("Schedule migration risk" is a risk).
 const SCORE_RULES = {
   requirement: [[/\b(need|needs|must|should|shall|require[sd]?|has to|have to)\b/i, 3], [/\b(support|enable|provide|allow)\b/i, 1]],
   assumption:  [[/\b(assume|assuming|assumption|expect|expects|presumably|likely|probably|i think|we think|believe)\b/i, 3], [/\bwill\s+\w+/i, 2], [/\b(should be fine|hopefully)\b/i, 2]],
   risk:        [[/\b(risks?|concerns?|danger|threats?|worried|might fail|could fail|fragile|breaks?|vulnerab)\b/i, 3], [/\b(if .* fails|single point of failure)\b/i, 2]],
   goal:        [[/\b(goals?|objectives?|aim|vision|want to|increase|reduce|improve|grow|launch|ship|achieve|reach)\b/i, 3]],
   problem:     [[/\b(problems?|issues?|blockers?|bugs?|broken|pain|can't|cannot|doesn't work|failing|slow|outage)\b/i, 3], [/\b(latency|exceeds?|over (our )?sla|breach(es|ing)?|too slow|error rate|downtime)\b/i, 3],
-                // "Build fails on main" is a red pipeline, not work to do.
-                [/^(build|pipeline|ci|deploy(ment)?|tests?)\s+(is\s+|are\s+|was\s+|keeps\s+)?(fail(s|ed|ing)?|broken|red|flaky)\b/i, 3]],
+                 // "Build fails on main" is a red pipeline, not work to do.
+                 [/^(build|pipeline|ci|deploy(ment)?|tests?)\s+(is\s+|are\s+|was\s+|keeps\s+)?(fail(s|ed|ing)?|broken|red|flaky)\b/i, 3]],
   decision:    [[/\b(decided|decision|chose|choose|chosen|go with|pick(ed)?|settle[d]? on|opt(ed)? for)\b/i, 3]],
   // Named systems ("Data Central", "Partner Portal") are resources too.
   resource:    [[/\b(teams?|budgets?|tools?|assets?|librar(y|ies)|apis?|services?|credits?|headcount|engineers?|designers?|systems?|platforms?|databases?|data sources?|warehouses?|central|hubs?|portals?)\b/i, 1]],
-  output:      [[/\b(deliverables?|outputs?|results?|outcomes?|artifacts?|reports?|doc(s|umentation)?|deploy|releases?)\b/i, 2]],
+  // The period and report-itself cues are guesses that must not stack with
+  // the noun cue: in "End of release" one word is both the period and the
+  // output noun, and that is one reading counted twice.
+  output:      [[/\b(deliverables?|outputs?|results?|outcomes?|artifacts?|reports?|doc(s|umentation)?|deploy|releases?)\b/i, 2],
+                 [PERIOD_NAME, 2, 2], [REPORT_ITSELF, 2, 2]],
   context:     [[/\b(background|context|currently|today|historically|note that|fyi|for reference)\b/i, 2]],
   // `set up` is building something, not a step: leave it to implementation.
-  process:     [[/^(update|create|add|send|generate|assign|review|submit|move|set(?!\s+up\b)|mark|run|trigger|notify)\b/i, 3], [/\b(step \d|then\b)/i, 1]],
+  process:     [[/^(update|create|add|send|generate|assign|review|submit|move|set(?!\s+up\b)|mark|run|trigger|notify)\b/i, 3], [/\b(step \d|then\b)/i, 1],
+                 [PERIOD_EVENT, 2]],
   // A cadence ("every end of sprint", "on quarter's end") is what starts a
   // flow. A bare "weekly" is not: "Weekly reports" are an output. Only a
   // title that IS the cadence is a confident trigger: "Every week we lose
   // two customers" mentions one, and a mention alone is a hint (1 point).
-  terminator:  [[/^(start|begin|end|finish|done|complete[d]?)\b/i, 3],
-                [CADENCE_ANYWHERE, 1],
-                [CADENCE_WHOLE, 2]],
-  metric:      [[/\b(kpis?|okrs?|metrics?|key results?|slas?|slos?|nps)\b/i, 3], [/%|\b(rates?|targets?|baselines?|percent(age)?)\b/i, 2]],
+  // "End" is a finish, but "End of Sprint" is a period's name (PERIOD_NAME).
+  terminator:  [[new RegExp(`^(start|begin|finish|done|complete[d]?|end(?!${SEP}of${SEP}(the${SEP})?${UNITS}\\b))\\b`, 'i'), 3],
+                 [CADENCE_ANYWHERE, 1],
+                 [CADENCE_WHOLE, 2]],
+  metric:      [[/\b(kpis?|okrs?|metrics?|key results?|slas?|slos?|nps)\b/i, 3], [new RegExp(METRIC_HINT, 'i'), 2]],
   // A leading "build" is work unless the build is the subject ("Build
   // fails on main") or its object is not a thing ("Build trust with ...").
   implementation: [[/^(implement|integrate|migrate|automate|set up|(build|develop)(?!\s+(fails?|failed|failing|broke|broken|breaks|is|was|keeps|still|red|trust|relationships?|rapport|confidence|consensus|momentum|awareness|credibility|loyalty|reputation|culture)\b))\b/i, 3],
-                   [/\b(implement(s|ed|ing|ation)?|integrat(e|es|ed|ing|ion|ions)|migrat(e|es|ed|ing|ion)|automat(e|es|ed|ing|ion))\b/i, 2]],
+                   [/\b(implement(s|ed|ing|ation)?|integrat(e|es|ed|ing|ion|ions)|migrat(e|es|ed|ing|ion)|automat(e|es|ed|ing|ion))\b/i, 2],
+                   // 2.5 outranks a noun cue of 2 ("Schedule the weekly report"
+                   // is the work, not the report) and stays a guess. Only with
+                   // an object in view can an implementation noun lift it to 3,
+                   // and no further, so a risk or problem cue of 3 still wins
+                   // the tie ("Replace the integration: risk of data loss").
+                   [WORK_GUESS, 2.5, 2.5], [WORK_ON_OBJECT, 2.5, 3]],
   // An audience word anywhere is a weak cue (2): "Customers will pay for
   // this" is a belief and "Customer churn above 5%" a metric, and both tie
   // back to the earlier type. Only a title that names the audience outright
-  // ("Customers", "Leadership team") is a confident stakeholder.
-  stakeholder: [[AUDIENCE, 2], [AUDIENCE_WHOLE, 1]],
+  // ("Customers", "Leadership team") is a confident stakeholder. A
+  // reporting line ("Portfolio Reporting") is a guess at one.
+  stakeholder: [[AUDIENCE, 2], [AUDIENCE_WHOLE, 1], [REPORTING_LINE, 2]],
 }
 
-const LEADING_FILLER = /^(we|i|the|our|they|it|this|that|there)\s+/i
+// "The" goes too, except before a period end: "The end of the quarter" is
+// a moment, and CADENCE_WHOLE needs the article to tell it from a label.
+const LEADING_FILLER = new RegExp(`^(we|i|the(?!\\s+end${SEP}of${SEP}(the${SEP})?${UNITS}\\b)|our|they|it|this|that|there)\\s+`, 'i')
 
 /**
  * Classify one raw line into { type, title, confidence }.
  * confidence: 'high' (explicit prefix or strong score) | 'low' (weak/none).
- * A title alone cannot always carry its type: of the eleven reporting-flow
- * titles in tests/types-registry.test.js, two still land on Other and one
- * reads as a trigger where its author meant a report, which is why
- * low-confidence calls ask to be checked.
+ * A title alone cannot always carry its type: the eleven reporting-flow
+ * titles in tests/types-registry.test.js now all land where their author
+ * meant, but eight of them only as a guess ("ACME Model Reporting" could
+ * be reporting on a model, "End of Sprint" the moment itself), which is
+ * why low-confidence calls ask to be checked.
  */
 export function categorizeLine(raw) {
   const line = raw.replace(/^\s*[-*•]\s+/, '').replace(/^\s*\d+\.\s+/, '').trim()
@@ -112,8 +241,11 @@ export function categorizeLine(raw) {
   const probe = line.replace(LEADING_FILLER, '')
   let best = { type: 'custom', score: 0 }
   for (const [type, rules] of Object.entries(SCORE_RULES)) {
-    let score = 0
-    for (const [re, pts] of rules) if (re.test(probe)) score += pts
+    let score = 0, cap = Infinity
+    for (const [re, pts, most = Infinity] of rules) {
+      if (re.test(probe)) { score += pts; cap = Math.min(cap, most) }
+    }
+    score = Math.min(score, cap)
     if (score > best.score) best = { type, score }
   }
 

@@ -536,24 +536,29 @@ describe('task plan -- implementation satisfies a requirement', () => {
 // ── Classifier ───────────────────────────────────────────────
 // The eleven block titles from a real reporting canvas (methodology.md, "The
 // user's canvas re-typed"), what the classifier makes of each from the title
-// alone, and what its author meant. Where they differ, the test says so: a
-// title cannot always carry its type, which is why a low-confidence call is
-// flagged for a person to check rather than trusted. Two titles named the
-// source organisation; they are anonymised here ("Acme") because this file
-// is public, and the stand-ins take the same classifier path.
+// alone, and what its author meant. A title cannot always carry its type, so
+// every call a person could read another way is low confidence and flagged
+// for a person to check rather than trusted. Three titles named the source
+// organisation or its tools. They are synthetic stand-ins here that keep each
+// original's shape, so each takes the classifier path its original takes: an
+// acronym in front of "Model Reporting" reads as a name ("ACME Model
+// Reporting"), and "status notes" and "Data Hub" stand in for the other two.
+// insights.test.js and sharing-safety.test.js use "Portfolio Reporting" for
+// the first; that reaches the same call by another path (a word a line
+// reports to), so it is pinned separately below and in classifier.test.js.
 
 const REPORTING_TITLES = [
   // title, classifier type, confidence, the type its author meant
   ['Executive Reporting', 'stakeholder', 'low', 'stakeholder'],     // an audience word alone is a guess, so it asks to be checked
-  ['Acme Model Reporting', 'custom', 'low', 'stakeholder'],         // misfile: nothing in the words says audience
-  ['Every End of Sprint', 'terminator', 'high', 'terminator'],
+  ['ACME Model Reporting', 'stakeholder', 'low', 'stakeholder'],    // a reporting line is named for its audience, or for its subject
+  ['Every End of Sprint', 'terminator', 'high', 'terminator'],      // "every" makes it a cadence
   ['Status notes per Epic (Deliverable)', 'output', 'low', 'output'],
-  ['Schedule status notes', 'custom', 'low', 'implementation'],               // misfile: a bare verb could be a step or a build
+  ['Schedule status notes', 'implementation', 'low', 'implementation'], // a work verb: once (a build) or every run (a step)
   ['Weekly Reports', 'output', 'low', 'output'],
-  ['End of Sprint', 'terminator', 'high', 'output'],                 // reads as a moment; its author meant the sprint-end report
+  ['End of Sprint', 'output', 'low', 'output'],                      // no "every" or "on": the sprint-end report, or the moment
   ['Key Results', 'metric', 'high', 'metric'],
-  ["On Quarter's end", 'terminator', 'high', 'terminator'],
-  ['Acme Central', 'resource', 'low', 'resource'],
+  ["On Quarter's end", 'terminator', 'high', 'terminator'],          // "on" makes it a cadence
+  ['Data Hub', 'resource', 'low', 'resource'],
   ['Multi Reports', 'output', 'low', 'output'],
 ]
 
@@ -567,11 +572,11 @@ describe('categorizeLine() -- a real reporting canvas', () => {
     })
   })
 
-  it('agrees with the author on eight of eleven, and every miss is low confidence or a defensible reading', () => {
+  it('agrees with the author on all eleven, and is confident only about the cadences and the metric', () => {
     const hits = REPORTING_TITLES.filter(([, got, , meant]) => got === meant).length
-    assert.eq(hits, 8)
-    REPORTING_TITLES.filter(([, got, conf, meant]) => got !== meant && conf === 'high')
-      .forEach(([title]) => assert.eq(title, 'End of Sprint', 'the only confident miss is the one a person could read either way'))
+    assert.eq(hits, 11)
+    assert.deepEq(REPORTING_TITLES.filter(([, , conf]) => conf === 'high').map(([t]) => t),
+      ['Every End of Sprint', 'Key Results', "On Quarter's end"])
   })
 })
 
@@ -657,12 +662,12 @@ describe('categorizeLine() -- plural-safe and new cues', () => {
 describe('createBlocksFromText() -- type check', () => {
   it('marks only the low-confidence guesses for a person to check, in one undo step', () => {
     reset()
-    const ids = createBlocksFromText('goal: Ship the scheduler\nAcme Model Reporting\nKey Results', false)
+    const ids = createBlocksFromText('goal: Ship the scheduler\nPortfolio Reporting\nKey Results', false)
     assert.eq(ids.length, 3)
     const [a, b, c] = ids.map(id => state.blocks[id])
     assert.eq(a.type, 'goal')
     assert.ok(!a.typeCheck, 'a prefixed line is certain')
-    assert.eq(b.type, 'custom')
+    assert.eq(b.type, 'stakeholder')
     assert.eq(b.typeCheck, true, 'a guess waits to be confirmed')
     assert.eq(c.type, 'metric')
     assert.ok(!c.typeCheck)
