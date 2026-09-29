@@ -34,8 +34,36 @@ export function labelTextWidth(text) {
   return w
 }
 
-const overlaps = (r, list) => list.some(b =>
-  r.x < b.x + b.w && b.x < r.x + r.w && r.y < b.y + b.h && b.y < r.y + r.h)
+const hits = (r, b) => r.x < b.x + b.w && b.x < r.x + r.w && r.y < b.y + b.h && b.y < r.y + r.h
+
+// A bucket grid over boxes {x,y,w,h}, so testing a label against 300 cards,
+// 1500 runs of line and the labels already placed looks only at what is
+// near it. Each box sits in every cell it touches; a query visits the cells
+// the label touches. Any box that overlaps the label shares a cell with it,
+// so the answer is the one a scan of the whole list gives.
+const CELL = 128
+function bucketGrid() {
+  const cells = new Map()
+  const span = (lo, hi) => [Math.floor(lo / CELL), Math.floor(hi / CELL)]
+  return {
+    add(item, b = item) {
+      const [x0, x1] = span(b.x, b.x + b.w), [y0, y1] = span(b.y, b.y + b.h)
+      for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) {
+        const k = cx * 65536 + cy
+        const cell = cells.get(k)
+        if (cell) cell.push(item); else cells.set(k, [item])
+      }
+    },
+    some(r, test) {
+      const [x0, x1] = span(r.x, r.x + r.w), [y0, y1] = span(r.y, r.y + r.h)
+      for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) {
+        const cell = cells.get(cx * 65536 + cy)
+        if (cell) for (const it of cell) if (test(it)) return true
+      }
+      return false
+    },
+  }
+}
 
 // Straight runs other than the one labelAnchor picked, longest first. A run
 // shorter than two corners cannot hold a label clear of its bends.
@@ -64,6 +92,21 @@ function nearestOn(poly, x, y) {
   return best
 }
 
+// How far a point sits from a segment.
+function distToSeg(x, y, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy
+  const t = l2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2)) : 0
+  return Math.hypot(a.x + dx * t - x, a.y + dy * t - y)
+}
+
+// The first search's widest step off the line. The wider search runs only
+// when the first found nothing clear, and there a spot this close beside
+// the line is taken even when another line is a little nearer (the other
+// choice is a label with a line through it); a spot farther out is not.
+// Measured on scrambled templates and random 40 and 80 card canvases, this
+// kept labels crossed by lines lowest without moving any far off their own.
+const BESIDE = 40
+
 // A short tick from the label to its own line, for a label that had to
 // step off it: without one, a label between two lines belongs to either.
 function leaderFor(poly, r) {
@@ -81,35 +124,50 @@ function leaderFor(poly, r) {
  * longest straight run (never on a corner) and slides along it; then along
  * the other straight runs, longest first; only then does it step off to
  * either side. The first spot that overlaps no card, no label placed
- * before it and no other connection's line wins. When none does, a spot
- * clear of cards and labels, then one clear of cards, then the anchor.
- * A label that ends up off its own line gets a leader back to it.
+ * before it and no other connection's line wins, provided a spot off the
+ * line is still nearer its own line than any other (see BESIDE). When none
+ * does, a spot clear of cards and labels, then one clear of cards, then the
+ * anchor. A label that ends up off its own line gets a leader back to it.
  * Returns aid -> { x, y (centre), w, h, text, ux, uy, leader }. Arrows
  * without a label still get their anchor, for the note and the editor.
  */
 export function placeLabels(routes) {
-  const blocks = []
+  const blocks = bucketGrid()
   for (const id in state.blocks) {
     const b = state.blocks[id], { w, h } = getBlockDims(id)
-    blocks.push({ x: b.x - 3, y: b.y - 3, w: w + 6, h: h + 6 })
+    blocks.add({ x: b.x - 3, y: b.y - 3, w: w + 6, h: h + 6 })
   }
   // Every drawn run, for keeping a label off lines that are not its own.
   const polys = new Map()
-  const segs = []
+  const segs = bucketGrid()
+  let segCount = 0
   state.arrows.forEach(a => {
     const pts = routes.get(a.id); if (!pts) return
     const poly = arrowPolyline(pts, arrowRoute(a))
     polys.set(a.id, poly)
     for (let i = 1; i < poly.length; i++) {
       const p = poly[i - 1], q = poly[i]
-      segs.push({ aid: a.id, p, q, l: Math.min(p.x, q.x), r: Math.max(p.x, q.x), t: Math.min(p.y, q.y), b: Math.max(p.y, q.y) })
+      const s = { aid: a.id, p, q, l: Math.min(p.x, q.x), r: Math.max(p.x, q.x), t: Math.min(p.y, q.y), b: Math.max(p.y, q.y) }
+      segs.add(s, { x: s.l, y: s.t, w: s.r - s.l, h: s.b - s.t })
+      segCount++
     }
   })
   const labelled = state.arrows.filter(a => connectionLabel(a)).length
-  const avoidLines = segs.length * labelled <= 150000   // a budget, for huge canvases
-  const clearOfLines = (r, aid) => !segs.some(s => s.aid !== aid &&
+  const avoidLines = segCount * labelled <= 150000   // a budget, for huge canvases
+  const clearOfLines = (r, aid) => !segs.some(r, s => s.aid !== aid &&
     s.r > r.x && s.l < r.x + r.w && s.b > r.y && s.t < r.y + r.h && segmentCrossesRect(r, s.p, s.q))
-  const placed = [], placedExact = []
+  const overCard = r => blocks.some(r, b => hits(r, b))
+  // A label off its line reads as the label of whichever line is nearest
+  // to it, leader or not, so a spot more than `free` off its line is taken
+  // only when its own line is still the nearest one.
+  const ownsSpot = (poly, aid, cx, cy, free) => {
+    const p = nearestOn(poly, cx, cy); if (!p) return true
+    const own = Math.hypot(p.x - cx, p.y - cy)
+    if (own <= free) return true
+    return !segs.some({ x: cx - own, y: cy - own, w: own * 2, h: own * 2 },
+      s => s.aid !== aid && distToSeg(cx, cy, s.p, s.q) <= own)
+  }
+  const placed = bucketGrid(), placedExact = bucketGrid()
   const out = new Map()
   state.arrows.forEach(a => {
     const pts = routes.get(a.id); if (!pts) return
@@ -128,21 +186,27 @@ export function placeLabels(routes) {
       const at = (along, off) => tries.push([Math.round(run.x + run.ux * along + px * off),
                                              Math.round(run.y + run.uy * along + py * off)])
       at(0, perp)
-      for (let d = perp ? 20 : 16; d <= reach; d += perp ? 24 : 16) { at(d, perp); at(-d, perp) }
+      // A short run has little room between the cards at its ends, and a
+      // coarse step jumps straight over the one gap that fits: step finely.
+      const step = reach <= 48 ? (perp ? 8 : 4) : (perp ? 24 : 16)
+      for (let d = reach <= 48 ? step : (perp ? 20 : 16); d <= reach; d += step) { at(d, perp); at(-d, perp) }
     }
     // Tiers, best first: clear of everything; clear of cards and labels;
     // clear of cards and touching a label's margin but not the label.
     let spot = null, clear = null, snug = null, offCards = null
-    const search = () => {
+    const search = (free = LABEL_H / 2) => {
       for (const [cx, cy] of tries) {
         const r = box(cx, cy)
-        if (overlaps(r, blocks)) continue
+        if (overCard(r)) continue
         if (!offCards) offCards = { x: cx, y: cy }
-        if (overlaps(r, placed)) {
-          if (!snug && !overlaps(r, placedExact)) snug = { x: cx, y: cy }
+        if (placed.some(r, b => hits(r, b))) {
+          if (!snug && !placedExact.some(r, b => hits(r, b))) snug = { x: cx, y: cy }
           continue
         }
-        if (!avoidLines || clearOfLines(r, a.id)) { spot = { x: cx, y: cy }; return }
+        if (!avoidLines || clearOfLines(r, a.id)) {
+          if (!ownsSpot(poly, a.id, cx, cy, free)) continue
+          spot = { x: cx, y: cy }; return
+        }
         if (!clear) clear = { x: cx, y: cy }
       }
     }
@@ -150,19 +214,32 @@ export function placeLabels(routes) {
     runs.forEach(run => slide(run, 0))
     for (const off of [16, -16, 28, -28, 40, -40]) runs.forEach(run => slide(run, off))
     search()
-    // Boxed in by cards or labels: look wider before settling for a label
-    // over another label or over a card (cards paint over lines, so a label
-    // there is half hidden).
-    if (!spot && !clear && !snug) {
+    // Nothing clear of everything near the line: look wider before settling
+    // for a label over another line, another label or a card (cards paint
+    // over lines, so a label there is half hidden). A label that ends up off
+    // its line gets a leader back to it, and one farther out than BESIDE
+    // must still be nearer its own line than any other.
+    if (!spot) {
       tries = []
       runs.forEach(run => slide(run, 0, true))
-      for (const off of [52, -52, 64, -64, 80, -80]) runs.forEach(run => slide(run, off, true))
-      search()
+      for (const off of [16, -16, 28, -28, 40, -40, 52, -52, 64, -64, 80, -80]) runs.forEach(run => slide(run, off, true))
+      search(BESIDE)
+    }
+    // Every spot tried sits on a card: a line a few pixels long between two
+    // cards that nearly touch. Step out past the cards' sides, but only to a
+    // spot clear of everything and nearer this line than any other: a label
+    // out there crossed by lines, or beside another line, is worse than one
+    // over the card, so the lesser tiers stay as they were.
+    if (!spot && !offCards) {
+      tries = []
+      for (let off = 52; off <= 200; off += 12) runs.forEach(run => { slide(run, off, true); slide(run, -off, true) })
+      search(0)
+      if (!spot) clear = snug = offCards = null
     }
     spot = spot || clear || snug || offCards || { x: Math.round(anc.x), y: Math.round(anc.y) }
     const r = box(spot.x, spot.y)
-    placed.push({ x: r.x - 2, y: r.y - 2, w: r.w + 4, h: r.h + 4 })
-    placedExact.push(r)
+    placed.add({ x: r.x - 2, y: r.y - 2, w: r.w + 4, h: r.h + 4 })
+    placedExact.add(r)
     out.set(a.id, { x: spot.x, y: spot.y, w, h, text, ux: anc.ux, uy: anc.uy, leader: leaderFor(poly, r) })
   })
   return out

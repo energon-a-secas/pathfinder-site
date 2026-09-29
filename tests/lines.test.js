@@ -23,6 +23,7 @@ import { fromJsonCanvas } from '../js/interop.js'
 import { buildSvg } from '../js/image-export.js'
 import { RELATIONS } from '../js/relations.js'
 import { setupKeyboardShortcuts } from '../js/events.js'
+import { TEMPLATES } from '../js/templates.js'
 
 // ── Fixture ──────────────────────────────────────────────────
 const USER_CANVAS = {
@@ -1158,3 +1159,213 @@ describe('lines: image export mirrors the canvas', () => {
     } finally { canvasMeta.spotlight = false }
   })
 })
+
+// ── Dense layouts ────────────────────────────────────────────
+
+// Two runs of different routes on the very same line, sharing more than 8px.
+function fusedRuns(list) {
+  const runs = []
+  list.forEach(r => r.points.forEach((p, i) => {
+    const q = r.points[i + 1]; if (!q || (p.x === q.x && p.y === q.y)) return
+    const vert = p.x === q.x
+    runs.push({ id: r.id, vert, c: vert ? p.x : p.y,
+      lo: Math.min(vert ? p.y : p.x, vert ? q.y : q.x), hi: Math.max(vert ? p.y : p.x, vert ? q.y : q.x) })
+  }))
+  const out = []
+  for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++) {
+    const s = runs[i], t = runs[j]
+    if (s.id !== t.id && s.vert === t.vert && s.c === t.c && Math.min(s.hi, t.hi) - Math.max(s.lo, t.lo) > 8) out.push([s.id, t.id])
+  }
+  return out
+}
+// Interior legs (neither the first nor the last) shorter than 18px.
+function interiorJogs(pts) {
+  let n = 0
+  for (let i = 2; i < pts.length - 1; i++) {
+    const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+    if (len > 0 && len < 18) n++
+  }
+  return n
+}
+const pt = (x, y) => ({ x, y })
+
+describe('lines: dense layouts', () => {
+  it('moves a run off another route\'s line even where two port legs pin the cluster', () => {
+    const routes = [
+      { id: 'A', points: [pt(0, 100), pt(300, 100), pt(300, 300)] },
+      { id: 'B', points: [pt(400, 105), pt(150, 105), pt(150, 400)] },
+      { id: 'C', points: [pt(120, -50), pt(120, 100), pt(260, 100), pt(260, 250)] },
+    ]
+    assert.deepEq(fusedRuns(routes), [['A', 'C']], 'the fixture starts fused')
+    const out = separateRoutes(routes, [])
+    assert.deepEq(fusedRuns(out), [])
+    const c = out.find(r => r.id === 'C').points
+    assert.deepEq(c[0], pt(120, -50)); assert.eq(c[c.length - 1].y, 250, 'the ports stay put')
+    assert.ok(Math.abs(c[1].y - 100) >= 6 && Math.abs(c[1].y - 105) >= 6, `run moved to ${c[1].y}, clear of both port legs`)
+  })
+
+  it('folds a jog away by moving the run beside it onto the other line', () => {
+    const [r] = separateRoutes([{ id: 'x', points: [pt(0, 0), pt(100, 0), pt(100, 10), pt(300, 10), pt(300, 100)] }], [])
+    assert.deepEq(r.points, [pt(0, 0), pt(300, 0), pt(300, 100)])
+  })
+
+  it('stretches a jog it cannot fold, rather than cut through a card', () => {
+    const card = { x: 150, y: -30, w: 100, h: 35 }
+    const [r] = separateRoutes([{ id: 'x', points: [pt(0, 0), pt(100, 0), pt(100, 10), pt(300, 10), pt(300, 100)] }], [card])
+    assert.eq(interiorJogs(r.points), 0, JSON.stringify(r.points))
+    assert.eq(r.points[2].y, 18, 'the run steps a readable 18px off the port leg')
+    for (let i = 1; i < r.points.length; i++) assert.ok(!crosses(card, r.points[i - 1], r.points[i]), 'and stays out of the card')
+  })
+
+  it('leaves a jog alone when folding or stretching it would put it on another line', () => {
+    const x = [pt(0, 0), pt(100, 0), pt(100, 10), pt(300, 10), pt(300, 100)]
+    const routes = [
+      { id: 'x', points: x },
+      { id: 'y', points: [pt(150, -60), pt(150, 0), pt(500, 0), pt(500, 60)] },    // folding lands on this
+      { id: 'z', points: [pt(-50, 80), pt(-50, 21), pt(520, 21), pt(520, -40)] },  // stretching lands 3px from this
+    ]
+    const out = separateRoutes(routes, [])
+    assert.deepEq(out.find(r => r.id === 'x').points, x, 'the jog stays')
+    assert.deepEq(fusedRuns(out), [], 'and no line was fused to fix it')
+  })
+
+  it('an end whose side sits right against another card leaves by a clear side', () => {
+    reset()
+    block('a', 0, 0); block('m', 0, 70); block('b', 100, 400)
+    ;['a', 'm', 'b'].forEach(id => { document.getElementById('b-' + id).style.position = 'absolute' })
+    arrow('x', 'a', 'b')
+    const p = resolveRoutes().get('x')
+    assert.eq(p.d1, 'right', 'the bottom side is 8px above another card')
+    const m = rectOf('m')
+    for (let i = 1; i < p.points.length; i++) assert.ok(!crosses(m, p.points[i - 1], p.points[i]), 'the line does not cross the card between')
+    state.arrows[0].fromPort = 'bottom'
+    assert.eq(resolveRoutes().get('x').d1, 'bottom', 'a side somebody pinned stays')
+  })
+
+  it('two lines leaving facing sides of close cards from the same spot move apart', () => {
+    reset()
+    block('u', 0, 0); block('l', 0, 88); block('far1', 0, 700); block('far2', 0, -700)
+    ;['u', 'l', 'far1', 'far2'].forEach(id => { document.getElementById('b-' + id).style.position = 'absolute' })
+    arrow('x', 'u', 'far1')
+    arrow('y', 'l', 'far2')
+    let r = resolveRoutes()
+    assert.eq(r.get('x').d1, 'bottom'); assert.eq(r.get('y').d1, 'top')
+    assert.ok(Math.abs(r.get('x').x1 - r.get('y').x1) >= 16, `ends at ${r.get('x').x1} and ${r.get('y').x1}`)
+    assert.deepEq(fusedRuns([{ id: 'x', points: r.get('x').points }, { id: 'y', points: r.get('y').points }]), [])
+    // A pinned end stays; the other one moves instead.
+    state.arrows.find(a => a.id === 'y').fromPort = 'top'
+    r = resolveRoutes()
+    assert.eq(r.get('y').x1, 110, 'the pinned end keeps the middle')
+    assert.ok(Math.abs(r.get('x').x1 - 110) >= 16, 'the free one slides')
+  })
+
+  it('a label on a short line finds the gap beside a line crossing it', () => {
+    reset()
+    block('t0', 300, 0, 220, 126); block('t3', 300, 170, 220, 102)
+    block('p', -400, 110, 120, 62); block('q', 900, 110, 120, 62)
+    ;['t0', 't3', 'p', 'q'].forEach(id => { document.getElementById('b-' + id).style.position = 'absolute' })
+    arrow('x', 't0', 't3', { label: 'needs' })
+    arrow('y', 'p', 'q')
+    const routes = new Map([
+      ['x', { x1: 410, y1: 126, d1: 'bottom', x2: 410, y2: 170, d2: 'top', points: [pt(410, 126), pt(410, 170)] }],
+      ['y', { x1: -280, y1: 144, d1: 'right', x2: 900, y2: 144, d2: 'left', points: [pt(-280, 144), pt(900, 144)] }],
+    ])
+    const l = placeLabels(routes).get('x')
+    const top = l.y - l.h / 2, bottom = l.y + l.h / 2
+    assert.ok(top > 144 || bottom < 144, `label ${top}..${bottom} is crossed by the line at 144`)
+    assert.ok(top >= 126 && bottom <= 170, 'and sits between the two cards')
+  })
+})
+
+// How far a point sits from a polyline.
+function distToPoly(poly, x, y) {
+  let best = Infinity
+  for (let i = 1; i < poly.length; i++) {
+    const a = poly[i - 1], b = poly[i]
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy
+    const t = l2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2)) : 0
+    best = Math.min(best, Math.hypot(a.x + dx * t - x, a.y + dy * t - y))
+  }
+  return best
+}
+
+describe('lines: labels stay with their own line', () => {
+  it('a label placed well off its line is still nearer that line than any other', () => {
+    // Every built-in template, its cards scrambled onto a tight grid (the
+    // dense canvases the label search struggles with). A label that steps
+    // far off its line gets a leader, but when another line is nearer it
+    // reads as that line's label: the search must not settle there.
+    let seed = 1000
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    let far = 0, labels = 0
+    const wrong = []
+    for (let round = 0; round < 3; round++) {
+      TEMPLATES.forEach((t, ti) => {
+        reset()
+        seed = 1000 + ti + round * 7919
+        const n = t.blocks.length, cols = Math.ceil(Math.sqrt(n))
+        const cells = [...Array(n).keys()].sort(() => rnd() - 0.5)
+        t.blocks.forEach((bd, i) => {
+          block('t' + i, (cells[i] % cols) * 300, Math.floor(cells[i] / cols) * 170, 220, bd.description ? 102 : 62)
+          document.getElementById('b-t' + i).style.position = 'absolute'
+        })
+        t.arrows.forEach(([f, to, label, relation], i) => arrow('ta' + i, 't' + f, 't' + to, { label: label || '', relation: relation || null }))
+        const routes = resolveRoutes()
+        const polys = new Map(state.arrows.map(a => [a.id, arrowPolyline(routes.get(a.id), 'routed')]))
+        placeLabels(routes).forEach((l, aid) => {
+          if (!l.text) return
+          labels++
+          const own = distToPoly(polys.get(aid), l.x, l.y)
+          if (own <= 40) return
+          far++
+          polys.forEach((poly, other) => {
+            if (other !== aid && distToPoly(poly, l.x, l.y) < own) wrong.push(`${t.name} #${round + 1} ${aid} is ${Math.round(own)}px from its line, nearer ${other}`)
+          })
+        })
+      })
+    }
+    assert.gt(labels, 150, `${labels} labels placed`)
+    assert.deepEq(wrong, [], `${far} labels sit more than 40px off their line`)
+    reset()
+  })
+
+  it('a label on a line between two cards that nearly touch steps out beside them, not over them', () => {
+    reset()
+    block('u', 0, 0, 220, 62); block('l', 0, 72, 220, 62)
+    ;['u', 'l'].forEach(id => { document.getElementById('b-' + id).style.position = 'absolute' })
+    arrow('x', 'u', 'l', { label: 'can go stale' })
+    const l = placeLabels(resolveRoutes()).get('x')
+    const r = { x: l.x - l.w / 2, y: l.y - l.h / 2, w: l.w, h: l.h }
+    const hit = q => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h
+    assert.ok(!hit(rectOf('u')) && !hit(rectOf('l')), `label ${JSON.stringify(r)} is over a card`)
+    assert.ok(l.leader, 'and a leader ties it back to its line')
+    reset()
+  })
+
+  it('it stays over the card rather than step out beside another line', () => {
+    reset()
+    block('u', 0, 0, 220, 62); block('l', 0, 72, 220, 62)
+    // Tall cards either side, each with a line running down the open ground
+    // between it and the pair: every spot clear of the cards out there is
+    // nearer one of those lines than the line it would label.
+    block('w', -370, -300, 220, 700); block('e', 370, -300, 220, 700)
+    block('w2', -370, 500, 220, 62); block('e2', 370, 500, 220, 62)
+    ;['u', 'l', 'w', 'e', 'w2', 'e2'].forEach(id => { document.getElementById('b-' + id).style.position = 'absolute' })
+    arrow('x', 'u', 'l', { label: 'can go stale' })
+    arrow('west', 'w', 'w2', { style: 'straight' }); arrow('east', 'e', 'e2', { style: 'straight' })
+    const routes = resolveRoutes()
+    routes.set('west', { x1: -100, y1: -300, d1: 'bottom', x2: -100, y2: 500, d2: 'top' })
+    routes.set('east', { x1: 320, y1: -300, d1: 'bottom', x2: 320, y2: 500, d2: 'top' })
+    const l = placeLabels(routes).get('x')
+    const own = distToPoly(arrowPolyline(routes.get('x'), 'routed'), l.x, l.y)
+    for (const other of ['west', 'east']) {
+      const d = distToPoly(arrowPolyline(routes.get(other), 'straight'), l.x, l.y)
+      assert.ok(d >= own, `label at ${l.x},${l.y} is ${Math.round(d)}px from ${other}, ${Math.round(own)}px from its own line`)
+    }
+    reset()
+  })
+})
+
+// The incremental-routing suite is its own file, loaded here, after every
+// test above, so the runner needs no entry of its own for it.
+await import('./lines-perf.test.js')

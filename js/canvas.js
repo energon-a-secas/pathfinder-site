@@ -39,6 +39,11 @@ function arrowDefs() {
   return defs
 }
 
+// Markers already minted, so a render of 400 lines does not look each of
+// its 1200 heads up in the document. A marker that left the document (the
+// layer was rebuilt) is minted again.
+const markers = new Map()
+
 /**
  * The marker for a paint (a theme token name, or a CSS colour) at a weight.
  * Minted once per paint and size and reused. `orient=auto-start-reverse`
@@ -49,7 +54,10 @@ export function arrowMarker(paint, weight) {
   const token = HEAD_TOKENS[paint]
   const key = token ? paint : 'c' + colorKey(paint)
   const id = `ah-${key}-${Math.round(L * 10)}`
-  if (!document.getElementById(id)) {
+  if (markers.get(id)?.isConnected) return `url(#${id})`
+  const found = document.getElementById(id)
+  if (found) markers.set(id, found)
+  else {
     const defs = arrowDefs()
     if (!defs) return 'none'
     const m = document.createElementNS(SVG_NS, 'marker')
@@ -70,6 +78,7 @@ export function arrowMarker(paint, weight) {
     poly.style.fill = token || paint
     m.appendChild(poly)
     defs.appendChild(m)
+    markers.set(id, m)
   }
   return `url(#${id})`
 }
@@ -117,6 +126,24 @@ let lastLabels = new Map()
 export function labelPlacement(aid) { return lastLabels.get(aid) || null }
 
 // ── Render arrows ────────────────────────────────────────────
+// Attribute and custom-property writes, skipped when the value is the one
+// written last time. A drag release redraws every line though only the few
+// near the moved card changed, and rewriting the rest cost more than
+// working out where they go. Only renderArrows writes these, so the value
+// kept on the element is always the one in the document.
+function put(el, name, value) {
+  const last = el.__pf || (el.__pf = {})
+  value = String(value)
+  if (last[name] === value) return
+  last[name] = value
+  if (name.charCodeAt(0) === 45 && name.charCodeAt(1) === 45) el.style.setProperty(name, value)
+  else el.setAttribute(name, value)
+}
+function show(el, on) {
+  const v = on ? '' : 'none'
+  if (el.style.display !== v) el.style.display = v
+}
+
 function childLayer(group, cls) {
   for (const el of group.children) if (el.classList?.contains(cls)) return el
   const layer = document.createElementNS(SVG_NS, 'g')
@@ -198,8 +225,8 @@ export function renderArrows(opts = {}) {
       tight.dataset.aid = a.id
       hitLayer.appendChild(tight)
     }
-    tight.setAttribute('d', d)
-    tight.style.setProperty('--aw', weight + 'px')
+    put(tight, 'd', d)
+    put(tight, '--aw', weight + 'px')
     let hit = g.querySelector(':scope > .arrow-hitbox'), vis = g.querySelector(':scope > .arrow-path')
     if (!hit || !vis) {
       g.replaceChildren()
@@ -215,15 +242,13 @@ export function renderArrows(opts = {}) {
     g.classList.toggle('sel', sel)
     g.classList.toggle('bidir', !!a.bidirectional)
 
-    hit.setAttribute('d', d)
-    vis.setAttribute('d', d)
+    put(hit, 'd', d)
+    put(vis, 'd', d)
     vis.classList.toggle('selected', sel)
     // Inline style, not the presentation attribute: any stylesheet rule
     // beats an attribute, which is how dashed arrows used to draw solid.
-    vis.removeAttribute('stroke-dasharray')
-    vis.removeAttribute('marker-end')
-    vis.removeAttribute('marker-start')
-    vis.style.strokeDasharray = dashArrayFor(arrowPattern(a), weight)
+    const dash = dashArrayFor(arrowPattern(a), weight)
+    if (vis.style.strokeDasharray !== dash) vis.style.strokeDasharray = dash
 
     // Colour, weight and heads per state, as custom properties. CSS picks the
     // set for the state (rest, related or hovered, selected), so hovering a
@@ -238,7 +263,7 @@ export function renderArrows(opts = {}) {
       '--mk-hi': arrowMarker(paint || 'hi', weight),
       '--mk-sel': arrowMarker(paint || 'sel', weight),
     }
-    Object.entries(props).forEach(([k, v]) => g.style.setProperty(k, v))
+    for (const k in props) put(g, k, props[k])
 
     // Endpoint handles, only on the selected arrow. Dragging one re-pins that
     // end to whichever port it lands on, or re-targets the whole connection.
@@ -268,28 +293,28 @@ export function renderArrows(opts = {}) {
     t.classList.add('arrow-label-g')
     t.classList.toggle('sel', sel)
     t.classList.toggle('has-note', !!noteText)
-    ;['--ac', '--ac-hi', '--ac-sel'].forEach(k => t.style.setProperty(k, props[k]))
+    put(t, '--ac', props['--ac']); put(t, '--ac-hi', props['--ac-hi']); put(t, '--ac-sel', props['--ac-sel'])
     const [lead, bg, lbl, note] = t.children
     // A label that had to step off its line points back to it.
     if (lp.text && lp.leader) {
-      lead.setAttribute('x1', lp.leader.x1); lead.setAttribute('y1', lp.leader.y1)
-      lead.setAttribute('x2', lp.leader.x2); lead.setAttribute('y2', lp.leader.y2)
-      lead.style.display = ''
+      put(lead, 'x1', lp.leader.x1); put(lead, 'y1', lp.leader.y1)
+      put(lead, 'x2', lp.leader.x2); put(lead, 'y2', lp.leader.y2)
+      show(lead, true)
     } else {
-      lead.style.display = 'none'
+      show(lead, false)
     }
     if (lp.text) {
-      bg.setAttribute('x', lp.x - lp.w / 2); bg.setAttribute('y', lp.y - lp.h / 2)
-      bg.setAttribute('width', lp.w); bg.setAttribute('height', lp.h)
-      bg.setAttribute('rx', '9')
-      bg.style.display = ''
-      lbl.setAttribute('x', lp.x); lbl.setAttribute('y', lp.y)
-      lbl.textContent = lp.text
-      lbl.style.display = ''
+      put(bg, 'x', lp.x - lp.w / 2); put(bg, 'y', lp.y - lp.h / 2)
+      put(bg, 'width', lp.w); put(bg, 'height', lp.h)
+      put(bg, 'rx', '9')
+      show(bg, true)
+      put(lbl, 'x', lp.x); put(lbl, 'y', lp.y)
+      if (lbl.textContent !== lp.text) lbl.textContent = lp.text
+      show(lbl, true)
     } else {
-      bg.style.display = 'none'
-      lbl.textContent = ''
-      lbl.style.display = 'none'
+      show(bg, false)
+      if (lbl.textContent) lbl.textContent = ''
+      show(lbl, false)
     }
     lbl.classList.toggle('selected', sel)
 
@@ -299,12 +324,14 @@ export function renderArrows(opts = {}) {
     if (noteText) {
       const lines = wrapNote(noteText)
       const startY = lp.y + (lp.text ? lp.h / 2 + 4 : 4)
-      note.setAttribute('y', startY)
-      note.innerHTML = lines.map((ln, i) =>
+      put(note, 'y', startY)
+      const html = lines.map((ln, i) =>
         `<tspan x="${lp.x}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
+      if (note.__pfHtml !== html) { note.innerHTML = html; note.__pfHtml = html }
       note.classList.toggle('selected', sel)
-    } else {
+    } else if (note.__pfHtml !== '') {
       note.textContent = ''
+      note.__pfHtml = ''
     }
   })
   placeHandles(hitLayer, oldHandles, handleAt)
