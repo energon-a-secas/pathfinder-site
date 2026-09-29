@@ -268,6 +268,8 @@ a share link should carry the diagram, not the sender's pan and zoom.
 
 **Backward compatibility:** `normalize.js` is the single choke point for load/import/share. It coerces legacy `questions` (plain `string[]`) into `[{text}]` objects, tolerates a missing `docRef` (→ `null`), reads a legacy `dashed`/`dotted` style as `curved` plus that pattern, a label written where a type id belongs ("Start / End") as its type, and keeps an unknown type as `custom` with `typeHint`. Per the "don't silently mutate on load" rule, the normalized shape only persists on the next real edit.
 
+**Rollback and older builds (added 2026-09-29):** builds before the 16-type registry drop every block of a type they do not know on load, and their next autosave keeps the loss. So `normalize.js` forward compatibility (an unknown type stays `custom` + `typeHint`) must never be reverted, and a rollback reverts UI modules only: it keeps `normalize.js` and the `TYPES` registry, and users are told to run Maps ▾ → Export all maps first. The safety net lives in `library.js`: local saves carry `meta.schema`, each map keeps one last-good copy (`'pathfinder-lastgood-<id>'`, the size of its slot), and an unstamped save missing new-type blocks raises the Restore banner (`checkOlderVersionLoss`), worded as a possibility when the save cannot show which build wrote it. A copy holding an offer is never deleted. Each tab reopens its own map on reload (sessionStorage `'pathfinder-tab-map'`).
+
 **Undo:** every entry holds blocks, arrows, groups and the map settings `cardStyle` and `spotlight`; a replace's entry holds the whole framing (`undoEntry` in `state.js`). Text fields coalesce a typing burst into one entry with `snapshotOnce`.
 
 ---

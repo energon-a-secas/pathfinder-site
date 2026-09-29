@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { STORAGE_KEY, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, MIN_ZOOM, MAX_ZOOM, clamp, debounce } from './utils.js'
-import { normalizeCanvas, normalizeBlock, normalizeArrow, normalizeSituation, normalizePromptOpts } from './normalize.js'
+import { normalizeCanvas, normalizeBlock, normalizeArrow, normalizeSituation, normalizePromptOpts, SCHEMA_VERSION } from './normalize.js'
 
 // ── App state (mutable, shared by all modules) ──────────────
 export const state = { blocks: {}, arrows: [], groups: {} }
@@ -109,10 +109,14 @@ function setSaveStatus(phase, message = '') {
 // share links, the Maps library and file export all call this, so none of
 // them can drift. meta.prompt is derived from devOpts at write time; devOpts
 // stays the single live object every module already imports.
+// meta.schema stamps the copy as written by this build (normalize.js
+// SCHEMA_VERSION). A save without it was written by an older build, which
+// is how library.js tells a rollback's losses from a deliberate delete.
+// Written last, so a stamp read back into canvasMeta can never outlive it.
 export function serializeCanvas() {
   return {
     blocks: state.blocks, arrows: state.arrows, groups: state.groups,
-    meta: { ...canvasMeta, prompt: { mode: devOpts.mode, tone: devOpts.tone, detail: devOpts.detail, pre: [...devOpts.prePrompts] } },
+    meta: { ...canvasMeta, prompt: { mode: devOpts.mode, tone: devOpts.tone, detail: devOpts.detail, pre: [...devOpts.prePrompts] }, schema: SCHEMA_VERSION },
   }
 }
 
@@ -123,13 +127,37 @@ export function applyPromptOpts(p) {
   devOpts.prePrompts = new Set(p.pre || [])
 }
 
+// A save that fails (out of room, nearly always) asks these to free space
+// the app can give up without losing anything the person can see, cheapest
+// first: each takes a round number (0, then 1) and says whether it freed
+// anything, and the save is tried again after a round that did. library.js
+// gives up its last-good copies this way, so a redundant copy can never be
+// the reason a real save fails.
+export const storageReliefHooks = []
+const RELIEF_ROUNDS = 2
+
+function writeCanvas() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeCanvas()))
+  for (const fn of saveHooks) {
+    if (fn() === false) throw new Error('Map library write failed')
+  }
+}
+
 export function saveState() {
   // A shared preview is a separate document, never the visitor's active map.
   if (ui.readOnly || ui.embed) return true
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeCanvas()))
-    for (const fn of saveHooks) {
-      if (fn() === false) throw new Error('Map library write failed')
+    let round = 0
+    for (;;) {
+      try { writeCanvas(); break }
+      catch (err) {
+        let freed = false
+        while (!freed && round < RELIEF_ROUNDS) {
+          for (const fn of storageReliefHooks) { if (fn(round)) freed = true }
+          round++
+        }
+        if (!freed) throw err
+      }
     }
     setSaveStatus('saved')
     return true
@@ -145,19 +173,37 @@ export function debouncedSave() {
   queueSave()
 }
 
+// What the page load read: the key, the save stamp (null when an older
+// build wrote it), the block ids, whether it had the shape of a save (a
+// meta object, which every build writes), and what the payload says about
+// the build that wrote it (library.js writerSigns, through
+// mapIdHooks.inspectLoad). library.js compares it with the map's last-good
+// copy before the first save stamps it.
+export const lastLoad = { key: null, schema: null, blockIds: [], save: false, knewEveryType: false, bareArrows: [] }
+
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    // A reloaded tab reopens its own map (library.js), not whichever map
+    // another tab saved last; a new tab reads STORAGE_KEY as it always has.
+    const key = (mapIdHooks.loadSource && mapIdHooks.loadSource()) || STORAGE_KEY
+    const raw = localStorage.getItem(key)
     if (!raw) return
     // Normalize shape only. Arrows with missing endpoints are left in place;
     // render, gap detection, and prompt export already skip them safely, and
     // dropping them here would silently mutate a saved canvas on every load.
-    const clean = normalizeCanvas(JSON.parse(raw))
+    const data = JSON.parse(raw)
+    const clean = normalizeCanvas(data)
     state.blocks = clean.blocks
     state.arrows = clean.arrows
     state.groups = clean.groups
     Object.assign(canvasMeta, clean.meta)
     applyPromptOpts(clean.meta.prompt)
+    Object.assign(lastLoad, {
+      key, schema: clean.schema || null, blockIds: Object.keys(clean.blocks),
+      save: !!data && typeof data.meta === 'object' && data.meta !== null && !Array.isArray(data.meta),
+      knewEveryType: false, bareArrows: [],
+      ...(mapIdHooks.inspectLoad ? mapIdHooks.inspectLoad(data) : {}),
+    })
   } catch(_) {}
 }
 
@@ -170,8 +216,10 @@ const VIEW_KEY = 'pathfinder-view'
 
 // Which map this tab has open. library.js answers (its currentId knows when
 // another tab has moved the shared pointer, and keeps this tab on its own
-// map); until it has loaded, the shared pointer itself.
-export const mapIdHooks = { current: null }
+// map); until it has loaded, the shared pointer itself. `loadSource` names
+// the key a page load reads: this tab's own map after a reload, and
+// `inspectLoad(data)` says what a loaded payload shows about its writer.
+export const mapIdHooks = { current: null, loadSource: null, inspectLoad: null }
 
 const viewKey = () => {
   try {
@@ -252,6 +300,9 @@ export function serializeForShare() {
   const blocks = {}
   Object.entries(c.blocks).forEach(([id, b]) => { blocks[id] = stripBlank(b, normalizeBlock) })
   const meta = { ...c.meta }
+  // The stamp describes a local save. A link keeps the shape it always had,
+  // which every build, older ones included, reads the same way.
+  delete meta.schema
   if (meta.situation) meta.situation = stripBlank(meta.situation, normalizeSituation)
   if (meta.prompt) meta.prompt = stripBlank(meta.prompt, normalizePromptOpts)
   return {

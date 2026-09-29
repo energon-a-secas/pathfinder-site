@@ -8,9 +8,10 @@
 //  on is never overwritten because they clicked a teammate's link.
 //
 //  Keeping what is here: a warning when another tab changes the
-//  same map, a "Backed up" line with Export all in the status bar,
-//  one reminder when a week passes without an export, and a request
-//  for persistent storage after the first save.
+//  same map, an offer to restore what an older build of Pathfinder
+//  dropped (library.js finds it), a "Backed up" line with Export all
+//  in the status bar, one reminder when a week passes without an
+//  export, and a request for persistent storage after the first save.
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta, saveStatus, snapshot, primeShareLink, serializeCanvas, isShareHash } from './state.js'
@@ -19,7 +20,9 @@ import { normalizeCanvas } from './normalize.js'
 import { applyImport } from './export.js'
 import { updateCanvasTitle } from './render.js'
 import { currentId, ensureLibrary, takeSnapshot, openAsNewMap, exportAllMaps, pointAtThisMap,
-         readBackup, writeBackup, recordBackup, lastBackupAt } from './library.js'
+         readBackup, writeBackup, recordBackup, lastBackupAt, checkStorageForOlderVersion,
+         pendingOlderVersionLoss, restoreOlderVersionLoss, dismissOlderVersionLoss,
+         checkLoadForOlderVersion, mapWithPendingLoss, settleOlderVersionLoss } from './library.js'
 import { collapseTemplatesAfterUse, refreshSituation, refreshCardStyles,
          refreshSpotlight, syncContextBrief, checkShareUrl } from './ui-panels.js'
 import { suspendUnloadFlush } from './persistence-ui.js'
@@ -29,10 +32,18 @@ const NAG_AFTER = 7 * DAY
 
 // ── Incoming canvases ────────────────────────────────────────
 
-/** Whether the open map holds anything a replace would lose. */
+/**
+ * Whether the open map holds anything a replace would lose. Blocks an
+ * older build dropped and the restore offer still holds count: that map
+ * only looks empty, and a link that replaced it without asking would put a
+ * teammate's canvas where Restore brings them back. A link on the page
+ * load gets here before setupLibrary, so this asks for the load's check
+ * itself (once per page; library.js checkLoadForOlderVersion).
+ */
 export function hasContent() {
   return Object.keys(state.blocks).length > 0 || state.arrows.length > 0 ||
-    !!String(canvasMeta.title || '').trim() || !!String(canvasMeta.contextBrief || '').trim()
+    !!String(canvasMeta.title || '').trim() || !!String(canvasMeta.contextBrief || '').trim() ||
+    !!checkLoadForOlderVersion()
 }
 
 function countOf(data) {
@@ -161,10 +172,15 @@ export function applyIncoming(data, mode, { source = 'link', name = '' } = {}) {
   }
   const m = mode === 'merge' ? 'merge' : 'replace'
   const had = live && hasContent()
+  // Blocks an older build dropped from this map, still on offer: a replace
+  // keeps them in its snapshot and its undo step, and the offer ends, since
+  // the canvas it would restore them into is about to be someone else's.
+  const loss = had && m === 'replace' ? pendingOlderVersionLoss() : null
+  const whole = loss ? mapWithPendingLoss(loss) : null
   if (had && m === 'replace') {
     ensureLibrary()
     const label = source === 'file' ? `Before importing ${name || 'a file'}` : 'Before loading shared link'
-    if (!takeSnapshot(label)) {
+    if (!takeSnapshot(label, whole)) {
       showToast('No room to keep a snapshot of your map, so nothing was replaced. Open it as a new map, or free some storage', 'warning', 4500)
       return null
     }
@@ -172,10 +188,22 @@ export function applyIncoming(data, mode, { source = 'link', name = '' } = {}) {
   // A replace swaps the title, brief, card style, situation and prompt
   // options too, so its undo step carries the whole framing: one undo brings
   // back your blocks under your own title, not the teammate's.
-  if (had) snapshot({ framing: m === 'replace' })
+  if (whole) snapshotWith(whole)
+  else if (had) snapshot({ framing: m === 'replace' })
+  const kept = loss ? loss.blocks.filter(b => !state.blocks[b.id]).length : 0
+  if (loss) settleOlderVersionLoss(loss)
   const r = applyImport(data, m)
   afterLoad()
-  return { mode: m, replacedContent: had && m === 'replace', ...r }
+  return { mode: m, replacedContent: had && m === 'replace', ...(kept > 0 ? { keptDropped: kept } : {}), ...r }
+}
+
+// The replace's undo step, taken from the map with the offered blocks back
+// in it (undoEntry reads the live state, so it is lent them for the call).
+function snapshotWith(whole) {
+  const live = { blocks: state.blocks, arrows: state.arrows, groups: state.groups }
+  state.blocks = whole.blocks; state.arrows = whole.arrows; state.groups = whole.groups || {}
+  try { snapshot({ framing: true }) }
+  finally { Object.assign(state, live) }
 }
 
 /**
@@ -207,6 +235,9 @@ export function incomingMessage(r, what = 'map') {
   const tail = skipped ? `, skipped ${plural(skipped, 'invalid item')}` : ''
   if (r.mode === 'new') return `Opened the ${what} as a new map${tail}. Yours is under Maps`
   if (r.mode === 'merge') return `Merged ${plural(r.imported, 'block')} into your map${tail}`
+  if (r.replacedContent && r.keptDropped) {
+    return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back, with the ${plural(r.keptDropped, 'block')} an older version dropped`
+  }
   if (r.replacedContent) return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back`
   return skipped ? `Loaded the ${what}${tail}` : null
 }
@@ -274,8 +305,101 @@ export function touchesThisMap(e) {
 }
 
 function onStorage(e) {
-  if (ui.readOnly || ui.embed || otherTabBanner()) return
+  if (ui.readOnly || ui.embed) return
+  // An older build dropped blocks: that banner says more than this one,
+  // and closing it brings this one up if the map still differs.
+  if (checkStorageForOlderVersion(e)) return
+  if (otherTabBanner() || olderVersionBanner()) return
   if (touchesThisMap(e)) showOtherTabBanner()
+}
+
+// ── An older build dropped blocks ────────────────────────────
+// library.js compares a map's stored copy with the copy this build last
+// saved (on load, on a map switch, and when another tab writes it) and
+// raises `pf:older-version-loss`. This is the banner that answers it.
+
+function olderVersionBanner() { return document.getElementById('olderVersionBanner') }
+
+/**
+ * The banner's words for a loss. Every block offered is of a type the
+ * older build could not read (library.js findOlderVersionLoss counts no
+ * other kind). When nothing in the save showed an older build wrote it
+ * (`unsure`: a map with no connections looks the same after a current tab
+ * deleted the card on purpose), the banner offers without claiming.
+ */
+export function olderVersionText(loss) {
+  const n = loss?.ids?.length || 0
+  const them = n === 1 ? 'it' : 'them'
+  if (loss?.unsure) {
+    return `This map is missing ${plural(n, 'block')} that an older version of Pathfinder cannot read. ` +
+      `It may have dropped ${them}, or ${n === 1 ? 'it was' : 'they were'} deleted on purpose. Restore ${them}?`
+  }
+  const head = `An older version of Pathfinder saved this map and dropped ${plural(n, 'block')} it does not understand. Restore ${them}?`
+  // Another tab is still running the older build and will drop them again.
+  return loss?.source === 'storage'
+    ? `${head} Close any Pathfinder tab opened before the update, or its next save drops ${them} again.`
+    : head
+}
+
+// Whether the open map's stored copy says something other than this tab.
+function slotDiffers() {
+  const id = currentId()
+  if (!id) return false
+  try {
+    const raw = localStorage.getItem('pathfinder-map-' + id)
+    return raw != null && meaningOf(raw) !== meaningOf(serializeCanvas())
+  } catch (_) { return false }
+}
+
+/** Close the banner, handing focus to the canvas if it was on the banner. */
+export function closeOlderVersionBanner() {
+  const el = olderVersionBanner()
+  if (!el) return
+  const hadFocus = el.contains(document.activeElement)
+  el.remove()
+  if (hadFocus) {
+    try { document.getElementById('canvasViewport')?.focus({ preventScroll: true }) } catch (_) {}
+  }
+}
+
+// After Restore or Dismiss: a stored copy that still says something else
+// (Dismiss on a loss another tab caused) is the ordinary other-tab case.
+function afterAnswer() {
+  closeOlderVersionBanner()
+  if (slotDiffers()) showOtherTabBanner()
+}
+
+export function showOlderVersionBanner(loss = pendingOlderVersionLoss()) {
+  if (ui.readOnly || ui.embed || !loss || loss.mapId !== currentId()) return null
+  otherTabBanner()?.remove()
+  let el = olderVersionBanner()
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'olderVersionBanner'
+    // The other-tab banner's look and place: both are about this map's
+    // stored copy, and only one shows at a time.
+    el.className = 'other-tab-banner older-version-banner'
+    el.setAttribute('data-canvas-ui', '')
+    el.setAttribute('role', 'alert')
+    el.innerHTML = '<span class="other-tab-text older-version-text"></span>' +
+      '<button type="button" class="older-version-restore">Restore</button>' +
+      '<button type="button" class="older-version-dismiss">Dismiss</button>'
+    el.querySelector('.older-version-restore').addEventListener('click', () => {
+      const r = restoreOlderVersionLoss(pendingOlderVersionLoss())
+      afterAnswer()
+      if (!r) return
+      showToast(r.blocks
+        ? `Restored ${plural(r.blocks, 'block')}${r.arrows ? ` and ${plural(r.arrows, 'connection')}` : ''}. Undo takes ${r.blocks === 1 ? 'it' : 'them'} out again`
+        : 'Saved this tab\'s copy, which still has them', 'success', 3200)
+    })
+    el.querySelector('.older-version-dismiss').addEventListener('click', () => {
+      dismissOlderVersionLoss(pendingOlderVersionLoss())
+      afterAnswer()
+    })
+    ;(document.getElementById('canvasViewport') || document.body).appendChild(el)
+  }
+  el.querySelector('.older-version-text').textContent = olderVersionText(loss)
+  return el
 }
 
 // ── Backups ──────────────────────────────────────────────────
@@ -395,6 +519,12 @@ export function setupSharingSafety() {
   }
 
   window.addEventListener('storage', onStorage)
+  // A loss found before this ran (on load) is waiting; later ones arrive.
+  window.addEventListener('pf:older-version-loss', e => {
+    if (e.detail) showOlderVersionBanner(e.detail)
+    else closeOlderVersionBanner()
+  })
+  showOlderVersionBanner()
 
   const b = readBackup()
   if (!b.since) { b.since = Date.now(); writeBackup(b) }

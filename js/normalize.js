@@ -33,6 +33,25 @@ const VALID_CARD_STYLES = Object.keys(CARD_STYLES)
 const VALID_HIGHLIGHTS = Object.keys(HIGHLIGHTS)
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/
 
+/**
+ * The stamp this build writes into meta.schema on every local save
+ * (state.js serializeCanvas). Builds before 2026-09-29 wrote none, and the
+ * ones before the 16-type registry dropped blocks of types they did not
+ * know, then saved the loss. A saved map without the stamp therefore says
+ * "an older build wrote this", which is what library.js checks against its
+ * last-good copy. 2 is the 16-type registry with forward-compatible types.
+ */
+export const SCHEMA_VERSION = 2
+
+/**
+ * The stamp a payload carries, or null. Any positive integer is kept, a
+ * newer build's included: this build must not read a newer save as older.
+ */
+export function schemaOf(data) {
+  const v = data && typeof data === 'object' && data.meta && typeof data.meta === 'object' ? data.meta.schema : null
+  return Number.isInteger(v) && v > 0 ? v : null
+}
+
 function toStr(v) {
   return typeof v === 'string' ? v : (v == null ? '' : String(v))
 }
@@ -234,6 +253,12 @@ function normalizeGroup(raw) {
  * Normalize a full canvas payload into clean { blocks, arrows,
  * groups, meta } plus a `dropped` report of how many items were
  * unsalvageable. Accepts blocks as either an array or id-keyed map.
+ *
+ * The save stamp (meta.schema) comes back as `schema` beside meta, not in
+ * it, and only when the payload had one. It records which build wrote the
+ * copy, not a map setting: kept out of meta, it cannot show up as a
+ * changed setting in a snapshot comparison or an other-tab check, and a
+ * share link, which does not carry it, still normalizes to the same meta.
  */
 export function normalizeCanvas(data) {
   const dropped = { blocks: 0, arrows: 0, groups: 0 }
@@ -281,5 +306,6 @@ export function normalizeCanvas(data) {
     }
   }
 
-  return { ...result, dropped }
+  const schema = schemaOf(data)
+  return schema ? { ...result, dropped, schema } : { ...result, dropped }
 }
