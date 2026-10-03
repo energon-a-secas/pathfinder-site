@@ -552,6 +552,43 @@ describe('design tokens: the button system', () => {
   })
 })
 
+describe('design tokens: one radius per kind of thing', () => {
+  it('controls are 6px, chips and badges 4px, cards, menus and popovers 10px', async () => {
+    const t = await themed('')
+    try {
+      const box = t.add('<input class="insp-input" id="f"><button class="action-toggle" id="at">Prepare</button>' +
+        '<button class="zoom-fit-btn" id="z">Fit</button><button class="canvas-search-toggle" id="fb">Find</button>' +
+        '<button class="insp-icon-btn" id="ib">x</button><button class="header-btn" id="hb">Maps</button>' +
+        '<button class="q-ask" id="qa">Ask</button><div class="insp-suggestions" id="sg"></div>' +
+        '<span class="chip" id="c">High</span><span class="insp-chip" id="ic">x</span>' +
+        '<div class="pf-menu" id="m"></div><div class="block" id="b"></div><div class="search-overlay" id="so"></div>' +
+        '<div class="toast-notification" id="tn"></div><div class="palette-tip" id="pt"></div>')
+      const r = id => getComputedStyle(box.querySelector('#' + id)).borderTopLeftRadius
+      for (const id of ['f', 'at', 'z', 'fb', 'ib', 'hb', 'qa', 'sg']) assert.eq(r(id), '6px', `#${id}: a control or an inner box`)
+      for (const id of ['c', 'ic']) assert.eq(r(id), '4px', `#${id}: a chip`)
+      for (const id of ['m', 'b', 'so', 'tn', 'pt']) assert.eq(r(id), '10px', `#${id}: a card, a menu or a popover`)
+    } finally { t.done() }
+  })
+
+  it('an inspector field is a control: a --border-strong boundary at 3:1, the accent on focus', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls, css => css.replace(/:focus-visible/g, '.fv-probe').replace(/:focus\b/g, '.fv-probe'))
+      try {
+        const box = t.add('<input class="insp-input" id="f"><textarea class="insp-textarea" id="ta"></textarea><input class="insp-input fv-probe" id="ff">')
+        for (const id of ['f', 'ta']) {
+          const cs = getComputedStyle(box.querySelector('#' + id))
+          assert.deepEq(cssRgba(cs.borderTopColor), t.color('var(--border-strong)'), `${name} #${id}`)
+          const r = ratio(cssRgba(cs.borderTopColor), t.color('var(--bg)'))
+          assert.ok(r >= 3, `${name} #${id}: boundary ${r.toFixed(2)}:1 on the panel`)
+        }
+        const f = getComputedStyle(box.querySelector('#ff'))
+        assert.deepEq(cssRgba(f.borderTopColor), t.color('var(--accent)'), `${name}: the accent border on focus`)
+        assert.eq(f.outlineWidth, '2px', `${name}: and the focus outline`)
+      } finally { t.done() }
+    }
+  })
+})
+
 describe('design tokens: the brain dump card', () => {
   it('is one flat surface: no gradient text, no gradient pill, no glow, no blur', async () => {
     for (const [name, cls] of THEMES) {
