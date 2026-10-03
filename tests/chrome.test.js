@@ -828,7 +828,12 @@ describe('chrome -- header layout', () => {
       await nextFrame(win)
 
       assert.eq(win.getComputedStyle(list).display, 'block', 'an in-place menu shows in the panel')
-      assert.match(win.getComputedStyle(list.querySelector('button')).color, /249, 249, 249|255, 255, 255/)
+      // The panel follows the header skin (light with the page in light
+      // mode): the rows take the header's own ink and read on the panel.
+      const ink = rgbOf(win.getComputedStyle(list.querySelector('button')).color)
+      assert.deepEq(ink.slice(0, 3), rgbOf(win.getComputedStyle(doc.querySelector('.header-bar')).color).slice(0, 3), 'the header text colour')
+      const panelBg = rgbOf(win.getComputedStyle(panel).backgroundColor)
+      if ((panelBg[3] ?? 1) > 0.5) assert.ok(ratioOf(ink, panelBg) >= 4.5, `rows read on the panel: ${ratioOf(ink, panelBg).toFixed(2)}:1`)
       // offsetHeight, not the box: the kit's panel scales in as it opens.
       assert.gte(list.querySelector('button').offsetHeight, 44, 'with the kit touch height')
       assert.eq(win.getComputedStyle(stray).display, 'none', 'and never in the bar')

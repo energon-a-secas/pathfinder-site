@@ -2127,6 +2127,31 @@
       }
     }
     /* tokens:end */
+    /* The header: the kit's sanctioned `custom` skin, as tokens only (the
+       selector is the kit README's contract, copied exactly). It is the
+       ink skin's quiet near-black in dark mode, built from the site's own
+       neutrals, and in light mode it turns light with the page: a dark
+       slab over a light map is the loudest thing on screen, and the brief
+       wants the chrome to recede. Every value is a token, so the bar follows
+       body.light-mode; a visitor's ?theme= still replaces it. */
+    html:not([data-theme]) .header-bar[data-header-skin="custom"] {
+      --header-bg-start: var(--bg);
+      --header-bg-mid: var(--bg);
+      --header-bg-end: var(--bg);
+      --header-glass: var(--bg);
+      --header-accent: var(--accent);
+      --header-text: var(--text-1);
+      --header-text-dim: var(--text-2);
+      --header-icon-color: var(--text-2);
+      --header-border: var(--border);
+      --header-border-strong: var(--border-strong);
+      --header-control-border: var(--border-strong);
+      --header-menu-bg: var(--surface-raised);
+      --header-menu-hover: var(--surface-raised-hover);
+      --header-edge-from: var(--border);
+      --header-edge-to: var(--border);
+      --header-focus: var(--accent);
+    }
     /* The footer kit declares its palette on :root, where it would freeze at
        the dark tokens; restated on the footer itself it follows the theme.
        Scoped like a header skin, so a visitor's ?theme= still re-skins it. */
