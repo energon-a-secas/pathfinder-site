@@ -412,6 +412,35 @@ describe('design tokens: no hard-coded colour outside a token block', () => {
     assert.match(css, /--ease-out:\s*cubic-bezier\(0\.25, 1, 0\.5, 1\)/)
   })
 
+  it('motion: every transition names its properties and runs on --ease-out, and none moves layout but Tidy', async () => {
+    for (const url of ['../css/style.css', '../css/trace.css']) {
+      const css = stripComments(await fetchText(url))
+      for (const m of css.matchAll(/([^{};]*\{[^{}]*?)transition:\s*([^;{}]+);/g)) {
+        const val = m[2].trim()
+        if (/^none(\s*!important)?$/.test(val)) continue
+        assert.ok(!/(^|,\s*)all\b/.test(val), `${url}: transition: all (${val})`)
+        for (const part of val.split(/,(?![^(]*\))/)) {
+          assert.match(part, /var\(--ease-out\)/, `${url}: ${part.trim()} runs on the ease-out curve`)
+        }
+        const sel = m[1].slice(0, m[1].indexOf('{')).trim()
+        if (/^body\.tidying \.block$/.test(sel)) continue   // Tidy, owned by the ZOOM stream
+        assert.ok(!/(^|,\s*)(left|top|right|bottom|width|height)\s/.test(val), `${url}: ${sel} animates a layout property (${val})`)
+      }
+    }
+    const css = stripComments(await styleCss())
+    assert.ok(!/\.header-github:hover svg\s*\{[^}]*transform/.test(css), 'no hover wiggle on the GitHub icon')
+  })
+
+  it('no side stripe: no border-left or border-right over 1px, but the bar card preset people chose and its menu miniature', async () => {
+    const css = stripComments(await styleCss())
+    const stripes = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(m => /border-(?:left|right):\s*(?:[2-9]|1\.\d)/.test(m[2]))
+      .map(m => m[1].trim().split('\n').pop().trim())
+    assert.deepEq(stripes, ['.block[data-card="bar"]', '.card-swatch-bar', '.block-resize-handle::after'],
+      'side stripes outside the bar preset (and the resize grip, a glyph)')
+    assert.ok(!/\.doc-kicker\s*\{[^}]*var\(--accent\)/.test(css), 'the doc kicker is not in the accent')
+  })
+
   it('the retired sizes (9, 10, 10.5, 11.5, 12.5, 14.5px) and the overshoot easing are gone', async () => {
     for (const url of ['../css/style.css', '../css/trace.css']) {
       const css = stripComments(await fetchText(url))

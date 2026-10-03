@@ -261,7 +261,7 @@
       background-repeat: no-repeat;
     }
 
-    #canvasTitle { cursor: text; border-radius: 3px; padding: 0 3px; margin: 0 -3px; transition: background var(--dur-fast); }
+    #canvasTitle { cursor: text; border-radius: 3px; padding: 0 3px; margin: 0 -3px; transition: background var(--dur-fast) var(--ease-out); }
     #canvasTitle:hover { background: color-mix(in oklab, var(--header-text) 10%, transparent); }
     #canvasTitle[contenteditable=true] { outline: none; background: color-mix(in oklab, var(--header-text) 10%, transparent); }
 
@@ -277,7 +277,7 @@
       min-height: 36px;
       border-radius: var(--radius);
       cursor: pointer;
-      transition: background var(--dur), border-color var(--dur);
+      transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
       white-space: nowrap;
     }
     .header-btn:hover { background: color-mix(in oklab, var(--header-text) 14%, transparent); border-color: color-mix(in oklab, var(--header-text) 26%, transparent); }
@@ -334,7 +334,7 @@
       cursor: pointer;
       font-size: var(--text-sm);
       color: var(--text-secondary);
-      transition: background var(--dur-fast);
+      transition: background var(--dur-fast) var(--ease-out);
     }
     .export-item:hover, .export-item:focus { background: var(--surface-raised-hover); color: var(--text-primary); outline: none; }
     .export-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .65; }
@@ -370,7 +370,7 @@
       align-items: center;
       justify-content: space-between;
       -webkit-user-select: none; user-select: none;
-      transition: color var(--dur-fast);
+      transition: color var(--dur-fast) var(--ease-out);
     }
     .palette-section-toggle:hover { color: var(--text-secondary); }
     .section-indicator { width: 16px; height: 16px; flex-shrink: 0; }
@@ -397,7 +397,7 @@
       background: none;
       border: 0;
       cursor: grab;
-      transition: background var(--dur-fast);
+      transition: background var(--dur-fast) var(--ease-out);
       user-select: none;
       -webkit-user-select: none;
     }
@@ -583,7 +583,7 @@
       padding: 10px 12px 10px;
       cursor: grab;
       -webkit-user-select: none; user-select: none;
-      transition: box-shadow var(--dur);
+      transition: box-shadow var(--dur) var(--ease-out);
       /* Each card its own stacking context: replacing a card's children then
          no longer makes WebKit rebuild the whole canvas's layer order (a
          nudge or a keystroke in the inspector cost 160ms at 300 cards). */
@@ -732,7 +732,7 @@
       cursor: pointer;
       font-size: var(--text-sm);
       color: var(--text-secondary);
-      transition: background var(--dur-fast);
+      transition: background var(--dur-fast) var(--ease-out);
     }
     .search-result + .search-result { border-top: 1px solid var(--border-subtle); }
     .search-result:hover, .search-result.focused { background: var(--surface-2); color: var(--text-primary); }
@@ -814,7 +814,6 @@
       border-radius: var(--radius);
       background: var(--surface-1);
       border: 1px solid var(--border-subtle);
-      border-left: 2px solid var(--accent);
       font-size: var(--fs-11);
       line-height: 1.5;
       color: var(--text-muted);
@@ -909,7 +908,7 @@
     body.spotlight .canvas-root .block:not([data-highlight]) {
       opacity: .28;
       filter: saturate(.35);
-      transition: opacity var(--dur), filter var(--dur);
+      transition: opacity var(--dur) var(--ease-out), filter var(--dur) var(--ease-out);
     }
     body.spotlight .canvas-root .block:not([data-highlight]):hover { opacity: .7; filter: none; }
 
@@ -927,7 +926,7 @@
       border: 2px solid var(--sw, var(--border-strong));
       background: color-mix(in oklab, var(--sw, var(--text-3)) 22%, transparent);
       cursor: pointer;
-      transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+      transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
     }
     .hl-swatch:hover { transform: scale(1.12); }
     .hl-swatch.active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--sw, var(--text-3)); }
@@ -1013,7 +1012,7 @@
     .brain-dump-nest input { margin-top: 1px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
     .brain-dump-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
     .brain-dump-hint { font-size: var(--fs-12); color: var(--text-3); }
-    .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: .45; transition: opacity 120ms; }
+    .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: .45; transition: opacity var(--dur-1) var(--ease-out); }
 
 
     /* Block type accent: feeds the card edge, the type dot and the preset strips */
@@ -1117,7 +1116,7 @@
       font-weight: 600;
       color: var(--text-secondary);
       cursor: pointer;
-      transition: all var(--dur-fast);
+      transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
     }
     .block-vote-indicator:hover {
       background: var(--tint-strong);
@@ -1137,7 +1136,7 @@
       border-radius: var(--radius-sm);
       color: var(--text-2);
       cursor: pointer;
-      transition: all var(--dur-fast);
+      transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
     }
     .block-doc-badge:hover { background: var(--tint-strong); color: var(--text-1); }
     .block-doc-badge .svg-icon { width: 13px; height: 13px; }
@@ -1285,7 +1284,7 @@
       border-radius: 50%;
       cursor: crosshair;
       opacity: 0;
-      transition: opacity var(--dur-fast), background var(--dur-fast);
+      transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
       z-index: 20;
     }
     .block:hover .port { opacity: 1; }
@@ -1360,13 +1359,21 @@
       border-radius: var(--radius);
       background: var(--surface-1);
       border: 1px solid var(--border-subtle);
-      border-left: 2px solid var(--attention);
       color: var(--text-secondary);
       cursor: pointer;
       font-family: var(--font);
     }
+    /* A gap row is marked by the attention ring before its name (the
+       Attention tab's marker), not a side stripe; a whole-canvas finding
+       takes the neutral ring. */
+    .gap-row > span:first-child { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
+    .gap-row > span:first-child::before {
+      content: ''; flex: 0 0 7px; width: 7px; height: 7px;
+      border: 2px solid var(--attention); border-radius: 50%;
+    }
+    .gap-row.canvas > span:first-child::before { border-color: var(--border-strong); }
     .gap-row:hover { background: var(--surface-2); color: var(--text-primary); }
-    .gap-row.canvas { cursor: default; border-left-color: var(--border-strong); }
+    .gap-row.canvas { cursor: default; }
     .gap-row-n { font-weight: 700; color: var(--text-muted); }
 
     /* ── Right panel ────────────────────────────────────────── */
@@ -1523,7 +1530,7 @@
       font-size: var(--text-sm);
       font-weight: 600;
       outline: none;
-      transition: border-color var(--dur);
+      transition: border-color var(--dur) var(--ease-out);
     }
     .insp-input:focus { border-color: var(--accent); }
 
@@ -1540,7 +1547,7 @@
       resize: vertical;
       outline: none;
       min-height: 68px;
-      transition: border-color var(--dur);
+      transition: border-color var(--dur) var(--ease-out);
     }
     .insp-textarea:focus { border-color: var(--accent); }
 
@@ -1558,7 +1565,7 @@
       color: var(--text-secondary);
       cursor: pointer;
       font-family: var(--font);
-      transition: background var(--dur-fast), border-color var(--dur-fast);
+      transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
     }
     .action-toggle:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-2); }
     .action-toggle[aria-pressed="true"] { color: var(--text-primary); border-color: var(--border-strong); background: var(--surface-2); }
@@ -1614,7 +1621,7 @@
       font-weight: 600;
       padding: 5px 9px;
       border-radius: var(--radius);
-      transition: all var(--dur-fast);
+      transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
       flex-shrink: 0;
     }
     .q-ask:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--text-1); }
@@ -1627,7 +1634,7 @@
       padding: 6px 8px;
       min-width: 34px; min-height: 34px;
       display: flex; align-items: center; justify-content: center;
-      transition: color var(--dur-fast);
+      transition: color var(--dur-fast) var(--ease-out);
       flex-shrink: 0;
     }
     .q-del:hover { color: var(--danger); }
@@ -1678,7 +1685,7 @@
       -webkit-user-select: none; user-select: none;
     }
     .dev-options-header:hover { background: var(--surface-2); }
-    .dev-options-header svg { width: 14px; height: 14px; transition: transform var(--dur); }
+    .dev-options-header svg { width: 14px; height: 14px; transition: transform var(--dur) var(--ease-out); }
     .dev-options.open .dev-options-header svg { transform: rotate(180deg); }
     .dev-options-body { display: none; padding: 12px; border-top: 1px solid var(--border-subtle); }
     .dev-options.open .dev-options-body { display: block; }
@@ -1750,7 +1757,7 @@
       cursor: pointer;
       background: none;
       font-family: var(--font);
-      transition: all var(--dur-fast);
+      transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
     }
     .radio-opt.active, .check-opt.active {
       border-color: var(--border-strong);
@@ -1806,7 +1813,7 @@
     .shortcut-close {
       background: none; border: none; color: var(--text-muted);
       cursor: pointer; font-size: 17px; padding: 2px 6px; border-radius: 4px;
-      transition: color var(--dur-fast), background var(--dur-fast);
+      transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
     }
     .shortcut-close:hover { color: var(--text-primary); background: var(--surface-2); }
     .shortcut-grid {
@@ -1881,13 +1888,16 @@
       outline: var(--focus-outline);
       outline-offset: var(--focus-offset);
     }
+    /* Off the top until focused; it slides in on transform, never on top. */
     .skip-link {
-      position: absolute; top: -100%; left: 16px; z-index: 1000;
+      position: absolute; top: 0; left: 16px; z-index: 1000;
       padding: 8px 16px; background: var(--accent); color: var(--on-accent);
       font-weight: 600; font-size: var(--fs-14); border-radius: 0 0 var(--radius) var(--radius);
-      text-decoration: none; transition: top .2s;
+      text-decoration: none;
+      transform: translateY(-110%);
+      transition: transform var(--dur-2) var(--ease-out);
     }
-    .skip-link:focus { top: 0; }
+    .skip-link:focus { transform: none; }
 
     /* ── Entrance animation ─────────────────────────────────────── */
     @keyframes fadeIn {
@@ -1908,9 +1918,9 @@
       color: var(--text-muted);
       cursor: pointer; flex-shrink: 0;
       opacity: 0;
-      transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+      transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
     }
-    .block-collapse-btn svg { width: 14px; height: 14px; transition: transform var(--dur-fast); }
+    .block-collapse-btn svg { width: 14px; height: 14px; transition: transform var(--dur-fast) var(--ease-out); }
     .block.collapsed .block-collapse-btn svg { transform: rotate(-90deg); }
     .block:hover .block-collapse-btn,
     .block.selected .block-collapse-btn,
@@ -1925,7 +1935,7 @@
       position: absolute; bottom: 0; right: 0;
       width: 18px; height: 18px;
       cursor: ew-resize; opacity: 0; z-index: 25;
-      transition: opacity var(--dur-fast);
+      transition: opacity var(--dur-fast) var(--ease-out);
     }
     .block:hover .block-resize-handle,
     .block.selected .block-resize-handle { opacity: 1; }
@@ -1946,7 +1956,7 @@
       border-radius: var(--radius-xl);
       background: color-mix(in oklab, var(--text-1) 2%, transparent);
       cursor: grab;
-      transition: border-color var(--dur-fast), background var(--dur-fast);
+      transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
     }
     .frame:hover { border-color: var(--border-strong); background: color-mix(in oklab, var(--text-1) 3%, transparent); }
     .frame.selected { border-color: var(--accent); }
@@ -1954,7 +1964,7 @@
       position: absolute; top: 8px; left: 14px;
       font-size: var(--fs-11); font-weight: 600; font-family: var(--font);
       color: var(--text-3); -webkit-user-select: none; user-select: none; white-space: nowrap;
-      transition: color var(--dur-fast);
+      transition: color var(--dur-fast) var(--ease-out);
     }
     .frame:hover .frame-label, .frame.selected .frame-label { color: var(--text-2); }
     .frame-label[contenteditable=true] {
@@ -1968,7 +1978,7 @@
       display: flex; align-items: flex-start; gap: 10px;
       padding: 8px 16px; cursor: pointer;
       border-bottom: 1px solid var(--border-subtle);
-      transition: background var(--dur-fast);
+      transition: background var(--dur-fast) var(--ease-out);
     }
     .template-item:hover { background: var(--surface-2); }
     .template-icon {
@@ -2381,13 +2391,9 @@
  */
 .info-footer { display: none; }
 
-/* Header GitHub icon: an <a> styled like the icon buttons. */
+/* Header GitHub icon: an <a> styled like the icon buttons. No hover
+   wiggle: motion conveys state, and a hover is not one. */
 .header-github { text-decoration: none; }
-.header-github svg { transition: transform var(--dur-2) var(--ease-out); }
-.header-github:hover svg { transform: scale(1.18) rotate(-6deg); }
-@media (prefers-reduced-motion: reduce) {
-  .header-github:hover svg { transform: none; }
-}
 
     /* ── Walkthrough page (tutorial.html) ───────────────────── */
     /* A reading page, so it opts out of the app's fixed-height body and
@@ -2403,9 +2409,11 @@
       font-size: var(--fs-16);
       line-height: 1.68;
     }
+    /* The accent is for selection, focus and the primary action, so the
+       page label is quiet ink. */
     .doc-kicker {
       font-size: var(--fs-11); font-weight: 700; letter-spacing: .14em;
-      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 10px;
     }
     .doc h1 {
       font-size: 2rem; line-height: 1.2; font-weight: 700;
@@ -2441,7 +2449,6 @@
       border-radius: var(--radius);
       background: var(--surface-1);
       border: 1px solid var(--border-subtle);
-      border-left: 2px solid var(--accent);
       overflow-x: auto;
     }
     .doc-pre code {
@@ -2456,7 +2463,7 @@
       padding: 12px 15px;
       border-radius: var(--radius);
       background: var(--surface-1);
-      border-left: 2px solid var(--border-strong);
+      border: 1px solid var(--border);
       font-size: var(--fs-14);
       color: var(--text-muted);
     }
@@ -2681,7 +2688,7 @@ body.voting-mode .block { cursor: copy; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--dur-fast), border-color var(--dur-fast);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 .insp-chip:hover:not(:disabled),
 .insp-chip[aria-expanded="true"] { background: var(--surface-2); border-color: var(--border-strong); }
@@ -2724,7 +2731,7 @@ body.voting-mode .block { cursor: copy; }
   border: 1px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .insp-icon-btn svg { width: 16px; height: 16px; }
 .insp-icon-btn:hover,
@@ -2847,7 +2854,7 @@ body.light-mode .insp-select { color-scheme: light; }
   width: 6px; height: 6px; margin: 0 4px 0 2px;
   border: solid var(--text-muted); border-width: 0 1.6px 1.6px 0;
   transform: rotate(-45deg);
-  transition: transform var(--dur-fast);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .insp-disclosure[open] > .insp-summary::before { transform: rotate(45deg); }
 .insp-summary:hover { color: var(--text-primary); }
@@ -2989,7 +2996,8 @@ body.light-mode .insp-select { color-scheme: light; }
     border-radius: 14px 14px 0 0;
     background: var(--bg);
     box-shadow: var(--shadow-2);
-    transition: height .22s var(--ease-out);
+    /* The sheet snaps between heights: height is a layout property, and
+       the house rule animates transform and opacity only. */
   }
   #rightPanel[data-sheet="half"] { --sheet-h: var(--sheet-half); }
   #rightPanel[data-sheet="full"] { --sheet-h: var(--sheet-full); }
@@ -3044,7 +3052,7 @@ body.light-mode .insp-select { color-scheme: light; }
   .sheet-timer.critical { color: var(--danger); }
   .sheet-chevron {
     flex: 0 0 22px; width: 22px; height: 22px; color: var(--text-secondary);
-    transition: transform .22s;
+    transition: transform var(--dur-2) var(--ease-out);
   }
   #rightPanel[data-sheet="full"] .sheet-chevron { transform: rotate(180deg); }
 
@@ -3162,7 +3170,7 @@ body.light-mode.high-contrast { --edge: oklch(0.38 0.015 285); --edge-hi: var(--
   stroke-width: var(--aw-now, var(--aw, 1.5px));
   marker-end: var(--mk-now, none);
   pointer-events: none;
-  transition: stroke var(--dur-fast);
+  transition: stroke var(--dur-fast) var(--ease-out);
 }
 .arrow-g.bidir .arrow-path { marker-start: var(--mk-now, none); }
 
@@ -3189,7 +3197,7 @@ body.light-mode.high-contrast { --edge: oklch(0.38 0.015 285); --edge-hi: var(--
 
 /* Hovering a card fades the connections it has nothing to do with: the
    whole group, so heads and labels fade with their lines. */
-.arrow-g, .arrow-label-g { transition: opacity var(--dur-fast); }
+.arrow-g, .arrow-label-g { transition: opacity var(--dur-fast) var(--ease-out); }
 .canvas-root.has-hover :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .18; }
 body.spotlight :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .35; }
 
@@ -3260,7 +3268,7 @@ body.spotlight :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .35; }
   stroke-width: 4px;
   stroke-linejoin: round;
   opacity: 0;
-  transition: opacity var(--dur-fast);
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .arrow-label-g:is(.related, .hover, .sel) .arrow-note,
 body.show-arrow-text .arrow-note { opacity: 1; }
@@ -3811,7 +3819,7 @@ body.light-mode .canvas-hint svg { opacity: .2; }
   border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
-  transition: background var(--dur-fast), border-color var(--dur-fast);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 .map-step:hover { background: var(--surface-2); border-color: var(--border-strong); }
 .map-step:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
