@@ -4,10 +4,16 @@
 //  test DOM in both themes; the attention hue's distance from what it
 //  must not be mistaken for; no hard-coded colour outside a token block;
 //  the retired type sizes and easing; the header skin and the footers;
-//  the button system and the brain dump card.
+//  the button system and the brain dump card. Then the type palette
+//  (SPEC3 item 2): its distances as pure computation, its contrast and
+//  its distance from attention and the accent measured in the DOM, the
+//  swatches, and the card states that must not wear a type colour
+//  (item 3): the gap marker, the chips, the health score.
 // ============================================================
 
 import { describe, it, assert, cssRgba } from './test-utils.js'
+import { TYPES, SWATCH_COLORS, SWATCH_NAMES } from '../js/utils.js'
+import { lightAccentFor } from '../js/cards.js'
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -445,5 +451,251 @@ describe('design tokens: stream sections', () => {
       assert.ok(at > 0, `[${name}]`)
       assert.ok(css.slice(at + marker.length).startsWith('\n\n\n\n'), `[${name}] is followed by three blank lines`)
     }
+  })
+})
+
+
+// ── The type palette ────────────────────────────────────────
+
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+const TYPE_IDS = Object.keys(TYPES)
+// Every pair of types, with its distance in each theme (from the registry's
+// hex, which the stylesheet's OKLCH renders as: types-foundation checks that).
+const typePairs = () => {
+  const out = []
+  for (let i = 0; i < TYPE_IDS.length; i++) for (let j = i + 1; j < TYPE_IDS.length; j++) {
+    const a = TYPES[TYPE_IDS[i]], b = TYPES[TYPE_IDS[j]]
+    out.push({ a: TYPE_IDS[i], b: TYPE_IDS[j], step: a.step === b.step, shape: a.shape === b.shape,
+      dark: dE(hexRgb(a.color), hexRgb(b.color)), light: dE(hexRgb(a.light), hexRgb(b.light)) })
+  }
+  return out
+}
+const fmt = p => `${p.a}/${p.b} ${p.dark.toFixed(1)}/${p.light.toFixed(1)}`
+
+describe('design tokens: the type palette, by computation', () => {
+  it('types in the same step sit at least 10 OKLab dE apart, in both themes', () => {
+    const near = typePairs().filter(p => p.step && Math.min(p.dark, p.light) < 10)
+    assert.deepEq(near.map(fmt), [], 'same-step pairs under 10')
+  })
+
+  it('any two types under 10 dE in either theme have different dot shapes, so colour is never the only cue', () => {
+    const pairs = typePairs()
+    const clash = pairs.filter(p => p.shape && Math.min(p.dark, p.light) < 10)
+    assert.deepEq(clash.map(fmt), [], 'same-shape pairs under 10')
+    // The palette spreads as far as the band allows: a regression shows here.
+    const min = Math.min(...pairs.map(p => Math.min(p.dark, p.light)))
+    assert.ok(min >= 7.5, `the closest pair overall is ${min.toFixed(1)} (2026-10 palette: 7.7)`)
+  })
+
+  it('the shape follows the step\'s role: ring for Why and Who, square for What and Proof, dot for How and Other, diamond for Doubt', () => {
+    const ROLE = { why: 'ring', who: 'ring', proof: 'square', what: 'square', how: 'dot', other: 'dot', doubt: 'diamond' }
+    TYPE_IDS.forEach(id => assert.eq(TYPES[id].shape, ROLE[TYPES[id].step], `${id} (${TYPES[id].step})`))
+  })
+
+  it('no type colour sits within 10 dE of a pre-2026-10 colour of another type', () => {
+    // An old file carries the legacy hexes; a new colour that looked like
+    // another type's old one would read as that type to a person.
+    const bad = []
+    TYPE_IDS.forEach(id => TYPE_IDS.filter(o => o !== id).forEach(o => {
+      const [oldDark, oldLight] = TYPES[o].legacyColors
+      if (TYPES[id].color === oldDark || TYPES[id].light === oldLight) bad.push(`${id} = ${o} legacy`)
+    }))
+    assert.deepEq(bad, [], 'a new type colour equals another type\'s legacy hex')
+  })
+})
+
+describe('design tokens: the type palette, measured in the DOM', () => {
+  it('every type colour draws at 3:1 on the canvas, a card and a hovered row, in both themes', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        for (const id of TYPE_IDS) {
+          const c = t.color(`var(--c-${id})`)
+          assert.deepEq(c.slice(0, 3), hexRgb(name === 'dark' ? TYPES[id].color : TYPES[id].light), `${name} --c-${id} is the registry's colour`)
+          for (const bg of ['--canvas', '--card', '--surface-raised-hover']) {
+            const r = ratio(c, t.color(`var(${bg})`))
+            assert.ok(r >= 3, `${name} ${id} on ${bg}: ${r.toFixed(2)}:1`)
+          }
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('attention sits at least 10 dE from every type colour, in both themes', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        const att = t.color('var(--attention)')
+        const near = TYPE_IDS.map(id => [id, dE(att, t.color(`var(--c-${id})`))]).filter(([, d]) => d < 10)
+        assert.deepEq(near.map(([id, d]) => `${id} ${d.toFixed(1)}`), [], `${name}: types within 10 of attention`)
+      } finally { t.done() }
+    }
+  })
+
+  it('the accent sits at least 10 dE from every type colour, so a selection never reads as a type', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        const acc = t.color('var(--accent)')
+        const near = TYPE_IDS.map(id => [id, dE(acc, t.color(`var(--c-${id})`))]).filter(([, d]) => d < 10)
+        assert.deepEq(near.map(([id, d]) => `${id} ${d.toFixed(1)}`), [], `${name}: types within 10 of the accent`)
+      } finally { t.done() }
+    }
+  })
+
+  it('a type colour feeds only a card\'s --bc: no other rule in style.css reads a --c-* token', async () => {
+    const css = stripComments(await styleCss())
+    const uses = css.split('\n').filter(line => /var\(--c-[a-z]+\)/.test(line))
+    const stray = uses.filter(line => !/^\s*\.block\[data-type=[a-z]+\]\s*\{\s*--bc:\s*var\(--c-[a-z]+\);\s*\}\s*$/.test(line))
+    assert.deepEq(stray.map(l => l.trim()), [], 'a type colour used for something other than the type')
+  })
+})
+
+describe('design tokens: swatches are not type colours', () => {
+  it('no swatch equals a type colour, current or pre-2026-10, in either theme', () => {
+    const typeHexes = new Set(TYPE_IDS.flatMap(id => [TYPES[id].color, TYPES[id].light, ...TYPES[id].legacyColors]))
+    SWATCH_COLORS.forEach(c => assert.ok(!typeHexes.has(c.toLowerCase()), `${c} is a type colour`))
+    assert.eq(new Set(SWATCH_COLORS).size, SWATCH_COLORS.length, 'twelve distinct swatches')
+  })
+
+  it('every swatch has a name and a light twin that is not a type colour either', () => {
+    const typeHexes = new Set(TYPE_IDS.flatMap(id => [TYPES[id].color, TYPES[id].light, ...TYPES[id].legacyColors]))
+    SWATCH_COLORS.forEach(c => {
+      assert.ok(SWATCH_NAMES[c], `${c} has a name`)
+      const twin = lightAccentFor(c)
+      assert.ok(twin, `${c} has a light twin`)
+      assert.ok(!typeHexes.has(twin), `${c}'s twin ${twin} is a type colour`)
+    })
+  })
+
+  it('every swatch reads as a connection on both canvases (4.5:1 dark, 3:1 light) and its twin as a dot on a light card', async () => {
+    const dark = await themed(''), light = await themed('light-mode')
+    try {
+      SWATCH_COLORS.forEach(c => {
+        const rgb = [...hexRgb(c), 1]
+        const d = ratio(rgb, dark.color('var(--canvas)')), l = ratio(rgb, light.color('var(--canvas)'))
+        assert.ok(d >= 4.5, `${SWATCH_NAMES[c]} on the dark canvas: ${d.toFixed(2)}:1`)
+        assert.ok(l >= 3, `${SWATCH_NAMES[c]} as a line on the light canvas: ${l.toFixed(2)}:1`)
+        const twin = ratio([...hexRgb(lightAccentFor(c)), 1], light.color('var(--card)'))
+        assert.ok(twin >= 3, `${SWATCH_NAMES[c]} twin on a light card: ${twin.toFixed(2)}:1`)
+      })
+    } finally { dark.done(); light.done() }
+  })
+
+  it('a colour picked before 2026-10 keeps its name', () => {
+    assert.eq(SWATCH_NAMES['#38bdf8'], 'Sky')
+    assert.eq(SWATCH_NAMES['#f472b6'], 'Pink')
+  })
+})
+
+// ── Card states off the type colours (SPEC3 item 3) ─────────
+
+describe('design tokens: card states never wear a type colour', () => {
+  const card = (type, extra = '') =>
+    `<div class="block ${extra}" data-type="${type}" data-card="outline" style="position:absolute;left:40px;top:40px;width:220px">` +
+    `<div class="block-header"><span class="block-type-badge"><span class="block-type-dot" data-shape="${TYPES[type].shape}"></span>` +
+    `<span class="block-type-label">${TYPES[type].label}</span></span><div class="block-gap-icons"><span class="gap-icon" role="img" aria-label="Gap: x">` +
+    `<svg width="12" height="12"></svg><span class="gap-name">Name</span></span></div></div><div class="block-title">T</div>` +
+    `<div class="block-meta"><span class="chip priority-badge priority-high"><svg class="chip-icon"></svg><span>High</span></span>` +
+    `<span class="chip status-badge status-done"><svg class="chip-icon"></svg><span>Done</span></span></div>` +
+    `<div class="block-actions"><span class="chip action-badge resolve"><svg class="chip-icon"></svg><span>Resolve</span></span></div></div>`
+
+  it('a gap is a 1.5px dashed ring 3px out in --attention, with a badge in the attention ink, whatever the type', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        for (const [type, gap] of [['risk', 'gap-no-mitigation'], ['problem', 'gap-unaddressed'], ['requirement', 'gap-no-criteria'], ['goal', 'gap-isolated']]) {
+          const box = t.add(card(type, gap))
+          const el = box.firstChild
+          const ring = getComputedStyle(el, '::after')
+          assert.eq(ring.borderTopStyle, 'dashed', `${name} ${type}: dashed`)
+          assert.match(ring.borderTopWidth, /^1(\.5)?px$/, `${name} ${type}: 1.5px`)
+          assert.eq(ring.top, '-6px', `${name} ${type}: 3px outside the 1.5px edge`)
+          assert.deepEq(cssRgba(ring.borderTopColor), t.color('var(--attention)'), `${name} ${type}: the attention hue`)
+          assert.neq(cssRgba(ring.borderTopColor).join(), t.color(`var(--c-${type})`).join(), `${name} ${type}: not the type colour`)
+          const icon = getComputedStyle(el.querySelector('.gap-icon'))
+          assert.deepEq(cssRgba(icon.borderTopColor), t.color('var(--attention)'), `${name} ${type}: badge edge in attention`)
+          assert.deepEq(cssRgba(icon.color), t.color('var(--attention-ink)'), `${name} ${type}: badge ink`)
+          const r = ratio(cssRgba(icon.color), cssRgba(icon.backgroundColor))
+          assert.ok(r >= 4.5, `${name} ${type}: badge ink ${r.toFixed(2)}:1`)
+          assert.eq(getComputedStyle(el.querySelector('.gap-name')).display, 'none', `${name}: the name waits for hover or focus`)
+          box.remove()
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('the gap name shows on hover and keyboard focus', async () => {
+    const t = await themed('', css => css.replace(/:hover/g, '.is-hover').replace(/:focus-visible/g, '.is-focus'))
+    try {
+      for (const state of ['is-hover', 'is-focus']) {
+        const box = t.add(card('risk', `gap-no-mitigation ${state}`))
+        assert.eq(getComputedStyle(box.querySelector('.gap-name')).display, 'block', state)
+        box.remove()
+      }
+    } finally { t.done() }
+  })
+
+  it('priority, status and action chips are neutral: surface-2, text-2, an icon and a sentence-case word', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        const box = t.add(card('problem'))
+        for (const chip of box.querySelectorAll('.chip')) {
+          const cs = getComputedStyle(chip)
+          assert.deepEq(cssRgba(cs.backgroundColor), t.color('var(--surface-2)'), `${name} ${chip.className}: surface-2`)
+          assert.deepEq(cssRgba(cs.color), t.color('var(--text-2)'), `${name} ${chip.className}: text-2`)
+          assert.eq(cs.textTransform, 'none', `${name} ${chip.className}: sentence case`)
+          assert.ok(parseFloat(cs.fontSize) >= 11, `${name}: the 11px floor`)
+          assert.ok(chip.querySelector('svg'), 'with its icon')
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('the health score is text in the text colour, never a status or type colour', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        const box = t.add(['a', 'b', 'c'].map(g => `<span class="health-score grade-${g}">58</span>`).join(''))
+        box.querySelectorAll('.health-score').forEach(el =>
+          assert.deepEq(cssRgba(getComputedStyle(el).color), t.color('var(--text-1)'), `${name} ${el.className}`))
+      } finally { t.done() }
+    }
+  })
+
+  it('selection is a 1.5px accent outline on the card edge with an accent-subtle halo, the same on every card selected', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        const box = t.add(card('goal', 'selected') + card('risk', 'selected gap-no-mitigation'))
+        box.querySelectorAll('.block').forEach(el => {
+          const cs = getComputedStyle(el)
+          assert.deepEq(cssRgba(cs.outlineColor), t.color('var(--accent)'), `${name}: accent outline`)
+          assert.match(cs.outlineWidth, /^1(\.5)?px$/, `${name}: 1.5px`)
+          assert.eq(cs.outlineOffset, '0px', `${name}: on the edge`)
+          assert.match(cs.boxShadow, /0px 0px 0px 4px/, `${name}: the halo`)
+          assert.deepEq(cssRgba(cs.boxShadow.match(/^(.*?\)) 0px/)?.[1] || cs.boxShadow), t.color('var(--accent-subtle)'), `${name}: accent-subtle`)
+        })
+        const gapped = box.querySelector('.gap-no-mitigation')
+        assert.eq(getComputedStyle(gapped, '::after').borderTopStyle, 'dashed', `${name}: a selected gap card keeps its ring`)
+      } finally { t.done() }
+    }
+  })
+
+  it('every dot shape has its rule, on every dot the app draws', async () => {
+    const css = await styleCss()
+    for (const shape of ['square', 'diamond', 'ring']) {
+      assert.match(css, new RegExp(`:is\\(\\.block-type-dot, \\.palette-dot, \\.pf-menu-dot, \\.insp-dot, \\.sheet-dot\\)\\[data-shape="${shape}"\\]`), shape)
+    }
+    const t = await themed()
+    try {
+      const box = t.add(['dot', 'ring', 'square', 'diamond'].map(s => `<span class="block-type-dot" data-shape="${s}" style="display:block;width:8px;height:8px;background:var(--c-goal)"></span>`).join(''))
+      const [dot, ring, square, diamond] = [...box.children].map(el => getComputedStyle(el))
+      assert.eq(dot.transform, 'none')
+      assert.neq(ring.maskImage || ring.webkitMaskImage, 'none', 'the ring is a mask')
+      assert.neq(square.transform, 'none', 'the square is scaled to the dot\'s area')
+      assert.neq(diamond.transform, 'none', 'the diamond is a turned square')
+    } finally { t.done() }
   })
 })

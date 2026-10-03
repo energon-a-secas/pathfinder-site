@@ -3797,28 +3797,38 @@ body.light-mode .map-step-type { color: var(--text-secondary); }
 body { --gap-ink: var(--attention-ink); }
 .block .block-gap-icons {
   position: absolute;
-  top: calc(-1 * var(--bw) - 11px);
+  top: calc(-1 * var(--bw) - 12px);
   right: 10px;
   z-index: 2;
 }
 .gap-icon { display: inline-flex; align-items: center; color: var(--gap-ink); }
 .gap-icon svg { display: block; flex-shrink: 0; }
 .block-gap-icons .gap-icon {
-  gap: 4px;
-  height: 18px; min-width: 18px;
-  padding: 0 4px;
+  position: relative;
+  width: 20px; height: 20px;
   justify-content: center;
   background: var(--card);
   border: 1.5px solid var(--gap, var(--attention));
-  border-radius: 9px;
+  border-radius: 50%;
 }
+/* The name floats above the badge while the card is hovered or keyboard
+   focused: above, not beside, so it never covers the top port (the card's
+   middle) or the header row. A label, not a control, so no pointer events. */
 .gap-name {
   display: none;
-  font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1;
+  position: absolute;
+  right: -1.5px; bottom: calc(100% + 4px);
+  padding: 3px 6px;
+  font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1.2;
   white-space: nowrap;
+  color: var(--gap-ink);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
 }
-.block:is(:hover, :focus-visible) .gap-name { display: inline; }
-.block:is(:hover, :focus-visible) .block-gap-icons .gap-icon { padding: 0 6px 0 4px; }
+.block:is(:hover, :focus-visible) .gap-name { display: block; }
 @media (forced-colors: active) {
   .block[class*=" gap-"]::after,
   .block-gap-icons .gap-icon { border-color: CanvasText; }

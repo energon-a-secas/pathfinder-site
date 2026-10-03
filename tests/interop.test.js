@@ -4,7 +4,7 @@
 
 import { describe, it, assert } from './test-utils.js'
 import { state, canvasMeta } from '../js/state.js'
-import { detectFormat, fromJsonCanvas, toJsonCanvas, parseMermaid } from '../js/interop.js'
+import { detectFormat, fromJsonCanvas, toJsonCanvas, parseMermaid, typeForHex, exportColorFor } from '../js/interop.js'
 import { TYPES } from '../js/utils.js'
 
 describe('detectFormat()', () => {
@@ -120,5 +120,73 @@ describe('parseMermaid()', () => {
     const byId = Object.fromEntries(payload.blocks.map(b => [b.id, b]))
     assert.eq(byId.a.groupId, gid)
     assert.eq(byId.c.groupId ?? null, null)
+  })
+})
+
+// ── Legacy type colours (the palette before 2026-10) ────────
+
+describe('JSON Canvas: files written before the 2026-10 palette still import typed', () => {
+  const ids = Object.keys(TYPES)
+  const node = (id, color, extra = {}) =>
+    ({ id, type: 'text', x: 0, y: 0, width: 260, height: 100, color, text: '#### zz qq xx', ...extra })
+
+  it('typeForHex reads every legacy hex, dark and light, as its type', () => {
+    ids.forEach(id => {
+      const [dark, light] = TYPES[id].legacyColors
+      assert.eq(typeForHex(dark), id, `${id} legacy dark ${dark}`)
+      assert.eq(typeForHex(light.toUpperCase()), id, `${id} legacy light ${light}, any case`)
+      assert.eq(typeForHex(TYPES[id].color), id, `${id} current dark`)
+      assert.eq(typeForHex(TYPES[id].light), id, `${id} current light`)
+    })
+  })
+
+  it('a 2026-09 export (pathfinderType plus the old hex) imports every type with no override and nothing to check', () => {
+    const { payload, lowConfidence } = fromJsonCanvas({ nodes: ids.map(id => node(id, TYPES[id].legacyColors[0], { pathfinderType: id })), edges: [] })
+    assert.eq(lowConfidence.length, 0)
+    payload.blocks.forEach(b => {
+      assert.eq(b.type, b.id, `${b.id} keeps its type`)
+      assert.eq(b.color, null, `${b.id}: the old type hex is not an override, so the card takes the new palette`)
+    })
+  })
+
+  it('the same file with pathfinderType stripped by another tool still imports typed, from either theme\'s old hex', () => {
+    for (const k of [0, 1]) {
+      const { payload, lowConfidence } = fromJsonCanvas({ nodes: ids.map(id => node(id, TYPES[id].legacyColors[k])), edges: [] })
+      assert.eq(lowConfidence.length, 0, `${k ? 'light' : 'dark'}: nothing needs a check`)
+      payload.blocks.forEach(b => {
+        assert.eq(b.type, b.id, `${k ? 'light' : 'dark'} ${b.id}`)
+        assert.eq(b.color, null)
+      })
+    }
+  })
+
+  it('a pre-2026-09 export (presets) still reads an old process, terminator, context or custom hex as that type', () => {
+    const old = { nodes: [
+      node('process', TYPES.process.legacyColors[0]), node('terminator', TYPES.terminator.legacyColors[0]),
+      node('context', TYPES.context.legacyColors[0]), node('custom', TYPES.custom.legacyColors[0]),
+      node('g', '6'),
+    ], edges: [] }
+    const byId = Object.fromEntries(fromJsonCanvas(old).payload.blocks.map(b => [b.id, b]))
+    ;['process', 'terminator', 'context', 'custom'].forEach(id => {
+      assert.eq(byId[id].type, id, id)
+      assert.ok(!byId[id].typeCheck, `${id} needs no check`)
+    })
+  })
+
+  it('a colour picked on a card when it was its own type\'s colour survives our round trip as a real override', () => {
+    const before = { blocks: state.blocks, arrows: state.arrows, groups: state.groups }
+    try {
+      const old = TYPES.problem.legacyColors[0]
+      assert.deepEq(exportColorFor(old, 'problem'), [old, old], 'written as is, and marked exact')
+      assert.deepEq(exportColorFor(TYPES.problem.color, 'problem'), [TYPES.problem.color, null], 'the current colour is no override')
+      state.blocks = { p: { id: 'p', type: 'problem', title: 'Old red', description: '', x: 0, y: 0, color: old,
+        actions: [], questions: [], criteria: [], rationale: '', width: null } }
+      state.arrows = []; state.groups = {}
+      const out = JSON.parse(JSON.stringify(toJsonCanvas()))
+      assert.eq(out.nodes[0].pathfinderColor, old)
+      const back = fromJsonCanvas(out).payload.blocks[0]
+      assert.eq(back.type, 'problem')
+      assert.eq(back.color, old, 'the override the person chose stays')
+    } finally { Object.assign(state, before) }
   })
 })
