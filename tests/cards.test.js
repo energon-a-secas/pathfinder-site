@@ -14,7 +14,7 @@ import { setupCanvasPointerEvents } from '../js/events.js'
 import { runGapDetection, gapIconFor, GAP_META } from '../js/gaps.js'
 import { setupTypeChips, showTypeChips, resolveTypeCheck, openTypeChipMenu } from '../js/classify.js'
 import { renderPaletteTypes, renderStepStarter, setupPalette } from '../js/palette.js'
-import { lightAccentFor, highlightTabLabel } from '../js/cards.js'
+import { lightAccentFor, highlightTabLabel, paintColorFor, colorDistance, ATTENTION_HEX } from '../js/cards.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
 import { isInlineEditing, commitInlineEdit } from '../js/inline-edit.js'
 
@@ -147,6 +147,26 @@ describe('cards -- the type label', () => {
         }
       } finally { s.done() }
     }
+  })
+
+  it('an old amber colour paints as the nearest swatch, so a card never reads as a gap; the stored colour stays', () => {
+    reset()
+    // #fbbf24: the old Amber swatch, old Requirement and JSON Canvas "3";
+    // #eab308: old Assumption. Both sit within 10 dE of the gap colour.
+    for (const old of ['#fbbf24', '#eab308', '#FACC15']) {
+      const p = paintColorFor(old)
+      assert.ok(SWATCH_COLORS.includes(p.color), `${old} paints as a current swatch (${p.color})`)
+      assert.ok(colorDistance(p.color, ATTENTION_HEX.dark) >= 10, `${old}: ${p.color} clears the dark attention`)
+      assert.ok(p.light && colorDistance(p.light, ATTENTION_HEX.light) >= 10, `${old}: its twin ${p.light} clears the light attention`)
+      const el = block('o', { color: old })
+      assert.eq(el.style.getPropertyValue('--bc-custom'), p.color, `${old}: the card paints the swatch`)
+      assert.eq(el.style.getPropertyValue('--bc-custom-light'), p.light)
+      assert.eq(state.blocks.o.color, old, 'the stored colour is untouched')
+    }
+    // Everything else paints as stored.
+    assert.deepEq(paintColorFor('#f472b6'), { color: '#f472b6', light: '#db2777' })
+    for (const c of SWATCH_COLORS) assert.eq(paintColorFor(c).color, c, `${c} is a swatch and paints as itself`)
+    assert.deepEq(paintColorFor(null), { color: null, light: null })
   })
 
   it('a custom colour feeds the accent through a class, with a darker twin for the light theme', async () => {

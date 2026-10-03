@@ -1992,8 +1992,11 @@
 
     /* ── Gap fix suggestions ────────────────────────────────────── */
     .gap-fixes-section { display: flex; flex-direction: column; }
+    /* The sentence keeps the row's width; the fix button wraps under it,
+       aligned with its text, when the panel has no room beside it (a 320px
+       panel squeezed the sentence to four lines). */
     .gap-fix-item {
-      display: flex; align-items: flex-start; gap: 8px; margin-bottom: 9px;
+      display: flex; flex-wrap: wrap; align-items: flex-start; column-gap: 8px; row-gap: 6px; margin-bottom: 10px;
     }
     /* Line-art now, not emoji: a fixed box so every suggestion's text starts
        at the same x, and nudged down to sit on the first line of an 11px
@@ -2002,8 +2005,8 @@
       flex: 0 0 13px; width: 13px; height: 13px;
       margin-top: 1px; color: var(--text-secondary);
     }
-    .gap-fix-text { flex: 1; font-size: var(--fs-11); color: var(--text-muted); line-height: 1.45; }
-    .gap-fix-btn { flex-shrink: 0; }
+    .gap-fix-text { flex: 1 1 180px; min-width: 0; font-size: var(--fs-11); color: var(--text-muted); line-height: 1.45; }
+    .gap-fix-btn { flex-shrink: 0; margin-left: 21px; }
 
     /* ── Health score ────────────────────────────────────────────── */
     .health-bar {

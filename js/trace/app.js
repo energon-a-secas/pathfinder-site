@@ -51,6 +51,12 @@ function rebuild() {
 const rebuildSoon = debounce(rebuild, 220)
 
 function renderDiagnostics(errs, warns, t) {
+  // Nothing typed yet is not a parse error: say where to start instead.
+  if (!state.text.trim()) {
+    els.diags.innerHTML = `<div class="trace-diag" data-level="hint"><span class="msg">`
+      + `The example above is a placeholder. Type a trace, paste one, or pick one from Examples.</span></div>`
+    return
+  }
   const rows = [...errs, ...warns]
   if (!rows.length && t.nodes.length) {
     els.diags.innerHTML = `<div class="trace-diag" data-level="ok"><span class="tag">OK</span>`

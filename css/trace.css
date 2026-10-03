@@ -59,6 +59,8 @@ body.trace-embed .neo-footer { display: none; }
 .trace-diag[data-level=warn]  .tag { background: color-mix(in oklab, var(--warning) 16%, transparent); color: var(--warning); }
 .trace-diag[data-level=ok]    .tag { background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success); }
 .trace-diag .msg { color: var(--text-2); }
+/* An empty source is a starting point, not an error. */
+.trace-diag[data-level=hint] .msg { color: var(--text-3); }
 .trace-diag .at  { color: var(--text-3); font-family: var(--font-mono); }
 
 /* ── viewport ── */
@@ -90,6 +92,8 @@ body.trace-embed .neo-footer { display: none; }
 /* A class setting `display` outranks the `hidden` attribute's UA rule, so
    without this the placeholder stays painted over a finished diagram. */
 .trace-empty[hidden] { display: none; }
+/* No opacity on the muted ink: that took it under 4.5:1. */
+.trace-empty-hint { font-size: var(--fs-12); }
 
 /* ── examples ── */
 .trace-picker { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); }

@@ -8,7 +8,7 @@
 //  No state changes happen here: this module only paints.
 // ════════════════════════════════════════════════════════════
 
-import { TYPES, HIGHLIGHTS } from './utils.js'
+import { TYPES, HIGHLIGHTS, SWATCH_COLORS } from './utils.js'
 
 // ── Custom colours in the light theme ───────────────────────
 // A block colour is stored as the dark-theme hex. On a near-white card a
@@ -36,6 +36,52 @@ export function lightAccentFor(hex) {
     for (let i = 0; i + 1 < old.length; i += 2) if (old[i].toLowerCase() === h) return old[i + 1]
   }
   return SWATCH_LIGHT[h] || null
+}
+
+// ── A custom colour never reads as a gap ────────────────────
+// Amber means a gap and nothing else. A block or connection coloured before
+// 2026-10 can still carry an amber (the old Amber swatch, old Requirement or
+// Assumption hexes, a JSON Canvas "3"), which on a card reads as a gap. At
+// paint time only, a colour within 10 OKLab dE of the attention hue (the
+// dark hex against the dark one, its light twin against the light one) is
+// drawn as the nearest current swatch. The stored colour is never touched.
+
+/** The --attention token (style.css) as sRGB hex, per theme. */
+export const ATTENTION_HEX = { dark: '#fec84b', light: '#c07b03' }
+
+const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+function oklabOf(hex) {
+  const h = String(hex).trim().replace('#', '')
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null
+  const [r, g, b] = [0, 2, 4].map(i => lin(parseInt(h.slice(i, i + 2), 16)))
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s]
+}
+/** OKLab distance between two hex colours, times 100 (DESIGN.md's unit). */
+export function colorDistance(a, b) {
+  const p = oklabOf(a), q = oklabOf(b)
+  return p && q ? Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) * 100 : Infinity
+}
+const nearAttention = (hex, light) =>
+  colorDistance(hex, ATTENTION_HEX.dark) < 10 || colorDistance(light || hex, ATTENTION_HEX.light) < 10
+
+/**
+ * The colours to paint for a stored block or connection colour: the colour
+ * and its light twin, or the nearest current swatch (and its twin) when the
+ * stored one would read as a gap.
+ */
+export function paintColorFor(hex) {
+  if (typeof hex !== 'string' || !hex.trim()) return { color: null, light: null }
+  const light = lightAccentFor(hex)
+  if (!nearAttention(hex, light)) return { color: hex, light }
+  const swatch = SWATCH_COLORS
+    .filter(s => !nearAttention(s, lightAccentFor(s)))
+    .reduce((best, s) => colorDistance(hex, s) < colorDistance(hex, best) ? s : best)
+  return { color: swatch, light: lightAccentFor(swatch) }
 }
 
 // ── The type dot's shape ────────────────────────────────────

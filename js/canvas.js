@@ -11,6 +11,7 @@ import { $, clamp, escHtml, getBlockDims, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { HEAD_POINTS, headLength, headTrim, colorKey, arrowRoute, arrowPattern, arrowWeight,
          dashArrayFor, pathFor } from './arrow-geometry.js'
 import { resolveRoutes } from './arrow-routes.js'
+import { paintColorFor } from './cards.js'
 import { placeLabels } from './arrow-labels.js'
 import { syncArrowStates } from './arrow-hover.js'
 
@@ -259,7 +260,9 @@ export function renderArrows(opts = {}) {
     // Colour, weight and heads per state, as custom properties. CSS picks the
     // set for the state (rest, related or hovered, selected), so hovering a
     // card needs no re-render and a head always matches its line.
-    const paint = a.color || null
+    // An old amber would read as a gap: paintColorFor draws it as the
+    // nearest swatch, and the stored colour is left alone.
+    const paint = paintColorFor(a.color).color
     const props = {
       '--ac': paint || 'var(--edge)',
       '--ac-hi': paint || 'var(--edge-hi)',

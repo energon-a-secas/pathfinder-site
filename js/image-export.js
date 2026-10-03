@@ -11,7 +11,7 @@
 
 import { state, ui, canvasMeta } from './state.js'
 import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, escHtml, showToast } from './utils.js'
-import { lightAccentFor, highlightTabLabel } from './cards.js'
+import { paintColorFor, highlightTabLabel } from './cards.js'
 import { resolveRoutes, pathFor, placeLabels, arrowRoute, arrowPattern, arrowWeight, dashArrayFor,
          headLength, headTrim, colorKey } from './canvas.js'
 
@@ -152,7 +152,7 @@ export function buildSvg() {
     const weight = arrowWeight(a)
     const trim = headTrim(weight)
     const d = pathFor(pts, style, { start: a.bidirectional ? trim : 0, end: trim })
-    const color = a.color || C.arrow
+    const color = paintColorFor(a.color).color || C.arrow
     const head = headRef(color, weight)
     const dashes = dashArrayFor(arrowPattern(a), weight)
     const dash = dashes ? ` stroke-dasharray="${dashes}"` : ''
@@ -185,7 +185,8 @@ export function buildSvg() {
     const x = b.x, y = b.y
     const type = TYPES[b.type] || TYPES.custom
     const typeColour = ui.lightMode ? type.light : type.color
-    const accent = b.color ? ((ui.lightMode && lightAccentFor(b.color)) || b.color) : typeColour
+    const paint = paintColorFor(b.color)
+    const accent = paint.color ? ((ui.lightMode && paint.light) || paint.color) : typeColour
     const label = type === TYPES[b.type] ? type.label : String(b.type || type.label)
     const rx = b.type === 'terminator' ? 22 : 10
     // The canvas preset. The default outline is a quiet edge in the type

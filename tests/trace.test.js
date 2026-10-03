@@ -332,3 +332,27 @@ describe('registries stay consistent', () => {
     })
   })
 })
+
+describe('trace page: an empty source is a starting point, not an error', () => {
+  it('the placeholder says it is an example, and the empty state is a hint, not ERR', async () => {
+    // ?embed: the page reads nothing from, and writes nothing to, storage.
+    const frame = document.createElement('iframe')
+    frame.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:600px;opacity:0;pointer-events:none;border:0'
+    frame.src = '../trace.html?embed'
+    const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+    document.body.appendChild(frame)
+    try {
+      await loaded
+      const doc = frame.contentDocument
+      let diag = null
+      for (let i = 0; i < 60 && !diag; i++) {
+        await new Promise(r => setTimeout(r, 50))
+        diag = doc.querySelector('#traceDiags .trace-diag')
+      }
+      assert.ok(diag, 'the diagnostics rendered')
+      assert.eq(diag.dataset.level, 'hint', 'a neutral hint')
+      assert.ok(!doc.querySelector('#traceDiags .tag'), 'no ERR tag before anything was typed')
+      assert.match(doc.getElementById('traceSource').placeholder, /^# Example\. Start typing to replace it\./)
+    } finally { frame.remove() }
+  })
+})

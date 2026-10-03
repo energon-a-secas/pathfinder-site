@@ -92,7 +92,7 @@
       <button class="trace-chip" id="traceFit" type="button">Fit</button>
     </div>
     <textarea id="traceSource" spellcheck="false" autocomplete="off"
-      placeholder="trace:&#10;  title: What broke&#10;  kind: tree&#10;  root: start&#10;  nodes:&#10;    - id: start&#10;      kind: check&#10;      ask: Does the name resolve?&#10;      branches:&#10;        - when: yes&#10;          to: reachable&#10;        - when: NXDOMAIN&#10;          to: dns"></textarea>
+      placeholder="# Example. Start typing to replace it.&#10;trace:&#10;  title: What broke&#10;  kind: tree&#10;  root: start&#10;  nodes:&#10;    - id: start&#10;      kind: check&#10;      ask: Does the name resolve?&#10;      branches:&#10;        - when: yes&#10;          to: reachable&#10;        - when: NXDOMAIN&#10;          to: dns"></textarea>
     <div class="trace-suggest" id="traceSuggest"></div>
     <div class="trace-diags" id="traceDiags"></div>
   </section>
@@ -101,7 +101,7 @@
     <div class="trace-stage" id="traceStage"></div>
     <div class="trace-empty" id="traceEmpty" hidden>
       <div>Nothing to draw yet.</div>
-      <div style="font-size:12px;opacity:.7">Pick an example, or start typing on the left.</div>
+      <div class="trace-empty-hint">Pick an example, or start typing on the left.</div>
     </div>
     <div class="trace-tools">
       <button id="trZoomOut" aria-label="Zoom out">&minus;</button>

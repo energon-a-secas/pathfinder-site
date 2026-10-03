@@ -12,7 +12,7 @@ import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import { renderInspector } from './inspector.js'
-import { lightAccentFor, highlightTabLabel, typeShape, chipIcon } from './cards.js'
+import { paintColorFor, highlightTabLabel, typeShape, chipIcon } from './cards.js'
 
 // The inspector moved to inspector.js; these re-exports keep every existing
 // importer of render.js working.
@@ -60,9 +60,11 @@ export function renderBlock(id) {
   // A custom colour feeds --bc through the stylesheet (.has-color), not
   // inline, so the light theme can swap in a twin that reads on white.
   if (b.color) {
-    el.style.setProperty('--bc-custom', b.color)
-    const light = lightAccentFor(b.color)
-    if (light) el.style.setProperty('--bc-custom-light', light)
+    // paintColorFor: an old amber would read as a gap, so it paints as the
+    // nearest swatch; the stored colour stays as it is.
+    const paint = paintColorFor(b.color)
+    el.style.setProperty('--bc-custom', paint.color)
+    if (paint.light) el.style.setProperty('--bc-custom-light', paint.light)
   }
   if (b.borderWidth) el.style.setProperty('--bw', b.borderWidth + 'px')
 

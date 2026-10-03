@@ -13,7 +13,7 @@
 
 import { describe, it, assert, cssRgba } from './test-utils.js'
 import { TYPES, SWATCH_COLORS, SWATCH_NAMES, HIGHLIGHTS } from '../js/utils.js'
-import { lightAccentFor } from '../js/cards.js'
+import { lightAccentFor, ATTENTION_HEX } from '../js/cards.js'
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -271,6 +271,13 @@ describe('design tokens: attention means one thing', () => {
           assert.ok(d >= 10, `${name} attention vs ${other}: ${d.toFixed(1)}`)
         }
       } finally { t.done() }
+    }
+  })
+
+  it('the paint-time check (cards.js ATTENTION_HEX) holds the same attention as the stylesheet', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try { assert.deepEq(t.color('var(--attention)').slice(0, 3), hexRgb(ATTENTION_HEX[name]), name) } finally { t.done() }
     }
   })
 
@@ -609,6 +616,23 @@ describe('design tokens: the button system', () => {
     assert.match(html, /<link rel="stylesheet" href="\/css\/style\.css">/)
     assert.match(html, /class="btn btn-primary" href="\/"/)
     assert.ok(!/#[0-9a-fA-F]{6}\b/.test(html.replace(/<meta[^>]*>/g, '')), 'no hex colour in the page')
+  })
+})
+
+describe('design tokens: the inspector suggestions keep their sentence wide', () => {
+  it('in a 320px panel the fix button wraps under its sentence instead of squeezing it', async () => {
+    const t = await themed('')
+    try {
+      const box = t.add('<div class="insp-suggestions" style="width:288px;box-sizing:border-box"><div class="gap-fix-item">' +
+        '<span class="gap-fix-icon"></span><div class="gap-fix-text">Or record the mitigation as a decision downstream of it.</div>' +
+        '<button class="btn btn-secondary btn-sm gap-fix-btn">Create decision</button></div></div>')
+      const text = box.querySelector('.gap-fix-text').getBoundingClientRect(), btn = box.querySelector('.gap-fix-btn').getBoundingClientRect()
+      assert.ok(btn.top >= text.bottom - 1, 'the button sits under the sentence')
+      assert.ok(Math.abs(btn.left - text.left) <= 1, 'aligned with the sentence')
+      assert.ok(text.width >= 220, `the sentence keeps the width (${Math.round(text.width)}px)`)
+      const lh = parseFloat(getComputedStyle(box.querySelector('.gap-fix-text')).lineHeight)
+      assert.ok(text.height <= lh * 2 + 1, `two lines at most (${Math.round(text.height / lh)})`)
+    } finally { t.done() }
   })
 })
 
