@@ -106,7 +106,7 @@ export function highlightRowHtml(active) {
             aria-pressed="${!active}" title="No highlight" aria-label="No highlight"></button>` +
     Object.entries(HIGHLIGHTS).map(([key, h]) =>
       `<button type="button" class="hl-swatch${key === 'festive' ? ' hl-swatch-festive' : ''}${active === key ? ' active' : ''}"
-               data-hl="${key}" style="--sw:${h.color}" aria-pressed="${active === key}"
+               data-hl="${key}" style="--sw:var(--hl-${key})" aria-pressed="${active === key}"
                title="${escHtml(h.label)}: ${escHtml(h.hint)}" aria-label="${escHtml(h.label)}"></button>`
     ).join('')
 }
@@ -457,7 +457,7 @@ function renderAppearance(b) {
 
   const h = HIGHLIGHTS[b.highlight]
   const hlDot = byId('inspHighlightDot')
-  if (hlDot) { hlDot.style.background = h ? h.color : ''; hlDot.classList.toggle('is-empty', !h) }
+  if (hlDot) { hlDot.style.background = h ? `var(--hl-${b.highlight})` : ''; hlDot.classList.toggle('is-empty', !h) }
   setText('inspHighlightText', h ? h.label : 'None')
   face('inspHighlightBtn', `Highlight: ${h ? h.label : 'none'}`)
 
@@ -787,7 +787,7 @@ function priorityMenuItems(current, onPick) {
 function highlightMenuItems(current, onPick) {
   return [{ label: 'None', radio: true, checked: !current, action: () => onPick(null) },
     ...Object.entries(HIGHLIGHTS).map(([k, h]) => ({
-      label: h.label, hint: h.hint, dot: h.color, radio: true, checked: current === k, action: () => onPick(k),
+      label: h.label, hint: h.hint, dot: `var(--hl-${k})`, radio: true, checked: current === k, action: () => onPick(k),
     }))]
 }
 

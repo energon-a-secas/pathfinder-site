@@ -48,14 +48,18 @@
       --success:       oklch(0.75 0.14 155);
       --info:          oklch(0.72 0.12 240);
 
-      /* Presentation highlights (HIGHLIGHTS in js/utils.js): emphasis for a
-         shared map, never meaning. */
-      --hl-alert:      oklch(0.711 0.166 22.2);
-      --hl-focus:      oklch(0.754 0.139 232.7);
-      --hl-go:         oklch(0.773 0.153 163.2);
+      /* Presentation highlights (HIGHLIGHTS in js/utils.js holds the same
+         values as hex, both themes): emphasis for a shared map, never
+         meaning. A ring 6px outside the card with its word on a tab, at 3:1
+         on the canvas and a card, the tab's word at 4.5:1 on it; 10 dE or
+         more from attention and the accent, 8 or more from danger, success
+         and info, 11 or more from each other. */
+      --hl-alert:      oklch(0.74 0.105 14);
+      --hl-focus:      oklch(0.80 0.12 233);
+      --hl-go:         oklch(0.82 0.16 140);
       /* Hold is a paused grey, not amber: amber means a gap and nothing else. */
-      --hl-hold:       oklch(0.74 0.015 285);
-      --hl-festive:    oklch(0.725 0.175 349.8);
+      --hl-hold:       oklch(0.67 0.03 211);
+      --hl-festive:    oklch(0.82 0.15 331);
 
       /* Overlays: the modal scrim, dark ink on a coloured strip. */
       --scrim:         oklch(0.12 0.01 285 / 0.62);
@@ -2104,7 +2108,14 @@
       --warning:       oklch(0.50 0.15 42);
       --success:       oklch(0.48 0.11 155);
       --info:          oklch(0.48 0.12 245);
-      --hl-ink:        var(--text-1);
+      /* The light highlights are dark enough to draw at 3:1 on the light
+         canvas, so their word is the page's near white. */
+      --hl-alert:      oklch(0.535 0.12 14);
+      --hl-focus:      oklch(0.555 0.155 250);
+      --hl-go:         oklch(0.53 0.17 140);
+      --hl-hold:       oklch(0.455 0.035 193);
+      --hl-festive:    oklch(0.53 0.18 333);
+      --hl-ink:        var(--bg);
       --stripe-light:  var(--surface-raised);
       --grid-dot:      color-mix(in oklab, var(--text-1) 10%, transparent);
       --scrim:         oklch(0.25 0.02 285 / 0.35);

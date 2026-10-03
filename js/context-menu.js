@@ -352,7 +352,7 @@ function highlightItems(ids) {
     options: [
       { value: '', label: 'No highlight', className: 'ctx-sw-none', active: cur === null },
       ...Object.entries(HIGHLIGHTS).map(([k, h]) => ({
-        value: k, color: h.color, label: h.label, active: cur === k,
+        value: k, color: `var(--hl-${k})`, label: h.label, active: cur === k,
         className: k === 'festive' ? 'ctx-sw-festive' : '',
       })),
     ],

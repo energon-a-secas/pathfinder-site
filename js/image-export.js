@@ -42,14 +42,14 @@ function wrapText(text, maxWidth, charW) {
 // --text-* tokens, --surface-2 for badges, and the [lines] --edge tokens.
 function themeColors() {
   return ui.lightMode
-    ? { bg: '#f4f5f9', card: '#fdfdff', cardBorder: '#d6d7de',
+    ? { bg: '#f1f1f7', card: '#fdfdff', cardBorder: '#d6d7de',
         title: '#1a1a20', type: '#47474e', desc: '#62626a', meta: '#47474e', badge: '#eaeaf0',
         arrow: '#73737d', label: '#47474e', pill: '#fdfdff', pillBorder: '#d6d7de',
-        frame: '#d6d7de', frameLabel: '#62626a', hlInk: '#1a1a20', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f6' }
+        frame: '#d6d7de', frameLabel: '#62626a', hlInk: '#f9fafe', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f7' }
     : { bg: '#0e0e13', card: '#14141a', cardBorder: '#2d2d33',
-        title: '#f1f1f6', type: '#bdbdc4', desc: '#919198', meta: '#bdbdc4', badge: '#1b1b21',
+        title: '#f1f1f7', type: '#bdbdc4', desc: '#919198', meta: '#bdbdc4', badge: '#1b1b21',
         arrow: '#848592', label: '#bdbdc4', pill: '#14141a', pillBorder: '#2d2d33',
-        frame: '#2d2d33', frameLabel: '#919198', hlInk: '#0e0e13', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f6' }
+        frame: '#2d2d33', frameLabel: '#919198', hlInk: '#0e0e13', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f7' }
 }
 
 // The type dot, in the shape the card draws (TYPES shape, style.css
@@ -201,10 +201,10 @@ export function buildSvg() {
     // The festive border marches in the browser only when asked to, and
     // exports as its still candy-cane dash.
     if (b.highlight && HIGHLIGHTS[b.highlight]) {
-      const hc = HIGHLIGHTS[b.highlight].color
+      const hc = HIGHLIGHTS[b.highlight][ui.lightMode ? 'light' : 'color']
       const ring = `x="${(x - 7.25).toFixed(2)}" y="${(y - 7.25).toFixed(2)}" width="${w + 14.5}" height="${h + 14.5}" rx="${b.type === 'terminator' ? 30 : rx + 7.25}" fill="none" stroke-width="2.5"`
       parts.push(`<rect ${ring} stroke="${hc}"${b.highlight === 'festive' ? ' stroke-dasharray="9 9"' : ''}/>`)
-      if (b.highlight === 'festive') parts.push(`<rect ${ring} stroke="#34d399" stroke-dasharray="9 9" stroke-dashoffset="9"/>`)
+      if (b.highlight === 'festive') parts.push(`<rect ${ring} stroke="${HIGHLIGHTS.go[ui.lightMode ? 'light' : 'color']}" stroke-dasharray="9 9" stroke-dashoffset="9"/>`)
       const word = highlightTabLabel(b.highlight)
       if (word) {
         const tw = Math.ceil(word.length * 6.4 + 10), tx = x + 14, ty = y - 7.25 - 7

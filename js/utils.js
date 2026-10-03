@@ -332,12 +332,15 @@ export const BORDER_WIDTHS = [1, 1.5, 2, 3]
 export const HIGHLIGHTS = {
   // Motion is off by default (View > Animate highlights), so the hints say
   // what is drawn at rest and when it moves.
-  alert:   { label: 'Alert',   color: '#f87171', hint: 'Red ring. The thing you want looked at first (pulses on hover with Animate highlights on).' },
-  focus:   { label: 'Focus',   color: '#38bdf8', hint: 'Steady blue ring. "This is what we are discussing."' },
-  go:      { label: 'Go',      color: '#34d399', hint: 'Green. Settled, agreed, or done.' },
+  // color and light are the --hl-* tokens (style.css) as sRGB hex, for the
+  // image export, which carries no stylesheet. The page itself paints them
+  // from the tokens, so the theme picks the twin.
+  alert:   { label: 'Alert',   color: '#e58f97', light: '#a74c58', hint: 'Red ring. The thing you want looked at first (pulses on hover with Animate highlights on).' },
+  focus:   { label: 'Focus',   color: '#64cbfe', light: '#0675c9', hint: 'Steady blue ring. "This is what we are discussing."' },
+  go:      { label: 'Go',      color: '#89dd76', light: '#258101', hint: 'Green. Settled, agreed, or done.' },
   // Grey, not amber: amber on a card means a gap (--attention) and nothing else.
-  hold:    { label: 'Hold',    color: '#a9aab4', hint: 'Grey. Blocked, or waiting on somebody.' },
-  festive: { label: 'Festive', color: '#f472b6', hint: 'A candy-cane border, impossible to ignore (moves on hover with Animate highlights on).' },
+  hold:    { label: 'Hold',    color: '#819ba0', light: '#3f5d5c', hint: 'Grey. Blocked, or waiting on somebody.' },
+  festive: { label: 'Festive', color: '#fb9ef1', light: '#a43897', hint: 'A candy-cane border, impossible to ignore (moves on hover with Animate highlights on).' },
 }
 
 export const SITUATION_FIELDS = {

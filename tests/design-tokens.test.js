@@ -12,7 +12,7 @@
 // ============================================================
 
 import { describe, it, assert, cssRgba } from './test-utils.js'
-import { TYPES, SWATCH_COLORS, SWATCH_NAMES } from '../js/utils.js'
+import { TYPES, SWATCH_COLORS, SWATCH_NAMES, HIGHLIGHTS } from '../js/utils.js'
 import { lightAccentFor } from '../js/cards.js'
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -287,6 +287,60 @@ describe('design tokens: attention means one thing', () => {
           if (d < min) { min = d; at = h }
         }
         assert.ok(min >= 10, `${name}: ${min.toFixed(1)} at hue ${at}`)
+      } finally { t.done() }
+    }
+  })
+})
+
+describe('design tokens: presentation highlights', () => {
+  const KEYS = ['alert', 'focus', 'go', 'hold', 'festive']
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+  it('each highlight has a twin per theme, and the registry carries the same values for the image export', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        for (const k of KEYS) {
+          assert.deepEq(t.color(`var(--hl-${k})`).slice(0, 3), hex(HIGHLIGHTS[k][name === 'dark' ? 'color' : 'light']), `${name} --hl-${k} is HIGHLIGHTS.${k}`)
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('a highlight ring draws at 3:1 on the canvas and a card, and its word reads at 4.5:1 on its tab, in both themes', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        for (const k of KEYS) {
+          const c = t.color(`var(--hl-${k})`)
+          for (const bg of ['--canvas', '--card', '--bg']) {
+            const r = ratio(c, t.color(`var(${bg})`))
+            assert.ok(r >= 3, `${name} ${k} on ${bg}: ${r.toFixed(2)}:1`)
+          }
+          const ink = ratio(t.color('var(--hl-ink)'), c)
+          assert.ok(ink >= 4.5, `${name} ${k}: its word ${ink.toFixed(2)}:1`)
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('highlights keep clear of what they must not be mistaken for, and of each other', async () => {
+    // Off the stock palette they used to sit on exactly (Tailwind 400s).
+    const STOCK = { alert: '#f87171', focus: '#38bdf8', go: '#34d399', hold: '#a9aab4', festive: '#f472b6' }
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        for (const k of KEYS) {
+          const c = t.color(`var(--hl-${k})`)
+          for (const [other, min] of [['--attention', 10], ['--accent', 10], ['--danger', 8], ['--success', 8], ['--info', 8]]) {
+            const d = dE(c, t.color(`var(${other})`))
+            assert.ok(d >= min, `${name} ${k} vs ${other}: ${d.toFixed(1)}`)
+          }
+          for (const o of KEYS.filter(o => o > k)) {
+            const d = dE(c, t.color(`var(--hl-${o})`))
+            assert.ok(d >= 11, `${name} ${k} vs ${o}: ${d.toFixed(1)}`)
+          }
+          assert.ok(dE(c, hex(STOCK[k])) >= 3, `${name} ${k} is not the stock ${STOCK[k]}`)
+        }
       } finally { t.done() }
     }
   })
