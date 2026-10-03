@@ -48,7 +48,7 @@ function showBanner() {
     el.setAttribute('data-canvas-ui', '')
     el.setAttribute('role', 'status')
     el.innerHTML = '<span>Dot voting: click a card to add a dot. <strong class="voting-left"></strong>.</span>' +
-      '<button type="button" class="voting-done">Done</button>'
+      '<button type="button" class="btn btn-secondary btn-sm voting-done">Done</button>'
     el.querySelector('.voting-done').addEventListener('click', () => setVotingMode(false))
     ;($.canvasViewport() || document.body).appendChild(el)
   }

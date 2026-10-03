@@ -83,10 +83,10 @@ export function chooseIncoming({ source = 'link', name = '', data = null } = {})
       <h2 class="incoming-title" id="incomingTitle"></h2>
       <p class="incoming-desc" id="incomingDesc"></p>
       <div class="incoming-actions">
-        <button type="button" class="incoming-btn incoming-primary" data-choice="new">Open as a new map</button>
-        <button type="button" class="incoming-btn" data-choice="replace">Replace current map</button>
-        <button type="button" class="incoming-btn" data-choice="merge">Merge into current map</button>
-        <button type="button" class="incoming-btn incoming-cancel" data-choice="cancel">Cancel</button>
+        <button type="button" class="btn btn-primary incoming-btn incoming-primary" data-choice="new">Open as a new map</button>
+        <button type="button" class="btn btn-secondary incoming-btn" data-choice="replace">Replace current map</button>
+        <button type="button" class="btn btn-secondary incoming-btn" data-choice="merge">Merge into current map</button>
+        <button type="button" class="btn btn-ghost incoming-btn incoming-cancel" data-choice="cancel">Cancel</button>
       </div>
       <p class="incoming-hint">Replace keeps a snapshot of your map under Maps, Snapshots. Undo reverses a replace or a merge.</p>`
     dlg.querySelector('.incoming-title').textContent = (HEADINGS[source] || HEADINGS.link)(name)
@@ -260,8 +260,8 @@ export function showOtherTabBanner() {
   el.setAttribute('data-canvas-ui', '')
   el.setAttribute('role', 'alert')
   el.innerHTML = '<span class="other-tab-text">This map changed in another tab. Reload to see that version; editing here will overwrite it.</span>' +
-    '<button type="button" class="other-tab-reload">Reload</button>' +
-    '<button type="button" class="other-tab-dismiss">Keep editing here</button>'
+    '<button type="button" class="btn btn-secondary btn-sm other-tab-reload">Reload</button>' +
+    '<button type="button" class="btn btn-ghost btn-sm other-tab-dismiss">Keep editing here</button>'
   el.querySelector('.other-tab-reload').addEventListener('click', () => {
     // A flush on the way out would write this tab's copy over the newer one.
     suspendUnloadFlush()
@@ -385,8 +385,8 @@ export function showOlderVersionBanner(loss = pendingOlderVersionLoss()) {
     el.setAttribute('data-canvas-ui', '')
     el.setAttribute('role', 'alert')
     el.innerHTML = '<span class="other-tab-text older-version-text"></span>' +
-      '<button type="button" class="older-version-restore">Restore</button>' +
-      '<button type="button" class="older-version-dismiss">Dismiss</button>'
+      '<button type="button" class="btn btn-primary btn-sm older-version-restore">Restore</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm older-version-dismiss">Dismiss</button>'
     el.querySelector('.older-version-restore').addEventListener('click', () => {
       const r = restoreOlderVersionLoss(pendingOlderVersionLoss())
       afterAnswer()

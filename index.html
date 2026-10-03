@@ -208,14 +208,14 @@
       <div class="brain-dump-card" data-canvas-ui>
         <h2>Start with a brain dump</h2>
         <p>Paste or type your messy thoughts: one idea per line. We’ll turn them into typed, AI-ready blocks. A type we were unsure of shows a ▾ on its card label: click it to confirm or change it.</p>
-        <textarea id="brainDumpInput" rows="6" spellcheck="false"
+        <textarea class="input" id="brainDumpInput" rows="6" spellcheck="false"
           placeholder="Ship the onboarding flow before the seed demo&#10;Build the PRD&#10;  - Overview &amp; summary&#10;  - Goals and success metrics&#10;  - Scope and requirements&#10;Users will pay for the pro tier&#10;Will SSO-only auth be acceptable?"></textarea>
         <label class="brain-dump-nest" for="brainDumpNest">
           <input type="checkbox" id="brainDumpNest" checked>
           <span>Fold indented / bulleted lines into the item above as its description</span>
         </label>
         <div class="brain-dump-actions">
-          <button class="brain-dump-btn" id="brainDumpBtn" type="button">Turn into blocks</button>
+          <button class="btn btn-primary" id="brainDumpBtn" type="button">Turn into blocks</button>
           <span class="brain-dump-hint">or <a href="tutorial.html">walk through a worked example</a></span>
         </div>
         <!-- One button per question a map answers (TYPE_STEPS), rendered by
@@ -265,10 +265,10 @@
 <!-- Review bar: view-only links let a reviewer collect notes per block
          and copy them out as a pathfinder-patch. Hidden outside readonly. -->
     <div class="review-bar" id="reviewBar" data-canvas-ui>
-      <input class="review-input" id="reviewInput" type="text" maxlength="500"
+      <input class="input review-input" id="reviewInput" type="text" maxlength="500"
              placeholder="Select a block, note what you'd change…">
-      <button class="review-btn" id="reviewAddBtn">Add note</button>
-      <button class="review-btn review-copy" id="reviewCopyBtn" style="display:none">
+      <button class="btn btn-secondary btn-sm review-btn" id="reviewAddBtn">Add note</button>
+      <button class="btn btn-primary btn-sm review-btn review-copy" id="reviewCopyBtn" style="display:none">
         Copy review patch <span class="review-count" id="reviewCount"></span>
       </button>
     </div>
@@ -316,7 +316,7 @@
       <button id="saveBackup" hidden>Download backup</button>
       <span id="saveStatusDetail" hidden></span>
     </div>
-    <button class="quick-copy" id="copyPromptPill" aria-label="Copy prompt" title="Copy this map as a planning prompt">
+    <button class="btn btn-secondary btn-sm quick-copy" id="copyPromptPill" aria-label="Copy prompt" title="Copy this map as a planning prompt">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
       <span id="copyPillLabel">Copy prompt</span>
     </button>
@@ -368,7 +368,7 @@
         <p class="attention-intro">Changes from this snapshot to the current map. Dashed outlines show removed items.</p>
         <p class="attention-summary" id="comparisonSummary" role="status"></p>
         <div class="comparison-legend"><span class="added">Added</span><span class="changed">Changed</span><span class="removed">Removed</span></div>
-        <button class="copy-btn" id="comparisonRestore">Restore this snapshot</button>
+        <button class="btn btn-secondary btn-block" id="comparisonRestore">Restore this snapshot</button>
         <p class="attention-summary">Your current map will be kept as a backup snapshot.</p>
         <ul class="attention-list" id="comparisonList"></ul>
       </div>
@@ -445,7 +445,7 @@
             <summary class="insp-summary">Questions <span class="insp-count" id="questionsCount"></span></summary>
             <div class="insp-disclosure-body">
               <div class="questions-list" id="questionsList"></div>
-              <button class="add-btn" id="addQuestionBtn" type="button">+ Add question</button>
+              <button class="btn btn-secondary btn-sm" id="addQuestionBtn" type="button">+ Add question</button>
             </div>
           </details>
           <details class="insp-disclosure" data-disclosure="notes" id="notesDetails">
@@ -465,7 +465,7 @@
               <input class="insp-input" id="docRefLabel" type="text" placeholder="What the link is" maxlength="80">
               <label class="insp-sublabel" for="docRefAnchor">Anchor <span class="insp-label-hint">optional, e.g. section-name</span></label>
               <input class="insp-input" id="docRefAnchor" type="text" placeholder="section-name" maxlength="80">
-              <button class="add-btn insp-preview-btn" id="docRefPreviewBtn" type="button" hidden>Preview doc</button>
+              <button class="btn btn-secondary btn-sm insp-preview-btn" id="docRefPreviewBtn" type="button" hidden>Preview doc</button>
             </div>
           </details>
           <details class="insp-disclosure" data-disclosure="planning" id="planningDetails">
@@ -547,7 +547,7 @@
           <div class="insp-section">
             <div class="insp-label" id="multiHighlightLabel">Highlight <span class="insp-label-hint">for presenting, not for meaning</span></div>
             <div class="hl-row" id="multiHighlightRow" role="group" aria-labelledby="multiHighlightLabel"></div>
-            <button type="button" class="insp-toggle-btn" id="spotlightBtn" aria-pressed="false"
+            <button type="button" class="btn btn-secondary btn-sm insp-toggle-btn" id="spotlightBtn" aria-pressed="false"
                     title="Fade every block that is not highlighted, so the marked ones carry the canvas">Spotlight: fade the rest</button>
           </div>
           <div class="insp-section insp-btn-row" id="multiArrangeRow">
@@ -566,9 +566,9 @@
               <label class="insp-label" for="frameLabelInput">Group label</label>
               <input class="insp-input" id="frameLabelInput" type="text" placeholder="Group name…" maxlength="40" autocomplete="off">
             </div>
-            <button class="insp-quiet-btn" id="ungroupBtn" type="button">Ungroup</button>
+            <button class="btn btn-secondary btn-sm insp-quiet-btn" id="ungroupBtn" type="button">Ungroup</button>
           </div>
-          <button class="insp-delete-btn" id="deleteMultiBtn" type="button">Delete selected</button>
+          <button class="btn btn-danger btn-block insp-delete-btn" id="deleteMultiBtn" type="button">Delete selected</button>
         </div>
 
         <!-- One connection. -->
@@ -668,10 +668,10 @@
                   <button type="button" class="radio-opt" data-port-side="left" aria-pressed="false" aria-label="Left" title="Left">&#8592;</button>
                 </div>
               </div>
-              <button type="button" class="insp-quiet-btn" id="arrowAutoRoute">Reset ends to auto</button>
+              <button type="button" class="btn btn-secondary btn-sm insp-quiet-btn" id="arrowAutoRoute">Reset ends to auto</button>
             </div>
           </details>
-          <button class="insp-delete-btn" id="deleteArrowBtn" type="button">Delete connection</button>
+          <button class="btn btn-danger btn-block insp-delete-btn" id="deleteArrowBtn" type="button">Delete connection</button>
         </div>
       </div>
 
@@ -684,15 +684,15 @@
 
         <div class="insp-section" id="patchSection">
           <div class="insp-label">Paste a reply or a review <span class="insp-label-hint">an assistant's reply or a reviewer's notes; the patch inside updates this canvas</span></div>
-          <button class="add-btn" id="patchOpenBtn">Paste a reply…</button>
+          <button class="btn btn-secondary btn-sm" id="patchOpenBtn">Paste a reply…</button>
           <div id="patchPanel" style="display:none">
             <textarea class="insp-textarea" id="patchInput" rows="5"
               placeholder="Paste the whole reply. The ```pathfinder-patch``` block inside is found automatically."></textarea>
             <p class="attention-summary">Choose the changes to include. Expand each one to review its full before and after.</p>
             <div class="patch-preview" id="patchPreview"></div>
             <div class="patch-actions">
-              <button class="add-btn" id="patchApplyBtn" disabled>Apply to canvas</button>
-              <button class="add-btn" id="patchCancelBtn">Close</button>
+              <button class="btn btn-primary btn-sm" id="patchApplyBtn" disabled>Apply to canvas</button>
+              <button class="btn btn-ghost btn-sm" id="patchCancelBtn">Close</button>
             </div>
           </div>
         </div>
@@ -778,7 +778,7 @@
 
         <div class="insp-label" style="margin-bottom:6px">Generated Prompt</div>
         <textarea class="prompt-output" id="promptOutput" readonly aria-label="Generated prompt"></textarea>
-        <button class="copy-btn" id="copyPromptBtn">Copy Prompt</button>
+        <button class="btn btn-primary btn-block copy-btn" id="copyPromptBtn">Copy Prompt</button>
       </div>
 
     </div><!-- /panel-content -->

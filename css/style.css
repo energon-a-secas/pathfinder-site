@@ -160,8 +160,88 @@
       overflow: hidden;
     }
 
+    /* ── Controls: one button and one field vocabulary ──────────
+       DESIGN.md "Components". .btn plus one variant (primary, secondary,
+       ghost, danger) and an optional size (sm; md is the default). Hover
+       changes lightness only: no shadow, no translate, no glow. Every
+       state is here: hover, focus (the one focus outline), active,
+       disabled and loading (aria-busy). A container that floats (a menu,
+       a dialog, a banner) sets --btn-fill so a secondary button still
+       stands off its surface. */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+      height: var(--control-h); min-width: var(--control-h); padding: 0 var(--space-3);
+      font-family: var(--font); font-size: var(--fs-13); font-weight: var(--fw-medium); line-height: 1;
+      color: var(--text-1);
+      background: none;
+      border: 1px solid transparent; border-radius: var(--radius);
+      cursor: pointer; white-space: nowrap; text-decoration: none;
+      -webkit-user-select: none; user-select: none;
+      transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+    }
+    .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .btn:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+    .btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: default; pointer-events: none; }
+    .btn[aria-busy="true"] { cursor: progress; pointer-events: none; }
+    .btn[aria-busy="true"]::after {
+      content: ''; width: 12px; height: 12px; flex-shrink: 0;
+      border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%;
+      animation: btnBusy .8s linear infinite;
+    }
+    @keyframes btnBusy { to { transform: rotate(1turn); } }
 
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: var(--fw-semibold); }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
+    .btn-primary:active { background: color-mix(in oklab, var(--accent) 86%, var(--bg)); border-color: transparent; }
 
+    .btn-secondary { background: var(--btn-fill, var(--surface-2)); border-color: var(--border); color: var(--text-1); }
+    .btn-secondary:hover { background: var(--btn-fill-hover, var(--surface-3)); border-color: var(--border-strong); }
+    .btn-secondary:active { background: var(--btn-fill-hover, var(--surface-3)); border-color: var(--text-3); }
+    .btn-secondary[aria-pressed="true"] { background: var(--btn-fill-hover, var(--surface-3)); border-color: var(--border-strong); }
+
+    .btn-ghost { color: var(--text-2); }
+    .btn-ghost:hover, .btn-ghost[aria-expanded="true"] { background: var(--btn-fill, var(--surface-2)); color: var(--text-1); }
+    .btn-ghost:active { background: var(--btn-fill-hover, var(--surface-3)); color: var(--text-1); }
+
+    .btn-danger { border-color: var(--border); color: var(--danger); }
+    .btn-danger:hover { background: var(--danger-subtle); border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
+    .btn-danger:active { background: color-mix(in oklab, var(--danger) 22%, transparent); }
+
+    .btn-sm { height: var(--control-h-sm); min-width: var(--control-h-sm); padding: 0 10px; font-size: var(--fs-12); }
+    .btn-block { display: flex; width: 100%; }
+    /* Floating surfaces: the fill one step above the surface it sits on. */
+    :where(.pf-menu, .incoming-dialog, .other-tab-banner, .voting-banner, .review-bar, .shortcut-modal, .doc-popup) {
+      --btn-fill: var(--surface-raised-hover);
+      --btn-fill-hover: var(--border);
+    }
+
+    /* Fields. --input-bg lets a field sit inset on a surface it would
+       otherwise vanish into (the brain dump card sets it to --bg). */
+    .input, .select {
+      width: 100%; min-height: var(--control-h);
+      padding: 6px var(--space-3);
+      font-family: var(--font); font-size: var(--fs-13); font-weight: var(--fw-regular); line-height: var(--lh-ui);
+      color: var(--text-1);
+      background: var(--input-bg, var(--surface-1));
+      border: 1px solid var(--border-strong); border-radius: var(--radius);
+      transition: border-color var(--dur-1) var(--ease-out);
+    }
+    textarea.input { min-height: 68px; padding: var(--space-2) var(--space-3); line-height: var(--lh-body); resize: vertical; }
+    .input::placeholder { color: var(--text-3); opacity: 1; }
+    .input:hover, .select:hover { border-color: var(--text-3); }
+    .input:focus, .select:focus { border-color: var(--accent); }
+    .input:focus-visible, .select:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+    .input:disabled, .select:disabled { opacity: .5; cursor: default; }
+    .input[aria-invalid="true"] { border-color: var(--danger); }
+    /* The caret is two gradient strokes in the muted ink, so it follows the theme. */
+    .select {
+      appearance: none; -webkit-appearance: none; cursor: pointer;
+      padding-right: 28px;
+      background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+      background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
 
     #canvasTitle { cursor: text; border-radius: 3px; padding: 0 3px; margin: 0 -3px; transition: background var(--dur-fast); }
     #canvasTitle:hover { background: color-mix(in oklab, var(--header-text) 10%, transparent); }
@@ -661,16 +741,7 @@
     #saveStatusDetail { flex-basis: 100%; line-height: 1.5; color: var(--text-secondary); }
     .canvas-statusbar:has([data-phase="error"]) { flex-wrap: wrap; }
     .canvas-statusbar:has([data-phase="error"]) .save-status-bar { flex: 1 1 240px; }
-    .quick-copy {
-      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      flex-shrink: 0; margin-left: auto; min-height: 32px; padding: 5px 10px;
-      border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-      background: var(--surface-1); color: var(--text-primary); font: inherit;
-      font-weight: 500; white-space: nowrap; cursor: pointer;
-    }
-    .quick-copy svg { width: 16px; height: 16px; }
-    .quick-copy:hover { background: var(--surface-2); }
-    .quick-copy:disabled { opacity: .45; cursor: default; }
+    .quick-copy { flex-shrink: 0; margin-left: auto; }
     .quick-copy[hidden], .embed-mode .canvas-statusbar, body[data-zen="on"] .canvas-statusbar { display: none; }
     /* Alignment guides drawn while dragging. They live in world coordinates
        inside canvas-root, so pan and zoom carry them for free. */
@@ -855,28 +926,8 @@
       position: absolute; bottom: 14px; left: 14px; z-index: 120;
       max-width: min(720px, calc(100% - 28px));
     }
-    .review-input {
-      flex: 1; min-width: 200px;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border-strong);
-      background: var(--surface-raised);
-      color: var(--text-primary);
-      font-family: var(--font); font-size: var(--fs-12);
-    }
-    .review-input::placeholder { color: var(--text-muted); }
-    .review-btn {
-      padding: 8px 13px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--surface-raised);
-      color: var(--text-secondary);
-      font-family: var(--font); font-size: var(--fs-12); font-weight: 600;
-      cursor: pointer; white-space: nowrap;
-    }
-    .review-btn:hover { color: var(--text-primary); border-color: var(--border-strong); background: var(--surface-raised-hover); }
-    .review-btn.review-copy { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-    .review-btn.review-copy:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
+    .review-input { flex: 1; width: auto; min-width: 200px; min-height: var(--control-h-sm); padding-block: 4px; font-size: var(--fs-12); }
+    .review-btn { flex-shrink: 0; }
     .review-count { opacity: .8; }
     body[data-zen="on"] .review-bar { display: none; }
 
@@ -1408,7 +1459,6 @@
 
     @media (max-width: 768px) {
       .canvas-statusbar { padding: 6px 10px; gap: 10px; font-size: var(--fs-11); }
-      .canvas-statusbar .quick-copy { padding: 5px 8px; }
       .comparison-bar { top: 64px; gap: 8px; }
     }
 
@@ -1563,34 +1613,8 @@
     }
     .q-del:hover { color: var(--danger); }
 
-    .add-btn {
-      background: none;
-      border: 1px dashed var(--border);
-      color: var(--text-muted);
-      font-family: var(--font);
-      font-size: var(--text-xs);
-      padding: 5px 10px;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: border-color var(--dur-fast), color var(--dur-fast);
-    }
-    .add-btn:hover { border-color: var(--border-strong); color: var(--text-secondary); }
 
-    .insp-delete-btn {
-      width: 100%;
-      margin-top: 18px;
-      padding: 8px;
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--danger);
-      font-family: var(--font);
-      font-size: var(--text-sm);
-      font-weight: 600;
-      cursor: pointer;
-      transition: background var(--dur-fast);
-    }
-    .insp-delete-btn:hover { background: var(--danger-subtle); border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
+    .insp-delete-btn { margin-top: 18px; }
 
     /* Prompt panel */
     .prompt-summary {
@@ -1680,7 +1704,6 @@
     .patch-op-detail { color: var(--text-muted); margin-top: 2px; }
     .patch-op-note, .patch-op-sum { font-size: var(--fs-11); color: var(--text-muted); padding: 2px 1px; }
     .patch-actions { display: flex; gap: 6px; margin-top: 8px; }
-    .patch-actions .add-btn[disabled] { opacity: .45; cursor: default; }
 
     .dev-radio-group, .dev-check-group { display: flex; flex-wrap: wrap; gap: 5px; }
     .preset-opt:hover { color: var(--text-primary); border-color: var(--border-strong); }
@@ -1733,21 +1756,6 @@
       margin-bottom: 10px;
     }
 
-    .copy-btn {
-      width: 100%;
-      padding: 9px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-primary);
-      font-family: var(--font);
-      font-size: var(--text-sm);
-      font-weight: 600;
-      cursor: pointer;
-      transition: background var(--dur-fast);
-    }
-    .copy-btn:hover { background: var(--surface-3); }
-    .copy-btn.copied { background: color-mix(in oklab, var(--success) 14%, transparent); border-color: color-mix(in oklab, var(--success) 40%, transparent); color: var(--success); }
 
     /* ── Scrollbars ─────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -1966,14 +1974,7 @@
       margin-top: 1px; color: var(--text-secondary);
     }
     .gap-fix-text { flex: 1; font-size: var(--fs-11); color: var(--text-muted); line-height: 1.45; }
-    .gap-fix-btn {
-      flex-shrink: 0; font-size: var(--fs-11); padding: 3px 8px;
-      border-radius: 20px; border: 1px solid var(--border);
-      color: var(--text-secondary); background: var(--tint);
-      cursor: pointer; font-family: var(--font); font-weight: 600;
-      transition: all var(--dur-fast); white-space: nowrap;
-    }
-    .gap-fix-btn:hover { background: var(--tint-strong); border-color: var(--border-strong); color: var(--text-primary); }
+    .gap-fix-btn { flex-shrink: 0; }
 
     /* ── Health score ────────────────────────────────────────────── */
     .health-bar {
@@ -2327,8 +2328,6 @@
     .block.collapsed .block-meta { display: none; }
 
 
-
-
     /* Reduced motion always wins, over View > Animate highlights too. The old
        rule only shortened durations to 0.01ms, which left every infinite
        animation running (and beating the static rings it was meant to show).
@@ -2390,8 +2389,8 @@
     .doc p { margin-bottom: 14px; }
     .doc strong { color: var(--text-primary); font-weight: 600; }
     .doc em { color: var(--text-primary); font-style: italic; opacity: .9; }
-    .doc a { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 2px; }
-    .doc a:hover { color: var(--accent); }
+    .doc a:not(.btn) { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    .doc a:not(.btn):hover { color: var(--accent-hover); }
 
     .doc-list { margin: 0 0 16px; padding-left: 20px; }
     .doc-list li { margin-bottom: 9px; }
@@ -2441,18 +2440,7 @@
     }
     .doc-cta-end { margin-top: 44px; }
     .doc-cta-note { flex: 1 1 240px; font-size: var(--fs-13); color: var(--text-muted); line-height: 1.5; }
-    .doc-btn {
-      flex-shrink: 0;
-      display: inline-flex; align-items: center;
-      padding: 10px 18px;
-      border: none; border-radius: var(--radius);
-      background: var(--accent); color: var(--on-accent);
-      font-family: var(--font); font-size: var(--fs-14); font-weight: 600;
-      cursor: pointer; text-decoration: none;
-      transition: background var(--dur-1) var(--ease-out);
-    }
-    .doc-btn:hover { background: var(--accent-hover); color: var(--on-accent); }
-    .doc-btn:disabled { opacity: .6; cursor: default; }
+
 
     .doc kbd {
       display: inline-block;
@@ -2483,6 +2471,8 @@
    Stream sections. Each stream appends its new rules only inside its
    own section, so parallel work never touches the same lines.
    ════════════════════════════════════════════════════════════════ */
+
+
 
 /* ════ [menu] foundation: shared menu (js/menu.js), inline editing,
    the dot-voting banner ════ */
@@ -2593,13 +2583,7 @@
   border: 1px solid var(--border-strong); border-radius: 999px;
   box-shadow: var(--shadow-1);
 }
-.voting-banner button {
-  padding: 4px 12px; min-height: 28px;
-  font: inherit; font-weight: 600; color: var(--text-primary);
-  background: var(--surface-raised-hover); border: 1px solid var(--border); border-radius: 999px;
-  cursor: pointer;
-}
-.voting-banner button:hover { background: var(--border); }
+
 body.voting-mode .block { cursor: copy; }
 
 /* ── Type lists (js/type-menu.js) ──
@@ -2786,16 +2770,7 @@ body.light-mode .insp-select { color-scheme: light; }
 .insp-link-btn:hover { color: var(--text-primary); background: var(--surface-1); }
 #docRefSection .insp-link-btn { margin: 0 0 6px; }
 
-.insp-quiet-btn {
-  margin-top: 8px; min-height: 30px; padding: 5px 12px;
-  font-family: var(--font); font-size: var(--fs-12); font-weight: 600;
-  color: var(--text-secondary);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.insp-quiet-btn:hover { color: var(--text-primary); background: var(--surface-2); border-color: var(--border-strong); }
+.insp-quiet-btn { margin-top: 8px; }
 .insp-preview-btn { margin-top: 10px; }
 
 /* Suggestions: the gap fixes, open whenever the block has a gap. A quiet box,
@@ -2813,17 +2788,7 @@ body.light-mode .insp-select { color-scheme: light; }
   border-top: 1px dashed var(--border);
   font-size: var(--fs-11); color: var(--text-muted);
 }
-.gap-fix-accept {
-  flex-shrink: 0; min-height: 26px; padding: 3px 10px;
-  font-family: var(--font); font-size: var(--fs-11); font-weight: 600;
-  color: var(--text-secondary);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  cursor: pointer;
-}
-.gap-fix-accept:hover { color: var(--text-primary); background: var(--surface-2); border-color: var(--border-strong); }
-.gap-fix-btn { min-height: 26px; }
+.gap-fix-accept { flex-shrink: 0; }
 .insp-accepted { margin: -6px 0 14px; font-size: var(--fs-11); line-height: 1.6; color: var(--text-muted); }
 .insp-accepted-label { font-weight: 600; }
 .insp-accepted-item { white-space: nowrap; }
@@ -2908,16 +2873,8 @@ body.light-mode .insp-select { color-scheme: light; }
 
 /* Several blocks */
 .insp-btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.insp-toggle-btn {
-  display: inline-flex; align-items: center; margin-top: 10px; min-height: 30px; padding: 5px 12px;
-  font-family: var(--font); font-size: var(--fs-12); font-weight: 600;
-  color: var(--text-secondary);
-  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.insp-toggle-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
-.insp-toggle-btn[aria-pressed="true"] { color: var(--text-primary); background: var(--surface-2); border-color: var(--border-strong); }
-.insp-toggle-btn[aria-pressed="true"]::before { content: '\2713'; margin-right: 6px; }
+.insp-toggle-btn { margin-top: 10px; }
+.insp-toggle-btn[aria-pressed="true"]::before { content: '\2713'; margin-right: -2px; }
 #multiHighlightRow[data-mixed="1"]::after { content: 'Mixed'; font-size: var(--fs-11); color: var(--text-muted); }
 #multiDistributeBtn:disabled { opacity: .55; cursor: default; }
 
@@ -3840,17 +3797,7 @@ body { --gap-ink: var(--attention-ink); }
 .attention-static { cursor: default; }
 .attention-static:hover { background: none; }
 .attention-gap .attention-kind { color: var(--gap-ink); }
-.attention-act {
-  margin-top: 10px;
-  min-height: 28px; padding: 2px 10px;
-  font: inherit; font-size: var(--text-xs);
-  color: var(--text-primary);
-  background: var(--surface-1);
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  cursor: pointer; white-space: nowrap;
-}
-.attention-act:hover { background: var(--surface-2); }
-.attention-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.attention-act { margin-top: 10px; }
 /* An accepted gap is settled, not open: it keeps readable text (no opacity,
    which would drop contrast below 4.5:1) and loses the gap ink. */
 .attention-accepted .attention-item strong { font-weight: 500; }
@@ -3858,7 +3805,6 @@ body { --gap-ink: var(--attention-ink); }
   content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
   border: 1.5px solid var(--text-muted); border-radius: 50%; vertical-align: 0;
 }
-
 
 
 
@@ -3886,17 +3832,9 @@ body { --gap-ink: var(--attention-ink); }
 .incoming-title { margin: 0 0 8px; font-size: var(--fs-16); font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
 .incoming-desc { margin: 0 0 16px; color: var(--text-secondary); overflow-wrap: anywhere; }
 .incoming-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.incoming-btn {
-  min-height: 34px; padding: 6px 12px;
-  font: inherit; font-weight: 600; color: var(--text-primary);
-  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.incoming-btn:hover { background: var(--border); }
-.incoming-btn:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
-.incoming-primary { flex-basis: 100%; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.incoming-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.incoming-cancel { margin-left: auto; background: none; border-color: transparent; color: var(--text-secondary); }
+
+.incoming-primary { flex-basis: 100%; }
+.incoming-cancel { margin-left: auto; }
 .incoming-hint { margin: 12px 0 0; font-size: var(--text-xs); color: var(--text-muted); }
 @media (max-width: 480px) {
   .incoming-actions { flex-direction: column; align-items: stretch; }
@@ -3919,14 +3857,7 @@ body { --gap-ink: var(--attention-ink); }
   box-shadow: var(--shadow-1);
 }
 .other-tab-text { flex: 1 1 240px; }
-.other-tab-banner button {
-  min-height: 30px; padding: 4px 12px;
-  font: inherit; font-weight: 600; color: var(--text-primary);
-  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.other-tab-banner button:hover { background: var(--border); }
-.other-tab-banner button:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+
 /* Too narrow for a strip beside the toggle: the full width below it. */
 @media (max-width: 700px) {
   .other-tab-banner { top: 64px; right: 12px; }
@@ -3935,8 +3866,6 @@ body { --gap-ink: var(--attention-ink); }
    wears the other-tab banner's look and place, since only one shows at a
    time; Restore is the answer the banner exists for, so it is the primary. */
 .older-version-banner { border-color: color-mix(in oklab, var(--warning) 70%, var(--border-strong)); }
-.older-version-banner .older-version-restore { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.older-version-banner .older-version-restore:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 /* Backed up: when this map was last exported (status bar slot). */
 /* It gives way before anything else in the bar: the text ellipsizes (the
@@ -3989,9 +3918,7 @@ body { --gap-ink: var(--attention-ink); }
   background: var(--accent); border: 2px solid var(--bg); border-radius: 999px;
   pointer-events: auto; cursor: help;
 }
-.review-btn:focus-visible, .review-input:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
 .review-undo[hidden] { display: none; }
-
 
 
 

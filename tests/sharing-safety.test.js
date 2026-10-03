@@ -1114,9 +1114,9 @@ describe('Overlays keep out of each other', () => {
   it('the review bar is one surface: nothing floats loose over the cards on a phone', () => sandbox(async () => {
     // The real bar markup, with the undo button review.js adds.
     const saved = { notes: review.notes, sent: review.sent, key: review.key }
-    const bar = '<div class="review-bar" id="reviewBar"><input class="review-input" id="reviewInput" placeholder="Select a block, note what you would change">' +
-      '<button class="review-btn" id="reviewAddBtn">Add note</button>' +
-      '<button class="review-btn review-copy" id="reviewCopyBtn">Copy review patch <span class="review-count">2</span></button></div>'
+    const bar = '<div class="review-bar" id="reviewBar"><input class="input review-input" id="reviewInput" placeholder="Select a block, note what you would change">' +
+      '<button class="btn btn-secondary btn-sm review-btn" id="reviewAddBtn">Add note</button>' +
+      '<button class="btn btn-primary btn-sm review-btn review-copy" id="reviewCopyBtn">Copy review patch <span class="review-count">2</span></button></div>'
     for (const width of [390, 1440]) {
       const frame = await layoutFrame(width, 'readonly-mode', bar)
       try {

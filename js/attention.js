@@ -134,7 +134,7 @@ function rowAction(item, i) {
   if (ui.readOnly || ui.embed) return ''
   const on = `"${item.title}"`
   const btn = (act, text, label) =>
-    `<button type="button" class="attention-act" data-attention-act="${act}" data-attention="${i}" aria-label="${escHtml(label)}">${text}</button>`
+    `<button type="button" class="btn btn-secondary btn-sm attention-act" data-attention-act="${act}" data-attention="${i}" aria-label="${escHtml(label)}">${text}</button>`
   if (item.kind === 'canvas') {
     if (item.finding === 'untyped') return btn('suggest-types', 'Suggest types', 'Suggest a type for each untyped block')
     if (item.finding === 'type-check') return btn('confirm-types', 'Keep all', 'Keep the automatic type on every block awaiting a type check')

@@ -12,24 +12,29 @@
   <title>Not found | Pathfinder</title>
   <meta name="robots" content="noindex">
   <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/styles/base.css">
+  <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* Self-contained on purpose. A 404 that depends on the site's own CSS
-       bundle breaks exactly when something is already wrong with the paths. */
+    /* The site's tokens and buttons come from /css/style.css (root-absolute,
+       so a 404 at any depth finds it). The page still reads if that file is
+       what went missing: this fallback restates the few tokens it needs. */
+    :root {
+      --bg: oklch(0.165 0.012 285);
+      --text-1: oklch(0.96 0.006 285);
+      --text-2: oklch(0.80 0.010 285);
+      --text-3: oklch(0.66 0.010 285);
+    }
     body {
-      margin: 0; min-height: 100dvh; display: grid; place-items: center;
-      background: #0a0a12; color: #f4f4f8; text-align: center;
-      font-family: 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+      margin: 0; height: auto; min-height: 100dvh; overflow: visible;
+      display: grid; place-items: center;
+      background: var(--bg); color: var(--text-1); text-align: center;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       padding: 2rem;
     }
-    .code { font-size: clamp(4rem, 18vw, 9rem); font-weight: 800; line-height: 1;
-            margin: 0; color: #E326E4; letter-spacing: -.04em; }
-    h1 { font-size: clamp(1.1rem, 4vw, 1.5rem); font-weight: 600; margin: .75rem 0 .35rem; }
-    p  { color: rgba(255,255,255,.62); margin: 0 0 1.75rem; max-width: 34ch; }
-    a  { display: inline-block; padding: .7rem 1.4rem; border-radius: 8px;
-         background: #E326E4; color: #fff; text-decoration: none; font-weight: 600; }
-    a:hover { filter: brightness(1.1); }
-    a + a { margin-left: .6rem; background: transparent; color: rgba(255,255,255,.72);
-            border: 1px solid rgba(255,255,255,.18); }
+    .code { font-size: clamp(3rem, 12vw, 6rem); font-weight: 700; line-height: 1;
+            margin: 0; color: var(--text-3); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    h1 { font-size: 1.25rem; font-weight: 600; margin: .75rem 0 .35rem; }
+    p  { color: var(--text-2); margin: 0 0 1.5rem; max-width: 34ch; }
+    .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -37,8 +42,10 @@
     <p class="code">404</p>
     <h1>That page is not here</h1>
     <p>The link may be old, or the address may have a typo in it.</p>
-    <a href="/">Back to Pathfinder</a>
-    <a href="https://neorgon.com">All tools</a>
+    <div class="actions">
+      <a class="btn btn-primary" href="/">Back to Pathfinder</a>
+      <a class="btn btn-secondary" href="https://neorgon.com">All tools</a>
+    </div>
   </main>
 </body>
 </html>

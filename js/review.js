@@ -144,7 +144,7 @@ export function setupReview() {
     undoBtn = document.createElement('button')
     undoBtn.type = 'button'
     undoBtn.id = 'reviewUndoBtn'
-    undoBtn.className = 'review-btn review-undo'
+    undoBtn.className = 'btn btn-secondary btn-sm review-btn review-undo'
     undoBtn.title = 'Remove last note'
     // The label is the accessible name at every width; narrow screens hide
     // it visually and keep the icon.

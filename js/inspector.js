@@ -499,12 +499,12 @@ function renderSuggestions(b) {
         <div class="gap-fix-item">
           <span class="gap-fix-icon" aria-hidden="true">${f.icon || ''}</span>
           <div class="gap-fix-text">${escHtml(f.text || '')}</div>
-          ${f.action ? `<button type="button" class="gap-fix-btn" data-fix="${escHtml(f.id)}" data-bid="${escHtml(b.id)}">${escHtml(f.action)}</button>` : ''}
+          ${f.action ? `<button type="button" class="btn btn-secondary btn-sm gap-fix-btn" data-fix="${escHtml(f.id)}" data-bid="${escHtml(b.id)}">${escHtml(f.action)}</button>` : ''}
         </div>`).join('') +
       (canAccept && g ? `
         <div class="gap-fix-accept-row">
           <span>Deliberate here?</span>
-          <button type="button" class="gap-fix-accept" data-accept="${escHtml(g)}" data-bid="${escHtml(b.id)}"
+          <button type="button" class="btn btn-ghost btn-sm gap-fix-accept" data-accept="${escHtml(g)}" data-bid="${escHtml(b.id)}"
             aria-label="Accept this gap: ${escHtml(gapShort(g))}">Accept</button>
         </div>` : '')
     ).join('')
