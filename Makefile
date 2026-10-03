@@ -10,6 +10,7 @@ help:
 	@echo "  make serve    Start dev server → http://localhost:$(PORT)"
 	@echo "  make dev      Same, with caching off (use this while editing)"
 	@echo "  make kill     Kill this project's HTTP server"
+	@echo "  make test     Run the browser suite in headless Chrome"
 	@echo ""
 
 # ── Dev server ────────────────────────────────────────────────────────────────
@@ -35,3 +36,10 @@ dev:
 .PHONY: kill
 kill:
 	@lsof -ti :$(PORT) | xargs kill 2>/dev/null && echo "Stopped server on port $(PORT)" || echo "No server running on port $(PORT)"
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+# The suite is browser-only (tests/run-tests.html); this drives it in headless
+# Chrome over the DevTools protocol. Set CHROME=/path/to/chrome if needed.
+.PHONY: test
+test:
+	@node tests/headless.mjs . $(or $(TEST_PORT),9399)
