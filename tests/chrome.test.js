@@ -610,14 +610,14 @@ describe('chrome -- motion policy', () => {
         probe.remove()
         return c
       }
-      // The ring is the ::after box: 1.5px dashed in --attention, 3px out
-      // (Chrome snaps the 1.5px border to 1px at 1x).
+      // The ring is the ::after box: 2px dashed in --attention, 3px out
+      // (whole pixels: Chrome draws a 1.5px border 1px wide at 1x).
       for (const el of [gap, lone]) {
         const r = ring(el)
         assert.neq(r.content, 'none', 'a gap is drawn at rest')
         assert.eq(r.borderTopStyle, 'dashed', 'as a dashed ring')
-        assert.match(r.borderTopWidth, /^1(\.5)?px$/, 'of 1.5px')
-        assert.eq(r.top, `${-(1.5 + 3 + 1.5)}px`, '3px outside the card')
+        assert.eq(r.borderTopWidth, '2px', 'of 2px')
+        assert.eq(r.top, `${-(1.5 + 3 + 2)}px`, '3px outside the card')
         assert.eq(r.borderTopColor, attention(), 'in the attention hue, never the type colour')
         assert.eq(r.animationName, 'none', 'and still')
       }

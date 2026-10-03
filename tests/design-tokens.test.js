@@ -153,20 +153,25 @@ describe('design tokens: contrast in both themes', () => {
     }
   })
 
-  it('attention draws at 3:1 on the canvas and a card, and writes at 4.5:1', async () => {
+  it('attention draws at 3:1 on the canvas, a card, the page and a raised label, and never writes', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
       try {
-        for (const bg of ['--canvas', '--card', '--bg']) {
+        for (const bg of ['--canvas', '--card', '--bg', '--surface-raised']) {
           const r = ratio(t.color('var(--attention)'), t.color(`var(${bg})`))
           assert.ok(r >= 3, `${name} attention on ${bg}: ${r.toFixed(2)}:1`)
         }
-        for (const bg of ['--bg', '--card', '--surface-raised']) {
-          const r = ratio(t.color('var(--attention-ink)'), t.color(`var(${bg})`))
-          assert.ok(r >= 4.5, `${name} attention-ink on ${bg}: ${r.toFixed(2)}:1`)
-        }
       } finally { t.done() }
     }
+    // An amber that reads at 4.5:1 in the light theme is the Output type
+    // colour to an eye (dE 1.7), so there is no amber ink: no rule sets text
+    // in --attention, and the ink token is gone.
+    const css = stripComments(await styleCss())
+    assert.ok(!/--attention-ink|--gap-ink/.test(css), 'no amber ink token')
+    const writes = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(m => /(?:^|[;\s])color:\s*var\(--(?:attention|gap)\b/.test(m[2]))
+      .map(m => m[1].trim())
+    assert.deepEq(writes, ['.gap-icon'], 'only the badge icon (a graphic) is painted in attention through `color`')
   })
 
   it('status colours read as text at 4.5:1 on the page and on a raised surface', async () => {
@@ -194,6 +199,19 @@ describe('design tokens: contrast in both themes', () => {
         assert.ok(sel >= 4.5, `${name} edge-sel: ${sel.toFixed(2)}:1`)
       } finally { t.done() }
     }
+  })
+
+  it('the system "increase contrast" setting raises the tokens: prefers-contrast: more, a query that matches', async () => {
+    // `prefers-contrast: high` is not a value the media feature takes, so it
+    // never matched and the OS setting raised nothing but the line tokens.
+    const css = stripComments(await styleCss())
+    assert.ok(!/prefers-contrast:\s*high/.test(css), 'no query on the value that never matches')
+    assert.ok(matchMedia('(prefers-contrast: more)').media !== 'not all', 'the query parses')
+    const blocks = [...css.matchAll(/@media \(prefers-contrast: more\) \{\s*(:root|body\.light-mode) \{([^}]*)\}/g)]
+      .filter(m => /--border-strong:/.test(m[2]))
+    const sel = blocks.map(m => m[1])
+    assert.ok(sel.includes(':root') && sel.includes('body.light-mode'), `token blocks for both themes: ${sel.join(', ')}`)
+    for (const m of blocks) for (const tok of ['--border', '--text-3', '--accent']) assert.match(m[2], new RegExp(tok + ':'), `${m[1]} raises ${tok}`)
   })
 
   it('derived tokens follow the theme instead of freezing at the dark values', async () => {
@@ -600,7 +618,7 @@ describe('design tokens: card states never wear a type colour', () => {
     `<span class="chip status-badge status-done"><svg class="chip-icon"></svg><span>Done</span></span></div>` +
     `<div class="block-actions"><span class="chip action-badge resolve"><svg class="chip-icon"></svg><span>Resolve</span></span></div></div>`
 
-  it('a gap is a 1.5px dashed ring 3px out in --attention, with a badge in the attention ink, whatever the type', async () => {
+  it('a gap is a dashed ring 3px out in --attention, with a badge drawn in attention and its name in text-1, whatever the type', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
       try {
@@ -609,16 +627,47 @@ describe('design tokens: card states never wear a type colour', () => {
           const el = box.firstChild
           const ring = getComputedStyle(el, '::after')
           assert.eq(ring.borderTopStyle, 'dashed', `${name} ${type}: dashed`)
-          assert.match(ring.borderTopWidth, /^1(\.5)?px$/, `${name} ${type}: 1.5px`)
-          assert.eq(ring.top, '-6px', `${name} ${type}: 3px outside the 1.5px edge`)
+          assert.eq(ring.borderTopWidth, '2px', `${name} ${type}: 2px, a width that renders as written`)
+          assert.eq(ring.top, '-6.5px', `${name} ${type}: 3px outside the 1.5px edge`)
           assert.deepEq(cssRgba(ring.borderTopColor), t.color('var(--attention)'), `${name} ${type}: the attention hue`)
           assert.neq(cssRgba(ring.borderTopColor).join(), t.color(`var(--c-${type})`).join(), `${name} ${type}: not the type colour`)
           const icon = getComputedStyle(el.querySelector('.gap-icon'))
           assert.deepEq(cssRgba(icon.borderTopColor), t.color('var(--attention)'), `${name} ${type}: badge edge in attention`)
-          assert.deepEq(cssRgba(icon.color), t.color('var(--attention-ink)'), `${name} ${type}: badge ink`)
+          assert.deepEq(cssRgba(icon.color), t.color('var(--attention)'), `${name} ${type}: the badge icon draws in attention`)
           const r = ratio(cssRgba(icon.color), cssRgba(icon.backgroundColor))
-          assert.ok(r >= 4.5, `${name} ${type}: badge ink ${r.toFixed(2)}:1`)
-          assert.eq(getComputedStyle(el.querySelector('.gap-name')).display, 'none', `${name}: the name waits for hover or focus`)
+          assert.ok(r >= 3, `${name} ${type}: badge icon ${r.toFixed(2)}:1 as a graphic`)
+          const label = getComputedStyle(el.querySelector('.gap-name'))
+          assert.deepEq(cssRgba(label.color), t.color('var(--text-1)'), `${name} ${type}: the gap's name is text-1`)
+          assert.deepEq(cssRgba(label.borderTopColor), t.color('var(--attention)'), `${name} ${type}: on a label with an attention edge`)
+          const rl = ratio(cssRgba(label.color), cssRgba(label.backgroundColor))
+          assert.ok(rl >= 4.5, `${name} ${type}: the name reads at ${rl.toFixed(2)}:1`)
+          assert.eq(label.display, 'none', `${name}: the name waits for hover or focus`)
+          box.remove()
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('every colour a gap marker paints is neutral or 10 dE from every type colour, in both themes', async () => {
+    // A gap never wears its card's type colour, nor one that looks like it:
+    // the ring, the badge's edge and icon, and the name label's text and edge.
+    const chroma = c => { const [, a, b] = oklab(c); return Math.hypot(a, b) }
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls, css => css.replace(/:hover/g, '.is-hover'))
+      try {
+        const types = TYPE_IDS.map(id => [id, t.color(`var(--c-${id})`)])
+        for (const type of ['output', 'risk', 'custom', 'problem', 'implementation']) {
+          const box = t.add(card(type, 'gap-isolated is-hover'))
+          const el = box.firstChild
+          const icon = getComputedStyle(el.querySelector('.gap-icon')), label = getComputedStyle(el.querySelector('.gap-name'))
+          const paints = { ring: getComputedStyle(el, '::after').borderTopColor, 'badge edge': icon.borderTopColor, 'badge icon': icon.color,
+            'name text': label.color, 'name edge': label.borderTopColor }
+          for (const [part, css] of Object.entries(paints)) {
+            const c = cssRgba(css)
+            if (chroma(c) < 0.03) continue
+            const near = types.map(([id, tc]) => [id, dE(c, tc)]).filter(([, d]) => d < 10)
+            assert.deepEq(near.map(([id, d]) => `${id} ${d.toFixed(1)}`), [], `${name} ${type} card: the ${part}`)
+          }
           box.remove()
         }
       } finally { t.done() }
@@ -664,7 +713,11 @@ describe('design tokens: card states never wear a type colour', () => {
     }
   })
 
-  it('selection is a 1.5px accent outline on the card edge with an accent-subtle halo, the same on every card selected', async () => {
+  // The parts of a computed box-shadow, and the colour at the head of one.
+  const shadows = cs => cs.boxShadow === 'none' ? [] : cs.boxShadow.split(/,(?![^(]*\))/).map(p => p.trim())
+  const shadowColor = part => cssRgba(part.match(/^(.*\))/)[1])
+
+  it('selection is the heaviest card state: a 2px accent outline, an accent-subtle halo and an accent wash, on every card selected', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
       try {
@@ -672,15 +725,67 @@ describe('design tokens: card states never wear a type colour', () => {
         box.querySelectorAll('.block').forEach(el => {
           const cs = getComputedStyle(el)
           assert.deepEq(cssRgba(cs.outlineColor), t.color('var(--accent)'), `${name}: accent outline`)
-          assert.match(cs.outlineWidth, /^1(\.5)?px$/, `${name}: 1.5px`)
+          assert.eq(cs.outlineWidth, '2px', `${name}: 2px, a width that renders as written`)
           assert.eq(cs.outlineOffset, '0px', `${name}: on the edge`)
-          assert.match(cs.boxShadow, /0px 0px 0px 4px/, `${name}: the halo`)
-          assert.deepEq(cssRgba(cs.boxShadow.match(/^(.*?\)) 0px/)?.[1] || cs.boxShadow), t.color('var(--accent-subtle)'), `${name}: accent-subtle`)
+          const halo = shadows(cs).find(p => /\s0px 0px 0px 4px$/.test(p))
+          assert.ok(halo, `${name}: the halo`)
+          assert.deepEq(shadowColor(halo), t.color('var(--accent-subtle)'), `${name}: accent-subtle`)
+          const wash = shadows(cs).find(p => /inset$/.test(p))
+          assert.ok(wash, `${name}: the wash`)
+          assert.deepEq(shadowColor(wash), t.color('var(--accent-wash)'), `${name}: accent-wash`)
         })
         const gapped = box.querySelector('.gap-no-mitigation')
         assert.eq(getComputedStyle(gapped, '::after').borderTopStyle, 'dashed', `${name}: a selected gap card keeps its ring`)
+        // The wash leaves every text token readable on the card.
+        const washed = over(t.color('var(--accent-wash)'), t.color('var(--card)'))
+        for (const tok of ['--text-1', '--text-2', '--text-3']) {
+          const r = ratio(t.color(`var(${tok})`), washed)
+          assert.ok(r >= 4.5, `${name} ${tok} on a selected card: ${r.toFixed(2)}:1`)
+        }
       } finally { t.done() }
     }
+  })
+
+  it('keyboard focus alone is the accent outline without the halo or the wash, so it never reads as more selected than a selection', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls, css => css.replace(/:focus-visible/g, '.fv-probe'))
+      try {
+        const box = t.add(card('goal', 'fv-probe') + card('goal', 'selected') + card('goal', 'selected fv-probe'))
+        const [focused, selected, both] = [...box.querySelectorAll('.block')].map(el => getComputedStyle(el))
+        assert.deepEq(cssRgba(focused.outlineColor), t.color('var(--accent)'), `${name}: focus is the accent`)
+        assert.eq(focused.outlineWidth, '2px', `${name}: at the focus width`)
+        assert.ok(ratio(cssRgba(focused.outlineColor), t.color('var(--canvas)')) >= 3, `${name}: 3:1 on the canvas`)
+        assert.ok(!shadows(focused).some(p => /\s0px 0px 0px 4px$|inset$/.test(p)), `${name}: no halo and no wash on focus alone`)
+        assert.neq(focused.boxShadow, selected.boxShadow, `${name}: focus and selection differ by more than width`)
+        assert.eq(both.boxShadow, selected.boxShadow, `${name}: a focused selection is still a selection`)
+      } finally { t.done() }
+    }
+  })
+
+  it('zoomed out to fit, the selection, the gap ring and the badge keep their size on screen', async () => {
+    // applyTransform sets --px (one screen pixel in canvas units) and --pxn on
+    // the canvas root. At 0.297 (two large templates fitted) the old 1.5px
+    // ring drew under half a pixel and the 20px badge at 6px.
+    const t = await themed('')
+    try {
+      const z = 0.297, px = (1 / z).toFixed(4)
+      const box = t.add(`<div class="canvas-root" style="--px:${px}px;--pxn:${px};transform:scale(${z});transform-origin:0 0">` +
+        card('risk', 'selected gap-no-mitigation') + '</div>')
+      const el = box.querySelector('.block')
+      const cs = getComputedStyle(el), ring = getComputedStyle(el, '::after')
+      assert.ok(parseFloat(cs.outlineWidth) * z >= 1.5, `selection ${(parseFloat(cs.outlineWidth) * z).toFixed(2)}px on screen`)
+      assert.ok(parseFloat(ring.borderTopWidth) * z >= 1.5, `gap ring ${(parseFloat(ring.borderTopWidth) * z).toFixed(2)}px on screen`)
+      const gap = -(parseFloat(ring.top) + 1.5) - parseFloat(ring.borderTopWidth)
+      assert.ok(gap * z >= 2.5, `the ring stands ${(gap * z).toFixed(2)}px off the card`)
+      const halo = shadows(cs).find(p => !/inset$/.test(p))
+      assert.ok(parseFloat(halo.split(/\s+/).pop()) * z >= 3.5, 'the halo too')
+      const badge = el.querySelector('.gap-icon').getBoundingClientRect()
+      assert.ok(badge.width >= 13 && badge.width <= 16, `badge ${badge.width.toFixed(1)}px on screen`)
+      // At 100% nothing changes: the markers are their written size.
+      box.firstChild.style.cssText = '--px:1px;--pxn:1'
+      assert.eq(getComputedStyle(el, '::after').borderTopWidth, '2px')
+      assert.eq(Math.round(el.querySelector('.gap-icon').getBoundingClientRect().width), 20)
+    } finally { t.done() }
   })
 
   it('every dot shape has its rule, on every dot the app draws', async () => {

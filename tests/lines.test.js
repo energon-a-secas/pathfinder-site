@@ -597,7 +597,9 @@ describe('lines: heads and line states', () => {
     // classes redefine those (body), or they freeze at the dark values.
     const rootRule = lines.match(/:root\s*{[^}]*}/)[0]
     assert.ok(!/var\(--text-/.test(rootRule), 'no text-derived token on :root')
-    assert.match(lines, /\nbody\s*{[^}]*--edge-sel:\s*var\(--text-primary\)/)
+    // A selected line is the accent, like a selected card: one selection
+    // colour, declared on body so it follows the theme.
+    assert.match(lines, /\nbody\s*{[^}]*--edge-sel:\s*var\(--accent\)/)
     // Card styles belong to the cards; a hovered line rings its cards in SVG.
     assert.ok(!/\.block\b/.test(lines.replace(/\/\*[\s\S]*?\*\//g, '')), 'no .block rule in [lines]')
   })

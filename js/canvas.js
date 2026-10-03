@@ -102,8 +102,14 @@ export function applyTransform() {
     `${view.panX % sz}px ${view.panY % sz}px`
   $.zoomIndicator().textContent = Math.round(view.zoom * 100) + '%'
   // One screen pixel in world units. The hit area and the endpoint handles
-  // are sized from it, so a connection stays easy to grab when zoomed out.
-  $.arrowsLayer()?.style.setProperty('--px', (1 / (view.zoom || 1)).toFixed(4) + 'px')
+  // are sized from it, so a connection stays easy to grab when zoomed out;
+  // on the root it also keeps the card states (selection, focus, the gap
+  // ring and badge, a highlight) at their screen size when zoomed out.
+  // --pxn is the same number without a unit, for scale().
+  const px = (1 / (view.zoom || 1)).toFixed(4)
+  canvasRoot.style.setProperty('--px', px + 'px')
+  canvasRoot.style.setProperty('--pxn', px)
+  $.arrowsLayer()?.style.setProperty('--px', px + 'px')
   transformHooks.forEach(fn => { try { fn() } catch (err) { console.error(err) } })
   debouncedSaveView()
 }

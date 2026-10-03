@@ -34,8 +34,11 @@
          on body below): the outline, or the ring for a box that clips one. */
       --focus-offset:  2px;
 
-      /* Attention is the gap hue and is used for nothing else. --attention
-         draws (rings, icons: 3:1), --attention-ink writes (text: 4.5:1). */
+      /* Attention is the gap hue and is used for nothing else. It draws
+         (rings, badge edges, icons: 3:1) and never writes: text beside a
+         gap is a text token. An amber that reads at 4.5:1 on the light
+         theme sits on top of the Output type colour (dE 1.7), and a gap
+         never wears its card's type colour. */
       --attention:     oklch(0.86 0.15 85);
 
       /* Status, for UI only (toasts, destructive actions), always beside an
@@ -112,9 +115,10 @@
       --canvas:        var(--bg);
       --card:          var(--surface-1);
       --accent-subtle: color-mix(in oklab, var(--accent) 18%, transparent);
+      /* The selected card's fill: a trace of the accent over the card. */
+      --accent-wash:   color-mix(in oklab, var(--accent) 8%, transparent);
       --focus-ring:    0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
       --focus-outline: 2px solid var(--accent);
-      --attention-ink: var(--attention);
       --danger-subtle: color-mix(in oklab, var(--danger) 14%, transparent);
       --hl-ink:        var(--bg);
       --stripe-light:  var(--text-1);
@@ -515,6 +519,13 @@
       position: relative;
       width: 1px; height: 1px;
       transform-origin: 0 0;
+      /* Card states keep their size on screen when the map is zoomed out:
+         --px is one screen pixel in canvas units (applyTransform sets it),
+         --sp the same but never less than one canvas pixel, and --mk the
+         scale that holds a corner badge or a highlight's word near 14px on
+         screen below 70%. At 100% and above all three change nothing. */
+      --sp: max(1px, var(--px, 1px));
+      --mk: max(1, calc(0.7 * var(--pxn, 1)));
     }
 
     /* SVG arrows layer: sits under blocks. Every connection rule (lines,
@@ -835,9 +846,9 @@
     .block[data-highlight]::before {
       content: '';
       position: absolute;
-      inset: -10px;
-      border-radius: calc(var(--radius-lg) + 10px);
-      border: 2.5px solid var(--hl);
+      inset: calc(-1 * (var(--bw) + 8.5 * var(--sp, 1px)));
+      border-radius: calc(var(--radius-lg) + var(--bw) + 8.5 * var(--sp, 1px));
+      border: calc(2.5 * var(--sp, 1px)) solid var(--hl);
       pointer-events: none;
     }
     /* The ring sits entirely outside the card (-10px inset, 2.5px border:
@@ -863,7 +874,7 @@
        gradient, and border-image cannot be animated. */
     .block[data-highlight=festive]::before {
       border: none;
-      padding: 2.5px;
+      padding: calc(2.5 * var(--sp, 1px));
       background: repeating-linear-gradient(45deg,
         var(--hl-alert) 0 10px, var(--stripe-light) 10px 20px, var(--hl-go) 20px 30px, var(--stripe-light) 30px 40px);
       background-size: 56.57px 56.57px;
@@ -1294,7 +1305,10 @@
     :where(.block[class*=" gap-"]) {
       --gap: var(--attention);
       --gap-anim: gapBreathe 2.4s ease-in-out infinite;
-      --gap-offset: 3px;
+      /* 3px out, 2px wide, on screen at any zoom (--sp). Whole pixels: a
+         1.5px border is drawn 1px wide at 1x. */
+      --gap-offset: calc(3 * var(--sp, 1px));
+      --gap-w: calc(2 * var(--sp, 1px));
     }
     /* The ring is the ::after box, so selection keeps the outline and hover,
        focus and drag keep their shadows. A snapshot comparison writes its
@@ -1302,12 +1316,12 @@
     .block[class*=" gap-"]:not([data-comparison])::after {
       content: '';
       position: absolute;
-      inset: calc(-1 * (var(--bw) + var(--gap-offset) + 1.5px));
-      border: 1.5px dashed var(--gap);
-      border-radius: calc(var(--radius-lg) + var(--gap-offset) + 1.5px);
+      inset: calc(-1 * (var(--bw) + var(--gap-offset) + var(--gap-w)));
+      border: var(--gap-w) dashed var(--gap);
+      border-radius: calc(var(--radius-lg) + var(--gap-offset) + var(--gap-w));
       pointer-events: none;
     }
-    .block[data-type=terminator][class*=" gap-"]::after { border-radius: calc(22px + var(--gap-offset) + 1.5px); }
+    .block[data-type=terminator][class*=" gap-"]::after { border-radius: calc(22px + var(--gap-offset) + var(--gap-w)); }
 
     .block.gap-unaddressed   { --gap-anim: gapBreathe 1.8s ease-in-out infinite; }
     .block.gap-assumption    { --gap-anim: gapBreathe 2s ease-in-out infinite; }
@@ -1614,7 +1628,7 @@
     .gap-badge {
       display: inline-block;
       background: color-mix(in oklab, var(--attention) 16%, transparent);
-      color: var(--attention-ink);
+      color: var(--text-primary);
       border-radius: 3px;
       padding: 1px 5px;
       font-weight: 700;
@@ -1999,11 +2013,12 @@
 
     /* ── Block focus (keyboard navigation) ──────────────────────── */
     /* On the card's edge, like the selection, so it never covers the gap
-       ring 3px out or the highlight ring beyond it. */
+       ring 3px out or the highlight ring beyond it. A ring and nothing else:
+       the halo and the wash belong to selection, so a focused card never
+       looks more selected than a selected one. */
     .block:focus-visible {
-      outline: var(--focus-outline);
+      outline: calc(2 * var(--sp, 1px)) solid var(--accent);
       outline-offset: 0;
-      box-shadow: 0 0 0 4px var(--accent-subtle);
     }
     .canvas-viewport:focus { outline: none; }
     /* A solid ring, at least 3:1 against the canvas in both themes (the old
@@ -2023,7 +2038,7 @@
 
     /* ── High-contrast mode ─────────────────────────────────────── */
     /* tokens:start (high contrast) */
-    @media (prefers-contrast: high) {
+    @media (prefers-contrast: more) {
       :root {
         --border:        oklch(0.70 0.010 285);
         --border-strong: var(--text-1);
@@ -2040,15 +2055,15 @@
       --accent:        oklch(0.80 0.12 285);
     }
     /* tokens:end */
-    @media (prefers-contrast: high) {
+    @media (prefers-contrast: more) {
       .block { border-width: 3px; background: var(--bg); }
-      .block.selected { outline: 3px solid var(--text-1); }
+      :root .block.block.selected { outline: 3px solid var(--text-1); }
       .block:focus-visible { outline: 3px solid var(--accent); box-shadow: none; }
       .header-bar { -webkit-backdrop-filter: none; backdrop-filter: none; }
       .palette, .right-panel { border-color: var(--border); }
     }
     body.high-contrast .block { border-width: 3px; background: var(--bg); }
-    body.high-contrast .block.selected { outline: 3px solid var(--text-1); }
+    body.high-contrast .block.block.selected { outline: 3px solid var(--text-1); }
     body.high-contrast .block:focus-visible { outline: 3px solid var(--accent); box-shadow: none; }
     body.high-contrast .header-bar { -webkit-backdrop-filter: none; backdrop-filter: none; }
     body.high-contrast .palette,
@@ -2077,7 +2092,6 @@
       --accent-hover:  oklch(0.47 0.18 285);
       --on-accent:     oklch(0.985 0.004 285);
       --attention:     oklch(0.64 0.138 70);
-      --attention-ink: oklch(0.52 0.11 66);
       --danger:        oklch(0.50 0.19 27);
       --warning:       oklch(0.50 0.15 42);
       --success:       oklch(0.48 0.11 155);
@@ -2103,7 +2117,7 @@
       --text-3:        oklch(0.32 0.012 285);
       --accent:        oklch(0.42 0.18 285);
     }
-    @media (prefers-contrast: high) {
+    @media (prefers-contrast: more) {
       body.light-mode {
         --border:        oklch(0.55 0.012 285);
         --border-strong: var(--text-1);
@@ -3071,9 +3085,10 @@ body.light-mode .pf-menu-swatch.ctx-sw-festive {
   --edge-hi: oklch(0.84 0.012 285);
 }
 /* Derived from the text tokens on body, where the theme classes redefine
-   those: declared on :root they would freeze at the dark values. */
+   those: declared on :root they would freeze at the dark values. A selected
+   connection is the accent, like a selected card: one selection colour. */
 body {
-  --edge-sel: var(--text-primary);
+  --edge-sel: var(--accent);
   --edge-label: var(--text-secondary);
   --edge-pill: var(--card);
   --edge-pill-border: var(--border);
@@ -3545,21 +3560,24 @@ body.light-mode { --caption-ink: var(--text-secondary); }
 .block.has-color { --bc: var(--bc-custom); }
 body.light-mode .block.has-color { --bc: var(--bc-custom-light, var(--bc-custom)); }
 
-/* Selection wins over every other state: it comes after all of them. A
-   1.5px accent line on the card's own edge and a soft accent halo, the same
-   on every card of a multi-selection. It sits inside the gap ring (3 to
-   4.5px out) and the highlight ring (6 to 8.5px out), so a selected card
-   keeps both. The halo is a shadow, so hover and drag stack theirs under it. */
-.block.block.selected {
-  outline: 1.5px solid var(--accent);
-  outline-offset: 0;
-  box-shadow: 0 0 0 4px var(--accent-subtle);
+/* Selection wins over every other state: it comes after all of them, and
+   it is the heaviest: a 2px accent line on the card's own edge, a soft
+   accent halo and a trace of accent in the fill, the same on every card of
+   a multi-selection. Keyboard focus alone is the line without the halo or
+   the wash. It sits inside the gap ring (3 to 5px out) and the highlight
+   ring (6 to 8.5px out), so a selected card keeps both. The halo and the
+   wash are shadows, so hover and drag stack theirs under them. All of it
+   keeps its screen size when zoomed out (--sp). */
+.block {
+  --sel-shadow: inset 0 0 0 100vmax var(--accent-wash), 0 0 0 calc(4 * var(--sp, 1px)) var(--accent-subtle);
 }
-.block.block.selected:hover    { box-shadow: 0 0 0 4px var(--accent-subtle), var(--shadow-card); }
-.block.block.selected.dragging { box-shadow: 0 0 0 4px var(--accent-subtle), var(--shadow-drag); }
-/* Keyboard focus on a selected card: the focus width, so focus never reads
-   thinner than it does elsewhere. */
-.block.block.selected:focus-visible { outline-width: 2px; }
+.block.block.selected {
+  outline: calc(2 * var(--sp, 1px)) solid var(--accent);
+  outline-offset: 0;
+  box-shadow: var(--sel-shadow);
+}
+.block.block.selected:hover    { box-shadow: var(--sel-shadow), var(--shadow-card); }
+.block.block.selected.dragging { box-shadow: var(--sel-shadow), var(--shadow-drag); }
 
 /* The type dot's shape (TYPES shape in js/utils.js): a ring for Why and Who,
    a square for What and Proof, a dot for How and Other, a diamond for Doubt.
@@ -3653,8 +3671,9 @@ body.light-mode .block[data-card="header"] .block-collapsed-mark { color: var(--
   position: absolute;
   /* On the ring (6 to 8.5px out), at the top left: the gap badge owns the
      top right. */
-  top: calc(-1 * var(--bw) - 7.25px); left: 14px;
-  transform: translateY(-50%);
+  top: calc(-1 * var(--bw) - 7.25 * var(--sp, 1px)); left: 14px;
+  transform: translateY(-50%) scale(var(--mk, 1));
+  transform-origin: 0 50%;
   padding: 1px 5px;
   font-size: var(--fs-11); font-weight: 700; line-height: 1.3;
   letter-spacing: .06em; text-transform: uppercase;
@@ -3793,23 +3812,28 @@ body.light-mode .map-step-type { color: var(--text-secondary); }
 /* Gap marker: a corner badge on the card's top edge, over the dashed ring,
    with the rule's line icon and, while the card is hovered or keyboard
    focused, its name. Its own surface, so it reads the same on every card
-   preset (the header strip included), and the attention ink (4.5:1) rather
-   than the type colour. One gap per card, so one badge. */
-body { --gap-ink: var(--attention-ink); }
+   preset (the header strip included). The edge and the icon draw in
+   --attention (a graphic: 3:1 on --card in both themes); the name is text,
+   so it takes --text-1 on a raised label with an attention edge. Amber
+   never writes: the light amber that reads at 4.5:1 is the Output type
+   colour to an eye. One gap per card, so one badge. */
 .block .block-gap-icons {
   position: absolute;
   top: calc(-1 * var(--bw) - 12px);
   right: 10px;
   z-index: 2;
+  /* Holds about 14px on screen when zoomed out, centred on the card's edge. */
+  transform: scale(var(--mk, 1));
+  transform-origin: 100% 50%;
 }
-.gap-icon { display: inline-flex; align-items: center; color: var(--gap-ink); }
+.gap-icon { display: inline-flex; align-items: center; color: var(--gap, var(--attention)); }
 .gap-icon svg { display: block; flex-shrink: 0; }
 .block-gap-icons .gap-icon {
   position: relative;
   width: 20px; height: 20px;
   justify-content: center;
   background: var(--card);
-  border: 1.5px solid var(--gap, var(--attention));
+  border: 2px solid var(--gap, var(--attention));
   border-radius: 50%;
 }
 /* The name floats above the badge while the card is hovered or keyboard
@@ -3818,13 +3842,13 @@ body { --gap-ink: var(--attention-ink); }
 .gap-name {
   display: none;
   position: absolute;
-  right: -1.5px; bottom: calc(100% + 4px);
+  right: -2px; bottom: calc(100% + 4px);
   padding: 3px 6px;
   font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1.2;
   white-space: nowrap;
-  color: var(--gap-ink);
+  color: var(--text-1);
   background: var(--surface-raised);
-  border: 1px solid var(--border);
+  border: 1px solid var(--gap, var(--attention));
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-1);
   pointer-events: none;
@@ -3849,7 +3873,13 @@ body { --gap-ink: var(--attention-ink); }
 .attention-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .attention-static { cursor: default; }
 .attention-static:hover { background: none; }
-.attention-gap .attention-kind { color: var(--gap-ink); }
+/* A gap row is marked by an attention ring before its kind, the same
+   shape as the accepted row's grey one; its words stay text. */
+.attention-gap .attention-kind { color: var(--text-secondary); }
+.attention-gap .attention-kind::before {
+  content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  border: 2px solid var(--attention); border-radius: 50%; vertical-align: 0;
+}
 .attention-act { margin-top: 10px; }
 /* An accepted gap is settled, not open: it keeps readable text (no opacity,
    which would drop contrast below 4.5:1) and loses the gap ink. */

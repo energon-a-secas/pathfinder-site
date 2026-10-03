@@ -801,6 +801,11 @@ function endSpacePan() {
 }
 
 let keyboardWired = false
+// Whether the focused card got its focus from a pointer press (true) or the
+// keyboard (false). Escape uses it: a card the pointer selected keeps no
+// focus ring once nothing is selected, while a card the keyboard reached
+// keeps its focus, so Tab carries on from there.
+let blockFocusFromPointer = false
 export function setupKeyboardShortcuts() {
   if (keyboardWired) return
   keyboardWired = true
@@ -891,7 +896,13 @@ export function setupKeyboardShortcuts() {
       if ($.shortcutOverlay().style.display !== 'none') { closeShortcuts(); return }
       if (ui.searchOpen) { closeSearch(); return }
       if (ui.votingMode) { setVotingMode(false); return }
-      if (selection.ids.size || selection.arrowId || selection.groupId) { deselectAll(); announce('Selection cleared'); return }
+      if (selection.ids.size || selection.arrowId || selection.groupId) {
+        deselectAll(); announce('Selection cleared')
+        // A focused card would otherwise keep a ring that reads as selected.
+        const ae = document.activeElement
+        if (blockFocusFromPointer && ae?.classList?.contains('block') && $.canvasRoot().contains(ae)) ae.blur()
+        return
+      }
       // Nothing left to deselect: let go of the canvas, so the keyboard is
       // never stuck in it.
       const ae = document.activeElement
@@ -1086,6 +1097,7 @@ export function setupTabNavigation() {
   // Auto-pan canvas when a focused block is off-screen
   $.canvasRoot().addEventListener('focusin', e => {
     const block = e.target.closest('.block'); if (!block) return
+    if (e.target === block) blockFocusFromPointer = fromPress()
     // A block the pointer just placed (quick create) stays where it was put.
     if (fromPress() || isCameraHeld()) return
     // Focus moving within one card (into its title editor and back) is not

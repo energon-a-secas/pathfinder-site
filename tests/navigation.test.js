@@ -1353,3 +1353,35 @@ describe('A keyboard nudge draws like a drag frame (QA)', () => {
     flushNudge()
   })
 })
+
+describe('Escape leaves no ring that reads as a selection (design foundation)', () => {
+  it('a card the pointer selected lets go of focus when Escape clears the selection', () => {
+    wire(); reset()
+    block('a')
+    withViewport(() => withFocusEvents(() => {
+      const el = document.getElementById('b-a')
+      // A press, then focus inside its grace period: focus from the pointer.
+      $.canvasRoot().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      el.focus({ preventScroll: true })
+      document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
+      selectBlock('a')
+      key('Escape', {}, el)
+      assert.eq(selection.ids.size, 0, 'the selection is cleared')
+      assert.neq(document.activeElement, el, 'and the card keeps no focus ring')
+    }))
+  })
+
+  it('a card the keyboard reached keeps its focus, so Tab carries on from there', () => {
+    wire(); reset()
+    block('a')
+    withViewport(() => withFocusEvents(() => {
+      const el = document.getElementById('b-a')
+      endPressGrace()
+      el.focus({ preventScroll: true })
+      selectBlock('a')
+      key('Escape', {}, el)
+      assert.eq(selection.ids.size, 0, 'the selection is cleared')
+      assert.eq(document.activeElement, el, 'focus stays on the card')
+    }))
+  })
+})

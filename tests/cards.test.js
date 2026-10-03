@@ -178,8 +178,8 @@ describe('cards -- states keep their own channels', () => {
       card.dataset.comparison = 'changed'
       const cs = getComputedStyle(card)
       assert.eq(cs.outlineStyle, 'solid')
-      // 1.5px; Chrome snaps outline widths to device pixels, so 1px at 1x.
-      assert.match(cs.outlineWidth, /^1(\.5)?px$/)
+      // 2px: whole pixels render as written (a 1.5px outline drew 1px at 1x).
+      assert.eq(cs.outlineWidth, '2px')
       assert.eq(cs.outlineOffset, '0px', 'on the card\'s edge, inside the gap ring')
       assert.deepEq(rgb(cs.outlineColor).slice(0, 3), cssRgba('oklch(0.68 0.16 285)').slice(0, 3), 'the outline is the accent')
       assert.match(cs.boxShadow, /0px 0px 0px 4px/, 'with the accent-subtle halo')
@@ -846,8 +846,14 @@ describe('cards -- QA round', () => {
           const page = over(rgb(getComputedStyle(s.page).backgroundColor), [255, 255, 255])
           const cs = getComputedStyle(icon)
           const surface = over(rgb(cs.backgroundColor), page)
+          // The icon is a graphic (3:1, WCAG 1.4.11) in the attention hue; the
+          // gap's name, the text, is text-1 on its own label at 4.5:1.
           const r = contrast(over(rgb(cs.color), surface), surface)
-          assert.ok(r >= 4.5, `${theme || 'dark'} ${types[i]}: gap icon ${r.toFixed(2)}:1 on its badge`)
+          assert.ok(r >= 3, `${theme || 'dark'} ${types[i]}: gap icon ${r.toFixed(2)}:1 on its badge`)
+          const name = getComputedStyle(card.querySelector('.gap-name'))
+          const label = over(rgb(name.backgroundColor), page)
+          const rn = contrast(over(rgb(name.color), label), label)
+          assert.ok(rn >= 4.5, `${theme || 'dark'} ${types[i]}: gap name ${rn.toFixed(2)}:1 on its label`)
           const edge = contrast(over(rgb(cs.borderTopColor), surface), surface)
           assert.ok(edge >= 3, `${theme || 'dark'} ${types[i]}: badge edge ${edge.toFixed(2)}:1`)
           assert.eq(getComputedStyle(card.querySelector('.block-gap-icons')).position, 'absolute', 'a corner badge, out of the header row')
