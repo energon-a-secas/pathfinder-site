@@ -240,9 +240,16 @@ describe('Inspector: one block', () => {
     refresh()
     selectArrow('x')
     const sel = byId('arrowPatternSelect')
-    assert.eq(getComputedStyle(sel).backgroundRepeat, 'no-repeat')
+    // The caret is two gradient strokes (one per layer), as on .select:
+    // neither layer tiles, in either theme.
+    const oneCaret = () => {
+      const cs = getComputedStyle(sel)
+      assert.deepEq(cs.backgroundRepeat.split(',').map(v => v.trim()), ['no-repeat', 'no-repeat'])
+      assert.eq((cs.backgroundImage.match(/gradient\(/g) || []).length, 2, 'two strokes, one caret')
+    }
+    oneCaret()
     document.body.classList.add('light-mode')
-    try { assert.eq(getComputedStyle(sel).backgroundRepeat, 'no-repeat', 'the light shorthand does not tile it') }
+    try { oneCaret() }
     finally { document.body.classList.remove('light-mode') }
   })
 
@@ -1969,7 +1976,7 @@ describe('Inspector: phone sheet layout', () => {
       // browser reports it in.
       const [r, g, b, a] = cssRgba(styleIn(f, '#rightPanel').backgroundColor)
       assert.eq(a, 1, 'opaque')
-      assert.deepEq([r, g, b], cssRgba('oklch(0.985 0.004 285)').slice(0, 3), 'the light --bg')
+      assert.deepEq([r, g, b], cssRgba('oklch(0.985 0.006 285)').slice(0, 3), 'the light --bg')
     } finally { f.remove() }
   })
 

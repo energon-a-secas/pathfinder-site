@@ -21,7 +21,7 @@
       --border:        oklch(0.30 0.010 285);
       --border-strong: oklch(0.50 0.012 285);
       /* Text: text-3 reads at 4.5:1 or better on --bg and --surface-1. */
-      --text-1:        oklch(0.96 0.006 285);
+      --text-1:        oklch(0.96 0.008 285);
       --text-2:        oklch(0.80 0.010 285);
       --text-3:        oklch(0.66 0.010 285);
 
@@ -499,6 +499,9 @@
 
     .canvas-viewport {
       flex: 1;
+      /* The map's ground: the page in dark mode, a step under the panels in
+         light. applyTransform draws the dot grid over it. */
+      background-color: var(--canvas);
       overflow: hidden;
       /* clip, not only hidden: a hidden box still scrolls to keep a caret
          in view, and the canvas pans by transform, so a scroll put every
@@ -662,7 +665,7 @@
       background: var(--bg);
       border: 1px solid var(--border-strong);
       border-radius: var(--radius);
-      box-shadow: 0 12px 36px oklch(10% 0.02 275 / .3);
+      box-shadow: var(--shadow-1);
     }
     .search-heading { display: flex; align-items: center; padding: 4px; flex-shrink: 0; }
     .search-input {
@@ -740,8 +743,9 @@
     .search-scope[hidden] { display: none; }
     .search-scope select { flex: 1; min-width: 0; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px; background: var(--surface-1); color: var(--text-primary); font: inherit; }
     .search-empty { padding: 12px 14px 18px; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; overflow-y: auto; }
-    .canvas-search-toggle:focus-visible,
-    .search-overlay :is(input, button, select):focus-visible { outline: 2px solid var(--text-secondary); outline-offset: -2px; }
+    .canvas-search-toggle:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+    /* Inside the overlay the outline sits inset, where the panel would clip it. */
+    .search-overlay :is(input, button, select):focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
     .canvas-statusbar {
       min-height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 14px;
       padding: 6px 14px; border-top: 1px solid var(--border-subtle); background: var(--bg);
@@ -2073,15 +2077,19 @@
     /* tokens:start (light): the same names, mirrored for a light room:
        the page at L 0.985, the canvas a step down so cards (near white)
        lift off it, and every text and accent token re-measured on these
-       surfaces (DESIGN.md has the table). */
+       surfaces (DESIGN.md has the table). Near white the sRGB gamut at hue
+       285 runs out before chroma 0.008 (0.007 at L 0.985, 0.002 at 0.995),
+       so --bg and --surface-raised sit at what the gamut holds. */
     body.light-mode {
-      --bg:            oklch(0.985 0.004 285);
-      --surface-1:     oklch(0.97 0.006 285);
+      --bg:            oklch(0.985 0.006 285);
+      --surface-1:     oklch(0.97 0.008 285);
       --surface-2:     oklch(0.94 0.008 285);
       --surface-3:     oklch(0.91 0.010 285);
       --surface-raised: oklch(0.995 0.002 285);
       --surface-raised-hover: var(--surface-2);
-      --canvas:        var(--surface-1);
+      /* The map's own ground, a step under the panels, so the map reads as
+         a place and a card (near white) lifts off it. */
+      --canvas:        oklch(0.96 0.008 285);
       --card:          var(--surface-raised);
       --border:        oklch(0.88 0.010 285);
       --border-strong: oklch(0.62 0.012 285);
@@ -2090,7 +2098,7 @@
       --text-3:        oklch(0.50 0.012 285);
       --accent:        oklch(0.52 0.18 285);
       --accent-hover:  oklch(0.47 0.18 285);
-      --on-accent:     oklch(0.985 0.004 285);
+      --on-accent:     oklch(0.985 0.006 285);
       --attention:     oklch(0.64 0.138 70);
       --danger:        oklch(0.50 0.19 27);
       --warning:       oklch(0.50 0.15 42);
@@ -2511,7 +2519,7 @@
 .pf-menu-item:hover,
 .pf-menu-item:focus,
 .pf-menu-item.pf-open { background: var(--surface-raised-hover); color: var(--text-primary); outline: none; }
-.pf-menu-item:focus-visible { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.pf-menu-item:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
 .pf-menu-item:disabled { opacity: .45; cursor: default; background: none; }
 .pf-menu-check {
   flex: 0 0 16px; width: 16px; height: 16px;
@@ -2732,10 +2740,12 @@ body.light-mode #inspectorPane :is(.insp-input, .insp-textarea, .question-item i
   font-weight: 500;
   cursor: pointer;
   color-scheme: dark;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  /* The caret is two gradient strokes in the muted ink, as on .select, so
+     it follows the theme without a colour baked into an SVG. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
-  background-position: right 7px center;
-  background-size: 13px 13px;
 }
 .insp-select:disabled { cursor: default; background-image: none; padding-right: 10px; }
 body.light-mode .insp-select { color-scheme: light; }
@@ -2913,14 +2923,6 @@ body.light-mode .insp-select { color-scheme: light; }
 .readonly-mode #inspectorPane .action-toggle[aria-pressed="true"] { opacity: 1; }
 .readonly-mode #inspectorPane .insp-select:disabled { opacity: 1; color: var(--text-primary); }
 
-/* The caret is drawn in the light theme's muted ink. */
-body.light-mode .insp-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 7px center;
-  background-size: 13px 13px;
-}
-body.light-mode .insp-select:disabled { background-image: none; }
 
 /* Phones: the right panel is a bottom sheet. Stacked under the canvas it
    was a 200px band with a 114px scroll window, and the Session timer row
@@ -3100,7 +3102,7 @@ body.light-mode {
 body.high-contrast { --edge: oklch(0.88 0.01 285); --edge-hi: var(--text-1); --edge-pill-border: var(--border-strong); }
 body.light-mode.high-contrast { --edge: oklch(0.38 0.015 285); --edge-hi: var(--text-1); --edge-pill-border: var(--border-strong); }
 @media (prefers-contrast: more) {
-  :root { --edge: oklch(0.88 0.01 285); --edge-hi: oklch(0.96 0.006 285); }
+  :root { --edge: oklch(0.88 0.01 285); --edge-hi: oklch(0.96 0.008 285); }
   body.light-mode { --edge: oklch(0.38 0.015 285); --edge-hi: var(--text-1); }
 }
 /* tokens:end */
@@ -3598,6 +3600,16 @@ body.light-mode .block.has-color { --bc: var(--bc-custom-light, var(--bc-custom)
   -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2.25px), var(--bg) calc(100% - 1.75px));
           mask: radial-gradient(closest-side, transparent calc(100% - 2.25px), var(--bg) calc(100% - 1.75px));
 }
+/* Forced colors drops backgrounds, which took the dot and its shape (the
+   cue that keeps colour from being the only one) exactly where colour is
+   gone. Keep the dot, in the text colour; the masks and transforms above
+   still draw the ring, square and diamond. */
+@media (forced-colors: active) {
+  :is(.block-type-dot, .palette-dot, .pf-menu-dot, .insp-dot, .sheet-dot):not(.is-icon) {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}
 /* Priority in the inspector is its signal-bars icon, not a dot. */
 .insp-dot.is-icon {
   display: inline-flex; align-items: center; justify-content: center;
@@ -3961,7 +3973,7 @@ body.light-mode .map-step-type { color: var(--text-secondary); }
   padding: 5px 0; background: none; border: 0;
   color: var(--text-primary); font: inherit; text-decoration: underline; cursor: pointer;
 }
-.backup-status button:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+.backup-status button:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
 .backup-status.backup-stale .backup-text { color: var(--text-primary); font-weight: 600; }
 /* A narrow bar has no room for it (at 800px it read "B..."); the weekly
    reminder still says it, and File has Export all. */

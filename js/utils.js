@@ -445,12 +445,12 @@ export const ARROW_LABEL_PRESETS = [
 export const SWATCH_COLORS = [
   '#da534f', '#cc6526', '#699630', '#269e5f',
   '#0e9a94', '#1794b5', '#3986e4', '#ad63c4',
-  '#cd509f', '#db6686', '#78889b', '#9d846d',
+  '#cd509f', '#d36085', '#78889b', '#9d846d',
 ]
 export const SWATCH_NAMES = {
   '#da534f': 'Red', '#cc6526': 'Orange', '#699630': 'Lime', '#269e5f': 'Green',
   '#0e9a94': 'Teal', '#1794b5': 'Cyan', '#3986e4': 'Blue', '#ad63c4': 'Purple',
-  '#cd509f': 'Magenta', '#db6686': 'Pink', '#78889b': 'Slate', '#9d846d': 'Sand',
+  '#cd509f': 'Magenta', '#d36085': 'Pink', '#78889b': 'Slate', '#9d846d': 'Sand',
   // The swatches before 2026-10, so a colour picked then keeps its name.
   '#a78bfa': 'Violet', '#f87171': 'Red', '#fbbf24': 'Amber', '#fb923c': 'Orange',
   '#38bdf8': 'Sky', '#34d399': 'Emerald', '#2dd4bf': 'Teal', '#818cf8': 'Indigo',

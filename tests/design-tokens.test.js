@@ -110,6 +110,22 @@ describe('design tokens: contrast in both themes', () => {
     }
   })
 
+  it('the neutrals lean toward hue 285 at chroma 0.008 to 0.012, less only where sRGB runs out near white', async () => {
+    const css = stripComments(await styleCss())
+    const block = sel => { const at = css.indexOf(sel + ' {'); return css.slice(at, css.indexOf('}', at)) }
+    const NEUTRALS = ['--bg', '--surface-1', '--surface-2', '--surface-3', '--surface-raised', '--border', '--border-strong', '--text-1', '--text-2', '--text-3']
+    for (const sel of [':root', 'body.light-mode']) {
+      for (const m of block(sel).matchAll(/(--[a-z0-9-]+):\s*oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/g)) {
+        if (!NEUTRALS.includes(m[1])) continue
+        const [L, C, h] = [+m[2], +m[3], +m[4]]
+        assert.eq(h, 285, `${sel} ${m[1]} leans toward 285`)
+        // The gamut at hue 285 holds about 0.007 at L 0.985 and 0.002 at 0.995.
+        const floor = L >= 0.99 ? 0.002 : L >= 0.98 ? 0.006 : 0.008
+        assert.ok(C >= floor && C <= 0.012, `${sel} ${m[1]}: chroma ${C}`)
+      }
+    }
+  })
+
   it('text: text-1 and text-2 at 7:1 and 4.5:1, text-3 at 4.5:1 on --bg, --surface-1, the canvas, a card and a menu', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
@@ -201,6 +217,22 @@ describe('design tokens: contrast in both themes', () => {
     }
   })
 
+  it('the map paints its own ground: the viewport is --canvas, and in light mode a card lifts off it', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        const vp = t.add('<div class="canvas-viewport" style="height:40px"></div>').firstChild
+        assert.deepEq(cssRgba(getComputedStyle(vp).backgroundColor), t.color('var(--canvas)'), `${name}: the viewport is --canvas`)
+        if (name === 'light') {
+          const canvas = t.color('var(--canvas)')
+          assert.neq(canvas.join(), t.color('var(--bg)').join(), 'light: the canvas is not the page')
+          const lift = ratio(t.color('var(--card)'), canvas)
+          assert.ok(lift >= 1.1, `light: a card lifts off the canvas, ${lift.toFixed(3)}:1`)
+        }
+      } finally { t.done() }
+    }
+  })
+
   it('the system "increase contrast" setting raises the tokens: prefers-contrast: more, a query that matches', async () => {
     // `prefers-contrast: high` is not a value the media feature takes, so it
     // never matched and the OS setting raised nothing but the line tokens.
@@ -263,15 +295,25 @@ describe('design tokens: attention means one thing', () => {
 // ── Discipline ──────────────────────────────────────────────
 
 describe('design tokens: no hard-coded colour outside a token block', () => {
-  it('style.css and trace.css carry no hex or rgb() colour outside the token blocks and the --c-* type colours', async () => {
+  it('style.css and trace.css carry no colour literal outside the token blocks and the --c-* type colours', async () => {
+    // Any way of writing a colour: hex (also inside a data URI, as %23),
+    // a colour function, or a named colour. System colours (Canvas,
+    // Highlight...) for forced-colors mode, transparent and currentColor
+    // are not literals.
+    const NAMED = /(?<![\w-])(?:white|black|red|green|blue|yellow|orange|purple|pink|gr[ae]y|silver|navy|teal|maroon|olive|lime|aqua|fuchsia|gold|indigo|violet|crimson|coral|salmon|tomato|khaki|beige|ivory|tan|brown|magenta|cyan)(?![\w-])/i
     for (const url of ['../css/style.css', '../css/trace.css']) {
       const raw = await fetchText(url)
       const body = stripComments(withoutTokenBlocks(raw))
         .split('\n').filter(line => !/^\s*--c-[a-z]+:/.test(line)).join('\n')
       const hex = body.match(/#[0-9a-fA-F]{3,8}\b/g) || []
-      const rgb = body.match(/\brgba?\(/g) || []
+      const enc = body.match(/%23[0-9a-fA-F]{3,8}\b/g) || []
+      const fns = body.match(/\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\(/g) || []
+      const named = [...body.matchAll(/[\w-]+\s*:\s*([^;{}]*)/g)]
+        .map(m => m[1].replace(/"[^"]*"|'[^']*'/g, '')).filter(v => NAMED.test(v))
       assert.deepEq(hex, [], `${url}: hex outside the token blocks`)
-      assert.eq(rgb.length, 0, `${url}: rgb()/rgba() outside the token blocks`)
+      assert.deepEq(enc, [], `${url}: a hex inside a data URI`)
+      assert.deepEq(fns, [], `${url}: a colour function outside the token blocks`)
+      assert.deepEq(named, [], `${url}: a named colour`)
     }
   })
 
@@ -400,6 +442,30 @@ describe('design tokens: the button system', () => {
         }
       } finally { t.done() }
     }
+  })
+
+  it('menu rows, Find blocks, the search overlay and the backup link take the one accent focus ring, at 3:1 where they sit', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls, css => css.replace(/:focus-visible/g, '.fv-probe'))
+      try {
+        const box = t.add('<div class="pf-menu"><button class="pf-menu-item fv-probe" id="row">Row</button></div>' +
+          '<button class="canvas-search-toggle fv-probe" id="find">Find</button>' +
+          '<div class="search-overlay"><input class="search-input fv-probe" id="q"></div>' +
+          '<div class="backup-status"><button class="fv-probe" id="exp">Export all</button></div>')
+        for (const id of ['row', 'find', 'q', 'exp']) {
+          const cs = getComputedStyle(box.querySelector('#' + id))
+          assert.eq(cs.outlineStyle, 'solid', `${name} #${id}`)
+          assert.eq(cs.outlineWidth, '2px', `${name} #${id}`)
+          assert.deepEq(cssRgba(cs.outlineColor), t.color('var(--accent)'), `${name} #${id}: the accent, not a grey`)
+        }
+        const row = ratio(t.color('var(--accent)'), t.color('var(--surface-raised-hover)'))
+        assert.ok(row >= 3, `${name}: a focused menu row ${row.toFixed(2)}:1 on its hover fill`)
+      } finally { t.done() }
+    }
+    const css = stripComments(await styleCss())
+    const fc = [...css.matchAll(/@media \(forced-colors: active\) \{([\s\S]*?)\n\}/g)].map(m => m[1]).join('\n')
+    assert.match(fc, /\.block-type-dot[^{]*\{[^}]*forced-color-adjust:\s*none;[^}]*background:\s*CanvasText/,
+      'forced colors keeps the type dot and its shape')
   })
 
   it('the doc pages\' CTA keeps its own colours: prose link rules never restyle a button', async () => {
