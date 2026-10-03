@@ -1,5 +1,5 @@
 // ============================================================
-//  design-tokens.test.js -- the design round's foundation (DESIGN.md):
+//  design-tokens.test.js: the design round's foundation (DESIGN.md):
 //  contrast of every token pair the interface relies on, measured in the
 //  test DOM in both themes; the attention hue's distance from what it
 //  must not be mistaken for; no hard-coded colour outside a token block;
@@ -88,7 +88,7 @@ const THEMES = [['dark', ''], ['light', 'light-mode']]
 
 // ── Contrast ────────────────────────────────────────────────
 
-describe('design tokens -- contrast in both themes', () => {
+describe('design tokens: contrast in both themes', () => {
   it('the neutrals are opaque, tinted, and never pure black or white', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
@@ -204,7 +204,7 @@ describe('design tokens -- contrast in both themes', () => {
 
 // ── Distance ────────────────────────────────────────────────
 
-describe('design tokens -- attention means one thing', () => {
+describe('design tokens: attention means one thing', () => {
   it('attention sits at least 10 OKLab dE from the accent and every status colour, in both themes', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
@@ -238,7 +238,7 @@ describe('design tokens -- attention means one thing', () => {
 
 // ── Discipline ──────────────────────────────────────────────
 
-describe('design tokens -- no hard-coded colour outside a token block', () => {
+describe('design tokens: no hard-coded colour outside a token block', () => {
   it('style.css and trace.css carry no hex or rgb() colour outside the token blocks and the --c-* type colours', async () => {
     for (const url of ['../css/style.css', '../css/trace.css']) {
       const raw = await fetchText(url)
@@ -279,7 +279,7 @@ describe('design tokens -- no hard-coded colour outside a token block', () => {
 
 // ── Header and footer ───────────────────────────────────────
 
-describe('design tokens -- header skin and footers', () => {
+describe('design tokens: header skin and footers', () => {
   it('every page with a header carries the site skin, and the skin is tokens in the kit\'s exact selector', async () => {
     for (const page of ['index.html', 'tutorial.html', 'examples.html', 'trace.html']) {
       const html = await fetchText('../' + page)
@@ -317,7 +317,7 @@ describe('design tokens -- header skin and footers', () => {
 
 // ── Controls ────────────────────────────────────────────────
 
-describe('design tokens -- the button system', () => {
+describe('design tokens: the button system', () => {
   const BUTTONS = '<button class="btn btn-primary" id="p">Primary</button>' +
     '<button class="btn btn-secondary" id="s">Secondary</button>' +
     '<button class="btn btn-ghost" id="g">Ghost</button>' +
@@ -408,7 +408,7 @@ describe('design tokens -- the button system', () => {
   })
 })
 
-describe('design tokens -- the brain dump card', () => {
+describe('design tokens: the brain dump card', () => {
   it('is one flat surface: no gradient text, no gradient pill, no glow, no blur', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
@@ -436,7 +436,7 @@ describe('design tokens -- the brain dump card', () => {
   })
 })
 
-describe('design tokens -- stream sections', () => {
+describe('design tokens: stream sections', () => {
   it('each wave-2 stream has its marked section, followed by three blank lines', async () => {
     const css = await styleCss()
     for (const name of ['frontdoor', 'zoom', 'command', 'brief', 'braindump', 'consistency']) {

@@ -378,4 +378,4 @@ How the handler is layered (`setupKeyboardShortcuts` in `events.js`): a modal di
 
 ## Design Tokens
 
-Follows the standard Neorgon dark theme (see `PROJECTS.md §4`). Block type colors use a distinct palette separate from brand accent colors. Header gradient: `135deg, #B015B0 0%, #3D0080 45%, #080010 100%`.
+`DESIGN.md` is the visual system (added 2026-10-03, design round): OKLCH tokens for both themes with measured contrast, one violet accent, `--attention` for gaps only, the type scale (11px floor), the `.btn` / `.input` controls. The values live in `css/style.css` blocks marked `tokens:start` / `tokens:end`; no hex or `rgb()` outside them (`tests/design-tokens.test.js` fails on one). Derived tokens are declared on `body`, not `:root`, or they freeze at the dark values. Legacy names (`--text-primary`, `--border-subtle`, `--accent-bright`) map onto the new ones. The header uses the kit's `custom` skin (tokens only): near-black in dark mode, light in light mode.

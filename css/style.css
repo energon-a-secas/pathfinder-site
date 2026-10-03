@@ -2070,7 +2070,7 @@
     body.high-contrast .right-panel { border-color: var(--border); }
 
     /* ── Light mode ────────────────────────────────────────────── */
-    /* tokens:start (light) ─ the same names, mirrored for a light room:
+    /* tokens:start (light): the same names, mirrored for a light room:
        the page at L 0.985, the canvas a step down so cards (near white)
        lift off it, and every text and accent token re-measured on these
        surfaces (DESIGN.md has the table). */
@@ -3078,7 +3078,7 @@ body.light-mode .pf-menu-swatch.ctx-sw-festive {
 
 
 /* ════ [lines] ════ */
-/* tokens:start (lines) ─ Connection tokens. Opaque colours rather than
+/* tokens:start (lines): connection tokens. Opaque colours rather than
    alpha, so a line and its head always match and a faded line fades
    whole. On the canvas the rest colour reads at 5.3:1 (dark) and 4.3:1
    (light), the bright one at 11.8:1 and 9.2:1. */
