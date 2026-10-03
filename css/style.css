@@ -36,7 +36,7 @@
 
       /* Attention is the gap hue and is used for nothing else. --attention
          draws (rings, icons: 3:1), --attention-ink writes (text: 4.5:1). */
-      --attention:     oklch(0.83 0.15 80);
+      --attention:     oklch(0.86 0.15 85);
 
       /* Status, for UI only (toasts, destructive actions), always beside an
          icon or a word, never on its own. */
@@ -2091,7 +2091,7 @@
       --accent:        oklch(0.52 0.18 285);
       --accent-hover:  oklch(0.47 0.18 285);
       --on-accent:     oklch(0.985 0.004 285);
-      --attention:     oklch(0.63 0.13 68);
+      --attention:     oklch(0.64 0.138 70);
       --attention-ink: oklch(0.52 0.11 66);
       --danger:        oklch(0.50 0.19 27);
       --warning:       oklch(0.50 0.15 42);
@@ -3919,6 +3919,30 @@ body { --gap-ink: var(--attention-ink); }
   pointer-events: auto; cursor: help;
 }
 .review-undo[hidden] { display: none; }
+
+
+
+/* ════ [frontdoor] ════ */
+
+
+
+/* ════ [zoom] ════ */
+
+
+
+/* ════ [command] ════ */
+
+
+
+/* ════ [brief] ════ */
+
+
+
+/* ════ [braindump] ════ */
+
+
+
+/* ════ [consistency] ════ */
 
 
 
