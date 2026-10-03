@@ -292,6 +292,37 @@ describe('design tokens: attention means one thing', () => {
   })
 })
 
+describe('design tokens: status colours are not type colours', () => {
+  it('success and info sit at least 8 dE from every type colour, in both themes', async () => {
+    for (const [name, cls] of THEMES) {
+      const t = await themed(cls)
+      try {
+        for (const st of ['--success', '--info']) {
+          const c = t.color(`var(${st})`)
+          const near = Object.keys(TYPES).map(id => [id, dE(c, t.color(`var(--c-${id})`))]).filter(([, d]) => d < 8)
+          assert.deepEq(near.map(([id, d]) => `${id} ${d.toFixed(1)}`), [], `${name} ${st}`)
+        }
+      } finally { t.done() }
+    }
+  })
+
+  it('no status colour paints a card: a snapshot comparison marks cards in neutral ink with its word', async () => {
+    const css = stripComments(await styleCss())
+    const onCards = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(m => /\.block\b|snapshot-ghost/.test(m[1]) && /var\(--(?:danger|warning|success|info)\b/.test(m[2]))
+      .map(m => m[1].trim())
+    assert.deepEq(onCards, [], 'a status colour on a card or a card ghost')
+    const t = await themed('comparing-snapshot')
+    try {
+      const box = t.add('<div class="block" data-comparison="added" data-type="decision"></div><div class="block" data-comparison="changed" data-type="risk"></div>')
+      const [added, changed] = [...box.children].map(el => getComputedStyle(el))
+      assert.deepEq(cssRgba(added.outlineColor), t.color('var(--text-2)'))
+      assert.eq(added.outlineStyle, 'solid', 'added: solid')
+      assert.eq(changed.outlineStyle, 'dashed', 'changed: dashed')
+    } finally { t.done() }
+  })
+})
+
 describe('design tokens: presentation highlights', () => {
   const KEYS = ['alert', 'focus', 'go', 'hold', 'festive']
   const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))

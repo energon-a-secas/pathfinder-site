@@ -45,8 +45,11 @@
          icon or a word, never on its own. */
       --danger:        oklch(0.70 0.17 25);
       --warning:       oklch(0.72 0.16 45);
-      --success:       oklch(0.75 0.14 155);
-      --info:          oklch(0.72 0.12 240);
+      /* Success and info sit 8 dE or more from every type colour (green and
+         blue are type families too); danger and warning keep their hues
+         and are only ever text beside an icon or a word, never on a card. */
+      --success:       oklch(0.745 0.16 162);
+      --info:          oklch(0.635 0.165 253);
 
       /* Presentation highlights (HIGHLIGHTS in js/utils.js holds the same
          values as hex, both themes): emphasis for a shared map, never
@@ -1446,12 +1449,15 @@
     .comparison-kind { text-transform: capitalize; }
     .comparison-fields { color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; margin-top: 8px; }
     #comparisonRestore { width: 100%; }
-    .comparing-snapshot .block[data-comparison] { outline: 2px solid var(--warning); outline-offset: 4px; box-shadow: none; }
-    .comparing-snapshot .block[data-comparison="added"] { outline-color: var(--success); }
+    /* A compared card is marked in neutral ink, its word above it: a status
+       colour on a card read as a type (an added Decision outlined in its own
+       green). Changed is dashed, added solid; a removed card is a ghost. */
+    .comparing-snapshot .block[data-comparison] { outline: 2px dashed var(--text-2); outline-offset: 4px; box-shadow: none; }
+    .comparing-snapshot .block[data-comparison="added"] { outline-style: solid; }
     .block[data-comparison]::after { content: attr(data-comparison); position: absolute; bottom: calc(100% + 8px); left: 0; background: var(--bg); color: var(--text-primary); padding: 2px 5px; font-size: var(--fs-11); text-transform: capitalize; }
     #comparisonGhosts { position: absolute; top: 0; left: 0; pointer-events: none; }
-    .snapshot-ghost { position: absolute; display: flex; flex-direction: column; gap: 8px; min-height: 80px; padding: 14px; border: 2px dashed var(--danger); border-radius: var(--radius-lg); background: var(--bg); color: var(--text-primary); overflow-wrap: anywhere; }
-    .snapshot-ghost span { color: var(--danger); font-size: var(--text-xs); }
+    .snapshot-ghost { position: absolute; display: flex; flex-direction: column; gap: 8px; min-height: 80px; padding: 14px; border: 2px dashed var(--border-strong); border-radius: var(--radius-lg); background: var(--bg); color: var(--text-primary); overflow-wrap: anywhere; }
+    .snapshot-ghost span { color: var(--text-2); font-size: var(--text-xs); }
     .snapshot-ghost strong { font-size: var(--text-sm); }
     .comparison-edges { position: absolute; overflow: visible; width: 1px; height: 1px; }
     .comparison-edges line { stroke: var(--danger); stroke-width: 2; stroke-dasharray: 6 5; }
@@ -2114,8 +2120,8 @@
       --attention:     oklch(0.64 0.138 70);
       --danger:        oklch(0.50 0.19 27);
       --warning:       oklch(0.50 0.15 42);
-      --success:       oklch(0.48 0.11 155);
-      --info:          oklch(0.48 0.12 245);
+      --success:       oklch(0.385 0.12 145);
+      --info:          oklch(0.45 0.17 262);
       /* The light highlights are dark enough to draw at 3:1 on the light
          canvas, so their word is the page's near white. */
       --hl-alert:      oklch(0.535 0.12 14);
