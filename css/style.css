@@ -147,20 +147,20 @@
          as sRGB hex; DESIGN.md has the table and the distances). OKLCH near
          L 0.74 C 0.11 on the dark canvas, in hue families spread around the
          wheel, clear of the accent violet (285) and the attention amber (85).
-         Same-step types sit 12.8 OKLab dE (x100) apart or more; a pair under
+         Same-step types sit 10.6 OKLab dE (x100) apart or more; a pair under
          10 never shares a dot shape. A type colour is a dot and a quiet
          edge, never text and never a state. */
-      --c-goal:           oklch(0.82 0.09 248);
+      --c-goal:           oklch(0.86 0.08 236);
       --c-problem:        oklch(0.68 0.13 22);
-      --c-stakeholder:    oklch(0.82 0.11 356);
-      --c-metric:         oklch(0.78 0.13 215);
+      --c-stakeholder:    oklch(0.84 0.095 0);
+      --c-metric:         oklch(0.78 0.105 206);
       --c-requirement:    oklch(0.68 0.13 148);
       --c-output:         oklch(0.71 0.105 61);
       --c-implementation: oklch(0.685 0.115 110);
       --c-process:        oklch(0.75 0.13 251);
       --c-terminator:     oklch(0.685 0.125 340);
       --c-decision:       oklch(0.82 0.13 158);
-      --c-resource:       oklch(0.695 0.12 184);
+      --c-resource:       oklch(0.66 0.11 189);
       --c-assumption:     oklch(0.765 0.125 314);
       --c-risk:           oklch(0.78 0.12 42);
       --c-question:       oklch(0.68 0.125 232);
@@ -2231,9 +2231,9 @@
       --c-process:        oklch(0.6 0.12 258);
       --c-terminator:     oklch(0.49 0.14 342);
       --c-decision:       oklch(0.46 0.1 153);
-      --c-resource:       oklch(0.6 0.105 181);
+      --c-resource:       oklch(0.6 0.085 169);
       --c-assumption:     oklch(0.565 0.15 319);
-      --c-risk:           oklch(0.565 0.16 39);
+      --c-risk:           oklch(0.585 0.16 36);
       --c-question:       oklch(0.46 0.1 239);
       --c-context:        oklch(0.52 0.02 270);
       --c-custom:         oklch(0.4 0.02 60);

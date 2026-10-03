@@ -102,17 +102,17 @@ chosen after it.
 
 | Step | Type | Dot | Use for |
 |---|---|---|---|
-| Why | **Goal** | blue ring `#95cafc` | What you want to achieve |
+| Why | **Goal** | blue ring `#9edaff` | What you want to achieve |
 | Why | **Problem** | red ring `#dd7573` | An issue happening now |
-| Who | **Stakeholder** | pink ring `#fda6c6` | Who receives, approves or is affected |
-| Proof | **Metric** | cyan square `#2ccceb` | A measurable signal with a target |
+| Who | **Stakeholder** | pink ring `#ffb1c8` | Who receives, approves or is affected |
+| Proof | **Metric** | cyan square `#57cbd8` | A measurable signal with a target |
 | What | **Requirement** | green square `#5aae69` | Must be true when done |
 | What | **Output** | ochre square `#d1925a` | A deliverable someone can hold: report, doc, release |
 | How | **Implementation** | olive dot `#9ea044` | Work done once to build or change something |
 | How | **Process** | blue dot `#6cb3fd` | A recurring step in a workflow |
 | How | **Trigger / End** | magenta dot `#cd7ab2` | What starts or ends a flow: an event, a cadence, a finish |
 | How | **Decision** | mint dot `#73dea4` | A choice made, or one to make |
-| How | **Resource / System** | teal dot `#16b5a5` | An existing team, tool, system or data source |
+| How | **Resource / System** | teal dot `#1aa7a0` | An existing team, tool, system or data source |
 | Doubt | **Assumption** | lilac diamond `#d09aea` | A belief you are treating as true |
 | Doubt | **Risk** | orange diamond `#f89d79` | Something that might go wrong |
 | Doubt | **Open Question** | sky diamond `#2fa5d8` | A genuine unknown |

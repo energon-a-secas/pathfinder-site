@@ -743,12 +743,33 @@ describe('design tokens: the type palette, by computation', () => {
     assert.deepEq(clash.map(fmt), [], 'same-shape pairs under 10')
     // The palette spreads as far as the band allows: a regression shows here.
     const min = Math.min(...pairs.map(p => Math.min(p.dark, p.light)))
-    assert.ok(min >= 7.5, `the closest pair overall is ${min.toFixed(1)} (2026-10 palette: 7.7)`)
+    assert.ok(min >= 7.5, `the closest pair overall is ${min.toFixed(1)} (2026-10 palette: 7.9)`)
   })
 
   it('the shape follows the step\'s role: ring for Why and Who, square for What and Proof, dot for How and Other, diamond for Doubt', () => {
     const ROLE = { why: 'ring', who: 'ring', proof: 'square', what: 'square', how: 'dot', other: 'dot', doubt: 'diamond' }
     TYPE_IDS.forEach(id => assert.eq(TYPES[id].shape, ROLE[TYPES[id].step], `${id} (${TYPES[id].step})`))
+  })
+
+  it('no type colour sits on a stock palette value (2 dE or more from every Tailwind 300 to 700 shade)', () => {
+    // Under 2 is below a just-noticeable difference: a type colour there is
+    // somebody else's default, not a chosen one.
+    const STOCK = ['#fca5a5', '#f87171', '#ef4444', '#dc2626', '#b91c1c', '#fdba74', '#fb923c', '#f97316', '#ea580c', '#c2410c',
+      '#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309', '#fde047', '#facc15', '#eab308', '#ca8a04', '#a16207',
+      '#bef264', '#a3e635', '#84cc16', '#65a30d', '#4d7c0f', '#86efac', '#4ade80', '#22c55e', '#16a34a', '#15803d',
+      '#6ee7b7', '#34d399', '#10b981', '#059669', '#047857', '#5eead4', '#2dd4bf', '#14b8a6', '#0d9488', '#0f766e',
+      '#67e8f9', '#22d3ee', '#06b6d4', '#0891b2', '#0e7490', '#7dd3fc', '#38bdf8', '#0ea5e9', '#0284c7', '#0369a1',
+      '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#a5b4fc', '#818cf8', '#6366f1', '#4f46e5', '#4338ca',
+      '#c4b5fd', '#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9', '#d8b4fe', '#c084fc', '#a855f7', '#9333ea', '#7e22ce',
+      '#f0abfc', '#e879f9', '#d946ef', '#c026d3', '#a21caf', '#f9a8d4', '#f472b6', '#ec4899', '#db2777', '#be185d',
+      '#fda4af', '#fb7185', '#f43f5e', '#e11d48', '#be123c', '#cbd5e1', '#94a3b8', '#64748b', '#475569', '#334155',
+      '#d6d3d1', '#a8a29e', '#78716c', '#57534e', '#44403c']
+    const near = []
+    TYPE_IDS.forEach(id => ['color', 'light'].forEach(k => {
+      const d = Math.min(...STOCK.map(s => dE(hexRgb(TYPES[id][k]), hexRgb(s))))
+      if (d < 2) near.push(`${id} ${k} ${d.toFixed(1)}`)
+    }))
+    assert.deepEq(near, [], 'type colours on a stock shade')
   })
 
   it('no type colour sits within 10 dE of a pre-2026-10 colour of another type', () => {

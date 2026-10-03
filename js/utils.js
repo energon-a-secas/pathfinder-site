@@ -48,7 +48,7 @@ export { escHtml, debounce };
  */
 export const TYPES = {
   goal: {
-    label: 'Goal', color: '#95cafc', light: '#046eb6', shape: 'ring',
+    label: 'Goal', color: '#9edaff', light: '#046eb6', shape: 'ring',
     legacyColors: ['#a78bfa', '#7c5fd4'], tier: 'core', step: 'why',
     short: 'What you want to achieve',
     tip: 'An outcome you want to achieve. Connect the Metric that measures it and the Requirements that must be met.',
@@ -68,7 +68,7 @@ export const TYPES = {
     criteria: false, task: false, actions: ['resolve'],
   },
   stakeholder: {
-    label: 'Stakeholder', color: '#fda6c6', light: '#c15681', shape: 'ring',
+    label: 'Stakeholder', color: '#ffb1c8', light: '#c15681', shape: 'ring',
     legacyColors: ['#fda4af', '#be185d'], tier: 'more', step: 'who',
     short: 'Who receives, approves or is affected',
     tip: 'A person, role or team that receives, approves or is affected by the work. Connect the Outputs delivered to them and the Goals they own.',
@@ -78,7 +78,7 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   metric: {
-    label: 'Metric', color: '#2ccceb', light: '#11839f', shape: 'square',
+    label: 'Metric', color: '#57cbd8', light: '#11839f', shape: 'square',
     legacyColors: ['#67e8f9', '#0e7490'], tier: 'core', step: 'proof',
     short: 'A measurable signal with a target',
     tip: 'A measurable signal with a target: a key result, KPI or SLO. Put the target in Targets and connect it to the Goal it measures.',
@@ -152,7 +152,7 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   resource: {
-    label: 'Resource / System', color: '#16b5a5', light: '#129484', shape: 'dot',
+    label: 'Resource / System', color: '#1aa7a0', light: '#469177', shape: 'dot',
     legacyColors: ['#2dd4bf', '#14a894'], tier: 'more', step: 'how',
     short: 'An existing team, tool, system or data source',
     tip: 'An available asset: a team, tool, system, data source or budget. Connect it to what it enables.',
@@ -172,7 +172,7 @@ export const TYPES = {
     criteria: false, task: false, actions: ['validate'],
   },
   risk: {
-    label: 'Risk', color: '#f89d79', light: '#c04b20', shape: 'diamond',
+    label: 'Risk', color: '#f89d79', light: '#c85030', shape: 'diamond',
     legacyColors: ['#fb923c', '#d46e14'], tier: 'core', step: 'doubt',
     short: 'Something that might go wrong',
     tip: 'Something that could go wrong and derail the plan. Connect it to a Decision that mitigates it.',
