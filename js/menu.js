@@ -176,7 +176,7 @@ function buildItem(item, level) {
   b.tabIndex = -1
   const lead = item.icon
     ? `<span class="pf-menu-icon" aria-hidden="true">${item.icon}</span>`
-    : item.dot ? `<span class="pf-menu-dot" aria-hidden="true" style="background:${escHtml(item.dot)}"></span>` : ''
+    : item.dot ? `<span class="pf-menu-dot" aria-hidden="true"${item.dotShape ? ` data-shape="${escHtml(item.dotShape)}"` : ''} style="background:${escHtml(item.dot)}"></span>` : ''
   b.innerHTML =
     `<span class="pf-menu-check" aria-hidden="true">${checkable && item.checked ? CHECK_SVG : ''}</span>` +
     lead +

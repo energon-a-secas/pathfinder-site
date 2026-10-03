@@ -12,7 +12,7 @@ import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import { renderInspector } from './inspector.js'
-import { lightAccentFor, highlightTabLabel } from './cards.js'
+import { lightAccentFor, highlightTabLabel, typeShape, chipIcon } from './cards.js'
 
 // The inspector moved to inspector.js; these re-exports keep every existing
 // importer of render.js working.
@@ -66,11 +66,17 @@ export function renderBlock(id) {
   }
   if (b.borderWidth) el.style.setProperty('--bw', b.borderWidth + 'px')
 
-  const actHtml = (b.actions || []).map(a => `<span class="action-badge ${a}" title="${ACTION_DEFS[a] || a}">${a}</span>`).join('')
+  // Chips are neutral: an icon and a word say which one it is, never a
+  // colour (red and amber already mean a type and a gap).
+  const word = a => escHtml(String(a).charAt(0).toUpperCase() + String(a).slice(1))
+  const actHtml = (b.actions || []).map(a =>
+    `<span class="chip action-badge ${escHtml(a)}" title="${escHtml(ACTION_DEFS[a] || a)}">${chipIcon('action', a)}<span>${word(a)}</span></span>`).join('')
+  const statusLabel = STATUS_DEFS[b.status]?.label || b.status
   const statusHtml = b.status && b.status !== 'not-started'
-    ? `<span class="status-badge status-${b.status}" title="${STATUS_DEFS[b.status]?.label || b.status}">${STATUS_DEFS[b.status]?.icon || ''} ${STATUS_DEFS[b.status]?.label || b.status}</span>` : ''
+    ? `<span class="chip status-badge status-${escHtml(b.status)}" title="${escHtml(statusLabel)}">${chipIcon('status', b.status)}<span>${escHtml(statusLabel)}</span></span>` : ''
+  const priorityLabel = PRIORITY_DEFS[b.priority]?.label || b.priority
   const priorityHtml = b.priority
-    ? `<span class="priority-badge priority-${b.priority}" title="${PRIORITY_DEFS[b.priority]?.label || b.priority} priority">${PRIORITY_DEFS[b.priority]?.label || b.priority}</span>` : ''
+    ? `<span class="chip priority-badge priority-${escHtml(b.priority)}" title="${escHtml(priorityLabel)} priority">${chipIcon('priority', b.priority)}<span>${escHtml(priorityLabel)}</span></span>` : ''
   // Always rendered (even when empty) so the description is directly
   // double-click editable on the card. Empty ones collapse via CSS `:empty`;
   // the selected card shows an "Add description" hint as an overlay, which
@@ -81,7 +87,9 @@ export function renderBlock(id) {
   // its contrast never depends on the hue. Awaiting a check, the label is a
   // button that opens the type menu (classify.js), with "Looks right" first.
   const typeLabel = escHtml(TYPES[b.type]?.label || b.type)
-  const typeDot = '<span class="block-type-dot" aria-hidden="true"></span>'
+  // The dot's shape follows the step's role (TYPES shape), so two types close
+  // in colour never share a shape.
+  const typeDot = `<span class="block-type-dot" data-shape="${typeShape(b.type)}" aria-hidden="true"></span>`
   const typeHtml = typeCheck
     ? `<button type="button" class="block-type-badge block-type-check" data-type-check="${id}" data-canvas-ui` +
       ` aria-haspopup="menu" aria-expanded="false" aria-label="Type ${typeLabel}, set automatically: confirm or change it"` +

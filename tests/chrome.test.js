@@ -580,8 +580,8 @@ describe('chrome -- motion policy', () => {
       const running = infinite(doc)
       assert.ok(running.some(a => a.effect.target === alert && a.effect.pseudoElement === '::before'),
         'the selected highlight ring pulses')
-      assert.ok(running.some(a => a.effect.target === other && !a.effect.pseudoElement),
-        'the selected gap glows')
+      assert.ok(running.some(a => a.effect.target === other && a.effect.pseudoElement === '::after'),
+        'the selected gap\'s ring breathes')
       assert.ok(running.every(a => a.effect.target === alert || a.effect.target === other),
         'and nothing else moves')
 
@@ -599,18 +599,37 @@ describe('chrome -- motion policy', () => {
       doc.getElementById('canvasRoot').innerHTML = html
       await nextFrame(win)
       const gap = doc.querySelector('.block[class*=" gap-"]:not(.gap-isolated)')
+      const lone = doc.querySelector('.block.gap-isolated')
       const hl = doc.querySelector('.block[data-highlight="alert"]')
-      const ringOf = el => win.getComputedStyle(el).boxShadow
-      assert.neq(ringOf(gap), 'none', 'a gap is drawn at rest')
-      assert.match(ringOf(gap), /0px 0px 0px 2px/, 'as a solid 2px ring')
+      const ring = el => win.getComputedStyle(el, '::after')
+      const attention = () => {
+        const probe = doc.createElement('span')
+        probe.style.color = 'var(--attention)'
+        doc.body.appendChild(probe)
+        const c = win.getComputedStyle(probe).color
+        probe.remove()
+        return c
+      }
+      // The ring is the ::after box: 1.5px dashed in --attention, 3px out
+      // (Chrome snaps the 1.5px border to 1px at 1x).
+      for (const el of [gap, lone]) {
+        const r = ring(el)
+        assert.neq(r.content, 'none', 'a gap is drawn at rest')
+        assert.eq(r.borderTopStyle, 'dashed', 'as a dashed ring')
+        assert.match(r.borderTopWidth, /^1(\.5)?px$/, 'of 1.5px')
+        assert.eq(r.top, `${-(1.5 + 3 + 1.5)}px`, '3px outside the card')
+        assert.eq(r.borderTopColor, attention(), 'in the attention hue, never the type colour')
+        assert.eq(r.animationName, 'none', 'and still')
+      }
       const before = win.getComputedStyle(hl, '::before')
       assert.neq(before.content, 'none', 'the highlight ring is drawn')
       assert.ok(before.borderTopStyle !== 'none' || before.boxShadow !== 'none', 'as a visible ring')
-      const dark = ringOf(gap)
+      const dark = ring(gap).borderTopColor
       doc.body.classList.add('light-mode')
       await nextFrame(win)
-      assert.match(ringOf(gap), /0px 0px 0px 2px/, 'light mode keeps the ring')
-      assert.neq(ringOf(gap), dark, 'in the light palette')
+      assert.eq(ring(gap).borderTopStyle, 'dashed', 'light mode keeps the ring')
+      assert.neq(ring(gap).borderTopColor, dark, 'in the light attention twin')
+      assert.eq(ring(gap).borderTopColor, attention())
     } finally { frame.remove(); reset() }
   })
 
@@ -661,31 +680,37 @@ describe('chrome -- motion policy', () => {
         .find(el => !el.dataset.highlight)
       gap.style.transition = 'none'   // read end states, not a shadow mid-transition
       const shadow = () => win.getComputedStyle(gap).boxShadow
-      const RING = /0px 0px 0px 2px/
+      const ringStays = () => win.getComputedStyle(gap, '::after').borderTopStyle === 'dashed'
       gap.classList.add('selected')
       await nextFrame(win)
-      // Selection's channel is the outline (the [cards] section), never a
-      // shadow, so a gap card selects the way every other card does.
-      assert.match(shadow(), RING, 'dark, selected: the ring stays')
-      assert.ok(!/0px 4px 24px/.test(shadow()), 'dark, selected: no selection shadow under it')
+      // Selection's channel is the outline on the card's edge plus a halo
+      // (the [cards] section); the gap's is the ring 3px out, so both show.
+      assert.ok(ringStays(), 'dark, selected: the ring stays')
+      assert.eq(win.getComputedStyle(gap).outlineOffset, '0px', 'dark, selected: the outline sits inside the ring')
       assert.neq(win.getComputedStyle(gap).outlineStyle, 'none', 'dark, selected: the outline marks it')
+      assert.match(shadow(), /0px 0px 0px 4px/, 'dark, selected: with the halo')
       doc.body.classList.add('light-mode')
       await nextFrame(win)
-      assert.match(shadow(), RING, 'light, selected: the ring stays')
+      assert.ok(ringStays(), 'light, selected: the ring stays')
       assert.neq(win.getComputedStyle(gap).outlineStyle, 'none', 'light, selected: the outline marks it')
       doc.body.classList.remove('light-mode')
       gap.classList.remove('selected')
       gap.classList.add('dragging')
       await nextFrame(win)
-      assert.match(shadow(), RING, 'dragging: the ring stays')
+      assert.ok(ringStays(), 'dragging: the ring stays')
       assert.match(shadow(), /0px 10px 36px/, 'dragging: and the lift')
-      gap.classList.remove('dragging')
+      gap.classList.add('selected')
+      await nextFrame(win)
+      assert.match(shadow(), /0px 10px 36px/, 'dragging a selection: the lift')
+      assert.match(shadow(), /0px 0px 0px 4px/, 'dragging a selection: and the halo')
+      gap.classList.remove('dragging', 'selected')
       gap.tabIndex = 0
       gap.focus({ focusVisible: true })
       await nextFrame(win)
       if (gap.matches(':focus-visible')) {
-        assert.match(shadow(), RING, 'focused: the ring stays')
+        assert.ok(ringStays(), 'focused: the ring stays')
         assert.match(shadow(), /0px 0px 0px 4px/, 'focused: with the focus halo')
+        assert.eq(win.getComputedStyle(gap).outlineOffset, '0px', 'focused: the outline on the edge, clear of the ring')
       }
     } finally { frame.remove(); reset() }
   })

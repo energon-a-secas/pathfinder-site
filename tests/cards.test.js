@@ -109,8 +109,9 @@ describe('cards -- the type label', () => {
     reset()
     const el = block('a', { type: 'requirement' })
     // --text-2 in each theme: oklch(0.80 0.010 285) and oklch(0.40 0.012 285).
-    for (const [theme, text, dot] of [['', cssRgba('oklch(0.80 0.010 285)').slice(0, 3), [251, 191, 36]],
-                                      ['light-mode', cssRgba('oklch(0.40 0.012 285)').slice(0, 3), [196, 144, 8]]]) {
+    const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+    for (const [theme, text, dot] of [['', cssRgba('oklch(0.80 0.010 285)').slice(0, 3), hexRgb(TYPES.requirement.color)],
+                                      ['light-mode', cssRgba('oklch(0.40 0.012 285)').slice(0, 3), hexRgb(TYPES.requirement.light)]]) {
       const s = await styled(theme)
       try {
         const card = s.place(el)
@@ -159,7 +160,8 @@ describe('cards -- the type label', () => {
       const card = s.place(el)
       assert.deepEq(rgb(getComputedStyle(card.querySelector('.block-type-dot')).backgroundColor).slice(0, 3), [219, 39, 119])
     } finally { s.done() }
-    assert.eq(lightAccentFor('#FBBF24'), TYPES.requirement.light, 'a type colour maps to its light twin')
+    assert.eq(lightAccentFor(TYPES.requirement.color.toUpperCase()), TYPES.requirement.light, 'a type colour maps to its light twin')
+    assert.eq(lightAccentFor('#FBBF24'), '#c49008', 'a pre-2026-10 type colour keeps its old twin')
     assert.eq(lightAccentFor('#123456'), null)
     SWATCH_COLORS.forEach(c => assert.ok(lightAccentFor(c), `swatch ${c} has a light twin`))
   })
@@ -176,9 +178,11 @@ describe('cards -- states keep their own channels', () => {
       card.dataset.comparison = 'changed'
       const cs = getComputedStyle(card)
       assert.eq(cs.outlineStyle, 'solid')
-      assert.eq(cs.outlineWidth, '2px')
-      assert.eq(cs.outlineOffset, '3px')
-      assert.deepEq(rgb(cs.outlineColor).slice(0, 3), cssRgba('oklch(0.80 0.010 285)').slice(0, 3), 'the outline is --text-secondary')
+      // 1.5px; Chrome snaps outline widths to device pixels, so 1px at 1x.
+      assert.match(cs.outlineWidth, /^1(\.5)?px$/)
+      assert.eq(cs.outlineOffset, '0px', 'on the card\'s edge, inside the gap ring')
+      assert.deepEq(rgb(cs.outlineColor).slice(0, 3), cssRgba('oklch(0.68 0.16 285)').slice(0, 3), 'the outline is the accent')
+      assert.match(cs.boxShadow, /0px 0px 0px 4px/, 'with the accent-subtle halo')
       assert.ok(!/\.low-confidence/.test(await stylesheetText()), 'the old low-confidence outline is gone')
     } finally { s.done() }
   })
@@ -270,7 +274,8 @@ describe('cards -- states keep their own channels', () => {
     try {
       const card = s.place(el)
       const ring = getComputedStyle(card, '::before')
-      assert.eq(ring.top, '-8px')
+      assert.eq(ring.top, '-10px', 'outside the gap ring (3 to 4.5px out)')
+      assert.eq(ring.boxShadow, 'none', 'no glow')
       // Chrome snaps border widths to device pixels: 2.5px reads 2px at 1x.
       assert.match(ring.borderTopWidth, /^2(\.5)?px$/)
       const tab = getComputedStyle(card.querySelector('.block-hl-tab'))
@@ -419,8 +424,9 @@ describe('cards -- gap icon slot', () => {
     const icon = slot.querySelector('.gap-icon')
     assert.ok(icon?.querySelector('svg'), 'the icon arrives with detection')
     const expected = document.createElement('template')
-    expected.innerHTML = gapIconFor('gap-no-req')
-    assert.eq(icon.querySelector('svg').outerHTML, expected.content.firstElementChild.outerHTML, 'the icon is gapIconFor\'s')
+    expected.innerHTML = gapIconFor('gap-no-req', 12)
+    assert.eq(icon.querySelector('svg').outerHTML, expected.content.firstElementChild.outerHTML, 'the icon is gapIconFor\'s, at the badge\'s 12px')
+    assert.eq(icon.querySelector('.gap-name')?.textContent, GAP_META['gap-no-req'].short, 'the badge carries the gap\'s name')
     assert.ok((icon.getAttribute('title') || '').startsWith(GAP_META['gap-no-req'].short),
       'its name comes from GAP_META')
   })
@@ -824,23 +830,27 @@ describe('cards -- empty state', () => {
 describe('cards -- QA round', () => {
   const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
 
-  it('header preset: the gap icon on the coloured strip reads at 3:1 in both themes', async () => {
+  it('the gap badge reads on its own surface on every preset, in both themes', async () => {
     reset()
     const types = ['requirement', 'metric', 'assumption', 'decision', 'question', 'context', 'goal']
-    const els = types.map((t, i) => block('h' + i, { type: t, cardStyle: 'header', x: 40 + i * 20 }))
+    const presets = ['header', 'outline', 'tint', 'bar', 'plain']
+    const els = types.map((t, i) => block('h' + i, { type: t, cardStyle: presets[i % presets.length], x: 40 + i * 20 }))
     runGapDetection()
     for (const theme of ['', 'light-mode']) {
       const s = await styled(theme)
       try {
         els.forEach((el, i) => {
           const card = s.place(el)
-          const icon = card.querySelector('.gap-icon')
-          assert.ok(icon, `${types[i]}: an isolated card shows its gap icon`)
+          const icon = card.querySelector('.block-gap-icons .gap-icon')
+          assert.ok(icon, `${types[i]}: an isolated card shows its gap badge`)
           const page = over(rgb(getComputedStyle(s.page).backgroundColor), [255, 255, 255])
-          const fill = over(rgb(getComputedStyle(card).backgroundColor), page)
-          const strip = over(rgb(getComputedStyle(card.querySelector('.block-header')).backgroundColor), fill)
-          const r = contrast(over(rgb(getComputedStyle(icon).color), strip), strip)
-          assert.ok(r >= 3, `${theme || 'dark'} ${types[i]}: gap icon ${r.toFixed(2)}:1 on the strip`)
+          const cs = getComputedStyle(icon)
+          const surface = over(rgb(cs.backgroundColor), page)
+          const r = contrast(over(rgb(cs.color), surface), surface)
+          assert.ok(r >= 4.5, `${theme || 'dark'} ${types[i]}: gap icon ${r.toFixed(2)}:1 on its badge`)
+          const edge = contrast(over(rgb(cs.borderTopColor), surface), surface)
+          assert.ok(edge >= 3, `${theme || 'dark'} ${types[i]}: badge edge ${edge.toFixed(2)}:1`)
+          assert.eq(getComputedStyle(card.querySelector('.block-gap-icons')).position, 'absolute', 'a corner badge, out of the header row')
         })
       } finally { s.done() }
     }

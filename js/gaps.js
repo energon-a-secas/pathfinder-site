@@ -504,17 +504,20 @@ const GAP_ICON = {
   'gap-no-target': 'gauge', 'gap-unserved': 'person',
 }
 
-/** 14px line-art SVG string for a gap class, '' for an unknown one. */
-export function gapIconFor(gapClass) {
+/** Line-art SVG string for a gap class (14px, or `size`), '' for an unknown one. */
+export function gapIconFor(gapClass, size = 14) {
   const key = GAP_ICON[gapClass]
-  return key ? svg(ICON_PATHS[key], 14) : ''
+  return key ? svg(ICON_PATHS[key], size) : ''
 }
 
-// The card marker: an icon with the rule's name as its accessible text, so
-// the gap is never signalled by the ring's colour alone.
+// The card marker: a corner badge with the rule's icon, and its name, which
+// the stylesheet shows while the card is hovered or focused. The name is the
+// accessible text too, so the gap is never signalled by the ring alone.
 function gapIconHtml(gap) {
   const attr = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-  return `<span class="gap-icon" role="img" title="${attr(gapExplain(gap))}" aria-label="Gap: ${attr(GAP_META[gap]?.short || gap)}">${gapIconFor(gap)}</span>`
+  const name = GAP_META[gap]?.short || gap
+  return `<span class="gap-icon" role="img" title="${attr(gapExplain(gap))}" aria-label="Gap: ${attr(name)}">` +
+    `${gapIconFor(gap, 12)}<span class="gap-name" aria-hidden="true">${attr(name)}</span></span>`
 }
 
 // ── Gap auto-fix suggestions ──────────────────────────────────

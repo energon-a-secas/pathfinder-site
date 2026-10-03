@@ -131,23 +131,29 @@
     /* tokens:end */
 
     :root {
-      /* Block type colors */
-      --c-goal:        #a78bfa;
-      --c-problem:     #f87171;
-      --c-requirement: #fbbf24;
-      --c-assumption:  #eab308;
-      --c-risk:        #fb923c;
-      --c-question:    #38bdf8;
-      --c-decision:    #34d399;
-      --c-resource:    #2dd4bf;
-      --c-output:      #818cf8;
-      --c-process:     #60a5fa;
-      --c-terminator:  #f0abfc;
-      --c-context:     #64748b;
-      --c-custom:      #d8b4fe;
-      --c-implementation: #a3e635;
-      --c-metric:      #67e8f9;
-      --c-stakeholder: #fda4af;
+      /* The sixteen type colours (TYPES in js/utils.js holds the same values
+         as sRGB hex; DESIGN.md has the table and the distances). OKLCH near
+         L 0.74 C 0.11 on the dark canvas, in hue families spread around the
+         wheel, clear of the accent violet (285) and the attention amber (85).
+         Same-step types sit 12.8 OKLab dE (x100) apart or more; a pair under
+         10 never shares a dot shape. A type colour is a dot and a quiet
+         edge, never text and never a state. */
+      --c-goal:           oklch(0.82 0.09 248);
+      --c-problem:        oklch(0.68 0.13 22);
+      --c-stakeholder:    oklch(0.82 0.11 356);
+      --c-metric:         oklch(0.78 0.13 215);
+      --c-requirement:    oklch(0.68 0.13 148);
+      --c-output:         oklch(0.71 0.105 61);
+      --c-implementation: oklch(0.685 0.115 110);
+      --c-process:        oklch(0.75 0.13 251);
+      --c-terminator:     oklch(0.685 0.125 340);
+      --c-decision:       oklch(0.82 0.13 158);
+      --c-resource:       oklch(0.695 0.12 184);
+      --c-assumption:     oklch(0.765 0.125 314);
+      --c-risk:           oklch(0.78 0.12 42);
+      --c-question:       oklch(0.68 0.125 232);
+      --c-context:        oklch(0.795 0.015 262);
+      --c-custom:         oklch(0.585 0.015 60);
     }
 
     body {
@@ -828,24 +834,25 @@
     .block[data-highlight]::before {
       content: '';
       position: absolute;
-      inset: -8px;
-      border-radius: calc(var(--radius-lg) + 8px);
+      inset: -10px;
+      border-radius: calc(var(--radius-lg) + 10px);
       border: 2.5px solid var(--hl);
       pointer-events: none;
-      box-shadow: 0 0 22px -2px color-mix(in srgb, var(--hl) 55%, transparent);
     }
-    /* The ring sits entirely outside the card (-8px inset, 2.5px border), so
-       it needs no stacking games, never covers the card's own edge, and its
-       word tab (.block-hl-tab) says what it means without the colour. */
-    .block[data-type=terminator][data-highlight]::before { border-radius: 30px; }
+    /* The ring sits entirely outside the card (-10px inset, 2.5px border:
+       6 to 8.5px out), so it needs no stacking games, never covers the
+       card's own edge or the gap ring inside it (3 to 4.5px out), and its
+       word tab (.block-hl-tab) says what it means without the colour. No
+       glow: the ring is the emphasis. */
+    .block[data-type=terminator][data-highlight]::before { border-radius: 32px; }
 
     /* Alert breathes, but only on the card you are looking at: the ring is
        static at rest, and the motion runs on hover, selection or keyboard
        focus once View > Animate highlights is on (body.motion-on). The block
        names its motion in --hl-anim and never sets `animation` itself. */
     @keyframes hlPulse {
-      0%, 100% { opacity: 1;   box-shadow: 0 0 22px -2px color-mix(in srgb, var(--hl) 55%, transparent); }
-      50%      { opacity: .55; box-shadow: 0 0 34px 2px color-mix(in srgb, var(--hl) 70%, transparent); }
+      0%, 100% { opacity: 1; }
+      50%      { opacity: .5; }
     }
     .block[data-highlight=alert] { --hl-anim: hlPulse 1.9s ease-in-out infinite; }
 
@@ -1072,10 +1079,10 @@
     .block-type-check:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
     .block-type-check[aria-expanded="true"] { background: var(--surface-2); color: var(--text-primary); }
 
-    /* The gap marker's slot. gaps.js fills it; empty, it takes no room. */
-    .block-gap-icons { display: flex; align-items: center; gap: 3px; }
+    /* The gap marker's slot. gaps.js fills it; empty, it takes no room. It
+       sits on the card's top edge as a corner badge ([insights] below). */
+    .block-gap-icons { display: flex; align-items: center; }
     .block-gap-icons:empty { display: none; }
-    .gap-icon { font-size: var(--fs-11); line-height: 1; }
 
     /* Vote indicator in block header */
     .block-vote-indicator {
@@ -1245,18 +1252,6 @@
       margin-top: 6px;
     }
 
-    .action-badge {
-      font-size: var(--fs-11);
-      font-weight: 600;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      padding: 2px 5px;
-      border-radius: 3px;
-    }
-    .action-badge.resolve   { background: color-mix(in oklab, var(--danger) 16%, transparent);  color: var(--danger); }
-    .action-badge.prepare   { background: color-mix(in oklab, var(--warning) 16%, transparent); color: var(--warning); }
-    .action-badge.recollect { background: color-mix(in oklab, var(--info) 16%, transparent);    color: var(--info); }
-    .action-badge.reinforce { background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success); }
 
     /* ── Ports ──────────────────────────────────────────────── */
     .port {
@@ -1281,65 +1276,52 @@
     .port-top:hover    { transform: translateX(-50%) scale(1.3); }
     .port-bottom:hover { transform: translateX(-50%) scale(1.3); }
 
-    /* ── Gap glows ──────────────────────────────────────────── */
-    /* A gap is a static ring at rest. The glow moves only on the card you are
-       looking at (hover, selection, keyboard focus), and only once View >
-       Animate highlights is on (body.motion-on). Each gap class names its
-       colour in --gap and its motion in --gap-anim and never sets `animation`
-       itself. The keyframes repeat the ring, so it never fades mid-breath. */
-    @keyframes gapPulse {
-      0%, 100% { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 0 0 transparent; }
-      50%      { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 18px 4px color-mix(in srgb, var(--gap) 38%, transparent); }
+    /* ── Gap marker ─────────────────────────────────────────── */
+    /* A gap wears the attention hue and nothing else: a 1.5px dashed ring 3px
+       outside the card, plus the rule's icon as a corner badge (gaps.js fills
+       the gi- slot; [insights] places it) whose name shows while the card is
+       hovered or focused. Never the type colour: identity is the dot and the
+       edge, state is this. Every gap draws the same marker, isolation too.
+       Static at rest. With View > Animate highlights on (body.motion-on) the
+       ring breathes, on the card in front of you only. Each gap class names
+       its motion in --gap-anim and never sets `animation` itself; the
+       keyframes change opacity only (no glow, nothing in layout). */
+    @keyframes gapBreathe {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: .35; }
     }
-    @keyframes gapGlow {
-      0%, 100% { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 8px 2px color-mix(in srgb, var(--gap) 20%, transparent); }
-      50%      { box-shadow: var(--gap-ring-shadow), var(--gap-state), 0 0 20px 5px color-mix(in srgb, var(--gap) 42%, transparent); }
-    }
-
-    /* An unconnected block reads as provisional. The accent-bar preset keeps
-       its stripe solid so the type is still legible at a glance. */
-    .block.gap-isolated { border-style: dashed; --card-edge: var(--border-strong); }
-    .block[data-card="bar"].gap-isolated { border-left-style: solid; }
-
-    /* Every gap except isolation (which is the dashed edge above) gets the
-       ring, including rules added after this was written: the defaults sit
-       in a zero-specificity :where() so each class below can recolour it.
-       --gap uses the --c-* type tokens, which light mode already redefines,
-       so there is no separate light-mode tint to keep in step. */
     :where(.block[class*=" gap-"]) {
-      --gap: var(--c-requirement);
-      --gap-anim: gapGlow 2.4s ease-in-out infinite;
-      --gap-ring-shadow: 0 0 0 2px color-mix(in srgb, var(--gap) 55%, transparent);
-      --gap-state: 0 0 transparent;
+      --gap: var(--attention);
+      --gap-anim: gapBreathe 2.4s ease-in-out infinite;
+      --gap-offset: 3px;
     }
-    .block[class*=" gap-"]:not(.gap-isolated),
-    body.light-mode .block[class*=" gap-"]:not(.gap-isolated) { box-shadow: var(--gap-ring-shadow), var(--gap-state); }
+    /* The ring is the ::after box, so selection keeps the outline and hover,
+       focus and drag keep their shadows. A snapshot comparison writes its
+       label into ::after, so a compared card shows the badge alone. */
+    .block[class*=" gap-"]:not([data-comparison])::after {
+      content: '';
+      position: absolute;
+      inset: calc(-1 * (var(--bw) + var(--gap-offset) + 1.5px));
+      border: 1.5px dashed var(--gap);
+      border-radius: calc(var(--radius-lg) + var(--gap-offset) + 1.5px);
+      pointer-events: none;
+    }
+    .block[data-type=terminator][class*=" gap-"]::after { border-radius: calc(22px + var(--gap-offset) + 1.5px); }
 
-    /* The ring outranks the card's own state shadows (.block:hover,
-       :focus-visible, .dragging), so each state's shadow is repeated here as
-       --gap-state and stacked under the ring rather than replacing it (hence
-       the light-mode twin of the rule above, whose :focus-visible rule sets a
-       box-shadow outright). Selection has no shadow of its own: its channel
-       is the outline, which the [cards] section puts over every state. Same
-       order as the plain rules: dragging wins. */
-    .block[class*=" gap-"]:not(.gap-isolated):hover         { --gap-state: var(--shadow-card); }
-    .block[class*=" gap-"]:not(.gap-isolated):focus-visible { --gap-state: 0 0 0 4px var(--accent-subtle); }
-    .block[class*=" gap-"]:not(.gap-isolated).dragging      { --gap-state: var(--shadow-drag); }
-
-    .block.gap-unaddressed   { --gap: var(--c-problem);    --gap-anim: gapPulse 1.8s ease-in-out infinite; }
-    .block.gap-assumption    { --gap: var(--c-assumption); --gap-anim: gapGlow 2s ease-in-out infinite; }
-    .block.gap-no-mitigation { --gap: var(--c-risk);       --gap-anim: gapGlow 2.2s ease-in-out infinite; }
-    .block.gap-no-req        { --gap-anim: gapGlow 2.5s ease-in-out infinite; }
-    .block.gap-no-basis      { --gap-anim: gapGlow 2.4s ease-in-out infinite; }
-    .block.gap-no-producer   { --gap-anim: gapGlow 2.6s ease-in-out infinite; }
-    .block.gap-no-criteria   { --gap-anim: gapGlow 2.8s ease-in-out infinite; }
-    .block.gap-loose-step    { --gap-anim: gapGlow 2.2s ease-in-out infinite; }
+    .block.gap-unaddressed   { --gap-anim: gapBreathe 1.8s ease-in-out infinite; }
+    .block.gap-assumption    { --gap-anim: gapBreathe 2s ease-in-out infinite; }
+    .block.gap-no-mitigation { --gap-anim: gapBreathe 2.2s ease-in-out infinite; }
+    .block.gap-no-req        { --gap-anim: gapBreathe 2.5s ease-in-out infinite; }
+    .block.gap-no-basis      { --gap-anim: gapBreathe 2.4s ease-in-out infinite; }
+    .block.gap-no-producer   { --gap-anim: gapBreathe 2.6s ease-in-out infinite; }
+    .block.gap-no-criteria   { --gap-anim: gapBreathe 2.8s ease-in-out infinite; }
+    .block.gap-loose-step    { --gap-anim: gapBreathe 2.2s ease-in-out infinite; }
 
     /* Opt-in, and only on the card in front of you. Nothing moves at rest.
        A view-only link or an embed is someone reading: a card they clicked
        stays still, and only the one under the pointer moves. */
-    body.motion-on .block[class*=" gap-"]:not(.gap-isolated):hover,
-    body.motion-on:not(.readonly-mode) .block[class*=" gap-"]:not(.gap-isolated):is(.selected, :focus-visible) {
+    body.motion-on .block[class*=" gap-"]:hover::after,
+    body.motion-on:not(.readonly-mode) .block[class*=" gap-"]:is(.selected, :focus-visible)::after {
       animation: var(--gap-anim, none);
     }
 
@@ -1986,9 +1968,9 @@
       font-size: var(--fs-20); font-weight: 700; font-variant-numeric: tabular-nums;
       line-height: 1; min-width: 40px;
     }
-    .health-score.grade-a { color: var(--success); }
-    .health-score.grade-b { color: var(--warning); }
-    .health-score.grade-c { color: var(--danger); }
+    /* The score is text, in the text colour: the grade is the number and its
+       words, never a traffic light (DESIGN.md, "the type lives on the dot"). */
+    .health-score { color: var(--text-1); }
     .health-details { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.6; }
     .health-details strong { color: var(--text-secondary); }
 
@@ -2015,9 +1997,11 @@
     }
 
     /* ── Block focus (keyboard navigation) ──────────────────────── */
+    /* On the card's edge, like the selection, so it never covers the gap
+       ring 3px out or the highlight ring beyond it. */
     .block:focus-visible {
       outline: var(--focus-outline);
-      outline-offset: 3px;
+      outline-offset: 0;
       box-shadow: 0 0 0 4px var(--accent-subtle);
     }
     .canvas-viewport:focus { outline: none; }
@@ -2172,24 +2156,26 @@
     body.light-mode .block[data-card="bar"] { --card-edge: color-mix(in oklab, var(--bc, var(--text-3)) 40%, transparent); }
     body.light-mode .panel-tab.active { border-bottom-color: var(--text-primary); color: var(--text-primary); }
 
-    /* Adjusted block type colors for light background contrast */
+    /* The type colours for a light room: the same hues near L 0.52 C 0.13,
+       each 3:1 or better as a graphic on every light surface (canvas, card,
+       a hovered menu row). */
     body.light-mode {
-      --c-goal:        #7c5fd4;
-      --c-problem:     #d94444;
-      --c-requirement: #c49008;
-      --c-assumption:  #b07d06;
-      --c-risk:        #d46e14;
-      --c-question:    #1490c8;
-      --c-decision:    #18a872;
-      --c-resource:    #14a894;
-      --c-output:      #5558cc;
-      --c-process:     #2563eb;
-      --c-terminator:  #c026a8;
-      --c-context:     #4b5563;
-      --c-custom:      #8b3fc4;
-      --c-implementation: #4d7c0f;
-      --c-metric:      #0e7490;
-      --c-stakeholder: #be185d;
+      --c-goal:           oklch(0.525 0.14 248);
+      --c-problem:        oklch(0.46 0.15 29);
+      --c-stakeholder:    oklch(0.6 0.145 357);
+      --c-metric:         oklch(0.565 0.1 221);
+      --c-requirement:    oklch(0.545 0.145 146);
+      --c-output:         oklch(0.51 0.11 59);
+      --c-implementation: oklch(0.585 0.13 115);
+      --c-process:        oklch(0.6 0.12 258);
+      --c-terminator:     oklch(0.49 0.14 342);
+      --c-decision:       oklch(0.46 0.1 153);
+      --c-resource:       oklch(0.6 0.105 181);
+      --c-assumption:     oklch(0.565 0.15 319);
+      --c-risk:           oklch(0.565 0.16 39);
+      --c-question:       oklch(0.46 0.1 239);
+      --c-context:        oklch(0.52 0.02 270);
+      --c-custom:         oklch(0.4 0.02 60);
     }
 
     /* ── Embed mode (iframe-safe) ───────────────────────────────── */
@@ -2307,23 +2293,20 @@
     .block-meta {
       display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px;
     }
-    /* Card badges: 10px/600, never smaller. */
-    .status-badge {
-      font-size: var(--fs-11); font-weight: 600; letter-spacing: .03em;
-      padding: 2px 6px; border-radius: 3px;
-      background: var(--surface-2); color: var(--text-secondary);
+    /* Card chips: priority, status and actions. Neutral, all of them: a
+       stroked 11px icon (cards.js chipIcon) and a sentence-case word tell
+       them apart, never a colour. Red and amber already mean a type and a
+       gap, and a status colour on every card is the noise PRODUCT.md
+       rejects. 11px/600, never smaller. */
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 18px; padding: 0 6px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2); color: var(--text-2);
+      font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1;
+      white-space: nowrap;
     }
-    .status-badge.status-in-progress { background: color-mix(in oklab, var(--info) 16%, transparent);    color: var(--info); }
-    .status-badge.status-done        { background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success); }
-    .status-badge.status-blocked     { background: color-mix(in oklab, var(--danger) 16%, transparent);  color: var(--danger); }
-
-    .priority-badge {
-      font-size: var(--fs-11); font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
-      padding: 2px 6px; border-radius: 3px;
-    }
-    .priority-badge.priority-high   { background: color-mix(in oklab, var(--danger) 16%, transparent);  color: var(--danger); }
-    .priority-badge.priority-medium { background: color-mix(in oklab, var(--warning) 16%, transparent); color: var(--warning); }
-    .priority-badge.priority-low    { background: var(--surface-2); color: var(--text-2); }
+    .chip-icon { flex: 0 0 11px; display: block; }
 
     .block.collapsed .block-meta { display: none; }
 
@@ -3561,14 +3544,47 @@ body.light-mode { --caption-ink: var(--text-secondary); }
 .block.has-color { --bc: var(--bc-custom); }
 body.light-mode .block.has-color { --bc: var(--bc-custom-light, var(--bc-custom)); }
 
-/* Selection wins over every other state: it comes after all of them. */
+/* Selection wins over every other state: it comes after all of them. A
+   1.5px accent line on the card's own edge and a soft accent halo, the same
+   on every card of a multi-selection. It sits inside the gap ring (3 to
+   4.5px out) and the highlight ring (6 to 8.5px out), so a selected card
+   keeps both. The halo is a shadow, so hover and drag stack theirs under it. */
 .block.block.selected {
-  outline: 2px solid var(--text-secondary);
-  outline-offset: 3px;
+  outline: 1.5px solid var(--accent);
+  outline-offset: 0;
+  box-shadow: 0 0 0 4px var(--accent-subtle);
 }
+.block.block.selected:hover    { box-shadow: 0 0 0 4px var(--accent-subtle), var(--shadow-card); }
+.block.block.selected.dragging { box-shadow: 0 0 0 4px var(--accent-subtle), var(--shadow-drag); }
+/* Keyboard focus on a selected card: the focus width, so focus never reads
+   thinner than it does elsewhere. */
+.block.block.selected:focus-visible { outline-width: 2px; }
 
-/* Action badges on a card: 10px/600 like the status and priority ones. */
-.action-badge.validate { background: color-mix(in oklab, var(--warning) 16%, transparent); color: var(--warning); }
+/* The type dot's shape (TYPES shape in js/utils.js): a ring for Why and Who,
+   a square for What and Proof, a dot for How and Other, a diamond for Doubt.
+   Types that sit closer than 10 OKLab dE never share one, so colour is never
+   the only cue. The colour stays the element's background, so a renderer
+   writes only that; the shape is a mask or a transform (never layout). */
+:is(.block-type-dot, .palette-dot, .pf-menu-dot, .insp-dot, .sheet-dot)[data-shape="square"] {
+  border-radius: 1.5px;
+  transform: scale(.875);
+}
+:is(.block-type-dot, .palette-dot, .pf-menu-dot, .insp-dot, .sheet-dot)[data-shape="diamond"] {
+  border-radius: 1px;
+  transform: rotate(45deg) scale(.8);
+}
+:is(.block-type-dot, .palette-dot, .pf-menu-dot, .insp-dot, .sheet-dot)[data-shape="ring"] {
+  border-radius: 50%;
+  /* A mask reads alpha only, so any opaque token does. */
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2.25px), var(--bg) calc(100% - 1.75px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 2.25px), var(--bg) calc(100% - 1.75px));
+}
+/* Priority in the inspector is its signal-bars icon, not a dot. */
+.insp-dot.is-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 11px; width: 11px; height: 11px;
+  background: none; box-shadow: none; color: var(--text-2);
+}
 /* Header preset. Dark: the type colour is the strip and the label is dark
    on it; Context's slate is too dark for that, so it takes white. Light: a
    tinted strip with the neutral label, since dark text fails on half of the
@@ -3634,7 +3650,9 @@ body.light-mode .block[data-card="header"] .block-collapsed-mark { color: var(--
    itself is with the other highlight rules near the top of this file. */
 .block-hl-tab {
   position: absolute;
-  top: -7px; right: 14px;
+  /* On the ring (6 to 8.5px out), at the top left: the gap badge owns the
+     top right. */
+  top: calc(-1 * var(--bw) - 7.25px); left: 14px;
   transform: translateY(-50%);
   padding: 1px 5px;
   font-size: var(--fs-11); font-weight: 700; line-height: 1.3;
@@ -3755,12 +3773,6 @@ body.light-mode .canvas-hint svg { opacity: .2; }
 body.light-mode .map-step-num,
 body.light-mode .map-step-type { color: var(--text-secondary); }
 
-/* QA round. Header preset: the gap icon sits on the coloured strip, where
-   the amber ink measured 1.0 to 1.3:1. Dark ink, like the type label. */
-.block[data-card="header"] .gap-icon { color: var(--ink-on-color); }
-.block[data-card="header"][data-type=context]:not(.has-color) .gap-icon { color: var(--text-1); }
-body.light-mode .block[data-card="header"] .gap-icon,
-body.light-mode .block[data-card="header"][data-type=context]:not(.has-color) .gap-icon { color: var(--gap-ink); }
 
 /* Tinted cards: muted description text fell under 4.5:1 on the tint. */
 .block[data-card="tint"] .block-desc { color: var(--text-secondary); }
@@ -3777,11 +3789,41 @@ body.light-mode .block[data-card="header"][data-type=context]:not(.has-color) .g
 
 
 /* ════ [insights] ════ */
-/* Gap marker in a card's header: one line icon per gap, never colour alone.
-   The ink is its own token so a type recolour cannot silently restyle it. */
+/* Gap marker: a corner badge on the card's top edge, over the dashed ring,
+   with the rule's line icon and, while the card is hovered or keyboard
+   focused, its name. Its own surface, so it reads the same on every card
+   preset (the header strip included), and the attention ink (4.5:1) rather
+   than the type colour. One gap per card, so one badge. */
 body { --gap-ink: var(--attention-ink); }
+.block .block-gap-icons {
+  position: absolute;
+  top: calc(-1 * var(--bw) - 11px);
+  right: 10px;
+  z-index: 2;
+}
 .gap-icon { display: inline-flex; align-items: center; color: var(--gap-ink); }
 .gap-icon svg { display: block; flex-shrink: 0; }
+.block-gap-icons .gap-icon {
+  gap: 4px;
+  height: 18px; min-width: 18px;
+  padding: 0 4px;
+  justify-content: center;
+  background: var(--card);
+  border: 1.5px solid var(--gap, var(--attention));
+  border-radius: 9px;
+}
+.gap-name {
+  display: none;
+  font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1;
+  white-space: nowrap;
+}
+.block:is(:hover, :focus-visible) .gap-name { display: inline; }
+.block:is(:hover, :focus-visible) .block-gap-icons .gap-icon { padding: 0 6px 0 4px; }
+@media (forced-colors: active) {
+  .block[class*=" gap-"]::after,
+  .block-gap-icons .gap-icon { border-color: CanvasText; }
+  .block.block.selected { outline-color: Highlight; }
+}
 
 /* Attention tab rows. Each row is its block's button (or plain text for a
    whole-canvas row with no block to open) with the action, when there is

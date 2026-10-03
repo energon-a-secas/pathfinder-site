@@ -23,7 +23,18 @@ export { escHtml, debounce };
  * change once shipped: a saved canvas stores the id, so renaming one would
  * orphan every block of that type. Labels may change.
  *
- * - color / light: accent in the dark and light themes (CSS --c-<id> mirrors them)
+ * - color / light: the type colour in the dark and light themes, as the sRGB
+ *   hex of the OKLCH value in css/style.css (--c-<id>; DESIGN.md has the
+ *   table). Hex because JSON Canvas and Mermaid carry hex, and an import
+ *   reads a type back from it (interop.js typeForHex).
+ * - shape: the dot's shape, by the step's role: 'ring' for Why and Who (the
+ *   ends the work serves), 'square' for What and Proof (what can be checked),
+ *   'dot' for How and Other, 'diamond' for Doubt. Types that sit closer than
+ *   10 OKLab dE (x100) in either theme never share a shape, so colour is never
+ *   the only cue (tests/design-tokens.test.js holds the palette to that).
+ * - legacyColors: the hexes this type drew before the 2026-10 palette, dark
+ *   then light. A file exported then still imports typed (interop.js), and a
+ *   block coloured with one of them keeps its light twin (cards.js).
  * - tier: 'core' shows by default, 'more' behind the expander
  * - step: which TYPE_STEPS question the type answers
  * - short: one line for rows and pickers; tip: the longer tooltip guidance
@@ -37,7 +48,8 @@ export { escHtml, debounce };
  */
 export const TYPES = {
   goal: {
-    label: 'Goal', color: '#a78bfa', light: '#7c5fd4', tier: 'core', step: 'why',
+    label: 'Goal', color: '#95cafc', light: '#046eb6', shape: 'ring',
+    legacyColors: ['#a78bfa', '#7c5fd4'], tier: 'core', step: 'why',
     short: 'What you want to achieve',
     tip: 'An outcome you want to achieve. Connect the Metric that measures it and the Requirements that must be met.',
     example: '"Customers check out without calling support", "Launch the MVP by Q3"',
@@ -46,7 +58,8 @@ export const TYPES = {
     criteria: 'Acceptance criteria', task: false, actions: [],
   },
   problem: {
-    label: 'Problem', color: '#f87171', light: '#d94444', tier: 'core', step: 'why',
+    label: 'Problem', color: '#dd7573', light: '#9a2a20', shape: 'ring',
+    legacyColors: ['#f87171', '#d94444'], tier: 'core', step: 'why',
     short: 'An issue happening now',
     tip: 'An issue happening now: a blocker or pain point. Mark "Resolve" once someone is acting on it. Something that only might happen is a Risk.',
     example: '"API latency exceeds SLA", "No CI/CD pipeline"',
@@ -55,7 +68,8 @@ export const TYPES = {
     criteria: false, task: false, actions: ['resolve'],
   },
   stakeholder: {
-    label: 'Stakeholder', color: '#fda4af', light: '#be185d', tier: 'more', step: 'who',
+    label: 'Stakeholder', color: '#fda6c6', light: '#c15681', shape: 'ring',
+    legacyColors: ['#fda4af', '#be185d'], tier: 'more', step: 'who',
     short: 'Who receives, approves or is affected',
     tip: 'A person, role or team that receives, approves or is affected by the work. Connect the Outputs delivered to them and the Goals they own.',
     example: '"Executives", "Model owners", "Support team"',
@@ -64,7 +78,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   metric: {
-    label: 'Metric', color: '#67e8f9', light: '#0e7490', tier: 'core', step: 'proof',
+    label: 'Metric', color: '#2ccceb', light: '#11839f', shape: 'square',
+    legacyColors: ['#67e8f9', '#0e7490'], tier: 'core', step: 'proof',
     short: 'A measurable signal with a target',
     tip: 'A measurable signal with a target: a key result, KPI or SLO. Put the target in Targets and connect it to the Goal it measures.',
     example: '"Sprint predictability at or above 80% by Q4", "p95 latency under 200ms"',
@@ -73,7 +88,8 @@ export const TYPES = {
     criteria: 'Targets', task: false, actions: [],
   },
   requirement: {
-    label: 'Requirement', color: '#fbbf24', light: '#c49008', tier: 'core', step: 'what',
+    label: 'Requirement', color: '#5aae69', light: '#268536', shape: 'square',
+    legacyColors: ['#fbbf24', '#c49008'], tier: 'core', step: 'what',
     short: 'Must be true when done',
     tip: 'Something that must be true when the work is done. Say how to check it in Acceptance criteria, and link it to the Goal it serves.',
     example: '"GDPR compliance", "Response under 200ms"',
@@ -82,7 +98,8 @@ export const TYPES = {
     criteria: 'Acceptance criteria', task: true, actions: [],
   },
   output: {
-    label: 'Output', color: '#818cf8', light: '#5558cc', tier: 'more', step: 'what',
+    label: 'Output', color: '#d1925a', light: '#935417', shape: 'square',
+    legacyColors: ['#818cf8', '#5558cc'], tier: 'more', step: 'what',
     short: 'A deliverable someone can hold: report, doc, release',
     tip: 'A deliverable someone can hold: a report, doc or release. Connect it from the work that produces it and to the Stakeholder who receives it.',
     example: '"API documentation", "Staging environment", "User research report"',
@@ -93,7 +110,8 @@ export const TYPES = {
     criteria: 'Acceptance criteria', task: true, actions: [],
   },
   implementation: {
-    label: 'Implementation', color: '#a3e635', light: '#4d7c0f', tier: 'core', step: 'how',
+    label: 'Implementation', color: '#9ea044', light: '#7a8409', shape: 'dot',
+    legacyColors: ['#a3e635', '#4d7c0f'], tier: 'core', step: 'how',
     short: 'Work done once to build or change something',
     tip: 'Work you do once to build or change something: an epic, initiative, integration or task. Connect it to the Requirement it satisfies and the Output it produces.',
     example: '"Build the report scheduler", "Integrate SSO with the identity provider"',
@@ -104,7 +122,8 @@ export const TYPES = {
     criteria: 'Acceptance criteria', task: true, actions: [],
   },
   process: {
-    label: 'Process', color: '#60a5fa', light: '#2563eb', tier: 'more', step: 'how',
+    label: 'Process', color: '#6cb3fd', light: '#5181c7', shape: 'dot',
+    legacyColors: ['#60a5fa', '#2563eb'], tier: 'more', step: 'how',
     short: 'A recurring step in a workflow',
     tip: 'A step or action in a workflow: something that gets done each time the flow runs. Chain these with arrows to show an end-to-end flow.',
     example: '"Update status to Ready for Review", "Generate the doc"',
@@ -113,7 +132,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   terminator: {
-    label: 'Trigger / End', color: '#f0abfc', light: '#c026a8', tier: 'more', step: 'how',
+    label: 'Trigger / End', color: '#cd7ab2', light: '#933a76', shape: 'dot',
+    legacyColors: ['#f0abfc', '#c026a8'], tier: 'more', step: 'how',
     short: 'What starts or ends a flow: an event, a cadence, a finish',
     tip: 'What starts or ends a flow: an event, a cadence or a finish. Bookend a process flow so the beginning and outcome are explicit.',
     example: '"Submission received", "Every end of sprint", "PRD approved"',
@@ -122,7 +142,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   decision: {
-    label: 'Decision', color: '#34d399', light: '#18a872', tier: 'core', step: 'how',
+    label: 'Decision', color: '#73dea4', light: '#20683c', shape: 'dot',
+    legacyColors: ['#34d399', '#18a872'], tier: 'core', step: 'how',
     short: 'A choice made, or one to make',
     tip: 'A choice made, or one to make. Record why in Rationale, and connect what it rests on.',
     example: '"Use PostgreSQL over MongoDB", "Ship without feature X"',
@@ -131,7 +152,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   resource: {
-    label: 'Resource / System', color: '#2dd4bf', light: '#14a894', tier: 'more', step: 'how',
+    label: 'Resource / System', color: '#16b5a5', light: '#129484', shape: 'dot',
+    legacyColors: ['#2dd4bf', '#14a894'], tier: 'more', step: 'how',
     short: 'An existing team, tool, system or data source',
     tip: 'An available asset: a team, tool, system, data source or budget. Connect it to what it enables.',
     example: '"Design team (3 people)", "AWS credits ($10K)", "Data warehouse"',
@@ -140,7 +162,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   assumption: {
-    label: 'Assumption', color: '#eab308', light: '#b07d06', tier: 'core', step: 'doubt',
+    label: 'Assumption', color: '#d09aea', light: '#9b54ad', shape: 'diamond',
+    legacyColors: ['#eab308', '#b07d06'], tier: 'core', step: 'doubt',
     short: 'A belief you are treating as true',
     tip: 'A belief you are treating as true without validating it. The AI pressure-tests each one. Link it to the Goal or Requirement it underpins.',
     example: '"Users will pay for this", "The API can handle our load"',
@@ -149,7 +172,8 @@ export const TYPES = {
     criteria: false, task: false, actions: ['validate'],
   },
   risk: {
-    label: 'Risk', color: '#fb923c', light: '#d46e14', tier: 'core', step: 'doubt',
+    label: 'Risk', color: '#f89d79', light: '#c04b20', shape: 'diamond',
+    legacyColors: ['#fb923c', '#d46e14'], tier: 'core', step: 'doubt',
     short: 'Something that might go wrong',
     tip: 'Something that could go wrong and derail the plan. Connect it to a Decision that mitigates it.',
     example: '"Key engineer leaving", "Vendor contract expires"',
@@ -158,7 +182,8 @@ export const TYPES = {
     criteria: false, task: false, actions: ['prepare'],
   },
   question: {
-    label: 'Open Question', color: '#38bdf8', light: '#1490c8', tier: 'more', step: 'doubt',
+    label: 'Open Question', color: '#2fa5d8', light: '#0a5e89', shape: 'diamond',
+    legacyColors: ['#38bdf8', '#1490c8'], tier: 'more', step: 'doubt',
     short: 'A genuine unknown',
     tip: 'A genuine unknown needing an answer. For a belief you are assuming true, use an Assumption instead.',
     example: '"Will users accept SSO-only?", "Is budget approved?"',
@@ -167,7 +192,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   context: {
-    label: 'Context', color: '#64748b', light: '#4b5563', tier: 'more', step: 'other',
+    label: 'Context', color: '#b7bcc6', light: '#646975', shape: 'dot',
+    legacyColors: ['#64748b', '#4b5563'], tier: 'more', step: 'other',
     short: 'Background that frames the work',
     tip: 'Background information that frames the project. Helps the AI understand constraints.',
     example: '"Migrating to cloud", "Competitor launched a similar feature"',
@@ -176,7 +202,8 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   custom: {
-    label: 'Other', color: '#d8b4fe', light: '#8b3fc4', tier: 'more', step: 'other',
+    label: 'Other', color: '#837a73', light: '#50453d', shape: 'dot',
+    legacyColors: ['#d8b4fe', '#8b3fc4'], tier: 'more', step: 'other',
     short: 'Untyped: checks skip it',
     tip: 'Anything that fits no other type. Gap checks skip it, so use it sparingly: typed blocks produce better AI prompts.',
     example: '"Parking lot", "Idea for later"',
@@ -395,10 +422,12 @@ export const STATUS_DEFS = {
   'blocked':     { label: 'Blocked',     icon: '\u25A0' },
 }
 
+// Priority is a level, drawn as signal bars (cards.js chipIcon), never as a
+// colour: red and amber already mean a type and a gap.
 export const PRIORITY_DEFS = {
-  high:   { label: 'High',   color: '#f87171' },
-  medium: { label: 'Medium', color: '#fbbf24' },
-  low:    { label: 'Low',    color: '#94a3b8' },
+  high:   { label: 'High',   bars: 3 },
+  medium: { label: 'Medium', bars: 2 },
+  low:    { label: 'Low',    bars: 1 },
 }
 
 export const ARROW_LABEL_PRESETS = [
@@ -406,12 +435,22 @@ export const ARROW_LABEL_PRESETS = [
   'validates', 'conflicts with', 'informs', 'requires',
 ]
 
+// A block's or a connection's own colour, chosen by a person. None of these is
+// a type colour (current or legacy), so a recoloured card never reads back as
+// another type from a JSON Canvas (interop.js), and none sits on the accent
+// violet or the attention amber. Mid lightness (OKLCH L 0.62), so each holds
+// 4.5:1 on the dark canvas and 3:1 as a line on the light one; on a light
+// card the dot and edge take the darker twin in cards.js SWATCH_LIGHT.
 export const SWATCH_COLORS = [
-  '#a78bfa', '#f87171', '#fbbf24', '#fb923c',
-  '#38bdf8', '#34d399', '#2dd4bf', '#818cf8',
-  '#f472b6', '#c084fc', '#94a3b8', '#ffffff',
+  '#da534f', '#cc6526', '#699630', '#269e5f',
+  '#0e9a94', '#1794b5', '#3986e4', '#ad63c4',
+  '#cd509f', '#db6686', '#78889b', '#9d846d',
 ]
 export const SWATCH_NAMES = {
+  '#da534f': 'Red', '#cc6526': 'Orange', '#699630': 'Lime', '#269e5f': 'Green',
+  '#0e9a94': 'Teal', '#1794b5': 'Cyan', '#3986e4': 'Blue', '#ad63c4': 'Purple',
+  '#cd509f': 'Magenta', '#db6686': 'Pink', '#78889b': 'Slate', '#9d846d': 'Sand',
+  // The swatches before 2026-10, so a colour picked then keeps its name.
   '#a78bfa': 'Violet', '#f87171': 'Red', '#fbbf24': 'Amber', '#fb923c': 'Orange',
   '#38bdf8': 'Sky', '#34d399': 'Emerald', '#2dd4bf': 'Teal', '#818cf8': 'Indigo',
   '#f472b6': 'Pink', '#c084fc': 'Purple', '#94a3b8': 'Slate', '#ffffff': 'White',

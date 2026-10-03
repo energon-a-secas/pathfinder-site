@@ -4,7 +4,7 @@
 //  and the arrow route/pattern split, from the foundation wave.
 // ============================================================
 
-import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls } from './test-utils.js'
+import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls, cssRgba } from './test-utils.js'
 import { state, devOpts, ui, selection, pointer, canvasMeta, serializeCanvas,
          getUndoHistory, getRedoFuture } from '../js/state.js'
 import { TYPES, TYPE_STEPS, TYPE_DISAMBIGUATION, typesByStep, ACTION_DEFS, PROMPT_MODES } from '../js/utils.js'
@@ -17,24 +17,26 @@ import { exportMarkdown, exportToPresentationSage } from '../js/export.js'
 import { buildSpecFiles } from '../js/spec-export.js'
 import { buildTaskPlan } from '../js/task-plan.js'
 
-// The spec table, verbatim. Order is the registry's key order.
+// The spec table, verbatim. Order is the registry's key order. The colours
+// are the 2026-10 palette (DESIGN.md "Type palette"); the last two hexes are
+// the palette before it, which an import must still read as the type.
 const TABLE = [
-  ['goal', 'Goal', '#a78bfa', '#7c5fd4', 'core', 'why'],
-  ['problem', 'Problem', '#f87171', '#d94444', 'core', 'why'],
-  ['stakeholder', 'Stakeholder', '#fda4af', '#be185d', 'more', 'who'],
-  ['metric', 'Metric', '#67e8f9', '#0e7490', 'core', 'proof'],
-  ['requirement', 'Requirement', '#fbbf24', '#c49008', 'core', 'what'],
-  ['output', 'Output', '#818cf8', '#5558cc', 'more', 'what'],
-  ['implementation', 'Implementation', '#a3e635', '#4d7c0f', 'core', 'how'],
-  ['process', 'Process', '#60a5fa', '#2563eb', 'more', 'how'],
-  ['terminator', 'Trigger / End', '#f0abfc', '#c026a8', 'more', 'how'],
-  ['decision', 'Decision', '#34d399', '#18a872', 'core', 'how'],
-  ['resource', 'Resource / System', '#2dd4bf', '#14a894', 'more', 'how'],
-  ['assumption', 'Assumption', '#eab308', '#b07d06', 'core', 'doubt'],
-  ['risk', 'Risk', '#fb923c', '#d46e14', 'core', 'doubt'],
-  ['question', 'Open Question', '#38bdf8', '#1490c8', 'more', 'doubt'],
-  ['context', 'Context', '#64748b', '#4b5563', 'more', 'other'],
-  ['custom', 'Other', '#d8b4fe', '#8b3fc4', 'more', 'other'],
+  ['goal', 'Goal', '#95cafc', '#046eb6', 'core', 'why', 'ring', '#a78bfa', '#7c5fd4'],
+  ['problem', 'Problem', '#dd7573', '#9a2a20', 'core', 'why', 'ring', '#f87171', '#d94444'],
+  ['stakeholder', 'Stakeholder', '#fda6c6', '#c15681', 'more', 'who', 'ring', '#fda4af', '#be185d'],
+  ['metric', 'Metric', '#2ccceb', '#11839f', 'core', 'proof', 'square', '#67e8f9', '#0e7490'],
+  ['requirement', 'Requirement', '#5aae69', '#268536', 'core', 'what', 'square', '#fbbf24', '#c49008'],
+  ['output', 'Output', '#d1925a', '#935417', 'more', 'what', 'square', '#818cf8', '#5558cc'],
+  ['implementation', 'Implementation', '#9ea044', '#7a8409', 'core', 'how', 'dot', '#a3e635', '#4d7c0f'],
+  ['process', 'Process', '#6cb3fd', '#5181c7', 'more', 'how', 'dot', '#60a5fa', '#2563eb'],
+  ['terminator', 'Trigger / End', '#cd7ab2', '#933a76', 'more', 'how', 'dot', '#f0abfc', '#c026a8'],
+  ['decision', 'Decision', '#73dea4', '#20683c', 'core', 'how', 'dot', '#34d399', '#18a872'],
+  ['resource', 'Resource / System', '#16b5a5', '#129484', 'more', 'how', 'dot', '#2dd4bf', '#14a894'],
+  ['assumption', 'Assumption', '#d09aea', '#9b54ad', 'core', 'doubt', 'diamond', '#eab308', '#b07d06'],
+  ['risk', 'Risk', '#f89d79', '#c04b20', 'core', 'doubt', 'diamond', '#fb923c', '#d46e14'],
+  ['question', 'Open Question', '#2fa5d8', '#0a5e89', 'more', 'doubt', 'diamond', '#38bdf8', '#1490c8'],
+  ['context', 'Context', '#b7bcc6', '#646975', 'more', 'other', 'dot', '#64748b', '#4b5563'],
+  ['custom', 'Other', '#837a73', '#50453d', 'more', 'other', 'dot', '#d8b4fe', '#8b3fc4'],
 ]
 const TEXT_FIELDS = ['label', 'short', 'tip', 'example', 'legend', 'section']
 const HEX6 = /^#[0-9a-f]{6}$/i
@@ -45,13 +47,15 @@ const EM_DASH = String.fromCharCode(0x2014)
 describe('types registry -- shape', () => {
   it('matches the spec table exactly, in key order', () => {
     assert.deepEq(Object.keys(TYPES), TABLE.map(r => r[0]))
-    TABLE.forEach(([id, label, color, light, tier, step]) => {
+    TABLE.forEach(([id, label, color, light, tier, step, shape, oldDark, oldLight]) => {
       const t = TYPES[id]
       assert.eq(t.label, label, `${id} label`)
       assert.eq(t.color, color, `${id} color`)
       assert.eq(t.light, light, `${id} light`)
       assert.eq(t.tier, tier, `${id} tier`)
       assert.eq(t.step, step, `${id} step`)
+      assert.eq(t.shape, shape, `${id} shape`)
+      assert.deepEq(t.legacyColors, [oldDark, oldLight], `${id} keeps the pre-2026-10 hexes`)
     })
   })
 
@@ -61,6 +65,9 @@ describe('types registry -- shape', () => {
       TEXT_FIELDS.forEach(f => assert.ok(typeof t[f] === 'string' && t[f].trim(), `${id}.${f} is non-empty text`))
       assert.match(t.color, HEX6, `${id}.color is a 6-digit hex`)
       assert.match(t.light, HEX6, `${id}.light is a 6-digit hex`)
+      assert.ok(['dot', 'ring', 'square', 'diamond'].includes(t.shape), `${id}.shape`)
+      assert.ok(Array.isArray(t.legacyColors) && t.legacyColors.length % 2 === 0, `${id}.legacyColors holds dark, light pairs`)
+      t.legacyColors.forEach(h => assert.match(h, HEX6, `${id} legacy ${h} is a 6-digit hex`))
       assert.ok(['core', 'more'].includes(t.tier), `${id}.tier`)
       assert.ok(steps.includes(t.step), `${id}.step`)
       assert.ok(t.criteria === false || ['Acceptance criteria', 'Targets'].includes(t.criteria), `${id}.criteria`)
@@ -132,16 +139,19 @@ describe('types registry -- CSS', () => {
     // first, in a block of their own).
     const rootStart = css.lastIndexOf(':root', css.indexOf('--c-goal'))
     const rootBlock = css.slice(rootStart, css.indexOf('}', rootStart))
-    const lightStart = css.indexOf('body.light-mode {\n      --c-goal')
+    const lightStart = css.search(/body\.light-mode \{\s*--c-goal/)
     assert.ok(lightStart > 0, 'the light-mode type colour block exists')
     const lightBlock = css.slice(lightStart, css.indexOf('}', lightStart))
+    // OKLCH in the stylesheet, hex in the registry: the registry's hex is the
+    // sRGB the OKLCH value renders as, channel for channel.
+    const hex = c => '#' + cssRgba(c).slice(0, 3).map(v => v.toString(16).padStart(2, '0')).join('')
     Object.entries(TYPES).forEach(([id, t]) => {
-      const dark = rootBlock.match(new RegExp(`--c-${id}:\\s*(#[0-9a-fA-F]{6})`))
-      const light = lightBlock.match(new RegExp(`--c-${id}:\\s*(#[0-9a-fA-F]{6})`))
-      assert.ok(dark, `--c-${id} in :root`)
-      assert.ok(light, `--c-${id} in body.light-mode`)
-      assert.eq(dark[1].toLowerCase(), t.color, `--c-${id} dark matches the registry`)
-      assert.eq(light[1].toLowerCase(), t.light, `--c-${id} light matches the registry`)
+      const dark = rootBlock.match(new RegExp(`--c-${id}:\\s*(oklch\\([^)]*\\))`))
+      const light = lightBlock.match(new RegExp(`--c-${id}:\\s*(oklch\\([^)]*\\))`))
+      assert.ok(dark, `--c-${id} in :root, in OKLCH`)
+      assert.ok(light, `--c-${id} in body.light-mode, in OKLCH`)
+      assert.eq(hex(dark[1]), t.color, `--c-${id} dark matches the registry`)
+      assert.eq(hex(light[1]), t.light, `--c-${id} light matches the registry`)
       assert.ok(new RegExp(`\\.block\\[data-type=${id}\\]\\s*\\{\\s*--bc:\\s*var\\(--c-${id}\\)`).test(css), `.block[data-type=${id}] accent rule`)
     })
   })

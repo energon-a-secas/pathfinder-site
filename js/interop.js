@@ -58,23 +58,39 @@ function jcColorToHex(c) {
   return JC_TO_HEX[s] || null
 }
 
-/** The type whose dark or light hex is exactly `hex`, or null. */
+// Every hex a type has drawn: today's dark and light, then the palettes
+// before (legacyColors). A file exported before the 2026-10 palette carries
+// the old hexes, and it must still import typed, exactly as a new one does.
+function hexesOf(t) {
+  return [t.color, t.light, ...(t.legacyColors || [])].filter(Boolean).map(h => String(h).toLowerCase())
+}
+
+/** The type whose dark or light hex, current or legacy, is exactly `hex`, or null. */
 export function typeForHex(hex) {
   if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex.trim())) return null
   const h = hex.trim().toLowerCase()
   for (const [id, t] of Object.entries(TYPES)) {
-    if (String(t.color).toLowerCase() === h || String(t.light || '').toLowerCase() === h) return id
+    if (hexesOf(t).includes(h)) return id
   }
   return null
 }
 
-// An override equal to the type's own colour says nothing, and a dark hex
-// pinned on a card keeps it dark in light mode. Only a real override stays.
+// An override equal to the type's own colour (current or legacy) says
+// nothing, and a dark hex pinned on a card keeps it dark in light mode.
+// Only a real override stays.
 function overrideFor(hex, type) {
   if (!hex) return null
   const t = TYPES[type]
-  const h = hex.toLowerCase()
-  if (t && (String(t.color).toLowerCase() === h || String(t.light || '').toLowerCase() === h)) return null
+  if (t && hexesOf(t).includes(hex.trim().toLowerCase())) return null
+  return hex
+}
+
+// `pathfinderColor` is our own export saying "this is an override": only one
+// equal to the type's current colour is a no-op. A colour picked when it was
+// the type's own (a legacy hex) is a real choice today and stays.
+function exactOverrideFor(hex, type) {
+  const t = TYPES[type]
+  if (t && [t.color, t.light].map(h => String(h).toLowerCase()).includes(hex.trim().toLowerCase())) return null
   return hex
 }
 
@@ -82,17 +98,24 @@ const TYPE_ID = /^[a-z][a-z0-9-]{0,39}$/
 const HEX = /^#[0-9a-f]{3,8}$/i
 
 /**
- * The colour to write for a block's override. Most swatches are exactly
- * some type's hex (Red is problem's), so a Risk coloured Red would read
- * back as a Problem in any tool that keeps only the spec fields. Such an
- * override is moved one step in its blue channel: the same colour to an
- * eye, and no longer a type's. Returns [written, exact] where `exact` is
- * the original when it had to move, else null.
+ * The colour to write for a block's override. The pre-2026-10 swatches were
+ * mostly some type's hex (Red was problem's), so a Risk coloured Red would
+ * read back as a Problem in any tool that keeps only the spec fields. Such
+ * an override is moved one step in its blue channel: the same colour to an
+ * eye, and no longer a type's. An override equal to a legacy hex of its own
+ * type is written as is, and marked exact, since an importer would
+ * otherwise drop it as the type's own colour. Returns [written, exact]
+ * where `exact` is the original when it had to move or be marked, else null.
  */
 export function exportColorFor(color, type) {
   if (!color) return [null, null]
   const owner = typeForHex(color)
-  if (!owner || owner === type) return [color, null]
+  if (owner && owner === type) {
+    const t = TYPES[type], h = color.trim().toLowerCase()
+    const current = [t.color, t.light].map(x => String(x).toLowerCase()).includes(h)
+    return current ? [color, null] : [color, color]
+  }
+  if (!owner) return [color, null]
   const base = color.trim().toLowerCase()
   const blue = parseInt(base.slice(5, 7), 16)
   for (const step of [1, -1, 2, -2, 3, -3]) {
@@ -182,10 +205,11 @@ export function fromJsonCanvas(data) {
     // A preset is spent as a type hint (resolveNodeType), so only a real hex
     // can become a colour override. Our own export keeps the exact override
     // in `pathfinderColor` when it had to move the written one off a type
-    // hex (exportColorFor).
+    // hex, or when it is a legacy hex of its own type (exportColorFor).
     const rawColor = n.color == null ? '' : String(n.color).trim()
     const exact = typeof n.pathfinderColor === 'string' && HEX.test(n.pathfinderColor.trim()) ? n.pathfinderColor.trim() : null
     const hex = exact || (HEX.test(rawColor) ? rawColor : null)
+    const colorFor = type => (exact ? exactOverrideFor(exact, type) : overrideFor(hex, type))
     const base = { id, x: +n.x || 0, y: +n.y || 0, width: n.width > 0 ? +n.width : null }
     if (n.type === 'file' || n.type === 'link') {
       const isFile = n.type === 'file'
@@ -194,7 +218,7 @@ export function fromJsonCanvas(data) {
       const title = isFile
         ? (ref.split('/').pop() || 'File')
         : (ref.replace(/^https?:\/\//, '').slice(0, 120) || 'Link')
-      blocks.push({ ...base, type, color: overrideFor(hex, type), title, description: '',
+      blocks.push({ ...base, type, color: colorFor(type), title, description: '',
         docRef: { href: ref, label: isFile ? (ref.split('/').pop() || '') : '', anchor: '' } })
       return
     }
@@ -204,7 +228,7 @@ export function fromJsonCanvas(data) {
     const title = split.title === '(untitled)' ? '' : split.title
     const description = split.description
     const r = resolveNodeType(n, title, { legacy })
-    const block = { ...base, type: r.type, color: overrideFor(hex, r.type), title: r.title ?? title, description }
+    const block = { ...base, type: r.type, color: colorFor(r.type), title: r.title ?? title, description }
     if (r.confidence === 'low') { block.typeCheck = true; lowConfidence.push(id) }
     blocks.push(block)
   })

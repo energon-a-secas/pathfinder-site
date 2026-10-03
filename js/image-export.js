@@ -52,6 +52,17 @@ function themeColors() {
         frame: '#2d2d33', frameLabel: '#919198', hlInk: '#0e0e13', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f6' }
 }
 
+// The type dot, in the shape the card draws (TYPES shape, style.css
+// [data-shape]): 8px across, centred on (cx, cy).
+function dotShapeSvg(shape, cx, cy, fill) {
+  const f = escHtml(fill), x = cx.toFixed(1), y = cy.toFixed(1)
+  const tag = `class="type-dot" data-shape="${shape}"`
+  if (shape === 'ring') return `<circle ${tag} cx="${x}" cy="${y}" r="3.1" fill="none" stroke="${f}" stroke-width="1.8"/>`
+  if (shape === 'square') return `<rect ${tag} x="${(cx - 3.5).toFixed(1)}" y="${(cy - 3.5).toFixed(1)}" width="7" height="7" rx="1.5" fill="${f}"/>`
+  if (shape === 'diamond') return `<path ${tag} d="M ${x} ${(cy - 4.5).toFixed(1)} L ${(cx + 4.5).toFixed(1)} ${y} L ${x} ${(cy + 4.5).toFixed(1)} L ${(cx - 4.5).toFixed(1)} ${y} Z" fill="${f}"/>`
+  return `<circle ${tag} cx="${x}" cy="${y}" r="4" fill="${f}"/>`
+}
+
 // The card box model (style.css .block, .block-header, .block-title,
 // .block-desc): padding, the header row, and the text sizes.
 const CARD = { padX: 12, padTop: 10, header: 20, headerGap: 4, title: 14, titleLine: 19,
@@ -185,17 +196,18 @@ export function buildSvg() {
     const edgeOpacity = card === 'bar' ? 0.28 : card === 'plain' || card === 'header' ? 1 : 0.5
     parts.push(`<g${spotlit && !b.highlight ? ' opacity="0.3"' : ''}>`)
     // Highlight ring first, so the card sits on top of it exactly as on
-    // screen: 8px out, 2.5px wide, with its word on a tab at the top right.
+    // screen: 6 to 8.5px out (the stroke centred 7.25px out), with its word
+    // on a tab at the top left (the gap badge owns the top right on screen).
     // The festive border marches in the browser only when asked to, and
     // exports as its still candy-cane dash.
     if (b.highlight && HIGHLIGHTS[b.highlight]) {
       const hc = HIGHLIGHTS[b.highlight].color
-      const ring = `x="${(x - 8).toFixed(1)}" y="${(y - 8).toFixed(1)}" width="${w + 16}" height="${h + 16}" rx="${b.type === 'terminator' ? 30 : rx + 8}" fill="none" stroke-width="2.5"`
+      const ring = `x="${(x - 7.25).toFixed(2)}" y="${(y - 7.25).toFixed(2)}" width="${w + 14.5}" height="${h + 14.5}" rx="${b.type === 'terminator' ? 30 : rx + 7.25}" fill="none" stroke-width="2.5"`
       parts.push(`<rect ${ring} stroke="${hc}"${b.highlight === 'festive' ? ' stroke-dasharray="9 9"' : ''}/>`)
       if (b.highlight === 'festive') parts.push(`<rect ${ring} stroke="#34d399" stroke-dasharray="9 9" stroke-dashoffset="9"/>`)
       const word = highlightTabLabel(b.highlight)
       if (word) {
-        const tw = Math.ceil(word.length * 6.4 + 10), tx = x + w - 14 - tw, ty = y - 7 - 7
+        const tw = Math.ceil(word.length * 6.4 + 10), tx = x + 14, ty = y - 7.25 - 7
         parts.push(`<rect x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw}" height="14" rx="4" fill="${hc}"/>`)
         parts.push(`<text x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 7).toFixed(1)}" font-size="11" font-weight="700" letter-spacing="0.5" text-anchor="middle" dominant-baseline="central" fill="${C.hlInk}">${escHtml(word.toUpperCase())}</text>`)
       }
@@ -222,7 +234,7 @@ export function buildSvg() {
     const midY = top + CARD.header / 2
     let lx = x + CARD.padX
     if (dot) {
-      parts.push(`<circle cx="${(lx + 4).toFixed(1)}" cy="${midY.toFixed(1)}" r="4" fill="${escHtml(accent)}"/>`)
+      parts.push(dotShapeSvg(type.shape || 'dot', lx + 4, midY, accent))
       lx += 14
     }
     parts.push(`<text x="${lx.toFixed(1)}" y="${midY.toFixed(1)}" font-size="11" font-weight="600" letter-spacing="0.4" dominant-baseline="central" fill="${labelInk}">${escHtml(label.toUpperCase())}</text>`)
@@ -243,9 +255,10 @@ export function buildSvg() {
         })
         cy += Math.min(CARD.descLines, wrapText(b.description, inner, 6.2).length) * CARD.descLine
       }
-      // Priority and status: 10px/600 badges under the text, as on the card.
+      // Priority and status: neutral 11px/600 badges under the text, in
+      // sentence case, as on the card.
       const badges = []
-      if (b.priority) badges.push((PRIORITY_DEFS[b.priority]?.label || b.priority).toUpperCase())
+      if (b.priority) badges.push(PRIORITY_DEFS[b.priority]?.label || b.priority)
       if (b.status && b.status !== 'not-started') badges.push(STATUS_DEFS[b.status]?.label || b.status)
       if (badges.length) {
         cy += 5

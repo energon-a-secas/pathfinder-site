@@ -26,6 +26,7 @@ import { selectBlock, setSelection, selectArrow, renderInspector,
          deleteArrow, duplicateBlock, addArrow, createGroup } from './render.js'
 import { openMenu, isMenuOpen } from './menu.js'
 import { typeDot, typeRow, typeNoteItem, typeMenuItems, retypeBlocks, typeNoun } from './type-menu.js'
+import { typeShape, chipIcon } from './cards.js'
 import { createBlockAt, createConnected, insertOnArrow, suggestedNextTypes,
          defaultConnectDirection } from './create.js'
 import { startInlineEdit } from './inline-edit.js'
@@ -338,7 +339,7 @@ function priorityItems(ids) {
   return [
     { label: 'None', radio: true, checked: cur === null, action: () => applyBlocks(ids, { priority: null }) },
     ...Object.entries(PRIORITY_DEFS).map(([k, v]) => ({
-      label: v.label, dot: v.color, radio: true, checked: cur === k,
+      label: v.label, icon: chipIcon('priority', k), radio: true, checked: cur === k,
       action: () => applyBlocks(ids, { priority: k }),
     })),
   ]
@@ -396,7 +397,7 @@ function connectToItems(id) {
   return [
     { type: 'search', placeholder: 'Find a block', label: 'Find a block to connect to' },
     ...targets.map(o => ({
-      label: titleOf(o), hint: connectHint(id, o.id), dot: typeDot(o.type),
+      label: titleOf(o), hint: connectHint(id, o.id), dot: typeDot(o.type), dotShape: typeShape(o.type),
       action: () => {
         const plan = connectPlan(id, o.id)
         const aid = addArrow(plan.from, plan.to)
@@ -417,7 +418,7 @@ function connectionItems(id) {
     const out = a.from === id
     const other = state.blocks[out ? a.to : a.from]
     return {
-      label: `${out ? 'To' : 'From'} ${titleOf(other)}`, dot: typeDot(other.type),
+      label: `${out ? 'To' : 'From'} ${titleOf(other)}`, dot: typeDot(other.type), dotShape: typeShape(other.type),
       hint: connectionLabel(a) || undefined,
       action: () => selectConnectionFromKeyboard(a.id),
     }

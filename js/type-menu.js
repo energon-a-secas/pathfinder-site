@@ -36,7 +36,7 @@ export function typeNote(t) {
  * description.
  */
 export function typeRow(t, extra = {}) {
-  return { label: TYPES[t].label, dot: typeDot(t), hint: TYPES[t].short, ...extra }
+  return { label: TYPES[t].label, dot: typeDot(t), dotShape: TYPES[t].shape, hint: TYPES[t].short, ...extra }
 }
 
 /**

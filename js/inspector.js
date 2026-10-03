@@ -29,6 +29,7 @@ import { askQuestion, openDocPopup, detectSeeReference } from './doc-panel.js'
 import { arrangeSelection } from './align.js'
 import { openDropdown, isMenuOpen } from './menu.js'
 import { typeMenuItems, retypeBlock, retypeBlocks, typeNoun } from './type-menu.js'
+import { typeShape, chipIcon } from './cards.js'
 import { showPanels } from './chrome.js'
 import { setSpotlight } from './view-menu.js'
 import { animateView } from './zoom-controls.js'
@@ -70,7 +71,8 @@ const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform || '')
 // Priority dots read the theme's type tokens, so light mode gets its own
 // darker values instead of the dark palette's hex. Status glyphs are coloured
 // the same way, in CSS, by their data-status.
-const PRIORITY_COLORS = { high: 'var(--c-problem)', medium: 'var(--c-requirement)', low: 'var(--text-muted)' }
+// Priority is drawn as signal bars, never a colour: the type colours mean
+// types (cards.js chipIcon).
 
 const ACTION_LABELS = { resolve: 'Resolve', prepare: 'Prepare', validate: 'Validate', recollect: 'Recollect', reinforce: 'Reinforce' }
 // Read by no check: they only reach the prompt as badges, so they live in
@@ -260,7 +262,7 @@ function renderBlockInspector(b) {
   const typeBtn = byId('inspTypeBtn')
   if (typeBtn) {
     const dot = byId('inspTypeDot')
-    if (dot) dot.style.background = typeColor(b.type)
+    if (dot) { dot.style.background = typeColor(b.type); dot.dataset.shape = typeShape(b.type) }
     setText('inspTypeLabel', cfg.label)
     typeBtn.disabled = ro
     typeBtn.classList.toggle('is-unconfirmed', !!b.typeCheck)
@@ -374,7 +376,12 @@ function renderBlockInspector(b) {
   const prBtn = byId('inspPriorityBtn')
   if (prBtn) {
     const dot = byId('inspPriorityDot')
-    if (dot) { dot.style.background = pr ? PRIORITY_COLORS[pr] : ''; dot.classList.toggle('is-empty', !pr) }
+    if (dot) {
+      dot.style.background = ''
+      dot.innerHTML = pr ? chipIcon('priority', pr) : ''
+      dot.classList.toggle('is-icon', !!pr)
+      dot.classList.toggle('is-empty', !pr)
+    }
     setText('inspPriorityText', pr ? PRIORITY_DEFS[pr].label : 'None')
     prBtn.disabled = ro
     prBtn.setAttribute('aria-label', `Priority: ${pr ? PRIORITY_DEFS[pr].label : 'None'}`)
@@ -594,7 +601,7 @@ function renderMultiInspector(ids) {
 
   const type = commonValue(ids, b => b.type)
   const typeDot = byId('multiTypeDot')
-  if (typeDot) { typeDot.style.background = type ? typeColor(type) : ''; typeDot.hidden = !type }
+  if (typeDot) { typeDot.style.background = type ? typeColor(type) : ''; typeDot.dataset.shape = type ? typeShape(type) : 'dot'; typeDot.hidden = !type }
   setText('multiTypeText', type ? TYPES[typeKey(type)].label : 'Mixed types')
   const status = commonValue(ids, b => statusKey(b))
   setText('multiStatusText', status === undefined ? 'Mixed status' : status ? statusLabel(status) : 'No status')
@@ -638,7 +645,7 @@ function endpointHtml(b, id, role) {
   const title = b.title || 'Untitled'
   return `<button type="button" class="insp-endpoint" data-select-block="${escHtml(id)}"
       aria-label="${role}: ${escHtml(TYPES[t].label)}, ${escHtml(title)}. Select it" title="Select this block">
-    <span class="insp-dot" style="background:${typeColor(t)}" aria-hidden="true"></span>
+    <span class="insp-dot" data-shape="${typeShape(t)}" style="background:${typeColor(t)}" aria-hidden="true"></span>
     <span class="insp-endpoint-text"><span class="insp-endpoint-type">${escHtml(TYPES[t].label)}</span><span class="insp-endpoint-title">${escHtml(title)}</span></span>
   </button>`
 }
@@ -773,7 +780,7 @@ function statusMenuItems(current, onPick) {
 function priorityMenuItems(current, onPick) {
   return [{ label: 'None', radio: true, checked: current === '', action: () => onPick('') },
     ...Object.entries(PRIORITY_DEFS).map(([k, v]) => ({
-      label: v.label, dot: PRIORITY_COLORS[k] || v.color, radio: true, checked: current === k, action: () => onPick(k),
+      label: v.label, icon: chipIcon('priority', k), radio: true, checked: current === k, action: () => onPick(k),
     }))]
 }
 
@@ -1389,7 +1396,7 @@ function paintHandle() {
   const title = byId('sheetTitle')
   if (!title) return
   const dot = byId('sheetDot'), kind = byId('sheetKind')
-  let text = 'Nothing selected', kindText = '', color = '', mark = 'empty'
+  let text = 'Nothing selected', kindText = '', color = '', mark = 'empty', shape = 'dot'
   const b = selection.ids.size === 1 && selection.blockId ? state.blocks[selection.blockId] : null
   if (document.body.classList.contains('comparing-snapshot')) { text = 'Snapshot comparison'; mark = 'none' }
   else if (selection.ids.size > 1) { text = selection.ids.size + ' blocks selected'; mark = 'none' }
@@ -1401,7 +1408,7 @@ function paintHandle() {
   } else if (b) {
     text = b.title || 'Untitled'
     kindText = (TYPES[b.type] || TYPES.custom).label + ': '
-    color = typeColor(b.type); mark = 'type'
+    color = typeColor(b.type); mark = 'type'; shape = typeShape(b.type)
   }
   if (title.textContent !== text) title.textContent = text
   title.classList.toggle('is-empty', mark === 'empty')
@@ -1410,6 +1417,7 @@ function paintHandle() {
     dot.hidden = mark === 'none'
     dot.classList.toggle('is-empty', mark === 'empty')
     dot.style.background = color
+    dot.dataset.shape = shape
   }
 }
 

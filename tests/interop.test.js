@@ -5,6 +5,7 @@
 import { describe, it, assert } from './test-utils.js'
 import { state, canvasMeta } from '../js/state.js'
 import { detectFormat, fromJsonCanvas, toJsonCanvas, parseMermaid } from '../js/interop.js'
+import { TYPES } from '../js/utils.js'
 
 describe('detectFormat()', () => {
   it('tells the three formats apart', () => {
@@ -72,7 +73,7 @@ describe('toJsonCanvas()', () => {
     const p = out.nodes.find(n => n.id === 'p1')
     assert.eq(p.type, 'text')
     // The type's own hex (lossless) replaced the shared presets in 2026-09.
-    assert.eq(p.color, '#f87171', 'problem exports its own hex, which maps back to one type')
+    assert.eq(p.color, TYPES.problem.color, 'problem exports its own hex, which maps back to one type')
     assert.eq(p.pathfinderType, 'problem')
     assert.includes(p.text, '#### It breaks')
     const d = out.nodes.find(n => n.id === 'd1')

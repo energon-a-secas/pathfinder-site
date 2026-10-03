@@ -17,7 +17,7 @@ function itemHtml(t) {
   const label = escHtml(cfg.label)
   return `<button type="button" class="palette-item" data-type="${t}" data-tier="${cfg.tier}"` +
     ` aria-label="Add ${label} block" aria-describedby="pdesc-${t}">` +
-    `<span class="palette-dot" style="background:var(--c-${t})" aria-hidden="true"></span>` +
+    `<span class="palette-dot" data-shape="${cfg.shape || 'dot'}" style="background:var(--c-${t})" aria-hidden="true"></span>` +
     `<span class="palette-item-text"><span class="palette-label">${label}</span></span>` +
     `<span class="sr-only" id="pdesc-${t}">${escHtml(cfg.short)}</span>` +
     `</button>`
@@ -51,7 +51,7 @@ export function renderStepStarter(row = document.getElementById('mapSteps')) {
       ` aria-label="${escHtml(`${i + 1}. ${g.label}: add ${article(label)} ${label}`)}"` +
       ` title="${escHtml(`${g.label}: ${g.hint}`)}">` +
       `<span class="map-step-head"><span class="map-step-num" aria-hidden="true">${i + 1}</span>${escHtml(g.label)}</span>` +
-      `<span class="map-step-type"><span class="palette-dot" style="background:var(--c-${t})" aria-hidden="true"></span>${escHtml(label)}</span>` +
+      `<span class="map-step-type"><span class="palette-dot" data-shape="${TYPES[t].shape || 'dot'}" style="background:var(--c-${t})" aria-hidden="true"></span>${escHtml(label)}</span>` +
       `</button>`
   }).join('')
 }
