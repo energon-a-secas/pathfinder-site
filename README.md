@@ -100,24 +100,30 @@ built in this order: **Why → Who → Proof → What → How → Doubt**. Proof
 before How because the measure is set with the objective, and the work is
 chosen after it.
 
-| Step | Type | Colour | Use for |
+| Step | Type | Dot | Use for |
 |---|---|---|---|
-| Why | **Goal** | violet `#a78bfa` | What you want to achieve |
-| Why | **Problem** | rose `#f87171` | An issue happening now |
-| Who | **Stakeholder** | pink `#fda4af` | Who receives, approves or is affected |
-| Proof | **Metric** | cyan `#67e8f9` | A measurable signal with a target |
-| What | **Requirement** | amber `#fbbf24` | Must be true when done |
-| What | **Output** | indigo `#818cf8` | A deliverable someone can hold: report, doc, release |
-| How | **Implementation** | lime `#a3e635` | Work done once to build or change something |
-| How | **Process** | blue `#60a5fa` | A recurring step in a workflow |
-| How | **Trigger / End** | orchid `#f0abfc` | What starts or ends a flow: an event, a cadence, a finish |
-| How | **Decision** | emerald `#34d399` | A choice made, or one to make |
-| How | **Resource / System** | teal `#2dd4bf` | An existing team, tool, system or data source |
-| Doubt | **Assumption** | gold `#eab308` | A belief you are treating as true |
-| Doubt | **Risk** | orange `#fb923c` | Something that might go wrong |
-| Doubt | **Open Question** | sky `#38bdf8` | A genuine unknown |
-| Other | **Context** | slate `#64748b` | Background that frames the work |
-| Other | **Other** | fuchsia `#d8b4fe` | Untyped: checks skip it |
+| Why | **Goal** | blue ring `#95cafc` | What you want to achieve |
+| Why | **Problem** | red ring `#dd7573` | An issue happening now |
+| Who | **Stakeholder** | pink ring `#fda6c6` | Who receives, approves or is affected |
+| Proof | **Metric** | cyan square `#2ccceb` | A measurable signal with a target |
+| What | **Requirement** | green square `#5aae69` | Must be true when done |
+| What | **Output** | ochre square `#d1925a` | A deliverable someone can hold: report, doc, release |
+| How | **Implementation** | olive dot `#9ea044` | Work done once to build or change something |
+| How | **Process** | blue dot `#6cb3fd` | A recurring step in a workflow |
+| How | **Trigger / End** | magenta dot `#cd7ab2` | What starts or ends a flow: an event, a cadence, a finish |
+| How | **Decision** | mint dot `#73dea4` | A choice made, or one to make |
+| How | **Resource / System** | teal dot `#16b5a5` | An existing team, tool, system or data source |
+| Doubt | **Assumption** | lilac diamond `#d09aea` | A belief you are treating as true |
+| Doubt | **Risk** | orange diamond `#f89d79` | Something that might go wrong |
+| Doubt | **Open Question** | sky diamond `#2fa5d8` | A genuine unknown |
+| Other | **Context** | slate dot `#b7bcc6` | Background that frames the work |
+| Other | **Other** | warm grey dot `#837a73` | Untyped: checks skip it |
+
+The colour is the dark theme's; the light theme has a deeper twin of each
+(DESIGN.md has both, in OKLCH). The dot's shape follows the step: a ring for
+Why and Who, a square for What and Proof, a dot for How and Other, a diamond
+for Doubt, so two types that look alike in colour never share a shape. Amber
+on a card always means a gap, never a type.
 
 Three pairs get confused, so the type picker says it outright: every time a
 flow runs is a Process, once to build or change something is an

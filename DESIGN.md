@@ -44,6 +44,40 @@ colors:
   light-info: "oklch(0.48 0.12 245)"
   light-edge: "oklch(0.56 0.015 285)"
   light-edge-hi: "oklch(0.38 0.015 285)"
+  # The sixteen type colours (--c-<id>; TYPES in js/utils.js carries the
+  # same values as sRGB hex for JSON Canvas and Mermaid).
+  type-goal: "oklch(0.82 0.09 248)"
+  type-problem: "oklch(0.68 0.13 22)"
+  type-stakeholder: "oklch(0.82 0.11 356)"
+  type-metric: "oklch(0.78 0.13 215)"
+  type-requirement: "oklch(0.68 0.13 148)"
+  type-output: "oklch(0.71 0.105 61)"
+  type-implementation: "oklch(0.685 0.115 110)"
+  type-process: "oklch(0.75 0.13 251)"
+  type-terminator: "oklch(0.685 0.125 340)"
+  type-decision: "oklch(0.82 0.13 158)"
+  type-resource: "oklch(0.695 0.12 184)"
+  type-assumption: "oklch(0.765 0.125 314)"
+  type-risk: "oklch(0.78 0.12 42)"
+  type-question: "oklch(0.68 0.125 232)"
+  type-context: "oklch(0.795 0.015 262)"
+  type-custom: "oklch(0.585 0.015 60)"
+  light-type-goal: "oklch(0.525 0.14 248)"
+  light-type-problem: "oklch(0.46 0.15 29)"
+  light-type-stakeholder: "oklch(0.6 0.145 357)"
+  light-type-metric: "oklch(0.565 0.1 221)"
+  light-type-requirement: "oklch(0.545 0.145 146)"
+  light-type-output: "oklch(0.51 0.11 59)"
+  light-type-implementation: "oklch(0.585 0.13 115)"
+  light-type-process: "oklch(0.6 0.12 258)"
+  light-type-terminator: "oklch(0.49 0.14 342)"
+  light-type-decision: "oklch(0.46 0.1 153)"
+  light-type-resource: "oklch(0.6 0.105 181)"
+  light-type-assumption: "oklch(0.565 0.15 319)"
+  light-type-risk: "oklch(0.565 0.16 39)"
+  light-type-question: "oklch(0.46 0.1 239)"
+  light-type-context: "oklch(0.52 0.02 270)"
+  light-type-custom: "oklch(0.4 0.02 60)"
 typography:
   headline:
     fontFamily: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
@@ -147,8 +181,16 @@ components:
     backgroundColor: "{colors.surface-2}"
     textColor: "{colors.text-2}"
     rounded: "{rounded.sm}"
-    padding: "2px 6px"
+    height: "18px"
+    padding: "0 6px"
     typography: "{typography.caption}"
+  gap-badge:
+    backgroundColor: "{colors.surface-1}"
+    textColor: "{colors.attention}"
+    rounded: "10px"
+    size: "20px"
+  type-dot:
+    size: "8px"
 ---
 
 # Design System: Pathfinder
@@ -187,7 +229,7 @@ Restrained: tinted neutrals, one accent under ten percent of any screen, one att
 - **Instrument violet** (`--accent`, oklch(0.68 0.16 285) dark, oklch(0.52 0.18 285) light): the current selection, the keyboard focus ring, the primary button, prose links and the marquee. `--accent-hover` is the hover twin (lighter in dark mode, darker in light). `--accent-subtle` (18% of the accent) is the selection halo and fill. Text on an accent fill is `--on-accent`: near-black in dark mode, near-white in light, chosen by measurement (6.35:1 and 5.65:1).
 
 ### Secondary
-- **Signal amber** (`--attention`, oklch(0.86 0.15 85) dark, oklch(0.64 0.138 70) light): a gap on a card and in the Attention tab, nothing else. It draws (rings, the gap badge, icons) at 3:1 or better on the canvas and on a card; `--attention-ink` (the same amber in dark, oklch(0.52 0.11 66) in light) is for amber text, at 4.5:1.
+- **Signal amber** (`--attention`, oklch(0.86 0.15 85) dark, oklch(0.64 0.138 70) light): a gap on a card and in the Attention tab, nothing else. The presentation highlight Hold is a grey (`--hl-hold`, oklch(0.74 0.015 285)), not amber, for the same reason. It draws (rings, the gap badge, icons) at 3:1 or better on the canvas and on a card; `--attention-ink` (the same amber in dark, oklch(0.52 0.11 66) in light) is for amber text, at 4.5:1.
 
 ### Status (UI only)
 - **Danger** (`--danger`), **warning** (`--warning`), **success** (`--success`) and **info** (`--info`): toasts, destructive actions, diff and comparison marks, save errors. Always next to an icon or a word, never alone. `--danger-subtle` is the destructive hover wash. They never mark a type or a gap.
@@ -258,16 +300,58 @@ High contrast (`body.high-contrast`, or `prefers-contrast: more`) raises `--bord
 
 ### Type palette
 
-> **Pending: builder B (SPEC3 Wave 1, item 2) fills this section in.** It holds the sixteen type colours in OKLCH for both themes (dark about L 0.74 C 0.11; light about L 0.52 C 0.13, to reach 3:1 as graphics on the light canvas), the dot shape per type where two types sit closer than 10 dE, the dE matrix summary, the `legacyColors` kept for importing older JSON Canvas files, and the rule that `SWATCH_COLORS` never equals a type colour. Until then the `--c-*` values in `css/style.css` and `TYPES` in `js/utils.js` are the pre-round palette.
->
-> Constraints the foundation already fixes: a type colour appears only on the card's 8px dot, its quiet edge and the header-preset strip, never as text and never for state; every type colour stays at least 10 dE from `--attention` in its theme (the attention values above clear the whole target band by 12.6 and 12.0).
+Sixteen type colours, one per block type, and the only colours a card wears for what it *is*. They live in `css/style.css` as `--c-<id>` (OKLCH, dark on `:root`, light on `body.light-mode`) and in `TYPES` in `js/utils.js` as the sRGB hex those values render to, because JSON Canvas and Mermaid carry hex and an import reads a type back from it. `tests/types-foundation.test.js` holds the two to the same values, channel for channel.
+
+**How they were chosen.** On the dark canvas near L 0.74, C 0.11 (lightness 0.68 to 0.82, chroma 0.09 to 0.13); in the light theme near L 0.52, C 0.13 (0.46 to 0.60, 0.10 to 0.16) so each draws at 3:1 or better on every light surface. Each type has a hue family that keeps the meanings people already bring (Problem red, Risk orange, Decision green, Open Question sky, Process blue), spread around the wheel and kept clear of the two hues that mean something else: the accent violet (285) and the attention amber (85). Lightness and chroma were then tuned by script (a constrained search, in gamut, measured on the rendered hex) to push every pair apart.
+
+**Shape follows the step's role.** Sixteen colours in one lightness band cannot all sit 10 dE apart: the best spread found for this band puts the closest pair near 8. So the dot's shape carries part of the type, by the question it answers: a **ring** for Why and Who (the ends the work serves), a **square** for What and Proof (what can be checked), a **dot** for How and Other (the work, the most common cards), a **diamond** for Doubt. Every pair under 10 dE differs in shape, so colour is never the only cue. The shape is on every dot the app draws (card, palette, menus, inspector, the phone sheet, the image export), as a mask or a transform on the same 8px element (`[data-shape]`), never a layout change.
+
+| Type | Step | Shape | Dark | Light | Contrast, worst surface (dark / light) | dE from attention | dE from accent |
+|---|---|---|---|---|---|---|---|
+| Goal | Why | ring | `oklch(0.82 0.09 248)` #95cafc | `oklch(0.525 0.14 248)` #046eb6 | 9.02 / 4.48 | 24.1 / 30.0 | 17.4 / 10.9 |
+| Problem | Why | ring | `oklch(0.68 0.13 22)` #dd7573 | `oklch(0.46 0.15 29)` #9a2a20 | 5.10 / 6.43 | 23.2 / 20.7 | 21.9 / 26.8 |
+| Stakeholder | Who | ring | `oklch(0.82 0.11 356)` #fda6c6 | `oklch(0.6 0.145 357)` #c15681 | 8.51 / 3.57 | 18.8 / 17.3 | 21.3 / 20.9 |
+| Metric | Proof | square | `oklch(0.78 0.13 215)` #2ccceb | `oklch(0.565 0.1 221)` #11839f | 8.13 / 3.67 | 26.6 / 24.2 | 19.6 / 17.0 |
+| Requirement | What | square | `oklch(0.68 0.13 148)` #5aae69 | `oklch(0.545 0.145 146)` #268536 | 5.72 / 3.90 | 23.2 / 19.8 | 27.0 / 30.6 |
+| Output | What | square | `oklch(0.71 0.105 61)` #d1925a | `oklch(0.51 0.11 59)` #935417 | 5.92 / 4.98 | 16.4 / 13.6 | 24.9 / 26.8 |
+| Implementation | How | dot | `oklch(0.685 0.115 110)` #9ea044 | `oklch(0.585 0.13 115)` #7a8409 | 5.62 / 3.42 | 18.7 / 11.6 | 27.5 / 31.6 |
+| Process | How | dot | `oklch(0.75 0.13 251)` #6cb3fd | `oklch(0.6 0.12 258)` #5181c7 | 7.06 / 3.30 | 29.8 / 26.0 | 11.4 / 12.2 |
+| Trigger / End | How | dot | `oklch(0.685 0.125 340)` #cd7ab2 | `oklch(0.49 0.14 342)` #933a76 | 5.22 / 5.64 | 27.8 / 24.4 | 13.6 / 16.0 |
+| Decision | How | dot | `oklch(0.82 0.13 158)` #73dea4 | `oklch(0.46 0.1 153)` #20683c | 9.45 / 5.64 | 17.2 / 24.0 | 29.6 / 26.5 |
+| Resource / System | How | dot | `oklch(0.695 0.12 184)` #16b5a5 | `oklch(0.6 0.105 181)` #129484 | 6.09 / 3.13 | 26.3 / 20.5 | 21.9 / 24.2 |
+| Assumption | Doubt | diamond | `oklch(0.765 0.125 314)` #d09aea | `oklch(0.565 0.15 319)` #9b54ad | 7.06 / 4.11 | 26.7 / 25.0 | 11.6 / 11.1 |
+| Risk | Doubt | diamond | `oklch(0.78 0.12 42)` #f89d79 | `oklch(0.565 0.16 39)` #c04b20 | 7.50 / 4.11 | 12.9 / 11.3 | 26.0 / 28.9 |
+| Open Question | Doubt | diamond | `oklch(0.68 0.125 232)` #2fa5d8 | `oklch(0.46 0.1 239)` #0a5e89 | 5.57 / 5.89 | 31.9 / 29.8 | 13.1 / 14.5 |
+| Context | Other | dot | `oklch(0.795 0.015 262)` #b7bcc6 | `oklch(0.52 0.02 270)` #646975 | 8.19 / 4.59 | 17.7 / 19.7 | 18.5 / 16.1 |
+| Other | Other | dot | `oklch(0.585 0.015 60)` #837a73 | `oklch(0.4 0.02 60)` #50453d | 3.71 / 7.76 | 30.6 / 26.9 | 19.6 / 22.9 |
+
+Contrast is the type colour as a graphic against the worst of `--canvas`, `--card` and `--surface-raised-hover` (a hovered menu row), in its theme; the need is 3:1. Context and Other are near-neutral on purpose: background and untyped are the two types that should not compete.
+
+**Distances** (OKLab dE times 100, on the rendered hex; the full 16 by 16 matrices are computed by `tests/design-tokens.test.js` on every run):
+
+| Measure | Dark | Light | Before (2026-09 palette, dark / light) |
+|---|---|---|---|
+| Closest pair, any two types | 7.9 (Requirement / Resource) | 7.7 (Metric / Resource) | 4.0 (Trigger / Other) / 4.9 (Decision / Resource) |
+| Closest pair in the same step | 13.7 (Decision / Resource) | 12.8 (Context / Other) | 5.2 / 4.9 (Decision / Resource) |
+| Closest pair with the same shape | 12.3 (Process / Context) | 12.1 (Decision / Other) | 4.0 / 4.9 (all were dots) |
+| Closest type to `--attention` | 12.9 (Risk) | 11.3 (Risk) | 2.7 (Requirement) / 2.8 |
+| Closest type to `--accent` | 11.4 (Process) | 10.9 (Goal) | 2.2 (Output) / 2.5 |
+| Pairs under 10 | 13, none sharing a shape | 11, none sharing a shape | 8, all dots |
+
+The seventeen pairs under 10 in either theme, each with its two shapes: Goal (ring) with Metric (square), Process (dot), Open Question (diamond) and Context (dot); Problem (ring) with Output (square) and Trigger / End (dot); Stakeholder (ring) with Risk (diamond); Metric (square) with Process, Resource and Context (dots); Requirement (square) with Implementation, Decision and Resource (dots); Output (square) with Implementation (dot) and Risk (diamond); Process (dot) with Open Question (diamond); Trigger / End (dot) with Assumption (diamond). The narrower band is why more pairs sit between 7.7 and 10 than before; none sits below 7.7, where four sat between 4 and 5.4.
+
+**Older files.** Each `TYPES` entry keeps `legacyColors`: the dark and light hex it drew before this palette. `js/interop.js` reads them exactly like the current ones, so a JSON Canvas exported before 2026-10 (with or without `pathfinderType`, either theme's hex) still imports typed with no colour override, and the card takes the new palette. A block whose own colour was picked when it equalled its type's colour keeps it: the export marks it in `pathfinderColor`, and the import keeps it. A stored block colour equal to an old type colour keeps its old light twin (`js/cards.js` `lightAccentFor`).
+
+**Swatches** (`SWATCH_COLORS`, a person's own colour for a block or a connection): twelve named hues at OKLCH L 0.62, none equal to any current or legacy type colour, none on the accent violet or the attention amber. Each reads at 4.5:1 or better on the dark canvas and 3:1 as a line on the light one; on a light card the dot and edge take a darker twin (`SWATCH_LIGHT` in `js/cards.js`). A swatch changes a card's colour, never its shape, so the shape still says the type. Colours picked before 2026-10 keep their names.
+
+**Where a type colour may appear.** The card's 8px dot and its quiet edge (and the header preset's strip and the tint preset's wash, which mix it into the card), the palette, the pickers and the inspector's type dot. Nothing else: `tests/design-tokens.test.js` fails if any rule in `style.css` reads a `--c-*` token outside a card's `--bc`.
 
 ### Named rules
 **The one voice rule.** The violet is for selection, focus and the primary action. If it appears anywhere else, it is decoration and it goes.
 
 **The amber means missing rule.** `--attention` marks a gap and nothing else: not a warning, not a priority, not a type. A gap never wears its card's type colour.
 
-**The type lives on the dot rule.** A block's type is its 8px dot and a quiet edge. Type colours never colour text, chips, statuses or health.
+**The type lives on the dot rule.** A block's type is its 8px dot (in its step's shape) and a quiet edge. Type colours never colour text, chips, statuses, gaps, selection or health.
 
 **The no stray colour rule.** No hex, `rgb()` or named colour outside a token block. A new colour is a new token, defined for both themes and measured.
 
@@ -334,17 +418,17 @@ One treatment everywhere: `--focus-outline` (2px solid accent) at `--focus-offse
 ### Cards (blocks)
 - **Corner:** 10px (`--radius-lg`); terminators are pills.
 - **Fill:** `--card`; a 1.5px edge mixing the type colour into `--border` (the preset decides how much).
-- **Structure:** the header row (8px type dot, the 11px uppercase type label, markers), the 14px/600 title, the 12px description clamped to three lines, then chips.
-- **States:** each state has its own channel: hover a shadow, selection the accent outline, a gap the attention ring, isolation a dashed edge, a highlight an outer ring with its word on a tab.
+- **Structure:** the header row (the 8px type dot in its shape, the 11px uppercase type label, markers), the 14px/600 title, the 12px description clamped to three lines, then chips.
+- **States:** each state has its own channel, and they nest without touching, measured outward from the card's edge: selection or keyboard focus on the edge (0 to 1.5px) with its halo to 4px; a gap's dashed ring from 3 to 4.5px; a presentation highlight's ring from 6 to 8.5px, its word on a tab at the top left. Hover is a shadow, drag a deeper one. The gap badge owns the top right corner.
 
 ### Chips
-- Priority, status and action chips are neutral: `--surface-2`, `--text-2`, an icon plus the word, 11px. Until the card-state pass lands they still map to the status tokens. Never a type colour.
+- Priority, status and action chips are neutral: 18px tall, `--surface-2`, `--text-2`, `--radius-sm`, an 11px stroked icon and the word in sentence case, 11px/600. The icon tells them apart: signal bars for priority (three, two or one at full strength), a circle that fills, checks or strikes for status, and a wrench, shield, clock, double chevron or magnifier for Resolve, Prepare, Recollect, Reinforce and Validate (`js/cards.js` `chipIcon`). Never a type, status or attention colour. The inspector and the menus draw priority with the same bars.
 
 ### Gap marker
-- `--attention` only: a 1.5px dashed outline at a 3px offset, plus the gap's icon as a small corner badge whose name shows on hover and focus. It animates only with Animate highlights on and only on the card in front of you (the `--gap-anim` contract).
+- `--attention` only, never the card's type colour: a 1.5px dashed ring 3px outside the card (the `::after` box), and the gap's icon in a 20px round badge on the card's top right edge (`--card` fill, 1.5px `--attention` edge, `--attention-ink` icon at 4.5:1). While the card is hovered or keyboard focused, the gap's name floats above the badge on a raised label, clear of the card's top port. Every gap wears the same marker, isolation included. Static at rest; with Animate highlights on, the ring's opacity breathes on the card in front of you only (the `--gap-anim` contract), and `prefers-reduced-motion` stops it. A snapshot comparison writes its label into `::after`, so a compared card shows its badge without the ring.
 
 ### Selection
-- A 1.5px `--accent` outline with an `--accent-subtle` halo; a multi-selection shows the same on every card. The marquee is a 1px accent line over an 8% accent fill.
+- A 1.5px `--accent` outline on the card's edge (offset 0) with a 4px `--accent-subtle` halo; a multi-selection shows the same on every card. Keyboard focus on a selected card takes the 2px focus width. It sits inside the gap ring, so a selected gap card shows both. The marquee is a 1px accent line over an 8% accent fill. Forced colors draws it in `Highlight`.
 
 ### Connections
 - `--edge` at rest, `--edge-hi` when a related card is hovered, `--edge-sel` (text-1) when selected. Labels are pills on `--card` with a `--border` edge and 11px text.

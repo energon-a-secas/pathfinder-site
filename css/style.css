@@ -50,7 +50,8 @@
       --hl-alert:      oklch(0.711 0.166 22.2);
       --hl-focus:      oklch(0.754 0.139 232.7);
       --hl-go:         oklch(0.773 0.153 163.2);
-      --hl-hold:       oklch(0.837 0.164 84.4);
+      /* Hold is a paused grey, not amber: amber means a gap and nothing else. */
+      --hl-hold:       oklch(0.74 0.015 285);
       --hl-festive:    oklch(0.725 0.175 349.8);
 
       /* Overlays: the modal scrim, dark ink on a coloured strip. */

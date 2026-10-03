@@ -65,7 +65,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **Editing on the card** (`inline-edit.js`): double-click, `Enter`/`F2`, `Shift+Enter` for the description; Escape commits. Double-click a line, or `Enter`/`F2` on a selected one, edits its label (`arrow-edit.js`). Double-click empty canvas opens the quick-add picker; Fit moved to `Shift+1` and the status bar.
 - **Quick create**: click a port, drop a port's line on empty canvas (the same quick-add picker, `suggestedNextTypes` first), `Alt+Arrow`, `Cmd/Ctrl+Enter`.
 - **Lines**: `arrow.style` is the route (`routed`, `curved`, `straight`, `elbow`) and `arrow.pattern` the dash (`solid`, `dashed`, `dotted`); a legacy `dashed`/`dotted` style loads as curved + pattern. New connections draw at `DEFAULT_ARROW_WEIGHT` (1.5); a saved arrow without a weight keeps drawing at 2 (`arrowWeight`). Labels are pills placed off bends and cards. `portsBy: 'import'` marks sides an imported file chose; Tidy and a drag release them like `tidy` pins, and a drag lands on whole pixels.
-- **Motion is off by default** (`prefs.js` `motion`, View ▾ → Animate highlights): gap states and highlights are static rings at rest; with `body.motion-on` they animate only on the hovered, selected or focused card; `prefers-reduced-motion` stops everything. A gap class names its colour in `--gap` and its motion in `--gap-anim`, never `animation` itself. Selection is an outline and never a shadow.
+- **Motion is off by default** (`prefs.js` `motion`, View ▾ → Animate highlights): gap states and highlights are static rings at rest; with `body.motion-on` they animate only on the hovered, selected or focused card; `prefers-reduced-motion` stops everything. A gap class names its motion in `--gap-anim`, never `animation` itself; its colour is always `--attention`. Selection is a 1.5px accent outline on the card's edge plus an `--accent-subtle` halo (a shadow that hover and drag stack under).
 - **Gaps** (`gaps.js`): a pure `detectGaps()` plus the DOM writer `runGapDetection()`, the only writer of a card's `gi-` icon slot; one gap per block. `gapAck` accepts a gap (the inspector's Suggestions, the Attention tab) and the prompt lists it under Accepted gaps.
 - **Undo carries the map settings**: every undo entry holds `cardStyle` and `spotlight` (their setters snapshot), and a replace's entry (`snapshot({ framing: true })`) holds the whole framing: title, brief, situation, prompt options. Title and brief edits take no snapshot of their own, which is why an ordinary entry leaves them alone.
 - **Sharing**: new links are `#z=` (deflate-raw, base64url) carrying `?via=share`; `#s=` still decodes. A link, `?src=` or an imported file opens as a new map by default, in a real dialog; Replace keeps a named snapshot first. A modal dialog owns the keyboard: the global key handler bails on `dialog:modal`.
@@ -277,7 +277,7 @@ a share link should carry the diagram, not the sender's pan and zoom.
 
 ## Block Types
 
-16 types in the `TYPES` registry (`utils.js`), in the order the palette, the pickers and every exporter read them: grouped by the question each answers (`TYPE_STEPS`, `typesByStep()`). Each has a colour for each theme; the card shows it as an 8px dot beside a neutral label and a quiet edge, never as label text. The palette shows all 16 grouped by step; `tier` (core / more) decides what the canvas menu's Add here lists before **More types**. No type is ever removed (deleting a type would drop existing blocks via `normalize.js`), and ids never change, only labels. The README's table is the reader's copy; this is the shape:
+16 types in the `TYPES` registry (`utils.js`), in the order the palette, the pickers and every exporter read them: grouped by the question each answers (`TYPE_STEPS`, `typesByStep()`). Each has a colour for each theme (OKLCH `--c-<id>` in `style.css`, the same as hex in `TYPES`, plus `legacyColors` that `interop.js` still reads) and a dot `shape` by the step's role (ring Why/Who, square What/Proof, dot How/Other, diamond Doubt); the card shows it as an 8px dot beside a neutral label and a quiet edge, never as label text or a state. DESIGN.md "Type palette" has the values and the distances. The palette shows all 16 grouped by step; `tier` (core / more) decides what the canvas menu's Add here lists before **More types**. No type is ever removed (deleting a type would drop existing blocks via `normalize.js`), and ids never change, only labels. The README's table is the reader's copy; this is the shape:
 
 | Step | Types |
 |------|-------|
@@ -299,7 +299,7 @@ The confusable pairs (`TYPE_DISAMBIGUATION`): every time a flow runs is a Proces
 
 ## Gap Detection
 
-`detectGaps(blocks, arrows)` in `gaps.js` is pure (no DOM); `runGapDetection()` runs it on every canvas change and paints the result: one gap class per card and a line icon (`gapIconFor`) with its name in the card's `gi-<id>` slot. Gap branches are **mutually exclusive**: a block reports exactly ONE gap, isolation first, then the rules in this order (a type rule applies only to a *connected* block):
+`detectGaps(blocks, arrows)` in `gaps.js` is pure (no DOM); `runGapDetection()` runs it on every canvas change and paints the result: one gap class per card (a dashed `--attention` ring 3px out, the card's `::after`) and a corner badge with the line icon (`gapIconFor`) and its name in the card's `gi-<id>` slot. Gap branches are **mutually exclusive**: a block reports exactly ONE gap, isolation first, then the rules in this order (a type rule applies only to a *connected* block):
 
 | Class | Meaning | Trigger |
 |-------|---------|---------|
@@ -361,8 +361,9 @@ How the handler is layered (`setupKeyboardShortcuts` in `events.js`): a modal di
 ## CSS Class Patterns
 
 - `.block[data-type=goal]`: type-specific styling; `--bc` is the type colour
-- `.block.selected` (an outline that wins over every state) · `.block.dragging`
-- `.block.gap-*`: one per block (see Gap Detection); `.gap-isolated` is a dashed edge, the rest a ring from `--gap` / `--gap-anim`
+- `.block.selected` (an accent outline on the edge plus a halo, over every state) · `.block.dragging`
+- `.block.gap-*`: one per block (see Gap Detection); every gap, isolation included, is the `::after` dashed ring in `--attention` plus the `.block-gap-icons` corner badge; motion from `--gap-anim`
+- `[data-shape=ring|square|diamond]` on any type dot (`.block-type-dot`, `.palette-dot`, `.pf-menu-dot`, `.insp-dot`, `.sheet-dot`) · `.chip` (neutral priority, status and action chips)
 - `.block.type-check` · `.block-type-check`: a type awaiting confirmation (the label is a button, `T` opens it)
 - `.block[data-card=outline|bar|header|tint|plain]`: card preset
 - `.block[data-highlight=alert|focus|go|hold|festive]` + `.block-hl-tab`: presentation ring and its word

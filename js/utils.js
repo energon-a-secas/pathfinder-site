@@ -335,7 +335,8 @@ export const HIGHLIGHTS = {
   alert:   { label: 'Alert',   color: '#f87171', hint: 'Red ring. The thing you want looked at first (pulses on hover with Animate highlights on).' },
   focus:   { label: 'Focus',   color: '#38bdf8', hint: 'Steady blue ring. "This is what we are discussing."' },
   go:      { label: 'Go',      color: '#34d399', hint: 'Green. Settled, agreed, or done.' },
-  hold:    { label: 'Hold',    color: '#fbbf24', hint: 'Amber. Blocked, or waiting on somebody.' },
+  // Grey, not amber: amber on a card means a gap (--attention) and nothing else.
+  hold:    { label: 'Hold',    color: '#a9aab4', hint: 'Grey. Blocked, or waiting on somebody.' },
   festive: { label: 'Festive', color: '#f472b6', hint: 'A candy-cane border, impossible to ignore (moves on hover with Animate highlights on).' },
 }
 
