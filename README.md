@@ -145,13 +145,15 @@ one block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 
 **Action badges** (set in the Inspector) attach intent to any block:
 
-| Badge | Color | Meaning |
+| Badge | Icon | Meaning |
 |---|---|---|
-| `resolve` | red | You are actively working to fix this |
-| `prepare` | amber | You need to set something up before proceeding |
-| `recollect` | sky | You need to retrieve or recall information |
-| `reinforce` | green | You are strengthening or validating this point |
-| `validate` | gold | You need to test this before relying on it |
+| `resolve` | wrench | You are actively working to fix this |
+| `prepare` | shield | You need to set something up before proceeding |
+| `recollect` | clock | You need to retrieve or recall information |
+| `reinforce` | double chevron | You are strengthening or validating this point |
+| `validate` | magnifier | You need to test this before relying on it |
+
+Badges are neutral chips: the icon and the word tell them apart, never a colour (colour on a card means its type, a gap or the selection).
 
 ---
 
@@ -211,7 +213,7 @@ Every edit in the inspector is one undo step.
 For the moment you share a canvas and five of its thirty boxes are the point.
 
 Select some blocks, pick a colour: **Alert** (red), **Focus** (blue),
-**Go** (green), **Hold** (amber), or **Festive** (a candy-cane border). Each is
+**Go** (green), **Hold** (grey), or **Festive** (a candy-cane border). Each is
 a ring around the card with its word on a tab, so it never relies on colour
 alone. Nothing moves by default; **View ▾ → Animate highlights** makes Alert
 and Festive move on the card you hover or select, and never under reduced
