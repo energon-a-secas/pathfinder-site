@@ -2,7 +2,7 @@
 //  insights.test.js -- gaps, attention and health (INSIGHTS stream)
 // ============================================================
 
-import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls } from './test-utils.js'
+import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls, cssRgba } from './test-utils.js'
 import { state, ui, selection, getUndoHistory, getRedoFuture, devOpts, saveStatus } from '../js/state.js'
 import { runGapDetection, detectGaps, GAP_META, GAP_ORDER, gapIconFor, getGapFixes, gapExplain, nextEmptyStep,
          acceptGap, acceptFinding, unacceptGap, blockGap, hidesQuestion, FINDING_ACKS, FINDING_META } from '../js/gaps.js'
@@ -993,7 +993,7 @@ describe('Insights: QA round', () => {
     await loaded
     try {
       const doc = frame.contentDocument, win = frame.contentWindow
-      const rgbOf = c => (String(c).match(/[\d.]+/g) || []).map(Number)
+      const rgbOf = c => cssRgba(c) || []
       const lum = ([r, g, b]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b) }
       const over = (fg, bg) => { const a = fg[3] ?? 1; return [0, 1, 2].map(i => fg[i] * a + bg[i] * (1 - a)) }
       const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }

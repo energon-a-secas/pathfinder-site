@@ -37,25 +37,25 @@ function wrapText(text, maxWidth, charW) {
   return out
 }
 
-// Connection colours are the canvas's --edge tokens (style.css [lines]), and
-// card text the --text-* tokens, as literals because an exported file
-// carries no stylesheet.
+// The design tokens (style.css, DESIGN.md) as sRGB literals, because an
+// exported file carries no stylesheet: --canvas, --card, --border, the
+// --text-* tokens, --surface-2 for badges, and the [lines] --edge tokens.
 function themeColors() {
   return ui.lightMode
-    ? { bg: '#f0f1f5', card: '#ffffff', cardBorder: 'rgba(15,23,42,.16)',
-        title: '#0f172a', type: '#334155', desc: '#64748b', meta: '#475569', badge: 'rgba(15,23,42,.06)',
-        arrow: '#6b7280', label: '#334155', pill: '#ffffff', pillBorder: 'rgba(15,23,42,.16)',
-        frame: 'rgba(0,0,0,.12)', frameLabel: 'rgba(0,0,0,.5)' }
-    : { bg: '#040714', card: '#0a0a1a', cardBorder: 'rgba(255,255,255,.14)',
-        title: '#f9f9f9', type: '#cacaca', desc: 'rgba(255,255,255,.55)', meta: '#cacaca', badge: 'rgba(255,255,255,.08)',
-        arrow: '#7c8196', label: '#cacaca', pill: '#0d1020', pillBorder: 'rgba(255,255,255,.12)',
-        frame: 'rgba(255,255,255,.1)', frameLabel: 'rgba(255,255,255,.5)' }
+    ? { bg: '#f4f5f9', card: '#fdfdff', cardBorder: '#d6d7de',
+        title: '#1a1a20', type: '#47474e', desc: '#62626a', meta: '#47474e', badge: '#eaeaf0',
+        arrow: '#73737d', label: '#47474e', pill: '#fdfdff', pillBorder: '#d6d7de',
+        frame: '#d6d7de', frameLabel: '#62626a', hlInk: '#1a1a20', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f6' }
+    : { bg: '#0e0e13', card: '#14141a', cardBorder: '#2d2d33',
+        title: '#f1f1f6', type: '#bdbdc4', desc: '#919198', meta: '#bdbdc4', badge: '#1b1b21',
+        arrow: '#848592', label: '#bdbdc4', pill: '#14141a', pillBorder: '#2d2d33',
+        frame: '#2d2d33', frameLabel: '#919198', hlInk: '#0e0e13', inkOnColor: 'rgba(26,26,32,.82)', onContext: '#f1f1f6' }
 }
 
 // The card box model (style.css .block, .block-header, .block-title,
 // .block-desc): padding, the header row, and the text sizes.
 const CARD = { padX: 12, padTop: 10, header: 20, headerGap: 4, title: 14, titleLine: 19,
-  desc: 12, descLine: 17, descGap: 4, descLines: 3, badge: 10 }
+  desc: 12, descLine: 17, descGap: 4, descLines: 3, badge: 11 }
 
 // The first `max` wrapped lines, the last one ending in an ellipsis when
 // text was cut, as -webkit-line-clamp draws it.
@@ -160,7 +160,7 @@ export function buildSvg() {
       const noteLines = wrapText(a.note.trim(), 170, 6).slice(0, 4)
       const startY = lp.y + (lp.text ? lp.h / 2 + 4 : 4)
       const tspans = noteLines.map((ln, i) => `<tspan x="${lp.x}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
-      tags.push(`<text x="${lp.x}" y="${startY}" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="${C.desc}" stroke="${C.bg}" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${tspans}</text>`)
+      tags.push(`<text x="${lp.x}" y="${startY}" font-size="11" text-anchor="middle" dominant-baseline="hanging" fill="${C.desc}" stroke="${C.bg}" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${tspans}</text>`)
     }
   })
   // Spotlight fades every line and label, as on the canvas at rest.
@@ -197,7 +197,7 @@ export function buildSvg() {
       if (word) {
         const tw = Math.ceil(word.length * 6.4 + 10), tx = x + w - 14 - tw, ty = y - 7 - 7
         parts.push(`<rect x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw}" height="14" rx="4" fill="${hc}"/>`)
-        parts.push(`<text x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 7).toFixed(1)}" font-size="9" font-weight="700" letter-spacing="0.5" text-anchor="middle" dominant-baseline="central" fill="#0b0b16">${escHtml(word.toUpperCase())}</text>`)
+        parts.push(`<text x="${(tx + tw / 2).toFixed(1)}" y="${(ty + 7).toFixed(1)}" font-size="11" font-weight="700" letter-spacing="0.5" text-anchor="middle" dominant-baseline="central" fill="${C.hlInk}">${escHtml(word.toUpperCase())}</text>`)
       }
     }
     parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${C.card}" stroke="${escHtml(edge)}" stroke-opacity="${edgeOpacity}" stroke-width="${bw}"/>`)
@@ -217,7 +217,7 @@ export function buildSvg() {
       const sh = CARD.header + 10
       parts.push(`<path d="M ${x} ${(y + rx).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${-rx} h ${(w - rx * 2).toFixed(1)} a ${rx} ${rx} 0 0 1 ${rx} ${rx} v ${sh - rx} h ${-w} Z" fill="${escHtml(accent)}"${ui.lightMode ? ' fill-opacity="0.22"' : ''}/>`)
       top = y + 5
-      if (!ui.lightMode) { labelInk = b.type === 'context' && !b.color ? '#ffffff' : 'rgba(0,0,0,.82)'; dot = false }
+      if (!ui.lightMode) { labelInk = b.type === 'context' && !b.color ? C.onContext : C.inkOnColor; dot = false }
     }
     const midY = top + CARD.header / 2
     let lx = x + CARD.padX
@@ -225,7 +225,7 @@ export function buildSvg() {
       parts.push(`<circle cx="${(lx + 4).toFixed(1)}" cy="${midY.toFixed(1)}" r="4" fill="${escHtml(accent)}"/>`)
       lx += 14
     }
-    parts.push(`<text x="${lx.toFixed(1)}" y="${midY.toFixed(1)}" font-size="10" font-weight="600" letter-spacing="0.4" dominant-baseline="central" fill="${labelInk}">${escHtml(label.toUpperCase())}</text>`)
+    parts.push(`<text x="${lx.toFixed(1)}" y="${midY.toFixed(1)}" font-size="11" font-weight="600" letter-spacing="0.4" dominant-baseline="central" fill="${labelInk}">${escHtml(label.toUpperCase())}</text>`)
     let cy = top + CARD.header + (card === 'header' ? 8 : CARD.headerGap)
     // Title: 14px/600, every line, as on the card.
     const inner = w - CARD.padX * 2

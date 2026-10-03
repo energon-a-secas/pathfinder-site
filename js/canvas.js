@@ -94,9 +94,9 @@ export function applyTransform() {
   canvasRoot.style.transform = `translate(${view.panX}px,${view.panY}px) scale(${view.zoom})`
   // Move dot grid with canvas
   const sz = 28 * view.zoom
-  const dotColor = isLight() ? 'rgba(15,23,42,.09)' : 'rgba(255,255,255,.12)'
+  // The dot colour is the --grid-dot token, so it follows the theme.
   canvasViewport.style.backgroundImage =
-    `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`
+    'radial-gradient(circle, var(--grid-dot) 1px, transparent 1px)'
   canvasViewport.style.backgroundSize = `${sz}px ${sz}px`
   canvasViewport.style.backgroundPosition =
     `${view.panX % sz}px ${view.panY % sz}px`

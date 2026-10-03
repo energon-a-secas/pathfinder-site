@@ -5,7 +5,7 @@
 //  the empty state's six-step starter.
 // ============================================================
 
-import { describe, it, assert, cleanupMockEls } from './test-utils.js'
+import { describe, it, assert, cleanupMockEls, cssRgba } from './test-utils.js'
 import { state, ui, selection, pointer, view, getUndoHistory, getRedoFuture,
          resetSnapshotToken } from '../js/state.js'
 import { $, TYPES, TYPE_STEPS, typesByStep, SWATCH_COLORS, HIGHLIGHTS } from '../js/utils.js'
@@ -81,7 +81,8 @@ async function styled(bodyClass = '') {
   return { sheet, root, page, canvas, place, done: () => host.remove() }
 }
 
-const rgb = s => (s.match(/[\d.]+/g) || []).map(Number)
+// Every computed form (rgb, oklch, oklab, color(srgb)), as [r, g, b, a].
+const rgb = s => cssRgba(s) || []
 const lum = ([r, g, b]) => {
   const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
@@ -107,8 +108,9 @@ describe('cards -- the type label', () => {
   it('renders the label in the neutral text colour, in both themes, with the type colour in the dot', async () => {
     reset()
     const el = block('a', { type: 'requirement' })
-    for (const [theme, text, dot] of [['', [202, 202, 202], [251, 191, 36]],
-                                      ['light-mode', [51, 65, 85], [196, 144, 8]]]) {
+    // --text-2 in each theme: oklch(0.80 0.010 285) and oklch(0.40 0.012 285).
+    for (const [theme, text, dot] of [['', cssRgba('oklch(0.80 0.010 285)').slice(0, 3), [251, 191, 36]],
+                                      ['light-mode', cssRgba('oklch(0.40 0.012 285)').slice(0, 3), [196, 144, 8]]]) {
       const s = await styled(theme)
       try {
         const card = s.place(el)
@@ -116,7 +118,7 @@ describe('cards -- the type label', () => {
         assert.deepEq(rgb(getComputedStyle(label).color).slice(0, 3), text, `${theme || 'dark'}: label is --text-secondary`)
         assert.deepEq(rgb(getComputedStyle(card.querySelector('.block-type-dot')).backgroundColor).slice(0, 3), dot,
           `${theme || 'dark'}: the dot carries the type colour`)
-        assert.eq(getComputedStyle(label).fontSize, '10px')
+        assert.eq(getComputedStyle(label).fontSize, '11px', 'the 11px floor')
         assert.eq(getComputedStyle(label).fontWeight, '600')
         assert.eq(getComputedStyle(card.querySelector('.block-title')).fontSize, '14px')
         assert.eq(getComputedStyle(card.querySelector('.block-desc')).fontSize, '12px')
@@ -176,7 +178,7 @@ describe('cards -- states keep their own channels', () => {
       assert.eq(cs.outlineStyle, 'solid')
       assert.eq(cs.outlineWidth, '2px')
       assert.eq(cs.outlineOffset, '3px')
-      assert.deepEq(rgb(cs.outlineColor).slice(0, 3), [202, 202, 202], 'the outline is --text-secondary')
+      assert.deepEq(rgb(cs.outlineColor).slice(0, 3), cssRgba('oklch(0.80 0.010 285)').slice(0, 3), 'the outline is --text-secondary')
       assert.ok(!/\.low-confidence/.test(await stylesheetText()), 'the old low-confidence outline is gone')
     } finally { s.done() }
   })
@@ -737,13 +739,13 @@ describe('cards -- palette grouped by step', () => {
     }
   })
 
-  it('small palette and starter text stays readable: 9px step heads, 4.5:1 step labels', async () => {
+  it('small palette and starter text stays readable: 11px step heads, 4.5:1 step labels', async () => {
     const s = await styled('light-mode')
     try {
       // The collapsed palette, and the 48px palette under 1024px.
       s.page.innerHTML = '<aside class="palette collapsed"><div id="pl"></div></aside>'
       renderPaletteTypes(s.page.querySelector('#pl'))
-      assert.ok(parseFloat(getComputedStyle(s.page.querySelector('.palette-step-head')).fontSize) >= 9, 'collapsed palette')
+      assert.ok(parseFloat(getComputedStyle(s.page.querySelector('.palette-step-head')).fontSize) >= 11, 'collapsed palette')
       const narrow = []
       const walk = rules => [...rules].forEach(r => {
         if (r.media && /max-width:\s*1024px/.test(r.media.mediaText)) {
@@ -752,7 +754,9 @@ describe('cards -- palette grouped by step', () => {
       })
       walk(s.sheet.cssRules)
       assert.ok(narrow.length > 0)
-      narrow.forEach(f => assert.ok(parseFloat(f) >= 9, `tablet palette head ${f}`))
+      // A declared size may be a token (var(--fs-11)): resolve it in the tree.
+      const px = v => { const p = document.createElement('span'); p.style.fontSize = v; s.page.appendChild(p); const r = parseFloat(getComputedStyle(p).fontSize); p.remove(); return r }
+      narrow.forEach(f => assert.ok(px(f) >= 11, `tablet palette head ${f} (${px(f)}px)`))
 
       for (const theme of ['light-mode', '']) {
         s.page.className = ('pf-body ' + theme).trim()

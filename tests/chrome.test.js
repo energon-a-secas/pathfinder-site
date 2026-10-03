@@ -5,7 +5,7 @@
 //  motion always wins.
 // ============================================================
 
-import { describe, it, assert, cleanupMockEls } from './test-utils.js'
+import { describe, it, assert, cleanupMockEls, cssRgba } from './test-utils.js'
 import { state, ui, canvasMeta, getUndoHistory, getRedoFuture,
          resetSnapshotToken, GRID, snapshot } from '../js/state.js'
 import { $, CARD_STYLES, DEFAULT_CARD_STYLE } from '../js/utils.js'
@@ -1003,7 +1003,7 @@ async function cssFrame(html, { width = 1200, height = 800, bodyClass = '', head
   await nextFrame(frame.contentWindow)
   return frame
 }
-const rgbOf = s => (String(s).match(/[\d.]+/g) || []).map(Number)
+const rgbOf = s => cssRgba(s) || []
 const lumOf = ([r, g, b]) => {
   const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)

@@ -415,7 +415,10 @@ describe('QA2 a11y: focus and state survive forced colors', () => {
   it('the canvas focus ring is a solid outline, not a faint inset shadow', async () => {
     const rules = await cssRules('../css/style.css')
     const ring = rules.filter(([sel]) => sel === '.canvas-viewport:focus-visible').map(([, b]) => b).join(';')
-    assert.match(ring, /outline:\s*2px solid #4d94ff/)
+    // The one focus treatment: the --focus-outline token, a solid 2px line.
+    assert.match(ring, /outline:\s*var\(--focus-outline\)/)
+    const css = await (await fetch('../css/style.css')).text()
+    assert.match(css, /--focus-outline:\s*2px solid var\(--accent\)/)
     assert.ok(!/rgba\(0,\s*99,\s*229,\s*\.4\)/.test(ring))
   })
 })

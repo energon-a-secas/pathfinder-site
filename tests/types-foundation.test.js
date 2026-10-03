@@ -128,7 +128,10 @@ describe('types registry -- steps', () => {
 describe('types registry -- CSS', () => {
   it('defines a --c- variable for every type in both themes, and a card accent rule', async () => {
     const css = await (await fetch('../css/style.css')).text()
-    const rootBlock = css.slice(css.indexOf(':root'), css.indexOf('}', css.indexOf(':root')))
+    // The :root block that holds the type colours (the design tokens come
+    // first, in a block of their own).
+    const rootStart = css.lastIndexOf(':root', css.indexOf('--c-goal'))
+    const rootBlock = css.slice(rootStart, css.indexOf('}', rootStart))
     const lightStart = css.indexOf('body.light-mode {\n      --c-goal')
     assert.ok(lightStart > 0, 'the light-mode type colour block exists')
     const lightBlock = css.slice(lightStart, css.indexOf('}', lightStart))

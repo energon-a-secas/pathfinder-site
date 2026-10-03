@@ -586,8 +586,10 @@ describe('lines: heads and line states', () => {
     const { css } = await realSheet()
     const lines = css.slice(css.indexOf('/* ════ [lines] ════ */'), css.indexOf('/* ════ [chrome] ════ */'))
     assert.gt(lines.length, 100, 'found the section')
-    assert.match(lines, /:root\s*{[^}]*--edge:\s*#7c8196/)
-    assert.match(lines, /body\.light-mode\s*{[^}]*--edge:\s*#6b7280/)
+    // Opaque OKLCH (no alpha channel), dark on :root and light on the theme class.
+    assert.match(lines, /:root\s*{[^}]*--edge:\s*oklch\(0\.62 0\.02 285\)/)
+    assert.match(lines, /body\.light-mode\s*{[^}]*--edge:\s*oklch\(0\.56 0\.015 285\)/)
+    assert.ok(!/--edge(-hi)?:\s*oklch\([^)]*\//.test(lines), 'no alpha on a line colour')
     assert.ok(!/infinite/.test(lines))
     assert.match(lines, /prefers-reduced-motion: reduce/)
     assert.ok(!/arrowFlow/.test(css), 'the marching animation is gone')

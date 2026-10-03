@@ -8,7 +8,7 @@
 //  a person would fire.
 // ============================================================
 
-import { describe, it, assert, cleanupMockEls } from './test-utils.js'
+import { describe, it, assert, cleanupMockEls, cssRgba } from './test-utils.js'
 import { state, selection, ui, view, canvasMeta, getUndoHistory, getRedoFuture, resetSnapshotToken } from '../js/state.js'
 import { TYPES, TYPE_STEPS, getBlockEl } from '../js/utils.js'
 import { renderBlock, selectBlock, setSelection, selectArrow, deselectAll, undo, mutateBlock, duplicateBlock } from '../js/render.js'
@@ -142,7 +142,9 @@ function channels(c) {
     const [r, g, b, a = 1] = m[1].split(/[\s/]+/).filter(Boolean).map(Number)
     return { r: r * 255, g: g * 255, b: b * 255, a }
   }
-  return null
+  // oklch() and oklab(): the tokens' own forms.
+  const v = cssRgba(c)
+  return v ? { r: v[0], g: v[1], b: v[2], a: v[3] } : null
 }
 function saturated(c) {
   const ch = channels(c)
@@ -1963,7 +1965,11 @@ describe('Inspector: phone sheet layout', () => {
   it('light mode: the sheet is opaque and light', async () => {
     const f = await phoneFrame(375, 812, { state: 'half', bodyClass: 'light-mode' })
     try {
-      assert.eq(styleIn(f, '#rightPanel').backgroundColor, 'rgb(251, 252, 254)')
+      // Opaque, and the light theme's --bg (oklch 0.985), whatever form the
+      // browser reports it in.
+      const [r, g, b, a] = cssRgba(styleIn(f, '#rightPanel').backgroundColor)
+      assert.eq(a, 1, 'opaque')
+      assert.deepEq([r, g, b], cssRgba('oklch(0.985 0.004 285)').slice(0, 3), 'the light --bg')
     } finally { f.remove() }
   })
 
