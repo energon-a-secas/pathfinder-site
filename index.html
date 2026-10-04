@@ -87,6 +87,10 @@
     <div class="readonly-badge" id="readonlyBadge" style="display:none">View only</div>
     <div class="header-actions">
 
+      <!-- A view-only link's way out: the same map, editable, opened as a
+           map of its own through the share arrival (js/ui-panels.js). -->
+      <button type="button" class="header-btn" id="editCopyBtn" data-keep-mobile hidden title="Open this map as a copy you can edit, in this browser">Edit a copy</button>
+
       <!-- File: import first, every export, then clearing the map. These rows
            are the menu's source, not its display: js/view-menu.js renders them
            through menu.js and clicks the row you pick, so each keeps its id and
@@ -318,7 +322,7 @@
          and copy them out as a pathfinder-patch. Hidden outside readonly. -->
     <div class="review-bar" id="reviewBar" data-canvas-ui>
       <input class="input review-input" id="reviewInput" type="text" maxlength="500"
-             placeholder="Select a block, note what you'd change…">
+             placeholder="Note on the selected block" aria-label="Review note on the selected block">
       <button class="btn btn-secondary btn-sm review-btn" id="reviewAddBtn">Add note</button>
       <button class="btn btn-primary btn-sm review-btn review-copy" id="reviewCopyBtn" style="display:none">
         Copy review patch <span class="review-count" id="reviewCount"></span>
@@ -857,10 +861,10 @@
             <label class="sr-only" for="patchInput">The reply to apply</label>
             <textarea class="insp-textarea" id="patchInput" rows="5"
               placeholder="Paste the whole reply. The ```pathfinder-patch``` block inside is found automatically."></textarea>
-            <p class="attention-summary">Choose the changes to include. Expand each one to review its full before and after.</p>
+            <p class="attention-summary" id="patchChooseLine" hidden>Choose the changes to include. Expand each one to review its full before and after.</p>
             <div class="patch-preview" id="patchPreview"></div>
             <div class="patch-actions">
-              <button type="button" class="btn btn-primary btn-sm" id="patchApplyBtn" disabled>Apply to map</button>
+              <button type="button" class="btn btn-primary btn-sm" id="patchApplyBtn" disabled hidden>Apply to map</button>
               <button type="button" class="btn btn-ghost btn-sm" id="patchCancelBtn">Close</button>
             </div>
           </div>
@@ -921,9 +925,9 @@
 
 <!-- data-stick="off": body is a 100vh overflow-hidden flex column. The app owns
      layout, the footer takes its natural slot at the bottom of the flex. -->
-<footer class="neo-footer" data-footer-mode="app" data-stick="off">
-  Your maps stay in this browser.
-</footer>
+<!-- No copy of its own: where maps live is said once, by the start panel
+     and the status bar's save state (QA3); the kit's bar carries the links. -->
+<footer class="neo-footer" data-footer-mode="app" data-stick="off"></footer>
 
 <script type="module" src="js/app.js"></script>
 </body>

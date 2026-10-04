@@ -74,6 +74,10 @@ try {
   })
   await send('Runtime.enable')
   await send('Page.enable')
+  // A person's browser tab has focus; headless Chrome's page does not, so
+  // :focus-visible never matched and focus events never fired, and two
+  // tests that fail in a real tab passed here. Emulate a focused page.
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true })
   for (let i = 0; i < 30; i++) {
     try { await fetch(`http://127.0.0.1:${port}/`); break } catch { await sleep(200) }
   }
@@ -102,7 +106,10 @@ try {
     for (let i = 0; i < lines.length; i++) {
       const s = lines[i].match(/^(\d+)\/(\d+)$/)
       if (s && s[1] !== s[2]) bad.push(`${lines[i - 1]}  ${lines[i]}`)
+      // The FAIL tag and the test's name are inline, so they share a line
+      // ("FAIL name"), with the message on the next one.
       if (lines[i] === 'FAIL') bad.push(`  FAIL ${lines[i + 1] || ''} :: ${(lines[i + 2] || '').slice(0, 400)}`)
+      else if (/^FAIL\s/.test(lines[i])) bad.push(`  ${lines[i]} :: ${(lines[i + 1] || '').slice(0, 400)}`)
     }
     if (bad.length) console.log(bad.slice(0, 150).join('\n'))
     code = total[1] === total[2] ? 0 : 1

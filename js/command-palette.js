@@ -24,7 +24,7 @@ import { $ } from './utils.js'
 import { closeMenus, isMenuOpen } from './menu.js'
 import { closeShortcuts } from './ui-panels.js'
 import { isTyping, canvasHasFocus, modalDialogOpen, withCameraHeld } from './navigation.js'
-import { commandGroups, matchScore, ICONS, MOD, IS_MAC, PALETTE_ROW_ID } from './command-items.js'
+import { commandGroups, rowMatch, ICONS, MOD, IS_MAC, PALETTE_ROW_ID } from './command-items.js'
 import { rowEl } from './command-rows.js'
 import { setupTypeKeys, isTypeKeyArmed } from './type-keys.js'
 
@@ -190,7 +190,7 @@ export function closeCommandPalette({ restoreFocus = true } = {}) {
 function ranked(rows, q, cap) {
   const scored = []
   rows.forEach((row, i) => {
-    const m = matchScore(q, row.label)
+    const m = rowMatch(q, row.label)
     if (m) scored.push({ row, hits: m.hits, score: m.score, i })
   })
   scored.sort((a, b) => b.score - a.score || a.i - b.i)
@@ -334,7 +334,11 @@ function openOn(el) {
       rowTop >= top + head - 0.5 && rowBottom <= top + listEl.clientHeight - padEnd + 0.5
   }
   const own = secs.find(x => x.top <= rowTop && x.bottom >= rowBottom)
-  const options = [own?.top, max, ...secs.map(x => x.top).reverse()].filter(t => t != null && t <= max + 0.5)
+  // Whole pixels, rounded toward the section's start: WebKit keeps an
+  // integer scrollTop and floors a fractional one, which left a 1px sliver
+  // of the previous step above the sticky heading.
+  const options = [own?.top, max, ...secs.map(x => x.top).reverse()]
+    .filter(t => t != null && t <= max + 0.5).map(t => Math.ceil(t - 0.01))
   const top = options.find(fits)
   if (top != null) listEl.scrollTop = top
   else el.scrollIntoView({ block: 'center' })

@@ -6,6 +6,23 @@
 const suites  = []
 let current   = null
 
+// Test frames sit on screen, invisible and inert: WebKit never runs
+// requestAnimationFrame in a frame parked off screen, and the suite hung.
+// Every helper that builds an iframe places it with this.
+export const ONSCREEN = 'position:fixed;left:0;top:0;opacity:0;pointer-events:none;border:0'
+
+// Markup copied from a page at the site root into a test frame, whose base
+// is tests/: relative image sources point back at the root, or every frame
+// that copies the header asked for tests/energon-classic-logo.png (a 404 in
+// every engine's console).
+export function fromSiteRoot(html) {
+  return String(html).replace(/\b(src)="(?![a-z]+:|\/|\.\.\/|#|data:)([^"]+)"/gi, '$1="../$2"')
+}
+
+// One test that never settles must not stall the report: after this long
+// it is recorded as a failure and the run moves on.
+export const TEST_TIMEOUT_MS = 15000
+
 // ── Public API ───────────────────────────────────────────────
 
 export function describe(name, fn) {
@@ -81,7 +98,13 @@ export async function runAll() {
     for (const test of suite.tests) {
       try {
         const result = test.fn()
-        if (result instanceof Promise) await result
+        if (result instanceof Promise) {
+          let timer
+          const limit = new Promise((_, rej) => {
+            timer = setTimeout(() => rej(new Error(`TIMEOUT after ${TEST_TIMEOUT_MS}ms`)), TEST_TIMEOUT_MS)
+          })
+          try { await Promise.race([result, limit]) } finally { clearTimeout(timer) }
+        }
         suite.passed++
         totalPassed++
       } catch (err) {

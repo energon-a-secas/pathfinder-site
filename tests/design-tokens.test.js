@@ -246,6 +246,28 @@ describe('design tokens: contrast in both themes', () => {
     for (const m of blocks) for (const tok of ['--border', '--text-3', '--accent']) assert.match(m[2], new RegExp(tok + ':'), `${m[1]} raises ${tok}`)
   })
 
+  it('high contrast: a hovered or pressed button on a raised surface keeps 4.5:1, in both themes', async () => {
+    // The floating surfaces' hover fill was --border, which high contrast
+    // lifts to a mid grey: Done on the voting banner fell to 2.4:1 (dark)
+    // and 3.6:1 (light) under --text-1 (QA3). Replayed :hover as a class.
+    const hover = s => s.replace(/\.btn-secondary:hover/g, '.btn-secondary.is-hover').replace(/\.btn-ghost:active/g, '.btn-ghost.is-active')
+    for (const cls of ['high-contrast', 'light-mode high-contrast', '', 'light-mode']) {
+      const t = await themed(cls, hover)
+      try {
+        const wrap = t.add('<div class="voting-banner"><button class="btn btn-secondary is-hover" id="hb">Done</button>' +
+          '<button class="btn btn-ghost is-active" id="ab">Cancel</button></div>')
+        for (const id of ['hb', 'ab']) {
+          const b = wrap.querySelector('#' + id)
+          const cs = getComputedStyle(b)
+          const bg = cssRgba(cs.backgroundColor), fg = cssRgba(cs.color)
+          const base = t.color('var(--surface-raised)')
+          const r = ratio(fg, over(bg, base))
+          assert.ok(r >= 4.5, `${cls || 'dark'} ${id}: ${r.toFixed(2)}:1`)
+        }
+      } finally { t.done() }
+    }
+  })
+
   it('derived tokens follow the theme instead of freezing at the dark values', async () => {
     const dark = await themed(''), light = await themed('light-mode')
     try {
@@ -437,13 +459,12 @@ describe('design tokens: no hard-coded colour outside a token block', () => {
     assert.ok(!/\.header-github:hover svg\s*\{[^}]*transform/.test(css), 'no hover wiggle on the GitHub icon')
   })
 
-  it('no side stripe: no border-left or border-right over 1px, but the bar card preset people chose and its menu miniature', async () => {
+  it('no side stripe: no border-left or border-right over 1px (the accent bar preset is retired, QA3)', async () => {
     const css = stripComments(await styleCss())
     const stripes = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
       .filter(m => /border-(?:left|right):\s*(?:[2-9]|1\.\d)/.test(m[2]))
       .map(m => m[1].trim().split('\n').pop().trim())
-    assert.deepEq(stripes, ['.block[data-card="bar"]', '.card-swatch-bar', '.block-resize-handle::after'],
-      'side stripes outside the bar preset (and the resize grip, a glyph)')
+    assert.deepEq(stripes, ['.block-resize-handle::after'], 'side stripes (the resize grip is a glyph, not an accent)')
     assert.ok(!/\.doc-kicker\s*\{[^}]*var\(--accent\)/.test(css), 'the doc kicker is not in the accent')
   })
 

@@ -26,7 +26,7 @@ import { setupLod, setupHoverDim, exactLodNext } from './lod.js'
 // Level of detail and the hover fade live in lod.js; this is their one
 // import point, with the rest of the camera.
 export {
-  LOD_BANDS, LABELS_MIN_ZOOM, LOD_MARGIN, LOD_STEPS_PER_OCTAVE, LOD_GESTURE_STEPS, LOD_SETTLE_MS,
+  FULL_DETAIL_ZOOM, LOD_BANDS, LABELS_MIN_ZOOM, LOD_MARGIN, LOD_STEPS_PER_OCTAVE, LOD_GESTURE_STEPS, LOD_SETTLE_MS,
   lodBand, labelsAtRest, lodScale, currentLod, applyLod, paintLodFace,
 } from './lod.js'
 
@@ -283,11 +283,13 @@ export function setupZoomControls() {
 // ════════════════════════════════════════════════════════════
 // A template, the sample map, an example or a share link used to land at
 // a whole-map fit: 30% for the large templates, where nothing reads. It
-// lands at 75% or more instead, on the map's entry layer (its triggers, or
-// the blocks the flow starts from), with the rest a pan away and Shift+1
-// still showing all of it.
+// lands at 100% instead, on the map's entry layer (its triggers, or the
+// blocks the flow starts from), with the rest a pan away and Shift+1 still
+// showing all of it. 100%, not 75%: the first look is the one that has to
+// read, and at 75% every card's type label drew at 8px and its
+// description at 9px, under the 11px floor (QA3).
 
-export const ARRIVAL_ZOOM = 0.75
+export const ARRIVAL_ZOOM = 1
 /** The margin an arrival keeps around what it frames, in screen pixels. */
 export const ARRIVAL_PAD = 80
 
@@ -336,8 +338,8 @@ function arrivalCentre(e1, e2, m1, m2, win) {
 
 /**
  * The camera for blocks `ids` arriving in a viewport `size` ({ w, h },
- * the canvas viewport by default): all of them when that reads (a fit of
- * 75% or more, never past 100%), otherwise 75% on the entry layer. `whole`
+ * the canvas viewport by default): all of them when that reads (they fit
+ * at ARRIVAL_ZOOM, 100%), otherwise ARRIVAL_ZOOM on the entry layer. `whole`
  * says whether everything is in view. Null when there is nothing to frame.
  */
 export function arrivalView(ids, size = null) {

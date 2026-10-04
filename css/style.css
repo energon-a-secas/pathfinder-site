@@ -119,6 +119,10 @@
     body {
       --surface-raised: var(--surface-2);
       --surface-raised-hover: var(--surface-3);
+      /* A pressed or hovered button on a raised surface: one step past the
+         hover fill. It was --border, which high contrast lifts to a mid grey
+         (2.4:1 under --text-1); a surface token stays a surface. */
+      --surface-raised-active: oklch(0.30 0.010 285);
       --canvas:        var(--bg);
       --card:          var(--surface-1);
       --accent-subtle: color-mix(in oklab, var(--accent) 18%, transparent);
@@ -230,7 +234,7 @@
     /* Floating surfaces: the fill one step above the surface it sits on. */
     :where(.pf-menu, .incoming-dialog, .other-tab-banner, .voting-banner, .review-bar, .shortcut-modal, .doc-popup) {
       --btn-fill: var(--surface-raised-hover);
-      --btn-fill-hover: var(--border);
+      --btn-fill-hover: var(--surface-raised-active);
     }
 
     /* Fields. --input-bg lets a field sit inset on a surface it would
@@ -586,12 +590,8 @@
       box-shadow: var(--shadow-rest);
     }
 
-    /* Accent bar: the original look, kept because canvases were built in it. */
-    .block[data-card="bar"] {
-      --card-edge: color-mix(in srgb, var(--bc, var(--text-1)) 28%, transparent);
-      border-width: 1px;
-      border-left: 3px solid var(--bc, var(--border));
-    }
+    /* The retired accent bar (a 3px side stripe, DESIGN.md's ban) draws as
+       outline: render.js maps a stored "bar" to the default preset. */
 
     /* Solid header: the type colour reads as a strip rather than an edge.
        The strip rounds its own top corners instead of the card clipping it,
@@ -790,7 +790,6 @@
       background: var(--card);
       border: 1.5px solid var(--text-2);
     }
-    .card-swatch-bar    { border: 1px solid var(--border-strong); border-left: 3px solid var(--text-2); }
     .card-swatch-header { border: 1px solid var(--border-strong); background: linear-gradient(var(--text-2) 0 4px, var(--card) 4px 100%); }
     .card-swatch-tint   { border: 1.5px solid var(--text-2); background: color-mix(in oklab, var(--text-2) 22%, var(--card)); }
     .card-swatch-plain  { border: 1.5px solid var(--border-strong); }
@@ -888,7 +887,8 @@
       cursor: pointer;
       transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
     }
-    .hl-swatch:hover { transform: scale(1.12); }
+    /* Nothing wiggles on hover (DESIGN.md Motion): the edge lightens instead. */
+    .hl-swatch:hover { border-color: var(--text-2); }
     .hl-swatch.active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--sw, var(--text-3)); }
     .hl-swatch-none {
       background: none;
@@ -1363,7 +1363,7 @@
     .tab-pane         { display: none; padding: 16px; }
     .tab-pane.active  { display: block; }
 
-    .attention-heading { margin: 0 0 16px; font-size: var(--text-base); color: var(--text-primary); }
+    .attention-heading { margin: 0 0 16px; font: var(--fw-semibold) var(--fs-14)/var(--lh-tight) var(--font); color: var(--text-1); }
     .attention-intro, .attention-summary { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; margin: 0 0 16px; }
     .attention-summary { margin: 12px 0; font-size: var(--text-xs); }
     .attention-list { list-style: none; margin: 0; padding: 0; }
@@ -1588,7 +1588,10 @@
       color: var(--text-secondary);
     }
     .patch-op.warn { border-color: var(--warning); }
-    .patch-op.err  { border-color: var(--danger); color: var(--text-muted); }
+    .patch-op.err  { border-color: var(--danger); color: var(--text-2); display: flex; align-items: flex-start; gap: 8px; }
+    .patch-err-icon { flex: 0 0 16px; width: 16px; height: 16px; color: var(--danger); }
+    .patch-op.err code { white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-11); padding: 0 3px; border-radius: var(--radius-sm); background: var(--tint); color: var(--text-1); }
+    #patchApplyBtn[hidden] { display: none; }
     .patch-op > label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
     .patch-op input { margin-top: 3px; flex-shrink: 0; }
     .change-detail { margin-top: 8px; }
@@ -1709,6 +1712,14 @@
     }
     .toast-icon { flex: 0 0 16px; width: 16px; height: 16px; margin-top: 1px; color: var(--info); }
     .toast-msg { min-width: 0; }
+    .toast-action {
+      flex: none; margin: -3px -6px -3px 4px; padding: 2px 8px;
+      font: inherit; font-weight: var(--fw-semibold); color: var(--accent);
+      background: none; border: 1px solid transparent; border-radius: var(--radius);
+      cursor: pointer;
+    }
+    .toast-action:hover { background: var(--surface-raised-hover); }
+    .toast-action:focus-visible { outline: var(--focus-outline); outline-offset: 0; }
     .toast-success .toast-icon { color: var(--success); }
     .toast-warning .toast-icon { color: var(--warning); }
     .toast-error   .toast-icon { color: var(--danger); }
@@ -1734,6 +1745,13 @@
     .readonly-mode #shareWrapper,
     .readonly-mode #tidyGroup { display: none; }
     .readonly-mode #readonlyBadge { display: block !important; }
+    /* Edit a copy: only on a view-only link that carries a map (ui-panels.js
+       setupHeaderButtons unhides it). The kit's header-btn sets a display. */
+    #editCopyBtn[hidden] { display: none; }
+    /* A phone has room for one of the two: Edit a copy says view only too. */
+    @media (max-width: 480px) {
+      .readonly-mode .header-bar:has(#editCopyBtn:not([hidden])) #readonlyBadge { display: none !important; }
+    }
     .readonly-mode .insp-input,
     .readonly-mode .insp-textarea,
     .readonly-mode .action-toggle,
@@ -1948,6 +1966,7 @@
       --surface-3:     oklch(0.91 0.010 285);
       --surface-raised: oklch(0.995 0.002 285);
       --surface-raised-hover: var(--surface-2);
+      --surface-raised-active: oklch(0.88 0.010 285);
       /* The map's own ground, a step under the panels, so the map reads as
          a place and a card (near white) lifts off it. */
       --canvas:        oklch(0.96 0.008 285);
@@ -2289,7 +2308,11 @@
       white-space: pre;
     }
 
+    /* Prose holds a 65 to 75 character measure (DESIGN.md Typography):
+       the column is wide enough for figures, the text is not. */
+    .doc p, .doc li { max-width: 68ch; }
     .doc-aside {
+      max-width: 68ch;
       margin: 0 0 18px;
       padding: 12px 15px;
       border-radius: var(--radius);
@@ -2311,17 +2334,19 @@
     .doc-cta-note { flex: 1 1 240px; font-size: var(--fs-13); color: var(--text-muted); line-height: 1.5; }
 
 
+    /* Key caps are one component wherever a key is shown (DESIGN.md):
+       the palette's recipe, mono 11px/500, --text-2 on --tint. */
     .doc kbd {
       display: inline-block;
-      min-width: 22px; text-align: center;
-      padding: 2px 7px;
-      border-radius: 5px;
-      background: var(--surface-2);
-      border: 1px solid var(--border-strong);
-      border-bottom-width: 2px;
+      min-width: 20px; text-align: center;
+      padding: 1px 5px;
+      border-radius: var(--radius-sm);
+      background: var(--tint);
+      border: 1px solid var(--border);
       font-family: var(--font-mono);
-      font-size: var(--fs-12); font-weight: 600;
-      color: var(--text-primary);
+      font-size: var(--fs-11); font-weight: var(--fw-medium);
+      line-height: 1.4;
+      color: var(--text-2);
     }
     .doc-keys { display: grid; gap: 10px; margin-bottom: 8px; }
     .doc-keys > div { display: flex; align-items: center; gap: 12px; }
@@ -2580,7 +2605,8 @@ body.voting-mode .block { cursor: copy; }
   color: var(--text-secondary); background: var(--surface-2); border-radius: 4px;
 }
 .insp-count:empty { display: none; }
-.insp-help { margin: 8px 0 0; font-size: var(--fs-11); line-height: 1.45; color: var(--text-muted); }
+.insp-help { margin: 8px 0 0; font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-3); }
+.insp-help[hidden] { display: none; }
 
 /* Placeholders at the muted text colour: the browser default measured about
    4.1:1 on the field in dark mode and 4.3:1 in light, under the 4.5:1 floor. */
@@ -2628,17 +2654,21 @@ body.light-mode .insp-select { color-scheme: light; }
 }
 .action-toggle:disabled:not([aria-pressed="true"]) { opacity: .6; }
 
+/* A suggested next step in the inspector: a ghost button (DESIGN.md), not
+   a one-off dashed box. */
 .insp-link-btn {
-  display: block; width: 100%;
-  margin: -6px 0 16px; padding: 7px 10px;
-  font-family: var(--font); font-size: var(--fs-12); font-weight: 600; text-align: left;
-  color: var(--text-secondary);
+  display: flex; align-items: center; width: 100%;
+  min-height: var(--control-h-sm);
+  margin: -6px 0 16px; padding: 0 10px;
+  font-family: var(--font); font-size: var(--fs-12); font-weight: var(--fw-medium); text-align: left;
+  color: var(--text-2);
   background: none;
-  border: 1px dashed var(--border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
 }
-.insp-link-btn:hover { color: var(--text-primary); background: var(--surface-1); }
+.insp-link-btn:hover { color: var(--text-1); background: var(--surface-2); }
+.insp-link-btn:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
 #docRefSection .insp-link-btn { margin: 0 0 6px; }
 
 .insp-quiet-btn { margin-top: 8px; }
@@ -3882,10 +3912,10 @@ body.light-mode .canvas-hint svg { opacity: .2; }
 .start-panel kbd {
   display: inline-block; min-width: 20px;
   padding: 2px 5px;
-  font: var(--fw-semibold) var(--fs-11)/1.3 var(--font-mono);
+  font: var(--fw-medium) var(--fs-11)/1.3 var(--font-mono);
   text-align: center;
   color: var(--text-2);
-  background: var(--surface-2);
+  background: var(--tint);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
@@ -4052,7 +4082,7 @@ body.light-mode .ex-pic-light { display: block; }
 }
 .ex-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin: var(--space-4) 0 var(--space-3); }
 .ex-meta { font-size: var(--fs-13); color: var(--text-3); }
-.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); }
+.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); max-width: 68ch; }
 .ex-link {
   padding: 0;
   font: inherit; color: var(--accent);
@@ -4105,8 +4135,8 @@ body.light-mode .ex-pic-light { display: block; }
 /* Legibility at any zoom (js/lod.js, js/zoom-controls.js, js/minimap.js).
 
    Level of detail. applyLod puts one band class on the canvas root:
-   lod-full (75% and up), lod-title (45 to 75%), lod-pill (25 to 45%) and
-   lod-dot (under 25%), plus lod-quiet-labels under 60%. Below full detail
+   lod-full (92% and up), lod-title (45 to 92%), lod-pill (25 to 45%) and
+   lod-dot (under 25%), plus lod-quiet-labels under 92%. Below full detail
    the card's own content steps back with visibility, never display, so the
    card keeps its height and every line keeps its ends, and a face drawn
    over it (.block-lod, paintLodFace) shows the type and the title at a
@@ -4119,6 +4149,21 @@ body.light-mode .ex-pic-light { display: block; }
    keeps its own content. The box is a size container, so its queries
    measure the card on screen and can rearrange the face inside it. */
 .block > .block-lod { display: none; container-type: size; }
+/* Full detail under 100% (92% to 100%): the card's 11px strings, the type
+   label, the chips and a line's label and note, are drawn up to 11px on
+   screen. A transform, so nothing in the card moves and no line re-routes;
+   at 100% and over --pxn is 1 or less and the scale is 1. The description
+   (12px) and the title (14px) are 11px or more from 92% on their own. */
+.canvas-root.lod-full .block :is(.block-type-badge, .block-meta, .block-actions) {
+  transform: scale(max(1, var(--pxn, 1)));
+  transform-origin: 0 50%;
+}
+.canvas-root.lod-full .block :is(.block-meta, .block-actions) { transform-origin: 0 0; }
+.canvas-root.lod-full .arrow-label-g :is(.arrow-label-bg, .arrow-label, .arrow-note) {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(max(1, var(--pxn, 1)));
+}
 .canvas-root:is(.lod-title, .lod-pill, .lod-dot) .block:not(:has([contenteditable="true"]))
   > :is(.block-header, .block-title, .block-desc, .block-meta, .block-actions) {
   visibility: hidden;
@@ -4293,9 +4338,9 @@ body.high-contrast .canvas-root.lod-dot .block { --lod-ink: var(--bc, var(--text
     calc(var(--px, 1px) + (var(--aw-now, var(--aw, 1.5px)) - var(--aw, 1.5px)) * var(--pxn, 1)));
 }
 
-/* Connection labels under 60%: they step aside until their line, or a
-   card at either end, is hovered or selected, and then read at their own
-   size on screen, growing from their centre. Notes wait for 60% too. */
+/* Connection labels under full detail (92%): they step aside until their
+   line, or a card at either end, is hovered or selected, and then read at
+   their own size on screen, growing from their centre. Notes wait too. */
 .canvas-root.lod-quiet-labels .arrow-label-g:not(.hover, .related, .sel) { display: none; }
 /* Below 45% a card's own labels would bury it and its neighbours (they sit
    under the cards and were placed for the labels' world size): there only
@@ -4552,6 +4597,9 @@ body.light-mode .minimap-b.has-color { fill: var(--bc-custom-light, var(--bc-cus
 .pf-menu:has(> .pf-menu-search .pf-menu-search-input:focus) > .pf-menu-match {
   background: var(--surface-raised-hover); color: var(--text-primary);
 }
+/* The letters the filter matched, as in the command palette (.cmdk-hit). */
+.pf-menu-hit { font-weight: var(--fw-semibold); color: var(--text-1); }
+.pf-menu-danger .pf-menu-hit { color: inherit; }
 
 /* Templates are buttons (js/ui-panels.js renderTemplatesList): a Tab stop
    each, a saved template's delete a 24px sibling button. */
@@ -4693,6 +4741,9 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
   .brief-scope-narrow { display: inline; }
   .brief-actions .copy-btn svg { display: none; }
 }
+/* A selection's count beside Selection takes the room Copy's icon had:
+   in Firefox the label ran past the button's edge at the 320px panel. */
+.brief-actions:has(.brief-scope-n:not(:empty)) .copy-btn svg { display: none; }
 
 /* What is still open, in words: the Attention tab's count, never a grade. */
 .brief-ready {
@@ -4701,8 +4752,10 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
 }
 .brief-ready[hidden] { display: none; }
 .brief-ready strong { color: var(--text-1); font-weight: var(--fw-semibold); }
+/* The space before it is the markup's own, so a line that wraps starts
+   with the word at the margin, never indented by 4px. */
 .brief-link {
-  margin-left: 4px; padding: 0;
+  margin-left: 0; padding: 0; white-space: nowrap;
   background: none; border: 0;
   font: inherit; font-weight: var(--fw-medium); color: var(--text-1);
   text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px;
@@ -5182,7 +5235,8 @@ html:not([data-theme]) .header-bar[data-header-skin="custom"][data-pf-bar="app"]
   #inspectorPane .insp-section > p.insp-label-hint { margin-top: 6px; }
   /* Rows with no label of their own line up under the fields. */
   #inspectorPane #typeActionsSection { margin-left: 100px; }
-  #inspectorPane #promoteAssumption { margin-left: 100px; width: calc(100% - 100px); }
+  /* Under a full-width field (the Answer), so full width too. */
+  #inspectorPane #promoteAssumption { margin-left: 0; width: 100%; }
   #planningDetails .insp-disclosure-body > :is(.insp-toggle-row, .insp-help) { margin-left: 100px; }
   /* Links and docs: the same two columns, buttons across both. */
   #docRefSection {
@@ -5233,7 +5287,9 @@ html:not([data-theme]) .header-bar[data-header-skin="custom"][data-pf-bar="app"]
    The same for the tablet rail (769px to 1024px); phones have a strip. */
 .palette.collapsed .palette-item { padding-block: 6px; min-height: 24px; }
 .palette.collapsed .palette-step { padding-bottom: 4px; }
-.palette.collapsed .palette-step-head { padding-top: 6px; padding-bottom: 1px; }
+/* An explicit line box: from font metrics it was 21px a row in Firefox and
+   20px in Chromium and WebKit, which overflowed an 800px window by 6px. */
+.palette.collapsed .palette-step-head { padding-top: 6px; padding-bottom: 1px; line-height: 13px; }
 .palette.collapsed .palette-section-toggle { padding-block: 5px 3px; }
 .palette.collapsed { scrollbar-width: none; }
 .palette.collapsed::-webkit-scrollbar { display: none; }

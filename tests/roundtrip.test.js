@@ -335,7 +335,8 @@ describe('roundtrip: a refuted assumption never becomes a decision that states t
   it('without a decision text, the card reads "Not true: <claim>" and keeps the record in its rationale', () => {
     seed()
     const plan = buildPlan({ verify: [{ block: 'a', verdict: 'refuted', evidence: 'Capped at 24h by the provider.' }] })
-    assert.match(plan.ops[0].label, /^Refuted: "Tokens last as long as our sessio…" becomes the decision "Not true: Tokens last as long as/)
+    // Titles keep about 60 characters in the preview (QA3), so both read whole.
+    assert.match(plan.ops[0].label, /^Refuted: "Tokens last as long as our sessions" becomes the decision "Not true: Tokens last as long as/)
     applyPlan(plan)
     const b = state.blocks.a
     assert.eq(b.type, 'decision')
@@ -753,7 +754,9 @@ describe('roundtrip: the inspector answers a question card', () => {
     assert.eq(section.previousElementSibling?.id, 'rationaleSection')
     assert.ok(shown(answerBox()), 'shown on a question card')
     assert.eq(section.querySelector('label').htmlFor, 'inspAnswer')
-    assert.includes(section.querySelector('label').textContent, 'writing one marks the question done')
+    // The hint is its own sentence under the field (QA3), not part of the label.
+    assert.eq(section.querySelector('label').textContent.trim(), 'Answer')
+    assert.eq(section.querySelector('#answerHint').textContent, 'Writing one marks the question done.')
     assert.eq(answerBox().placeholder, 'What you found, and how you know it')
   })
 
@@ -842,7 +845,7 @@ describe('roundtrip: the inspector answers a question card', () => {
     selectBlock('d')
     assert.ok(shown(answerBox()))
     assert.eq(answerBox().value, 'Kept')
-    assert.includes(byId('answerSection').textContent, 'kept from when this was an open question')
+    assert.includes(byId('answerSection').textContent, 'Kept from when this was an open question.')
   })
 
   it('read-only: an answer reads as text, and an empty one is not shown at all', () => {

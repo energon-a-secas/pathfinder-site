@@ -94,11 +94,15 @@ body.trace-embed .neo-footer { display: none; }
 .trace-empty[hidden] { display: none; }
 /* No opacity on the muted ink: that took it under 4.5:1. */
 .trace-empty-hint { font-size: var(--fs-12); }
+/* An example's one-line description in the Examples menu: a hint, 12px in
+   --text-3 (it was 11px at 60% opacity, under 4.5:1). */
+.trace-ex-blurb { margin-top: 2px; font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-3); }
 
 /* ── examples ── */
 .trace-picker { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+/* A control: the one control radius and the 12px label size (DESIGN.md). */
 .trace-chip {
-  font-size: var(--fs-11); padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  font-size: var(--fs-12); padding: 4px 10px; border-radius: var(--radius); cursor: pointer;
   border: 1px solid var(--border); background: var(--tint);
   color: var(--text-2);
 }

@@ -21,7 +21,7 @@ import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, snapshot, saveState, serializeCanvas } from './state.js'
-import { genId, escHtml, showToast, STATUS_DEFS, TYPES, DEFAULT_WIDTH } from './utils.js'
+import { genId, escHtml, showToast, STATUS_DEFS, TYPES, DEFAULT_WIDTH, DEFAULT_ARROW_WEIGHT } from './utils.js'
 import { placeNewBlocks, occupiedRects } from './create.js'
 import { normalizeBlock, normalizeArrow } from './normalize.js'
 import { retypeBlock } from './type-menu.js'
@@ -44,7 +44,7 @@ export function extractPatch(text) {
   try { data = JSON.parse(body) } catch (_) {
     return { error: fence
       ? 'The pathfinder-patch block is not valid JSON'
-      : 'No ```pathfinder-patch``` block found, and the text is not JSON' }
+      : 'This reply has no changes block. Ask the assistant to end with the pathfinder-patch block the brief asks for, or copy the brief again if this reply came from an older one.' }
   }
   if (!data || typeof data !== 'object') return { error: 'The patch is not an object' }
   if (data.blocks && !data.format) {
@@ -166,7 +166,7 @@ export function buildPlan(patch) {
       // The card is the question: the answer is its own field, and an
       // answered question is done, so Attention stops listing it.
       const had = !!String(b.answer || '').trim()
-      add('answer', true, `${had ? 'Replace the answer on' : 'Answer'} "${short(titleOf(t.id), 44)}"${b.status === 'done' ? '' : ' and mark it done'}`, {
+      add('answer', true, `${had ? 'Replace the answer on' : 'Answer'} "${short(titleOf(t.id), 60)}"${b.status === 'done' ? '' : ' and mark it done'}`, {
         conf: t.how, detail: short(text),
         read: graph => {
           const blk = graph.blocks[t.id]
@@ -181,7 +181,7 @@ export function buildPlan(patch) {
       return
     }
     const idx = target.idx
-    add('answer', true, `Answer "${short(b.questions[idx].text, 44)}" on "${short(titleOf(t.id), 30)}"`, {
+    add('answer', true, `Answer "${short(b.questions[idx].text, 60)}" on "${short(titleOf(t.id), 60)}"`, {
       conf: t.how, detail: short(text),
       read: graph => graph.blocks[t.id].questions[idx].answer || 'Not answered',
       apply(graph) { graph.blocks[t.id].questions[idx].answer = text },
@@ -206,8 +206,8 @@ export function buildPlan(patch) {
     const decided = oneLine(v.decision)
     const title = verdict === 'refuted' ? (decided || `Not true: ${claim}`) : b.title
     add('verify', true, verdict === 'verified'
-      ? `Verified: "${short(claim, 40)}" becomes a decision`
-      : `Refuted: "${short(claim, 34)}" becomes the decision "${short(title, 34)}"`, {
+      ? `Verified: "${short(claim, 60)}" becomes a decision`
+      : `Refuted: "${short(claim, 60)}" becomes the decision "${short(title, 60)}"`, {
       conf: t.how, detail: short(evidence),
       read: graph => blockDetails(graph.blocks[t.id]),
       apply(graph) {
@@ -240,7 +240,7 @@ export function buildPlan(patch) {
     if (typeof sOp?.status !== 'string' || !Object.hasOwn(STATUS_DEFS, sOp.status)) {
       return refuse('status', `Unknown status "${short(sOp?.status, 24)}" for ${named(t.id)}; use ${Object.keys(STATUS_DEFS).join(', ')}`)
     }
-    add('status', true, `Status of "${short(titleOf(t.id), 40)}" → ${sOp.status}`, {
+    add('status', true, `Status of "${short(titleOf(t.id), 60)}" → ${sOp.status}`, {
       conf: t.how,
       read: graph => STATUS_DEFS[graph.blocks[t.id].status || 'not-started']?.label || 'Not Started',
       apply(graph) { graph.blocks[t.id].status = sOp.status },
@@ -264,7 +264,7 @@ export function buildPlan(patch) {
         ? `${named(t.id)} is already at the 30-criterion limit`
         : `No new criteria for ${named(t.id)}`)
     }
-    add('criteria', true, `${adds.length} acceptance criteri${adds.length === 1 ? 'on' : 'a'} on "${short(titleOf(t.id), 36)}"`, {
+    add('criteria', true, `${adds.length} acceptance criteri${adds.length === 1 ? 'on' : 'a'} on "${short(titleOf(t.id), 60)}"`, {
       conf: t.how, detail: short(adds.join(' · ')),
       read: graph => (graph.blocks[t.id].criteria || []).join('\n') || 'No acceptance criteria',
       apply(graph) {
@@ -288,7 +288,7 @@ export function buildPlan(patch) {
     if (!t) return unresolved('note', nOp?.block)
     const text = asText(nOp?.note)
     if (!text) return refuse('note', `Empty note for ${named(t.id)}`)
-    add('note', true, `Note on "${short(titleOf(t.id), 40)}"`, {
+    add('note', true, `Note on "${short(titleOf(t.id), 60)}"`, {
       conf: t.how, detail: short(text),
       read: graph => graph.blocks[t.id].notes || 'No notes',
       apply(graph) {
@@ -330,7 +330,7 @@ export function buildPlan(patch) {
         fixed: { x: Number.isFinite(rb?.x) ? clean.x : undefined, y: Number.isFinite(rb?.y) ? clean.y : undefined } })
     }
     blockOps.set(finalId, ops.length)
-    add('block', true, `New ${clean.type}: "${short(clean.title || '(untitled)', 44)}"`, {
+    add('block', true, `New ${clean.type}: "${short(clean.title || '(untitled)', 60)}"`, {
       read: graph => blockDetails(graph.blocks[finalId]),
       apply(graph) {
         const at = where.get(finalId) || { x: 0, y: 0 }
@@ -359,8 +359,8 @@ export function buildPlan(patch) {
     const f = end(clean.from), t = end(clean.to)
     if (!f || !t) {
       // Say which end failed, and why, in titles where there are titles.
-      const side = (ref, hit) => hit ? `"${short(nameOf(hit.id), 26)}"` : `"${short(ref, 26)}"`
-      const why = (ref, hit) => hit ? '' : idCounts.has(ref) ? `the new card "${short(ref, 26)}" was refused` : explainRef(ref)
+      const side = (ref, hit) => hit ? `"${short(nameOf(hit.id), 60)}"` : `"${short(ref, 60)}"`
+      const why = (ref, hit) => hit ? '' : idCounts.has(ref) ? `the new card "${short(ref, 60)}" was refused` : explainRef(ref)
       const reasons = [why(clean.from, f), why(clean.to, t)].filter(Boolean)
       return refuse('arrow', `Cannot connect ${side(clean.from, f)} → ${side(clean.to, t)}: ${reasons.join('; ')}`)
     }
@@ -372,13 +372,18 @@ export function buildPlan(patch) {
     connected.add(pair)
     links.push({ from: f.id, to: t.id })
     const arrowId = genId()
-    add('arrow', true, `Connect "${short(nameOf(f.id) || clean.from, 26)}" → "${short(nameOf(t.id) || clean.to, 26)}"${clean.label ? ` (${short(clean.label, 20)})` : ''}`, {
+    add('arrow', true, `Connect "${short(nameOf(f.id) || clean.from, 60)}" → "${short(nameOf(t.id) || clean.to, 60)}"${clean.label ? ` (${short(clean.label, 20)})` : ''}`, {
       conf: f.how === 'fuzzy' || t.how === 'fuzzy' ? 'fuzzy' : 'id',
       requires: [f.id, t.id].filter(id => blockOps.has(id)).map(id => blockOps.get(id)),
       read: graph => graph.arrows.some(a => a.id === arrowId)
         ? `${nameOf(f.id)} → ${nameOf(t.id)}${connectionLabel(clean) ? '\nMeaning: ' + connectionLabel(clean) : ''}${clean.note ? '\nNote: ' + clean.note : ''}` : 'Not connected',
       apply(graph) {
-        graph.arrows.push({ ...clean, id: arrowId, from: f.id, to: t.id })
+        // A new connection, drawn like one made by hand: routed, at the
+        // default weight. normalizeArrow's curved, 2px defaults are for
+        // reading old saved maps, and a patch line cut through cards (QA3).
+        graph.arrows.push({ ...clean, id: arrowId, from: f.id, to: t.id,
+          style: clean.style === ra.style ? clean.style : 'routed',
+          weight: ra.weight != null && ra.weight !== '' && Number.isFinite(Number(ra.weight)) ? clean.weight : DEFAULT_ARROW_WEIGHT })
       },
     })
   })
@@ -443,8 +448,15 @@ export function applyPlan(plan) {
 
 // ── UI ───────────────────────────────────────────────────────
 
+// A failure says what to do next, beside a warning icon (a status colour
+// never stands alone), with the block's name set as code.
+const WARN_ICON = '<svg class="patch-err-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5l6 10.5H2z"/><path d="M8 6.75v3M8 11.6v.01"/></svg>'
 function renderPreview(host, plan, error) {
-  if (error) { host.innerHTML = `<div class="patch-op err">${escHtml(error)}</div>`; return }
+  if (error) {
+    const text = escHtml(error).replace(/`{0,3}pathfinder-patch`{0,3}/g, '<code>pathfinder-patch</code>')
+    host.innerHTML = `<div class="patch-op err" role="status">${WARN_ICON}<span>${text}</span></div>`
+    return
+  }
   const rows = previewPlan(plan).map(o => {
     const cls = o.ok ? (o.conf === 'fuzzy' ? 'warn' : 'ok') : 'err'
     const conf = o.ok && o.conf === 'fuzzy' ? ' <em>(matched by title, check it)</em>'
@@ -470,11 +482,17 @@ export function setupPatchUI() {
   const applyBtn = document.getElementById('patchApplyBtn')
   let plan = null
 
+  const choose = document.getElementById('patchChooseLine')
   const refresh = () => {
     const { patch, error } = extractPatch(input.value)
     plan = error ? null : buildPlan(patch)
-    renderPreview(preview, plan || { ops: [] }, error)
+    // Nothing pasted: nothing to say. Nothing parsed: the error alone,
+    // without the line about choosing changes or a button that cannot run.
+    if (!input.value.trim()) preview.innerHTML = ''
+    else renderPreview(preview, plan || { ops: [] }, error)
     applyBtn.disabled = !plan || !selectedOps(plan).length
+    applyBtn.hidden = !plan
+    if (choose) choose.hidden = !plan
   }
 
   preview.addEventListener('change', e => {

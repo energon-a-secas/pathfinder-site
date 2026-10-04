@@ -300,16 +300,22 @@ export function resolveTypeId(value) {
   return typeLookup.get(typeKey(value)) || ''
 }
 
-// Card presets. `bar` is the original 3px left stripe, kept so canvases built
-// in it can stay that way; `outline` is the default now.
+// Card presets. `bar` was the original 3px left stripe: a side stripe is
+// the one accent DESIGN.md bans outright, so it is retired (QA3). A map that
+// stored it still loads and keeps the value (normalize.js accepts it, so it
+// round-trips), but no menu offers it and it draws as `outline`.
 export const CARD_STYLES = {
   outline: { label: 'Outline', hint: 'Accent border on all four sides' },
-  bar:     { label: 'Accent bar', hint: 'Colour stripe down the left edge' },
+  bar:     { label: 'Accent bar', hint: 'Retired: draws as Outline', retired: true },
   header:  { label: 'Header', hint: 'Colour fills the title strip' },
   tint:    { label: 'Tinted', hint: 'Accent wash across the card' },
   plain:   { label: 'Plain', hint: 'Neutral edge, colour in the badge only' },
 }
 export const DEFAULT_CARD_STYLE = 'outline'
+/** The preset a stored card style draws as: a retired or unknown one is the default. */
+export const drawnCardStyle = key => CARD_STYLES[key] && !CARD_STYLES[key].retired ? key : DEFAULT_CARD_STYLE
+/** The presets a menu offers (never a retired one). */
+export const pickableCardStyles = () => Object.entries(CARD_STYLES).filter(([, v]) => !v.retired)
 export const BORDER_WIDTHS = [1, 1.5, 2, 3]
 
 /**
@@ -779,7 +785,7 @@ export function toastIcon(type) {
 }
 
 let toastTimeout
-export function showToast(message, type = 'info', duration = 3000) {
+export function showToast(message, type = 'info', duration = 3000, { action = null } = {}) {
   const existing = document.querySelector('.toast-notification')
   if (existing) existing.remove()
 
@@ -791,7 +797,17 @@ export function showToast(message, type = 'info', duration = 3000) {
   toast.setAttribute('role', 'status');
   toast.setAttribute('aria-live', 'polite');
   toast.innerHTML = toastIcon(kind) + '<span class="toast-msg"></span>'
-  toast.lastElementChild.textContent = message
+  toast.querySelector('.toast-msg').textContent = message
+  // An action beside the message (Undo after a delete): a real button,
+  // the one part of a toast that takes a click.
+  if (action?.label && typeof action.run === 'function') {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'toast-action'
+    btn.textContent = action.label
+    btn.addEventListener('click', () => { toast.remove(); action.run() }, { once: true })
+    toast.appendChild(btn)
+  }
   document.body.appendChild(toast)
   placeToast(toast)
 

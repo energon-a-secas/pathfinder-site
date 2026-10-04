@@ -15,7 +15,7 @@ import { renderBlock, renderInspector,
          mutateBlock, deleteBlock, addArrow, deleteArrow,
          duplicateBlock, deleteBlocksBatch, undo, redo, updateCanvasTitle } from './render.js'
 import { runGapDetection } from './gaps.js'
-import { openSearch, closeSearch, openShortcuts, closeShortcuts, runTidy } from './ui-panels.js'
+import { openSearch, closeSearch, openShortcuts, closeShortcuts, runTidy, PANEL_TABS, showPanelTab, sayViewOnly } from './ui-panels.js'
 import { toggleChrome, toggleZen } from './chrome.js'
 import { guidesForDrag, drawGuides, clearGuides } from './align.js'
 import { openDocPopup } from './doc-panel.js'
@@ -29,7 +29,7 @@ import { setVotingMode, refreshVotingBanner } from './voting.js'
 import { blockDecorators } from './render.js'
 import { zoomIn, zoomOut, zoomTo, zoomAround, zoomToSelection, wheelZoomFactor } from './zoom-controls.js'
 import { ARROW_DIRS, PORT_DIR, readingOrder, nearestInDirection, currentBlockId, selectFromKeyboard,
-         focusableAfterCanvas, controlsBeforeCanvas, nudgeSelection, panBy, createInDirection,
+         focusableAfterCanvas, focusableBeforeCanvas, controlsBeforeCanvas, nudgeSelection, panBy, createInDirection,
          openQuickCreate, nav, isTyping, modalDialogOpen, canvasHasFocus, canvasZoomKeysApply, labelPorts,
          untabCardControls, isCameraHeld, revealShift, announce, announcer } from './navigation.js'
 
@@ -696,7 +696,10 @@ export function setupCanvasPointerEvents() {
     if (!hit || !canvasViewport.contains(hit) || hit.closest('[data-canvas-ui]')) return
     // Double-clicking a word inside text already being edited selects it.
     if (hit.closest('[contenteditable="true"]')) return
-    if (ui.readOnly) return
+    if (ui.readOnly) {
+      if (hit.closest('.block') || arrowPressPair(e.clientX, e.clientY)) sayViewOnly()
+      return
+    }
     // A pair that began on a connection edits that connection, even when the
     // line was re-routed away from the pointer between the two presses.
     const pair = arrowPressPair(e.clientX, e.clientY)
@@ -861,6 +864,12 @@ export function setupKeyboardShortcuts() {
     if (e.key === '?') { e.preventDefault(); openShortcuts(); return }
     // Matched on e.code too: Option+H types a symbol on a Mac.
     if (e.altKey && !mod && (e.code === 'KeyH' || e.key === 'h')) { e.preventDefault(); document.body.classList.toggle('high-contrast'); return }
+    // Alt+1, 2, 3: the Inspector, the Brief, Attention, with the keyboard on
+    // the tab (the tabs are otherwise reached only past every card).
+    if (e.altKey && !mod && !e.shiftKey && /^Digit[1-9]$/.test(e.code)) {
+      const t = PANEL_TABS.find(p => 'Digit' + p.key === e.code)
+      if (t && showPanelTab(t.tab)) { e.preventDefault(); return }
+    }
 
     // ── View: about the window, not the map, so live in read-only and embed.
     // Cmd/Ctrl + = - 0 zoom the canvas instead of the page, but only while
@@ -934,7 +943,7 @@ export function setupKeyboardShortcuts() {
       // Nothing left to deselect: let go of the canvas, so the keyboard is
       // never stuck in it.
       const ae = document.activeElement
-      if (ae && ae !== document.body && $.canvasViewport().contains(ae)) ae.blur()
+      if (ae && ae !== document.body && $.canvasViewport().contains(ae)) { ae.blur(); leftCanvasByEscape = true }
       return
     }
 
@@ -947,7 +956,12 @@ export function setupKeyboardShortcuts() {
       return
     }
 
-    if (ui.readOnly) return
+    if (ui.readOnly) {
+      // The edit keys say why nothing happened.
+      const editKey = ['F2', 'Delete', 'Backspace'].includes(e.key) || (e.key === 'Enter' && !e.defaultPrevented)
+      if (editKey && noMods(e) && (selection.ids.size || selection.arrowId)) sayViewOnly()
+      return
+    }
     if (onCanvas && noMods(e) && !e.shiftKey && e.key.toLowerCase() === 'l') {
       e.preventDefault(); runTidy(); return
     }
@@ -1001,11 +1015,27 @@ export function setupKeyboardShortcuts() {
 
 
 // ── Tab keyboard navigation ───────────────────────────────────
+// Escape with nothing selected lets go of the canvas, but the browser's
+// sequential focus point stays on the card it left, so the next Tab landed
+// on another card and came straight back in at the first block: reaching
+// the Brief took 24 Tabs. The Tab after that Escape leaves instead.
+let leftCanvasByEscape = false
 let tabNavWired = false
 export function setupTabNavigation() {
   if (tabNavWired) return
   tabNavWired = true
   announcer()
+  document.addEventListener('focusin', () => { leftCanvasByEscape = false }, true)
+  document.addEventListener('pointerdown', () => { leftCanvasByEscape = false }, true)
+  document.addEventListener('keydown', e => {
+    if (!leftCanvasByEscape || e.key === 'Escape' || e.key === 'Shift') return
+    if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey) { leftCanvasByEscape = false; return }
+    leftCanvasByEscape = false
+    const ae = document.activeElement
+    if (ae && ae !== document.body && ae !== document.documentElement) return
+    const to = e.shiftKey ? focusableBeforeCanvas() : focusableAfterCanvas()
+    if (to) { e.preventDefault(); to.focus() }
+  }, true)
   // Tab / Shift+Tab walk the blocks in reading order, selecting each, and
   // then leave the canvas: Tab after the last block goes on to whatever
   // follows the canvas, Shift+Tab before the first goes back to the canvas

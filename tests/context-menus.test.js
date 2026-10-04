@@ -844,7 +844,9 @@ describe('Context menus: connecting and following connections', () => {
     let sub = openSub('Connect to…')
     const hint = label => rowByLabel(sub, label).querySelector('.pf-menu-hint')?.textContent
     assert.eq(hint('m'), 'Metric: it measures this')
-    assert.eq(hint('d'), 'Decision: this comes before it')
+    // A goal adds no task order (relationOf), so the row says what the
+    // brief will read rather than "comes before" (QA3).
+    assert.eq(hint('d'), 'Decision: this informs it, no task order')
     closeMenus()
     rclick(blockEl('i'))
     sub = openSub('Connect to…')

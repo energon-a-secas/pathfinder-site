@@ -232,12 +232,15 @@ try {
       document.querySelectorAll('.toast-notification').forEach(t => t.remove())
       document.querySelector('.panel-tab[data-tab="prompt"]')?.click()
       // Readable cards beat the whole map: the investigation from its first
-      // card, at the zoom someone works at, the brief beside it.
+      // card, at the zoom someone works at, the brief beside it. Full detail
+      // (lod.js FULL_DETAIL_ZOOM), so the descriptions and the connections'
+      // labels show, as they do on arrival.
       const { view, state } = await import('/js/state.js')
       const { applyTransform } = await import('/js/canvas.js')
+      const { FULL_DETAIL_ZOOM } = await import('/js/lod.js')
       const blocks = Object.values(state.blocks)
       const minX = Math.min(...blocks.map(b => b.x)), minY = Math.min(...blocks.map(b => b.y))
-      view.zoom = 0.72
+      view.zoom = FULL_DETAIL_ZOOM
       view.panX = 32 - minX * view.zoom
       view.panY = 96 - minY * view.zoom
       applyTransform()

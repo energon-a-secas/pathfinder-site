@@ -387,20 +387,57 @@ function onHover(e) {
 //                       the first row instead)
 // The row Enter will pick is always marked (.pf-menu-match), so the box never
 // picks a row nobody could see it was about to pick.
+// How well a row's label answers the query: 0 the label starts with it,
+// 1 a word in it does, 2 it is somewhere inside, 3 not in the label at all
+// (a hint matched). Rows sort by this, so "log" puts "Login success rate"
+// above "Move sign-in ... logouts" and Enter picks what was meant.
+export function matchTier(label, q) {
+  const l = String(label || '').toLowerCase()
+  if (!q) return 0
+  if (l.startsWith(q)) return 0
+  if (l.split(/[^\p{L}\p{N}]+/u).some(w => w.startsWith(q))) return 1
+  return l.includes(q) ? 2 : 3
+}
+
+// Where the query sits in the label, for the bold letters: the label's
+// start, else the first word that starts with it, else anywhere.
+function matchAt(label, q) {
+  const l = String(label || '').toLowerCase()
+  if (!q || l.startsWith(q)) return q ? 0 : -1
+  const re = /[^\p{L}\p{N}]+/gu
+  let m
+  while ((m = re.exec(l))) { const i = m.index + m[0].length; if (l.startsWith(q, i)) return i }
+  return l.indexOf(q)
+}
+
+/** The row's label with the letters the query matched in bold (.pf-menu-hit). */
+function paintHit(row, q) {
+  const el = row.querySelector('.pf-menu-label'); if (!el) return
+  const label = row._pfItem?.label || ''
+  const i = matchAt(label, q)
+  if (i < 0) { if (el.childElementCount) el.textContent = label; return }
+  el.innerHTML = escHtml(label.slice(0, i)) + `<span class="pf-menu-hit">${escHtml(label.slice(i, i + q.length))}</span>` +
+    escHtml(label.slice(i + q.length))
+}
+
 function filterAfter(input) {
   const q = input.value.trim().toLowerCase()
   const menuEl = input.closest('.pf-menu')
   const wrap = input.closest('.pf-menu-search')
   const hints = input._pfSearch?.matchHints !== false
   let after = false, visibleInGroup = 0
-  const pending = []
+  const pending = [], rest = []
   for (const child of menuEl.children) {
     if (child === wrap) { after = true; continue }
-    if (!after) continue
+    if (!after || child.classList.contains('pf-menu-empty')) continue
+    rest.push(child)
+    if (child._pfOrder == null) child._pfOrder = rest.length
     if (child.classList.contains('pf-menu-item')) {
       const text = (child._pfItem?.label || '') + (hints ? ' ' + (child._pfItem?.hint || '') : '')
       const show = !q || text.toLowerCase().includes(q)
       child.hidden = !show
+      child._pfTier = show ? matchTier(child._pfItem?.label, q) : 4
+      paintHit(child, show ? q : '')
       if (show) visibleInGroup++
     } else if (child.classList.contains('pf-menu-heading') || child.classList.contains('pf-menu-divider')) {
       pending.push(child)
@@ -408,6 +445,18 @@ function filterAfter(input) {
   }
   // Headings and dividers only make sense unfiltered.
   pending.forEach(n => { n.hidden = !!q })
+  // While filtering, the rows stand in the order they answer the query
+  // (then their own order); cleared, every row goes back where it was.
+  // Only a plain list of rows, headings and dividers is reordered.
+  const plain = rest.every(n => n.classList.contains('pf-menu-item') || pending.includes(n))
+  if (plain && rest.length > 1) {
+    const rank = n => q ? (n.classList.contains('pf-menu-item') ? n._pfTier : 5) : 0
+    const sorted = [...rest].sort((a, b) => rank(a) - rank(b) || a._pfOrder - b._pfOrder)
+    if (sorted.some((n, i) => n !== rest[i])) {
+      const anchor = rest[rest.length - 1].nextSibling
+      sorted.forEach(n => menuEl.insertBefore(n, anchor))
+    }
+  }
   let empty = menuEl.querySelector('.pf-menu-empty')
   if (!visibleInGroup) {
     if (!empty) {
@@ -440,9 +489,16 @@ function matchFor(input) {
   const first = firstVisibleAfter(input) || null
   if (!q || !first) return first
   const wrap = input.closest('.pf-menu-search')
-  const startsWord = row => (row._pfItem?.label || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).some(w => w.startsWith(q))
-  return stops(input.closest('.pf-menu')).find(s => s.classList.contains('pf-menu-item') &&
-    (wrap.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) && startsWord(s)) || first
+  // The best answer, not merely the first word match: the label's start,
+  // then a word's start, then anywhere; ties go to the row listed first.
+  let best = first, bestTier = matchTier(first._pfItem?.label, q)
+  for (const s of stops(input.closest('.pf-menu'))) {
+    if (bestTier === 0) break
+    if (!s.classList.contains('pf-menu-item') || !(wrap.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
+    const t = matchTier(s._pfItem?.label, q)
+    if (t < bestTier) { best = s; bestTier = t }
+  }
+  return best
 }
 
 function markMatch(input) {

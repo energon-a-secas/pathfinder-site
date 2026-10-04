@@ -135,51 +135,54 @@ const frame = () => new Promise(r => requestAnimationFrame(() => r()))
 
 // ── Level of detail: the bands ──────────────────────────────
 describe('zoom: level-of-detail bands', () => {
-  it('each zoom falls in one band: full from 75%, title from 45%, pill from 25%, dot below', () => {
-    assert.deepEq(LOD_BANDS.map(b => [b.band, b.min]), [['full', 0.75], ['title', 0.45], ['pill', 0.25], ['dot', 0]])
-    const cases = [[2.6, 'full'], [1, 'full'], [0.75, 'full'], [0.7499, 'title'], [0.6, 'title'], [0.45, 'title'],
+  it('each zoom falls in one band: full from 92%, title from 45%, pill from 25%, dot below', () => {
+    // Full detail starts where the 12px description is 11px on screen (QA3).
+    assert.deepEq(LOD_BANDS.map(b => [b.band, b.min]), [['full', 0.92], ['title', 0.45], ['pill', 0.25], ['dot', 0]])
+    assert.ok(12 * LOD_BANDS[0].min >= 11, 'the description holds the 11px floor at full detail')
+    assert.ok(14 * LOD_BANDS[0].min >= 12, 'and the full card\'s title is never smaller than the title face (12px)')
+    const cases = [[2.6, 'full'], [1, 'full'], [0.92, 'full'], [0.9199, 'title'], [0.8, 'title'], [0.75, 'title'], [0.6, 'title'], [0.45, 'title'],
       [0.4499, 'pill'], [0.3, 'pill'], [0.25, 'pill'], [0.2499, 'dot'], [MIN_ZOOM, 'dot']]
     for (const [z, band] of cases) assert.eq(lodBand(z), band, `${z}`)
   })
 
   it('a gesture resting on an edge keeps its band; a jump lands exactly', () => {
-    // Pinching out across 75%: still full until the zoom is LOD_MARGIN past the edge.
-    assert.eq(lodBand(0.745, 'full', 0.752), 'full')
-    assert.eq(lodBand(0.75 - LOD_MARGIN - 0.001, 'full', 0.735), 'title')
+    // Pinching out across 92%: still full until the zoom is LOD_MARGIN past the edge.
+    assert.eq(lodBand(0.915, 'full', 0.922), 'full')
+    assert.eq(lodBand(0.92 - LOD_MARGIN - 0.001, 'full', 0.905), 'title')
     // And back in: the title band holds just above the edge.
-    assert.eq(lodBand(0.755, 'title', 0.748), 'title')
-    assert.eq(lodBand(0.775, 'title', 0.765), 'full')
+    assert.eq(lodBand(0.925, 'title', 0.918), 'title')
+    assert.eq(lodBand(0.945, 'title', 0.935), 'full')
     // A jump (a zoom stop, Fit, an arrival) is never held back.
-    assert.eq(lodBand(0.745, 'full', 1), 'title')
-    assert.eq(lodBand(0.755, 'title', 0.5), 'full')
+    assert.eq(lodBand(0.915, 'full', 1.25), 'title')
+    assert.eq(lodBand(0.925, 'title', 0.5), 'full')
     // Only a neighbouring band holds: from dot, 70% is title at once.
     assert.eq(lodBand(0.7, 'dot', 0.69), 'title')
   })
 
-  it('connection labels rest below 60%, with the same hysteresis', () => {
-    assert.eq(LABELS_MIN_ZOOM, 0.6)
-    assert.eq(labelsAtRest(0.6), true)
-    assert.eq(labelsAtRest(0.59), false)
-    assert.eq(labelsAtRest(0.595, true, 0.605), true, 'a gesture step keeps them')
-    assert.eq(labelsAtRest(0.595, true, 1), false, 'a jump does not')
+  it('connection labels rest below full detail (92%), with the same hysteresis', () => {
+    assert.eq(LABELS_MIN_ZOOM, LOD_BANDS[0].min)
+    assert.eq(labelsAtRest(0.92), true)
+    assert.eq(labelsAtRest(0.91), false)
+    assert.eq(labelsAtRest(0.915, true, 0.925), true, 'a gesture step keeps them')
+    assert.eq(labelsAtRest(0.915, true, 1.25), false, 'a jump does not')
   })
 
-  it('the canvas root carries exactly one band class, and the quiet-labels class under 60%', () => {
+  it('the canvas root carries exactly one band class, and the quiet-labels class under 92%', () => {
     reset()
     const saved = view.zoom
     try {
       setZoom(1);    assert.deepEq(rootClasses(), ['lod-full'])
-      setZoom(0.6);  assert.deepEq(rootClasses(), ['lod-title'])
+      setZoom(0.8);  assert.deepEq(rootClasses(), ['lod-quiet-labels', 'lod-title'])
       setZoom(0.5);  assert.deepEq(rootClasses(), ['lod-quiet-labels', 'lod-title'])
       setZoom(0.3);  assert.deepEq(rootClasses(), ['lod-pill', 'lod-quiet-labels'])
       setZoom(0.2);  assert.deepEq(rootClasses(), ['lod-dot', 'lod-quiet-labels'])
-      setZoom(0.8);  assert.deepEq(rootClasses(), ['lod-full'])
+      setZoom(0.95); assert.deepEq(rootClasses(), ['lod-full'])
       assert.eq(currentLod(), 'full')
     } finally { view.zoom = saved; applyLod({ exact: true }) }
   })
 
   it('the face scale never puts text under its size and moves in steps, so a pinch rarely re-lays it out', () => {
-    for (let z = 0.18; z < 0.75; z += 0.0037) {
+    for (let z = 0.18; z < 0.92; z += 0.0037) {
       const k = lodScale(z)
       assert.ok(k * z >= 1 - 1e-9, `at ${z.toFixed(3)} text is at its size or above`)
       assert.ok(k * z < Math.pow(2, 1 / LOD_STEPS_PER_OCTAVE) + 1e-9, `and at most one step above (${(k * z).toFixed(3)})`)

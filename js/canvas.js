@@ -12,7 +12,7 @@ import { HEAD_POINTS, headLength, headTrim, colorKey, arrowRoute, arrowPattern, 
          dashArrayFor, pathFor } from './arrow-geometry.js'
 import { resolveRoutes } from './arrow-routes.js'
 import { paintColorFor } from './cards.js'
-import { placeLabels } from './arrow-labels.js'
+import { placeLabels, wrapNote, NOTE_LINE, NOTE_GAP } from './arrow-labels.js'
 import { syncArrowStates } from './arrow-hover.js'
 
 export * from './arrow-geometry.js'
@@ -332,10 +332,10 @@ export function renderArrows(opts = {}) {
     // body.show-arrow-text setting) so hover reveal needs no arrow re-render.
     if (noteText) {
       const lines = wrapNote(noteText)
-      const startY = lp.y + (lp.text ? lp.h / 2 + 4 : 4)
+      const startY = lp.y + (lp.text ? lp.h / 2 + NOTE_GAP : NOTE_GAP)
       put(note, 'y', startY)
       const html = lines.map((ln, i) =>
-        `<tspan x="${lp.x}" dy="${i === 0 ? 0 : 13}">${escHtml(ln)}</tspan>`).join('')
+        `<tspan x="${lp.x}" dy="${i === 0 ? 0 : NOTE_LINE}">${escHtml(ln)}</tspan>`).join('')
       if (note.__pfHtml !== html) { note.innerHTML = html; note.__pfHtml = html }
       note.classList.toggle('selected', sel)
     } else if (note.__pfHtml !== '') {
@@ -369,22 +369,6 @@ function placeHandles(layer, old, at) {
   if (layer.lastElementChild !== pair[1] || pair[1].previousElementSibling !== pair[0]) layer.append(...pair)
 }
 
-// Soft-wrap an arrow note into short lines so long annotations stay readable
-// on the canvas without an HTML layout pass. ~28 chars/line, max 4 lines.
-function wrapNote(text, maxChars = 28, maxLines = 4) {
-  const out = []
-  text.split(/\r?\n/).forEach(para => {
-    let line = ''
-    para.split(/\s+/).forEach(word => {
-      if (!line) { line = word }
-      else if ((line + ' ' + word).length <= maxChars) { line += ' ' + word }
-      else { out.push(line); line = word }
-    })
-    if (line) out.push(line)
-  })
-  if (out.length > maxLines) { const t = out.slice(0, maxLines); t[maxLines - 1] += '…'; return t }
-  return out
-}
 
 // ── Empty-canvas hint ────────────────────────────────────────
 export function updateHint() {

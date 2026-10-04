@@ -7,7 +7,7 @@
 //  the inspector as a property sheet with per-type placeholders.
 // ============================================================
 
-import { describe, it, assert, cssRgba } from './test-utils.js'
+import { describe, it, assert, cssRgba, ONSCREEN, fromSiteRoot } from './test-utils.js'
 import { state, ui, canvasMeta, selection } from '../js/state.js'
 import { $, TYPES, STATUS_DEFS, ACTION_LABELS, showToast, toastIcon } from '../js/utils.js'
 import { renderBlock, updateCanvasTitle } from '../js/render.js'
@@ -37,11 +37,11 @@ async function page() {
 // :has() and the theme tokens resolve as they do on the page.
 async function frame(html, { width = 1200, height = 800, bodyClass = '', kit = false } = {}) {
   const f = document.createElement('iframe')
-  f.style.cssText = `position:fixed;left:-7000px;top:0;width:${width}px;height:${height}px;border:0`
+  f.style.cssText = `${ONSCREEN};width:${width}px;height:${height}px`
   f.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css">' +
     (kit ? '<link rel="stylesheet" href="../css/neorgon-header.css">' : '') +
     '<style>*, *::before, *::after { transition: none !important; animation: none !important; }</style>' +
-    `</head><body class="${bodyClass}">${html}</body></html>`
+    `</head><body class="${bodyClass}">${fromSiteRoot(html)}</body></html>`
   const loaded = new Promise(res => f.addEventListener('load', res, { once: true }))
   document.body.appendChild(f)
   await loaded

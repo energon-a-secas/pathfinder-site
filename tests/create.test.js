@@ -73,7 +73,11 @@ describe('suggestedNextTypes() and defaultConnectDirection()', () => {
 
   it('points the new connection the way the implied verb reads', () => {
     assert.eq(defaultConnectDirection('goal', 'metric'), 'in', 'metric -> goal: measures')
-    assert.eq(defaultConnectDirection('decision', 'risk'), 'in', 'risk -> decision: mitigated by')
+    // A risk added from a block hangs off it (source -> risk), so it stays
+    // unmitigated until a mitigation is drawn from it (QA3).
+    assert.eq(defaultConnectDirection('decision', 'risk'), 'out', 'decision -> risk: no mitigation claimed')
+    assert.eq(defaultConnectDirection('requirement', 'risk'), 'out', 'requirement -> risk: no mitigation claimed')
+    assert.eq(defaultConnectDirection('risk', 'decision'), 'out', 'risk -> decision: mitigated by, drawn from the risk')
     assert.eq(defaultConnectDirection('implementation', 'output'), 'out', 'implementation -> output: produces')
     assert.eq(defaultConnectDirection('goal', 'requirement'), 'out', 'no verb either way')
   })
@@ -199,10 +203,20 @@ describe('createConnected()', () => {
 
   it("infers the direction from the implied verb with incoming: 'auto'", () => {
     reset()
+    block('m', 'metric', 0, 0)
+    const g = createConnected('m', 'goal', { incoming: 'auto', edit: false })
+    assert.eq(state.arrows[0].from, 'm', 'metric -> goal: measures')
+    assert.eq(state.arrows[0].to, g)
+    reset()
+    block('gl', 'goal', 0, 0)
+    const mm = createConnected('gl', 'metric', { incoming: 'auto', edit: false })
+    assert.eq(state.arrows[0].from, mm, 'the metric points at the goal it measures')
+    assert.eq(state.arrows[0].to, 'gl')
+    reset()
     block('d', 'decision', 0, 0)
     const id = createConnected('d', 'risk', { incoming: 'auto', edit: false })
-    assert.eq(state.arrows[0].from, id, 'risk -> decision')
-    assert.eq(state.arrows[0].to, 'd')
+    assert.eq(state.arrows[0].from, 'd', 'decision -> risk: the new risk is not recorded as mitigated by the decision')
+    assert.eq(state.arrows[0].to, id)
     reset()
     block('i', 'implementation', 0, 0)
     const o = createConnected('i', 'output', { incoming: 'auto', edit: false })

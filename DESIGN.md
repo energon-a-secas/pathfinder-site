@@ -10,6 +10,7 @@ colors:
   surface-3: "oklch(0.26 0.012 285)"
   border: "oklch(0.30 0.010 285)"
   border-strong: "oklch(0.50 0.012 285)"
+  surface-raised-active: "oklch(0.30 0.010 285)"
   text-1: "oklch(0.96 0.008 285)"
   text-2: "oklch(0.80 0.010 285)"
   text-3: "oklch(0.66 0.010 285)"
@@ -33,6 +34,7 @@ colors:
   light-surface-2: "oklch(0.94 0.008 285)"
   light-surface-3: "oklch(0.91 0.010 285)"
   light-surface-raised: "oklch(0.995 0.002 285)"
+  light-surface-raised-active: "oklch(0.88 0.010 285)"
   light-canvas: "oklch(0.96 0.008 285)"
   light-border: "oklch(0.88 0.010 285)"
   light-border-strong: "oklch(0.62 0.012 285)"
@@ -301,7 +303,16 @@ Attention's distance (OKLab, dE times 100) from what it must not be mistaken for
 | the nearest type colour | 12.9 (Risk) | 10.7 (Risk) |
 | the type band, any hue (dark L 0.74 C 0.11, light L 0.52 C 0.13) | 12.6 at hue 85 | 12.0 at hue 74 |
 
-High contrast (`body.high-contrast`, or the system setting through `prefers-contrast: more`, the value that query takes; `high` never matched) raises `--border`, makes `--border-strong` and `--text-2` the primary text colour, lifts `--text-3`, and moves the accent further from the background, in both themes.
+High contrast (`body.high-contrast`, or the system setting through `prefers-contrast: more`, the value that query takes; `high` never matched) raises `--border`, makes `--border-strong` and `--text-2` the primary text colour, lifts `--text-3`, and moves the accent further from the background, in both themes:
+
+| Token (high contrast) | Dark | Light |
+|---|---|---|
+| `--border` | `oklch(0.70 0.010 285)` | `oklch(0.55 0.012 285)` |
+| `--border-strong`, `--text-2` | `--text-1` | `--text-1` |
+| `--text-3` | `oklch(0.84 0.008 285)` | `oklch(0.32 0.012 285)` |
+| `--accent` | `oklch(0.80 0.12 285)` | `oklch(0.42 0.18 285)` |
+
+A border token is never a fill: high contrast lifts `--border` to a mid grey, and a hovered button on a floating surface that used it as its fill fell to 2.4:1 (dark) and 3.6:1 (light) under `--text-1`. The pressed and hovered fill there is `--surface-raised-active` (`oklch(0.30 0.010 285)` dark, `oklch(0.88 0.010 285)` light, untouched by high contrast), measured at 4.5:1 or better with `--text-1` in all four modes by `tests/design-tokens.test.js`.
 
 ### Type palette
 
@@ -416,7 +427,7 @@ All shadows are neutral (a near-black at hue 285 with alpha), never coloured, ne
 Refined and plain: one shape, four variants, two sizes.
 - **Shape:** a 6px radius (`--radius`), 32px tall (`.btn`), 28px for dense rows (`.btn-sm`), `.btn-block` for full width. 13px, weight 500 (600 on primary).
 - **Primary** (`.btn-primary`): the accent fill with `--on-accent` text. One per view: the action the view exists for (Turn into blocks, Copy brief, Open as a new map, Restore).
-- **Secondary** (`.btn-secondary`): `--surface-2` with a 1px `--border`; hover `--surface-3` and `--border-strong`. On a floating surface the fill steps up one level (`--btn-fill`).
+- **Secondary** (`.btn-secondary`): `--surface-2` with a 1px `--border`; hover `--surface-3` and `--border-strong`. On a floating surface the fill steps up one level (`--btn-fill`, `--surface-raised-hover`) and its hover one more (`--btn-fill-hover`, `--surface-raised-active`), never a border token.
 - **Ghost** (`.btn-ghost`): no fill at rest, `--text-2`; hover takes the secondary fill. For Cancel, Close, Dismiss.
 - **Danger** (`.btn-danger`): `--danger` text on a neutral bordered button; hover `--danger-subtle`. Destructive actions keep an undo.
 - **States:** hover changes lightness only (no translate, no shadow); focus is the one outline; active steps down; disabled is 50% and inert; loading is `aria-busy="true"`, which adds a small spinner and blocks repeat clicks.
@@ -446,12 +457,12 @@ One treatment everywhere: `--focus-outline` (2px solid accent) at `--focus-offse
 
 ### Cards (blocks)
 - **Corner:** 10px (`--radius-lg`); terminators are pills.
-- **Fill:** `--card`; a 1.5px edge mixing the type colour into `--border` (the preset decides how much).
+- **Fill:** `--card`; a 1.5px edge mixing the type colour into `--border` (the preset decides how much). Presets: Outline (the default), Header, Tinted and Plain. The old Accent bar (a 3px side stripe) is retired: a map that stored it still loads and keeps the value, and draws as Outline.
 - **Structure:** the header row (the 8px type dot in its shape, the 11px uppercase type label, markers), the 14px/600 title, the 12px description clamped to three lines, then chips.
 - **States:** each state has its own channel, and they nest without touching, measured outward from the card's edge: selection or keyboard focus on the edge (0 to 2px), selection's halo to 4px; a gap's dashed ring from 3 to 5px; a presentation highlight's ring from 6 to 8.5px, its word on a tab at the top left. Hover is a shadow, drag a deeper one. The gap badge owns the top right corner. Widths are whole pixels (Chrome draws a 1.5px border or outline 1px wide at 1x).
 - **Zoomed out:** these markers keep their size on screen. `applyTransform` sets `--px` (one screen pixel in canvas units) and `--pxn` on `#canvasRoot`; `--sp` is `--px` but never under one canvas pixel, and `--mk` scales the gap badge and the highlight's word to hold about 14px below 70%. At a two-template fit (0.297) the selection and the ring draw 1.78px, the badge 14px; at 100% nothing changes.
-- **Level of detail** (`js/lod.js`, the `[zoom]` section): the canvas root carries one band, and below full detail a face over the card (never a change to its size, so no line moves) shows what reads. `lod-full` (75% and up) the whole card; `lod-title` (45 to 75%) the type label at 11px (in sentence case: the uppercase label does not fit a card 100px wide) and the title at 12px/600 on screen, as many lines as the card holds, the dot beside the title when it is short; `lod-pill` (25 to 45%) the dot and the title at 11px, a line or two; `lod-dot` (under 25%) the card filled with its type colour (72% into `--card`) and its shape in the middle (`CanvasText` in forced colours), the title on a raised tip under the card on hover or focus, opening left or above near the canvas's edge. Titles break between words, never inside one and never hyphenated: a word longer than its line ends in an ellipsis. Connection labels rest below 60% and come back, at their screen size, for a hovered or selected line, or between 45 and 60% for a hovered card's lines. A frame's name holds 11px and stays inside its frame's width; a line holds one screen pixel at any zoom. The hover fade leaves Spotlight's own fade alone.
-- **Arrival:** a template, the sample, an example, a share link, pasted notes or a Tidy into step columns lands at 75% (or whole, up to 100%, when that reads) on the entry layer (its triggers, else its roots; pasted notes already on screen at a readable zoom stay put); the toast adds "Shift+1 shows all of it." when part is off screen ("Fit shows all of it." on a phone or a touch-only device). An embed keeps the whole-map fit.
+- **Level of detail** (`js/lod.js`, the `[zoom]` section): the canvas root carries one band, and below full detail a face over the card (never a change to its size, so no line moves) shows what reads. `lod-full` (92% and up, where the 12px description is 11px on screen) the whole card, its 11px strings (the type label, chips, a line's label and note) drawn up to 11px on screen between 92% and 100% by a transform that moves nothing; `lod-title` (45 to 92%) the type label at 11px (in sentence case: the uppercase label does not fit a card 100px wide) and the title at 12px/600 on screen, as many lines as the card holds, the dot beside the title when it is short; `lod-pill` (25 to 45%) the dot and the title at 11px, a line or two; `lod-dot` (under 25%) the card filled with its type colour (72% into `--card`) and its shape in the middle (`CanvasText` in forced colours), the title on a raised tip under the card on hover or focus, opening left or above near the canvas's edge. Titles break between words, never inside one and never hyphenated: a word longer than its line ends in an ellipsis. Connection labels rest below full detail (92%) and come back, at their screen size, for a hovered or selected line, or between 45 and 92% for a hovered card's lines. A label is placed together with its note (the note's lines under the pill), so neither runs under a card. A frame's name holds 11px and stays inside its frame's width; a line holds one screen pixel at any zoom. The hover fade leaves Spotlight's own fade alone.
+- **Arrival:** a template, the sample, an example, a share link, pasted notes or a Tidy into step columns lands at 100% (whole when all of it fits there) on the entry layer (its triggers, else its roots; pasted notes already on screen at a readable zoom stay put); the toast adds "Shift+1 shows all of it." when part is off screen ("Fit shows all of it." on a phone or a touch-only device). An embed keeps the whole-map fit.
 - **Minimap** (`M`, View, the zoom menu; off until asked for): 160 by 100 in the canvas's bottom right corner, flat on `--surface-1` with a 1px `--border`, blocks in their type colour at 80%, the view as a `--text-2` frame over an 8% wash. A toast centres in the room to its left while it shows. `aria-hidden`: Fit and zoom to selection are its keys. Not on phones or in embeds.
 
 ### Chips
@@ -468,7 +479,7 @@ One treatment everywhere: `--focus-outline` (2px solid accent) at `--focus-offse
 - `--edge` at rest, `--edge-hi` (a neutral) when a related card is hovered, `--edge-sel` (the accent, one selection colour for cards and lines) when selected: the line, its endpoint handles and its label pill's edge. Labels are pills on `--card` with a `--border` edge and 11px text.
 
 ### Toasts
-- A `--surface-raised` panel with a 1px border and `--shadow-1`, a status icon in its status colour, and the message in `--text-1`. They sit under the header and never catch a click meant for what is below.
+- A `--surface-raised` panel with a 1px border and `--shadow-1`, a status icon in its status colour, and the message in `--text-1`. They sit under the header and never catch a click meant for what is below, except their own action: a delete (a block, a map) and Clear say what went and offer Undo as a text button in the accent, instead of asking first in a native confirm.
 
 ### Dialogs
 - A real `<dialog>`: `--surface-raised`, `--radius-xl`, `--shadow-2`, `--scrim` backdrop, one primary button first and Cancel as a ghost. Inline and progressive alternatives come before a modal.

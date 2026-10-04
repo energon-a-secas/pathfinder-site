@@ -439,7 +439,10 @@ export function refreshBackupStatus(now = Date.now()) {
   host.querySelector('.backup-text').textContent = backupStatusText(at, now)
   host.title = at ? 'Last exported ' + new Date(at).toLocaleString() : 'No export of this map yet. Maps live only in this browser until you export them'
   host.classList.toggle('backup-stale', backupStale(now))
-  host.hidden = false
+  // An empty map has nothing to back up: the first visit opened on "Backed
+  // up: never" beside the start panel's own storage line (QA3). It shows
+  // once the map has a block, or once it has been exported.
+  host.hidden = !at && !Object.keys(state.blocks).length
 }
 
 /**

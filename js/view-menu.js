@@ -17,7 +17,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta, snapshot, saveState, debouncedSave, snapTo } from './state.js'
-import { $, CARD_STYLES, escHtml, showToast } from './utils.js'
+import { $, CARD_STYLES, escHtml, showToast, drawnCardStyle, pickableCardStyles } from './utils.js'
 import { renderAllBlocks, renderInspector } from './render.js'
 import { renderArrows, renderFrames } from './canvas.js'
 import { commandPaletteMenuItem } from './command-palette.js'
@@ -185,8 +185,8 @@ function focusCanvas() { $.canvasViewport()?.focus({ preventScroll: true }) }
 const CARD_PREVIEW = k => `<span class="card-swatch card-swatch-${k}"></span>`
 
 export function cardStyleItems() {
-  const current = canvasCardStyle()
-  return Object.entries(CARD_STYLES).map(([k, v]) => ({
+  const current = drawnCardStyle(canvasCardStyle())
+  return pickableCardStyles().map(([k, v]) => ({
     label: v.label, hint: v.hint, icon: CARD_PREVIEW(k),
     radio: true, checked: current === k,
     action: () => { if (setCanvasCardStyle(k) && hasLegacyTint()) clearLegacyTint() },

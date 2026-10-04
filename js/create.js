@@ -55,6 +55,13 @@ export function suggestedNextTypes(type) {
  * makes metric -> goal ("measures"), not goal -> metric.
  */
 export function defaultConnectDirection(fromType, toType) {
+  // A risk added from (or connected to) another block hangs off it: the
+  // arrow runs source -> risk, which claims nothing. Drawn the other way it
+  // read "risk mitigated by <the block it came from>", so a requirement
+  // with a new risk under it printed in the brief as that risk's answer
+  // and the risk never showed as unmitigated. A mitigation is drawn from
+  // the risk, on purpose.
+  if (toType === 'risk' && fromType !== 'risk') return 'out'
   return impliedVerb(toType, fromType) && !impliedVerb(fromType, toType) ? 'in' : 'out'
 }
 
@@ -115,16 +122,24 @@ function offsetsNearestFirst() {
  * grid of `step` pixels out to 60 steps; past that, the box goes right of
  * everything, level with the request. Pure; whole pixels out.
  */
-export function nearestFreeSpot(x, y, w, h, rects, { gap = CARD_GAP, step = 20 } = {}) {
+export function nearestFreeSpot(x, y, w, h, rects, { gap = CARD_GAP, step = 20, within = null } = {}) {
   const fx = Math.round(x), fy = Math.round(y)
   if (!rects.length || isClear(fx, fy, w, h, rects, gap)) return { x: fx, y: fy }
   // Only cards inside the search window can block a candidate.
   const reach = SEARCH_RINGS * step + gap
   const near = rects.filter(r => r.x < fx + w + reach && r.x + r.w > fx - reach && r.y < fy + h + reach && r.y + r.h > fy - reach)
+  // `within` (a world rect, the visible canvas) prefers a free slot the
+  // person can see: a card created at the pointer and then moved off screen
+  // had its title editor out of view. Outside it only when nothing inside is free.
+  const inside = (px, py) => !within || (px >= within.x1 && py >= within.y1 && px + w <= within.x2 && py + h <= within.y2)
+  let outside = null
   for (const [i, j] of offsetsNearestFirst()) {
     const px = fx + i * step, py = fy + j * step
-    if (isClear(px, py, w, h, near, gap)) return { x: px, y: py }
+    if (!isClear(px, py, w, h, near, gap)) continue
+    if (inside(px, py)) return { x: px, y: py }
+    if (!outside) outside = { x: px, y: py }
   }
+  if (outside) return outside
   return { x: Math.round(Math.max(...rects.map(r => r.x + r.w)) + gap * 2), y: fy }
 }
 
@@ -207,7 +222,7 @@ function finishCreate(id, { edit, select }) {
  * slot when a card is in the way. One undo step. Selects it and starts
  * title editing unless told not to.
  */
-export function createBlockAt(type, wx, wy, { edit = true, select = true } = {}) {
+export function createBlockAt(type, wx, wy, { edit = true, select = true, within = null } = {}) {
   if (ui.readOnly || !Object.hasOwn(TYPES, type)) return null
   const id = createBlock(type, wx, wy)
   // Select before measuring: a selected card can be taller (its empty
@@ -218,7 +233,7 @@ export function createBlockAt(type, wx, wy, { edit = true, select = true } = {})
   const { w, h } = blockSize(id)
   b.x = Math.round(wx - w / 2)
   b.y = Math.round(wy - h / 2)
-  placeFree(id)
+  placeFree(id, within ? { within } : undefined)
   renderBlock(id)
   renderArrows()
   if (edit) startInlineEdit(id, 'title', { selectAll: true })

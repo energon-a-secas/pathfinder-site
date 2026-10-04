@@ -13,7 +13,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { ui, toWorld } from './state.js'
-import { $, TYPES } from './utils.js'
+import { $, TYPES, DEFAULT_WIDTH } from './utils.js'
 import { createBlockAt } from './create.js'
 import { typeDot, typeNoun } from './type-menu.js'
 import { isMenuOpen } from './menu.js'
@@ -97,12 +97,36 @@ function pointerWorld() {
   return toWorld(pointer.x - r.left, pointer.y - r.top)
 }
 
+// A pointer near the canvas's edge put the card half out of view, its
+// title editor with it. The point moves in until a default card fits the
+// view, 16px in from each side; the camera still never moves.
+const EDGE_PAD = 16, CARD_H = 100
+/** The visible canvas in world units, EDGE_PAD in from each side, or null. */
+export function visibleWorldRect() {
+  const vp = $.canvasViewport()
+  const W = vp?.clientWidth || 0, H = vp?.clientHeight || 0
+  if (!(W > 0) || !(H > 0)) return null
+  const a = toWorld(EDGE_PAD, EDGE_PAD), b = toWorld(W - EDGE_PAD, H - EDGE_PAD)
+  return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }
+}
+
+export function clampIntoView(p) {
+  const vp = $.canvasViewport()
+  const W = vp?.clientWidth || 0, H = vp?.clientHeight || 0
+  if (!p || !(W > 0) || !(H > 0)) return p
+  const a = toWorld(EDGE_PAD, EDGE_PAD), b = toWorld(W - EDGE_PAD, H - EDGE_PAD)
+  const fit = (lo, hi, v, half) => lo + half > hi - half ? (lo + hi) / 2 : Math.min(Math.max(v, lo + half), hi - half)
+  return { x: fit(a.x, b.x, p.x, DEFAULT_WIDTH / 2), y: fit(a.y, b.y, p.y, CARD_H / 2) }
+}
+
 /** Add a block of type `t` at the pointer (over the canvas) or the centre, in title editing. */
 export function createTypeAtPointer(t) {
   if (ui.readOnly || !Object.hasOwn(TYPES, t)) return null
-  const w = pointerWorld() || centreWorld()
+  const at = pointerWorld()
+  const w = at ? clampIntoView(at) : centreWorld()
   // The block is where it was asked for; focusing its title must not pan.
-  const id = withCameraHeld(() => createBlockAt(t, w.x, w.y))
+  // A free slot in view, so the title editor it opens is on screen.
+  const id = withCameraHeld(() => createBlockAt(t, w.x, w.y, { within: visibleWorldRect() }))
   if (id) announce(`${TYPES[t].label} added. Type its title.`)
   return id
 }

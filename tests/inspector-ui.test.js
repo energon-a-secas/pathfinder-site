@@ -244,7 +244,9 @@ describe('Inspector: one block', () => {
     // neither layer tiles, in either theme.
     const oneCaret = () => {
       const cs = getComputedStyle(sel)
-      assert.deepEq(cs.backgroundRepeat.split(',').map(v => v.trim()), ['no-repeat', 'no-repeat'])
+      // Firefox and WebKit serialise one value for both layers, Chromium one
+      // per layer: every value listed must be no-repeat.
+      assert.ok(cs.backgroundRepeat.split(',').every(v => v.trim() === 'no-repeat'), cs.backgroundRepeat)
       assert.eq((cs.backgroundImage.match(/gradient\(/g) || []).length, 2, 'two strokes, one caret')
     }
     oneCaret()
@@ -1112,7 +1114,7 @@ describe('Inspector: review fixes', () => {
           .map(id => Math.round(byId(id).getBoundingClientRect().top))
         assert.eq(new Set(tops).size, rows, `${w}: ${tops.join(', ')}`)
         const text = byId('inspCardText')
-        atMost(text.scrollWidth, text.clientWidth + 0.5, `${w}: "Accent bar" is whole`)
+        atMost(text.scrollWidth, text.clientWidth + 0.5, `${w}: "${text.textContent}" is whole`)
       }
     } finally {
       host.el.style.width = width

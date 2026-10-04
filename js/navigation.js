@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui, view, GRID, snapshotOnce, snapTo } from './state.js'
-import { $, TYPES, STATUS_DEFS, getBlockEl } from './utils.js'
+import { $, TYPES, STATUS_DEFS, getBlockEl, showToast } from './utils.js'
 import { applyTransform, renderArrows } from './canvas.js'
 import { renderBlock, selectBlock, addArrow, mutateBlocks } from './render.js'
 import { createBlockAt, createConnected, suggestedNextTypes, defaultConnectDirection, blockSize, placeFree } from './create.js'
@@ -245,6 +245,17 @@ export function controlsBeforeCanvas() {
     !root.contains(el) && (root.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) && isTabbable(el))
 }
 
+/** The last thing Shift+Tab reaches before the canvas (the viewport and what floats in it), or null. */
+export function focusableBeforeCanvas() {
+  const vp = $.canvasViewport(); if (!vp) return null
+  let last = null
+  for (const el of document.querySelectorAll(TABBABLE)) {
+    if (vp.contains(el)) break
+    if ((vp.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) && isTabbable(el)) last = el
+  }
+  return last
+}
+
 /** The first thing Tab reaches after the canvas's blocks, or null. */
 export function focusableAfterCanvas() {
   const root = $.canvasRoot(); if (!root) return null
@@ -313,7 +324,15 @@ export function quickCreateType(fromType) {
 export function createInDirection(fromId, dir) {
   const src = state.blocks[fromId]
   if (!src || ui.readOnly || !DIR_VEC[dir]) return null
-  return createConnected(fromId, quickCreateType(src.type), { dir, incoming: 'auto' })
+  const type = quickCreateType(src.type)
+  const id = createConnected(fromId, type, { dir, incoming: 'auto' })
+  // The type was the app's pick, not the person's: say which, and where it
+  // changes (a click on a port made a Metric with no word said, QA3).
+  if (id) {
+    const label = TYPES[type]?.label || type
+    showToast(`Added ${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label}. Change its type in the inspector, or right-click it.`, 'info', 3200)
+  }
+  return id
 }
 
 /** The side of a new block that faces its source, for a drop at world (wx, wy). */

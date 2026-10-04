@@ -269,7 +269,7 @@ function initMenus() {
 
   els.examplesMenu.innerHTML = EXAMPLES.map(e =>
     `<div class="export-item" data-ex="${e.id}"><div><div>${escHtml(e.name)}</div>
-     <div style="font-size:11px;opacity:.6;margin-top:2px">${escHtml(e.blurb)}</div></div></div>`).join('')
+     <div class="trace-ex-blurb">${escHtml(e.blurb)}</div></div></div>`).join('')
   els.examplesMenu.querySelectorAll('[data-ex]').forEach(item => {
     item.onclick = async () => {
       try {

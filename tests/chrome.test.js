@@ -5,7 +5,7 @@
 //  motion always wins.
 // ============================================================
 
-import { describe, it, assert, cleanupMockEls, cssRgba } from './test-utils.js'
+import { describe, it, assert, cleanupMockEls, cssRgba, ONSCREEN, fromSiteRoot } from './test-utils.js'
 import { state, ui, canvasMeta, getUndoHistory, getRedoFuture,
          resetSnapshotToken, GRID, snapshot } from '../js/state.js'
 import { $, CARD_STYLES, DEFAULT_CARD_STYLE } from '../js/utils.js'
@@ -96,7 +96,9 @@ describe('chrome -- header markup', () => {
     const order = [...actions.children]
       .filter(el => el.matches('div, button, a'))
       .map(el => el.id || (el.classList.contains('header-github') ? 'github' : el.className))
-    assert.deepEq(order, ['exportWrapper', 'shareWrapper', 'tidyGroup', 'viewBtn', 'helpBtn', 'github'])
+    // Edit a copy leads, hidden except on a view-only link (QA3).
+    assert.deepEq(order, ['editCopyBtn', 'exportWrapper', 'shareWrapper', 'tidyGroup', 'viewBtn', 'helpBtn', 'github'])
+    assert.ok(doc.getElementById('editCopyBtn').hidden, 'Edit a copy starts hidden')
     assert.match(doc.getElementById('exportBtn').textContent, /^File\b/)
     // The open map's name is a breadcrumb beside the mark: Maps / title.
     const crumb = doc.querySelector('.header-logo .map-crumb')
@@ -125,10 +127,10 @@ describe('chrome -- header markup', () => {
       assert.ok(doc.getElementById(id), `#${id} is still in the page`))
   })
 
-  it('keeps only Share in the bar on phones', async () => {
+  it('keeps only Share in the bar on phones (and, on a view-only link, Edit a copy)', async () => {
     const doc = await page()
     const kept = [...doc.querySelectorAll('.header-actions [data-keep-mobile]')].map(el => el.id)
-    assert.deepEq(kept, ['shareWrapper'])
+    assert.deepEq(kept, ['editCopyBtn', 'shareWrapper'])
   })
 
   it('every control is a real button or link with a name, and a text label in the overflow panel', async () => {
@@ -272,17 +274,23 @@ describe('chrome -- Clear this map', () => {
     }
   })
 
-  it('does nothing on a view-only link, and nothing when the confirm is declined', () => {
+  it('does nothing on a view-only link, and never stops on a native confirm (QA3)', () => {
     reset()
     block('a')
     ui.readOnly = true
     try { assert.eq(clearCanvas({ ask: false }), false) } finally { ui.readOnly = false }
     assert.ok(state.blocks.a)
+    let asked = 0
     const realConfirm = window.confirm
-    window.confirm = () => false
-    try { assert.eq(clearCanvas(), false) } finally { window.confirm = realConfirm }
-    assert.ok(state.blocks.a)
-    assert.eq(getUndoHistory().length, 0)
+    window.confirm = () => { asked++; return false }
+    try { assert.eq(clearCanvas(), true) } finally { window.confirm = realConfirm }
+    assert.eq(asked, 0, 'no native confirm: it is one undo step')
+    assert.eq(getUndoHistory().length, 1)
+    const toast = document.querySelector('.toast-notification')
+    const btn = toast?.querySelector('.toast-action')
+    assert.eq(btn?.textContent, 'Undo', 'the toast offers Undo')
+    btn.click()
+    assert.ok(state.blocks.a, 'and Undo brings the map back')
     reset()
   })
 
@@ -297,7 +305,7 @@ describe('chrome -- Clear this map', () => {
     reset()
   })
 
-  it('the confirm names undo the way this platform spells it', () => {
+  it('the toast names undo the way this platform spells it', () => {
     assert.eq(undoKeyLabel('MacIntel'), 'Cmd+Z')
     assert.eq(undoKeyLabel('macOS'), 'Cmd+Z')
     assert.eq(undoKeyLabel('iPhone'), 'Cmd+Z')
@@ -305,10 +313,8 @@ describe('chrome -- Clear this map', () => {
     assert.eq(undoKeyLabel('Linux x86_64'), 'Ctrl+Z')
     reset()
     block('a')
-    let msg = ''
-    const realConfirm = window.confirm
-    window.confirm = m => { msg = m; return false }
-    try { clearCanvas() } finally { window.confirm = realConfirm }
+    clearCanvas()
+    const msg = document.querySelector('.toast-notification .toast-msg')?.textContent || ''
     assert.includes(msg, undoKeyLabel())
     assert.eq(/Cmd\+Z/.test(msg), undoKeyLabel() === 'Cmd+Z', 'Cmd+Z only where it is the key')
     reset()
@@ -492,11 +498,11 @@ describe('chrome -- View menu', () => {
     reset()
   })
 
-  it('Card style lists every preset, checks the current one and sets it on the map', () => withStorage(() => {
+  it('Card style lists every preset but the retired one, checks the current one and sets it on the map', () => withStorage(() => {
     reset()
     block('a')
     const items = cardStyleItems()
-    assert.deepEq(items.map(i => i.label), Object.values(CARD_STYLES).map(v => v.label))
+    assert.deepEq(items.map(i => i.label), Object.values(CARD_STYLES).filter(v => !v.retired).map(v => v.label))
     assert.ok(items.every(i => i.radio))
     assert.deepEq(items.filter(i => i.checked).map(i => i.label), [CARD_STYLES[DEFAULT_CARD_STYLE].label])
     // A browser still on the retired tint toggle lets it go on the next pick.
@@ -523,9 +529,6 @@ describe('chrome -- View menu', () => {
 
 // ── Motion policy ────────────────────────────────────────────
 
-// Test frames sit on screen, invisible and inert: WebKit never runs
-// requestAnimationFrame in a frame parked off screen, and the suite hung.
-const ONSCREEN = 'position:fixed;left:0;top:0;opacity:0;pointer-events:none;border:0'
 
 // A live document with the real stylesheet, so animations actually run and
 // document.getAnimations() sees them. The canvas is rendered by the app's own
@@ -720,11 +723,21 @@ describe('chrome -- motion policy', () => {
       gap.tabIndex = 0
       gap.focus({ focusVisible: true })
       await nextFrame(win)
+      // Keyboard focus alone is the outline and nothing else: the halo and
+      // the wash belong to selection ([cards], .block:focus-visible).
       if (gap.matches(':focus-visible')) {
         assert.ok(ringStays(), 'focused: the ring stays')
-        assert.match(shadow(), /0px 0px 0px 4px/, 'focused: with the focus halo')
+        assert.ok(!/0px 0px 0px 4px/.test(shadow()), 'focused: no halo, the outline only')
+        assert.neq(win.getComputedStyle(gap).outlineStyle, 'none', 'focused: the outline marks it')
         assert.eq(win.getComputedStyle(gap).outlineOffset, '0px', 'focused: the outline on the edge, clear of the ring')
       }
+      // The same rule read from the stylesheet, so it holds even where the
+      // page has no focus and :focus-visible never matches.
+      const focusRule = [...doc.styleSheets].flatMap(sh => { try { return [...sh.cssRules] } catch (_) { return [] } })
+        .find(r => r.selectorText === '.block:focus-visible')
+      assert.ok(focusRule, 'a .block:focus-visible rule exists')
+      assert.ok(focusRule.style.outlineStyle === 'solid' || /solid/.test(focusRule.style.outline), 'it draws an outline')
+      assert.eq(focusRule.style.boxShadow, '', 'and no shadow: the halo belongs to selection')
     } finally { frame.remove(); reset() }
   })
 
@@ -786,7 +799,7 @@ async function headerFrame(width, { light = false, extra = '' } = {}) {
     '<link rel="stylesheet" href="../css/neorgon-header.css">' +
     '<link rel="stylesheet" href="../css/neorgon-themes.css">' +
     `</head><body${light ? ' class="light-mode"' : ''}>` +
-    doc.querySelector('header.header-bar').outerHTML + extra + '</body></html>'
+    fromSiteRoot(doc.querySelector('header.header-bar').outerHTML) + extra + '</body></html>'
   const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
   document.body.appendChild(frame)
   await loaded

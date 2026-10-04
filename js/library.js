@@ -857,6 +857,42 @@ export function deleteMap(id) {
   }
 }
 
+/**
+ * Delete a map with an Undo instead of a native confirm (which stopped the
+ * page): its slot, snapshots, camera and last-good copy are kept in memory
+ * while the toast shows, and Undo writes them back, in its old place in the
+ * list, and reopens it if it was the open map.
+ */
+export function deleteMapWithUndo(id) {
+  const index = loadIndex()
+  const at = index.findIndex(e => e.id === id)
+  if (at < 0) return false
+  const entry = index[at], wasCurrent = id === currentId()
+  if (wasCurrent && !saveState()) return false
+  const kept = {}
+  for (const k of [slotKey(id), snapKey(id), 'pathfinder-view:' + id, goodKey(id)]) {
+    try { const v = localStorage.getItem(k); if (v != null) kept[k] = v } catch (_) {}
+  }
+  if (deleteMap(id) === false) return false
+  const label = entry.name || 'Untitled map'
+  showToast(`Deleted "${label}".`, 'info', 10000, { action: { label: 'Undo', run: () => restoreDeletedMap(entry, at, kept, wasCurrent) } })
+  return true
+}
+
+function restoreDeletedMap(entry, at, kept, wasCurrent) {
+  const index = loadIndex()
+  if (index.some(e => e.id === entry.id)) return false
+  try { for (const [k, v] of Object.entries(kept)) localStorage.setItem(k, v) } catch (_) {
+    showToast('No room left in this browser to bring that map back', 'warning', 4000)
+    return false
+  }
+  index.splice(Math.min(at, index.length), 0, entry)
+  if (!saveIndex(index)) return false
+  if (wasCurrent) switchTo(entry.id)
+  showToast(`"${entry.name || 'Untitled map'}" is back`, 'success', 2200)
+  return true
+}
+
 export function exportAllMaps() {
   saveState()
   const index = loadIndex()
@@ -976,7 +1012,7 @@ export function mapsMenuItems() {
   const cur = currentId()
   const index = loadIndex().slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))
   const name = e => e.name || 'Untitled map'
-  const meta = e => `${plural(e.blocks, 'block')} · ${plural(e.arrows, 'arrow')} · ${fmtWhen(e.updated)}`
+  const meta = e => `${plural(e.blocks, 'block')} · ${plural(e.arrows, 'connection')} · ${fmtWhen(e.updated)}`
   const snaps = listSnapshots()
   const items = [{ type: 'heading', label: 'Your maps' }]
   // rowId: the command palette keys a map by it (every new map is named
@@ -998,10 +1034,7 @@ export function mapsMenuItems() {
       label: 'Delete a map', danger: true,
       submenu: () => index.map(e => ({
         label: name(e), hint: e.id === cur ? 'The map you have open' : meta(e), danger: true,
-        action: () => {
-          if (!confirm(`Delete "${name(e)}"?\n\nThis cannot be undone.`)) return
-          deleteMap(e.id)
-        },
+        action: () => deleteMapWithUndo(e.id),
       })),
     })
   }

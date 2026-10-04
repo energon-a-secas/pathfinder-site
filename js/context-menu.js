@@ -297,13 +297,27 @@ function connectPlan(id, other) {
   return { from, to, incoming, verb }
 }
 
-/** "Metric: it measures this", "Requirement: this satisfies it". */
-function connectHint(id, other) {
+// The implied verbs that are not a verb in the third person: they need "is"
+// to read as a sentence ("it is mitigated by this", not "it mitigated by").
+const VERB_PHRASE = { 'mitigated by': 'is mitigated by', 'delivered to': 'is delivered to', 'source of': 'is a source of' }
+
+/**
+ * "Metric: it measures this", "Requirement: this satisfies it". With no
+ * implied verb, what the brief will read from the arrow (relationOf): only
+ * an ordering pair "comes before"; a pair that adds no task order says so.
+ */
+export function connectHint(id, other) {
   const o = state.blocks[other]
-  const { incoming, verb } = connectPlan(id, other)
+  const { from, to, incoming, verb } = connectPlan(id, other)
   const label = TYPES[o.type]?.label || o.type
-  // An arrow with no implied verb reads as "comes before", the default meaning.
-  return incoming ? `${label}: it ${verb} this` : `${label}: this ${verb || 'comes before'} it`
+  if (verb) {
+    const phrase = VERB_PHRASE[verb] || verb
+    return incoming ? `${label}: it ${phrase} this` : `${label}: this ${phrase} it`
+  }
+  const relation = relationOf({ from, to }, state.blocks)
+  if (relation === 'informs') return `${label}: this informs it, no task order`
+  if (relation === 'related') return `${label}: related, no task order`
+  return `${label}: this comes before it`
 }
 
 // ── Shared submenus ──────────────────────────────────────────

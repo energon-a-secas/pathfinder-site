@@ -11,7 +11,7 @@
 import { state, ui, selection, snapshot, debouncedSave, toWorld } from './state.js'
 import { $, genId, getBlockEl, showToast, TYPES, DEFAULT_WIDTH } from './utils.js'
 import { renderArrows, updateHint } from './canvas.js'
-import { renderAllBlocks, mutateBlocks, renderInspector } from './render.js'
+import { renderAllBlocks, mutateBlocks, renderInspector, afterMutation } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { openDropdown, isMenuOpen } from './menu.js'
 import { modalDialogOpen } from './navigation.js'
@@ -313,8 +313,13 @@ const PERIOD_EVENT = new RegExp(`^(${PERIOD_END}|${UNITS}|${CADENCE_WORDS})\\s+(
 const SCORE_RULES = {
   requirement: [[/\b(need|needs|must|should|shall|require[sd]?|has to|have to)\b/i, 3], [/\b(support|enable|provide|allow)\b/i, 1]],
   assumption:  [[/\b(assume|assuming|assumption|expect|expects|presumably|likely|probably|i think|we think|believe)\b/i, 3], [/\bwill\s+\w+/i, 2], [/\b(should be fine|hopefully)\b/i, 2]],
-  risk:        [[/\b(risks?|concerns?|danger|threats?|worried|might fail|could fail|fragile|breaks?|vulnerab)\b/i, 3], [/\b(if .* fails|single point of failure)\b/i, 2]],
-  goal:        [[/\b(goals?|objectives?|aim|vision|want to|increase|reduce|improve|grow|launch|ship|achieve|reach)\b/i, 3]],
+  // "Invites might get flagged as spam": a modal on something going wrong
+  // is a risk said plainly (QA3).
+  risk:        [[/\b(risks?|concerns?|danger|threats?|worried|might fail|could fail|fragile|breaks?|vulnerab)\b/i, 3], [/\b(if .* fails|single point of failure)\b/i, 2],
+                 [/\b(might|could|may)\s+(not\s+)?(get|be|fail|break|lose|leak|slip|miss|stall|drop|time out)\b/i, 3]],
+  // "We want teams to set up...", "aim to": what the plan is for (QA3).
+  goal:        [[/\b(goals?|objectives?|aim|vision|want to|increase|reduce|improve|grow|launch|ship|achieve|reach)\b/i, 3],
+                 [/^(want|wants|aim|aims|hope|hopes)\s+(\w+\s+){0,3}to\b/i, 3]],
   problem:     [[/\b(problems?|issues?|blockers?|bugs?|broken|pain|can't|cannot|doesn't work|failing|slow|outage)\b/i, 3], [/\b(latency|exceeds?|over (our )?sla|breach(es|ing)?|too slow|error rate|downtime)\b/i, 3],
                  // "Build fails on main" is a red pipeline, not work to do.
                  [/^(build|pipeline|ci|deploy(ment)?|tests?)\s+(is\s+|are\s+|was\s+|keeps\s+)?(fail(s|ed|ing)?|broken|red|flaky)\b/i, 3]],
@@ -338,7 +343,9 @@ const SCORE_RULES = {
   terminator:  [[new RegExp(`^(start|begin|finish|done|complete[d]?|end(?!${SEP}of${SEP}(the${SEP})?${UNITS}\\b))\\b`, 'i'), 3],
                  [CADENCE_ANYWHERE, 1],
                  [CADENCE_WHOLE, 2]],
-  metric:      [[/\b(kpis?|okrs?|metrics?|key results?|slas?|slos?|nps)\b/i, 3], [new RegExp(METRIC_HINT, 'i'), 2]],
+  // "Track how many teams finish setup": something counted (QA3).
+  metric:      [[/\b(kpis?|okrs?|metrics?|key results?|slas?|slos?|nps)\b/i, 3], [new RegExp(METRIC_HINT, 'i'), 2],
+                 [/^(track|measure|count)\b/i, 3], [/\bhow (many|much|often|long)\b/i, 2]],
   // A leading "build" is work unless the build is the subject ("Build
   // fails on main") or its object is not a thing ("Build trust with ...").
   implementation: [[/^(implement|integrate|migrate|automate|set up|(build|develop)(?!\s+(fails?|failed|failing|broke|broken|breaks|is|was|keeps|still|red|trust|relationships?|rapport|confidence|consensus|momentum|awareness|credibility|loyalty|reputation|culture)\b))\b/i, 3],
@@ -615,7 +622,9 @@ export function createBlocksFromText(text, nest = true, { at = null } = {}) {
   runGapDetection()
   updateHint()
   debouncedSave()
-  ui.promptDirty = true
+  // Like every other edit: an open Brief tab rewrites itself (it kept its
+  // empty state after a dump), and Attention and the status bar catch up.
+  afterMutation()
 
   const guessed = specs.filter(s => s.typeCheck).length
   queueMicrotask(() => {

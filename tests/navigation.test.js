@@ -868,6 +868,10 @@ describe('Quick create keeps the camera still', () => {
     withViewport(() => {
       view.panX = 0; view.panY = 0; view.zoom = 1
       const w = document.getElementById('b-a').offsetWidth
+      // An earlier test may have left focus on a card called 'a' with the
+      // camera at 0,0,1, which reads as a return to it (no pan). Focus
+      // leaving from outside any card clears that memory, as a fresh page has.
+      $.canvasRoot().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
       endPressGrace()
       withFocusEvents(() => document.getElementById('b-a').focus({ preventScroll: true }))
       assert.eq(view.panX, 800 - 60 - (700 + w), 'the card slid in to the padded edge, no further')

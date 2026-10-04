@@ -18,7 +18,7 @@ import { relationHint, impliedVerb, RELATIONS } from './relations.js'
 import { state, selection, ui, view, canvasMeta, debouncedSave,
          snapshotOnce, resetSnapshotToken } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
-         STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ACTION_LABELS, ARROW_LABEL_PRESETS, CARD_STYLES,
+         STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ACTION_LABELS, ARROW_LABEL_PRESETS, CARD_STYLES, drawnCardStyle, pickableCardStyles,
          DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
 import { renderFrames, arrowRoute, arrowPattern } from './canvas.js'
 import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
@@ -454,6 +454,9 @@ function renderBlockInspector(b) {
   }
   revealFieldsIn(root)
   ;[inspDesc, $.inspCriteria(), $.inspRationale(), inspNotes].forEach(autogrow)
+  // Again now the body is in: a body tall enough for a classic scrollbar
+  // narrows the head, and the observer's re-fit waits a frame.
+  fitHead()
 }
 
 // ── An Open Question's answer ────────────────────────────────
@@ -474,8 +477,11 @@ function answerSection() {
   section.id = 'answerSection'
   section.style.display = 'none'
   section.innerHTML =
-    '<label class="insp-label" for="inspAnswer">Answer <span class="insp-label-hint" id="answerHint"></span></label>' +
-    '<textarea class="insp-textarea insp-autogrow" id="inspAnswer" rows="2" placeholder="What you found, and how you know it"></textarea>'
+    // The hint is a sentence of its own under the field: inside the label it
+    // read as one phrase ("Answer writing one marks the question done").
+    '<label class="insp-label" for="inspAnswer">Answer</label>' +
+    '<textarea class="insp-textarea insp-autogrow" id="inspAnswer" rows="2" placeholder="What you found, and how you know it" aria-describedby="answerHint"></textarea>' +
+    '<p class="insp-help" id="answerHint"></p>'
   anchor.after(section)
   wireAnswerField(section.querySelector('textarea'))
   return section
@@ -495,9 +501,11 @@ function renderAnswer(b, isNew, ro) {
   section.style.display = show ? '' : 'none'
   const el = section.querySelector('textarea')
   setField(el, show ? (b.answer || '') : '', isNew)
-  section.querySelector('.insp-label-hint').textContent = ro ? ''
-    : b.type !== 'question' ? 'kept from when this was an open question'
-    : b.status === 'done' ? '' : 'writing one marks the question done'
+  const hint = section.querySelector('#answerHint')
+  hint.textContent = ro ? ''
+    : b.type !== 'question' ? 'Kept from when this was an open question.'
+    : b.status === 'done' ? '' : 'Writing one marks the question done.'
+  hint.hidden = !hint.textContent
   viewOnly(el, ro, { empty: !has })
   autogrow(el)
 }
@@ -571,7 +579,7 @@ function renderAppearance(b) {
   setText('inspColourText', colourName)
   face('inspColourBtn', `Colour: ${b.color ? colourName : 'type colour'}`)
 
-  const card = CARD_STYLES[b.cardStyle] ? CARD_STYLES[b.cardStyle].label : 'Default'
+  const card = CARD_STYLES[b.cardStyle] ? CARD_STYLES[drawnCardStyle(b.cardStyle)].label : 'Default'
   setText('inspCardText', card)
   face('inspCardBtn', `Card style: ${b.cardStyle && CARD_STYLES[b.cardStyle] ? card : 'map default'}`)
 
@@ -1092,8 +1100,8 @@ export function setupInspectorEvents() {
       { label: 'Map default', hint: `Follows the map (${mapDefault})`, radio: true, checked: !b.cardStyle,
         action: () => editBlock({ cardStyle: null }) },
       { type: 'divider' },
-      ...Object.entries(CARD_STYLES).map(([k, v]) => ({ label: v.label, hint: v.hint, radio: true,
-        checked: b.cardStyle === k, action: () => editBlock({ cardStyle: k }) })),
+      ...pickableCardStyles().map(([k, v]) => ({ label: v.label, hint: v.hint, radio: true,
+        checked: !!b.cardStyle && drawnCardStyle(b.cardStyle) === k, action: () => editBlock({ cardStyle: k }) })),
     ]
   }, 'Card style')
   dropdown('inspBorderBtn', () => {

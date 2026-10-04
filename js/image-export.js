@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta } from './state.js'
-import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, escHtml, showToast } from './utils.js'
+import { TYPES, PRIORITY_DEFS, STATUS_DEFS, DEFAULT_CARD_STYLE, HIGHLIGHTS, getBlockDims, escHtml, showToast, drawnCardStyle } from './utils.js'
 import { paintColorFor, highlightTabLabel } from './cards.js'
 import { resolveRoutes, pathFor, placeLabels, arrowRoute, arrowPattern, arrowWeight, dashArrayFor,
          headLength, headTrim, colorKey } from './canvas.js'
@@ -191,10 +191,10 @@ export function buildSvg() {
     const rx = b.type === 'terminator' ? 22 : 10
     // The canvas preset. The default outline is a quiet edge in the type
     // colour; the colour's loud part is the dot beside the label.
-    const card = b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE
-    const bw = b.borderWidth || (card === 'bar' ? 1 : 1.5)
+    const card = drawnCardStyle(b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE)
+    const bw = b.borderWidth || 1.5
     const edge = card === 'plain' || card === 'header' ? C.cardBorder : accent
-    const edgeOpacity = card === 'bar' ? 0.28 : card === 'plain' || card === 'header' ? 1 : 0.5
+    const edgeOpacity = card === 'plain' || card === 'header' ? 1 : 0.5
     parts.push(`<g${spotlit && !b.highlight ? ' opacity="0.3"' : ''}>`)
     // Highlight ring first, so the card sits on top of it exactly as on
     // screen: 6 to 8.5px out (the stroke centred 7.25px out), with its word
@@ -218,8 +218,6 @@ export function buildSvg() {
       // An overlay rather than a computed blend: the card fill is a theme
       // token that is not always a parseable hex.
       parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="${rx}" fill="${escHtml(accent)}" opacity="0.14"/>`)
-    } else if (card === 'bar') {
-      parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="3" height="${h}" rx="1.5" fill="${escHtml(accent)}"/>`)
     }
     // The header row. On the header preset it is a strip in the type colour
     // (tinted in light mode, where the label stays neutral); elsewhere the

@@ -7,7 +7,7 @@ import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture, resetSnapshotToken, undoEntry, applyPromptOpts } from './state.js'
 import { $, TYPES, ACTION_DEFS, ACTION_LABELS, STATUS_DEFS, PRIORITY_DEFS,
          DEFAULT_WIDTH, DEFAULT_CARD_STYLE, DEFAULT_ARROW_WEIGHT,
-         escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon } from './utils.js'
+         escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon, drawnCardStyle, showToast } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
@@ -18,7 +18,8 @@ import { paintColorFor, highlightTabLabel, typeShape, chipIcon } from './cards.j
 // importer of render.js working.
 export { renderInspector, renderQuestions } from './inspector.js'
 
-function afterMutation() {
+/** Every edit ends here: the brief, Attention and the status bar catch up. */
+export function afterMutation() {
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
   // Attention, the quick copy bar and the backup status refresh on every
@@ -54,7 +55,7 @@ export function renderBlock(id) {
   el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${w}px`
   // Appearance. Both fall back to the canvas-wide default, so changing that
   // one setting restyles every card that has not been overridden.
-  el.dataset.card = b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE
+  el.dataset.card = drawnCardStyle(b.cardStyle || canvasMeta.cardStyle || DEFAULT_CARD_STYLE)
   if (b.highlight) el.dataset.highlight = b.highlight
   else delete el.dataset.highlight
   // A custom colour feeds --bc through the stylesheet (.has-color), not
@@ -324,8 +325,16 @@ export function createBlock(type, wx, wy, { undo = true } = {}) {
   return id
 }
 
+// A delete took a card away with nothing said: only Cmd+Z knew how to get
+// it back. Every delete is a person's action (the Delete key, the menus,
+// the inspector), so each says what went and offers the undo.
+function saidDeleted(what) {
+  showToast(`Deleted ${what}.`, 'info', 5000, { action: { label: 'Undo', run: () => undo() } })
+}
+
 export function deleteBlock(id) {
   if (!state.blocks[id]) return
+  const title = (state.blocks[id].title || '').trim()
   snapshot()
   delete state.blocks[id]
   getBlockEl(id)?.remove()
@@ -339,6 +348,7 @@ export function deleteBlock(id) {
   runGapDetection()
   debouncedSave()
   afterMutation()
+  saidDeleted(title ? `"${title.length > 48 ? title.slice(0, 47) + '…' : title}"` : 'the block')
 }
 
 // Returns the new arrow's id, or null when the connection already exists.
@@ -382,6 +392,7 @@ export function duplicateBlock(id) {
 
 export function deleteBlocksBatch(ids) {
   if (!ids.length) return
+  const n = ids.filter(id => state.blocks[id]).length
   snapshot()
   ids.forEach(id => {
     if (!state.blocks[id]) return
@@ -392,6 +403,7 @@ export function deleteBlocksBatch(ids) {
   renderArrows(); renderFrames(); updateHint(); runGapDetection(); renderInspector()
   debouncedSave()
   afterMutation()
+  if (n) saidDeleted(`${n} block${n === 1 ? '' : 's'}`)
 }
 
 // ── Undo / Redo ──────────────────────────────────────────────

@@ -8,7 +8,7 @@ import { state, selection, ui, view, canvasMeta, devOpts,
 import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
          clamp, escHtml, showToast, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
-import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
+import { renderAllBlocks, renderInspector, selectBlock, undo, updateCanvasTitle } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
          listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from './templates.js'
 import { refreshPrompt } from './prompt.js'
@@ -29,6 +29,7 @@ import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint, animateView,
 import { openIncoming, incomingMessage } from './sharing.js'
 import { setupFilter, filterValue, setFilterValue } from './filter-menu.js'
 import { typeDot } from './type-menu.js'
+import { showPanels } from './chrome.js'
 
 // ── Search ───────────────────────────────────────────────────
 let searchReturnFocus = null
@@ -254,6 +255,7 @@ export const SHORTCUTS = [
     ['H',                      'Hide the header and footer'],
     ['Z',                      'Zen: hide every panel too'],
     ['M',                      'Show or hide the minimap'],
+    ['Alt + 1 / 2 / 3',        'Show the Inspector, the Brief or the Attention tab, with the keyboard on it'],
     ['⌘/Ctrl + Shift + C',     'Copy the brief for the whole map (on a view-only link too)'],
     ['Alt + H',                'High-contrast mode'],
     ['?',                      'Show this help', { top: 12, short: 'This sheet' }],
@@ -473,6 +475,35 @@ export function setupContextBrief() {
 }
 
 // ── Panel tabs ───────────────────────────────────────────────
+// The right panel's tabs, in order, with the key that shows each (Alt+1, 2,
+// 3, matched on e.code in events.js) and its command palette row. Without
+// them a keyboard reached the Brief only by walking every card: the tabs
+// are one Tab stop (a roving tabindex) after the whole canvas.
+export const PANEL_TABS = [
+  { tab: 'inspector', label: 'Show inspector', key: '1' },
+  { tab: 'prompt',    label: 'Show brief',     key: '2' },
+  { tab: 'attention', label: 'Show attention', key: '3' },
+]
+let showTabImpl = null
+
+/**
+ * Show a panel tab and (by default) put the keyboard on it: the panel opens
+ * if it was collapsed, hidden by Zen, or a phone sheet at its peek.
+ */
+export function showPanelTab(tab, { focus = true } = {}) {
+  const btn = document.getElementById('tab-' + tab)
+  if (!showTabImpl || !btn || ui.embed) return false
+  showPanels()
+  const panel = document.getElementById('rightPanel')
+  if (panel?.classList.contains('collapsed')) document.getElementById('panelReopenBtn')?.click()
+  if (panel?.dataset.sheet === 'peek' && window.matchMedia?.('(max-width: 700px)').matches) {
+    document.getElementById('sheetHandle')?.click()
+  }
+  showTabImpl(tab)
+  if (focus) btn.focus({ preventScroll: true })
+  return true
+}
+
 export function setupPanelTabs() {
   const tabs = [...document.querySelectorAll('.panel-tab')]
   const tablist = document.querySelector('.panel-tablist') || document.querySelector('.panel-tabs')
@@ -498,6 +529,7 @@ export function setupPanelTabs() {
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id===tab+'Pane'))
     if (tab === 'prompt') { ui.promptDirty = true; refreshPrompt() }
   }
+  showTabImpl = showTab
   document.querySelectorAll('.panel-tab').forEach(btn =>
     btn.addEventListener('click', () => showTab(btn.dataset.tab))
   )
@@ -1137,7 +1169,8 @@ export function clearCanvas({ ask = true } = {}) {
     showToast('This map is already empty', 'info', 1500)
     return false
   }
-  if (ask && !confirm(`Clear this map? Every block, connection and group on it goes. Undo (${undoKeyLabel()}) brings it back.`)) return false
+  // No confirm (a native one stopped the page): clearing is one undo step,
+  // and the toast says so and offers it.
   snapshot()
   state.blocks = {}; state.arrows = []; state.groups = {}
   selection.ids.clear(); selection.blockId = null; selection.arrowId = null; selection.groupId = null
@@ -1148,6 +1181,7 @@ export function clearCanvas({ ask = true } = {}) {
   renderInspector(); updateHint(); saveState()
   ui.promptDirty = true; if (ui.activeTab === 'prompt') refreshPrompt()
   window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
+  if (ask) showToast(`Map cleared. ${undoKeyLabel()} brings it back.`, 'info', 6000, { action: { label: 'Undo', run: () => undo() } })
   return true
 }
 
@@ -1156,6 +1190,39 @@ export function clearCanvas({ ask = true } = {}) {
 // here is the File menu's Clear row.
 export function setupHeaderButtons() {
   document.getElementById('clearBtn')?.addEventListener('click', () => clearCanvas())
+  // A view-only link was a dead end: nothing could be edited or copied.
+  // Edit a copy reopens the same link without ?readonly, which arrives like
+  // any share link: as a new map of the visitor's own, never over theirs.
+  const copy = document.getElementById('editCopyBtn')
+  if (copy) {
+    copy.hidden = !canEditACopy()
+    copy.addEventListener('click', () => location.assign(editCopyUrl()))
+  }
+}
+
+/** True on a view-only link that carries a map (a #z= / #s= hash or ?src=), outside an embed. */
+export function canEditACopy(loc = location) {
+  const params = new URLSearchParams(loc.search)
+  return !!(ui.readOnly && !ui.embed && (/^#[sz]=/.test(loc.hash) || params.has('src')))
+}
+
+/** The same link without ?readonly: the map arrives editable, as a new map. */
+export function editCopyUrl(href = location.href) {
+  const u = new URL(href)
+  u.searchParams.delete('readonly')
+  return u.toString()
+}
+
+// An edit on a view-only link used to do nothing and say nothing. Said once
+// every few seconds at most, never in an embed (someone else's page).
+let viewOnlySaidAt = -Infinity
+export function sayViewOnly() {
+  if (!ui.readOnly || ui.embed) return false
+  const now = performance.now()
+  if (now - viewOnlySaidAt < 4000) return false
+  viewOnlySaidAt = now
+  showToast(canEditACopy() ? 'View only. Edit a copy to change it.' : 'View only.', 'info', 3200)
+  return true
 }
 
 export function applyTheme() {
@@ -1522,12 +1589,19 @@ export function setupTemplates() {
       : TEMPLATES[+item.dataset.tpl]
     if (!tpl) return
     const wasEmpty = Object.keys(state.blocks).length === 0
-    snapshot()
+    // On an empty map the template also sets the framing and the name, so the
+    // undo step carries the framing too: one Cmd+Z takes all of it back.
+    snapshot({ framing: wasEmpty })
     const added = applyTemplate(tpl)
     // A template's framing only lands on a canvas that had nothing on it. On a
     // merge the existing situation is somebody's deliberate choice.
     const framed = wasEmpty && applyTemplateSituation(tpl, canvasMeta, devOpts)
     if (framed) { refreshSituation(); syncPromptOptControls(); debouncedSave() }
+    // An empty map with no name takes the template's (it kept "Untitled map").
+    if (wasEmpty && !(canvasMeta.title || '').trim()) {
+      canvasMeta.title = templateTitle(tpl.name)
+      updateCanvasTitle()
+    }
     renderAllBlocks()
     renderArrows({ cheap: false })
     renderFrames()
@@ -1544,12 +1618,18 @@ export function setupTemplates() {
     // arriveAt), not at a whole-map fit too small to read.
     if (tpl.large) {
       // The template click already took its undo step above: one click, one Cmd+Z.
-      const lead = framed ? `${tpl.name} added and arranged, with its Situation.` : `${tpl.name} added and arranged.`
+      const lead = framed ? `${tpl.name} added and arranged, with its situation.` : `${tpl.name} added and arranged.`
       runTidy({ snapshot: false, arrive: { ids: added, lead } })
     } else {
       arriveAt(added, { lead: `${arrivalLead(tpl.name)} Press Tidy or L to arrange it.`, ms: 2600 })
     }
   })
+}
+
+/** A template's name as a map's title, in sentence case ("Investigate a bug"). */
+export function templateTitle(name) {
+  const words = String(name || '').trim().split(/\s+/)
+  return words.map((w, i) => i && /^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w).join(' ')
 }
 
 /** Reflect devOpts.mode back onto the mode buttons after a template sets it. */

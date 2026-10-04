@@ -81,6 +81,24 @@ export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
   return { items, accepted }
 }
 
+/**
+ * What the open items are, in words: the gaps marked on the map first (the
+ * cards with the amber ring), then what is open without a mark (questions,
+ * assumptions, blocked work, canvas checks). The badge counts all of them,
+ * and its name says so, so "Attention 4" beside one ringed card is explained.
+ */
+export function attentionBreakdown(items) {
+  const n = (...kinds) => items.filter(i => kinds.includes(i.kind)).length
+  const say = (count, one, many = one + 's') => count ? `${count} ${count === 1 ? one : many}` : ''
+  return [
+    say(n('gap', 'criteria'), 'gap marked on the map', 'gaps marked on the map'),
+    say(n('question'), 'unanswered question'),
+    say(n('assumption'), 'unverified assumption'),
+    n('blocked') ? `${n('blocked')} blocked` : '',
+    say(n('canvas'), 'canvas check'),
+  ].filter(Boolean).join(', ')
+}
+
 /** One entry per open issue; answering a question never hides another open issue. */
 export function attentionItems(blocks, arrows = null, opts = {}) {
   return attentionModel(blocks, arrows, opts).items
@@ -166,7 +184,11 @@ export function attentionRowsHtml(rows) {
     const where = item.kind === 'canvas'
       ? (item.id ? 'opens the first block' : 'whole canvas')
       : escHtml(TYPES[item.type]?.label || item.type || '')
-    const cls = ['gap', 'canvas', 'accepted'].includes(item.kind) ? ` class="attention-${item.kind}"` : ''
+    // A row whose card wears the gap ring on the map wears the amber ring
+    // here: a missing-criteria row is a gap on the map too (QA3), so the
+    // one ringed card was the one row without a marker.
+    const kind = item.kind === 'criteria' && item.gap ? 'gap' : item.kind
+    const cls = ['gap', 'canvas', 'accepted'].includes(kind) ? ` class="attention-${kind}"` : ''
     const tip = item.explain ? ` title="${escHtml(item.explain)}"` : ''
     const body = `<span class="attention-kind">${escHtml(ATTENTION_KINDS[item.kind])}${where ? ` · ${where}` : ''}</span>
       <strong>${escHtml(item.title)}</strong>
@@ -219,16 +241,18 @@ export function setupAttention() {
     if (badge) {
       badge.textContent = items.length > 99 ? '99+' : String(items.length)
       badge.hidden = !items.length
-      badge.closest('button')?.setAttribute('aria-label', `Attention, ${items.length} open item${items.length === 1 ? '' : 's'}`)
+      const what = `${items.length} open item${items.length === 1 ? '' : 's'}${items.length ? `: ${attentionBreakdown(items)}` : ''}`
+      const tab = badge.closest('button')
+      tab?.setAttribute('aria-label', `Attention, ${what}`)
+      tab?.setAttribute('title', items.length ? `Needs attention: ${what}` : 'Needs attention')
     }
     const open = shown.filter(item => item.kind !== 'accepted')
     const acc = shown.length - open.length
-    const count = new Set(open.map(item => item.id).filter(Boolean)).size
     const accText = acc ? `${acc} accepted gap${acc === 1 ? '' : 's'}` : ''
     const summary = document.getElementById('attentionSummary')
     if (summary) {
       summary.textContent = open.length
-        ? `${open.length} item${open.length === 1 ? '' : 's'} across ${count} block${count === 1 ? '' : 's'}${accText ? `, ${accText}` : ''}`
+        ? `${open.length} open item${open.length === 1 ? '' : 's'}: ${attentionBreakdown(open)}${accText ? `; ${accText}` : ''}.`
         : accText ? `No open items, ${accText}.` : kind ? 'No items in this category.' : 'No outstanding items in these checks.'
     }
     // A rebuild under keyboard focus (the save that follows an action runs

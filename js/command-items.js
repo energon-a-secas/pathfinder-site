@@ -18,15 +18,14 @@
 import { state, selection, ui, view, toWorld, getUndoHistory, getRedoFuture } from './state.js'
 import { $, TYPES, getBlockEl } from './utils.js'
 import { fitView } from './canvas.js'
-import { undo, redo, setSelection, renderInspector } from './render.js'
+import { undo, redo, setSelection, selectBlock, renderInspector } from './render.js'
 import { createBlockAt, createConnected, suggestedNextTypes } from './create.js'
 import { typeDot, typeNoun, retypeBlocks } from './type-menu.js'
 import { selectionMenuItems } from './context-menu.js'
-import { fileMenuItems, shareMenuItems, tidyMenuItems, viewMenuItems, helpMenuItems } from './view-menu.js'
-import { mapsMenuItems } from './library.js'
+import { fileMenuItems, shareMenuItems, tidyMenuItems, viewMenuItems, helpMenuItems, mapsMenuWithRename } from './view-menu.js'
 import { TEMPLATES, listUserTemplates } from './templates.js'
-import { openSearch, runTidy, TYPE_KEYS } from './ui-panels.js'
-import { zoomIn, zoomOut, zoomTo, zoomToBlocks, zoomToSelection, hasSelectionTarget } from './zoom-controls.js'
+import { openSearch, runTidy, TYPE_KEYS, PANEL_TABS, showPanelTab } from './ui-panels.js'
+import { zoomIn, zoomOut, zoomTo, zoomToBlocks, zoomToSelection, hasSelectionTarget, animateView, FULL_DETAIL_ZOOM } from './zoom-controls.js'
 import { readingOrder, describeBlock, announce, withCameraHeld } from './navigation.js'
 import { openSampleMap, SAMPLE_TITLE } from './start-panel.js'
 
@@ -126,7 +125,49 @@ export function matchScore(query, text) {
   const compact = q.replace(/ /g, '')
   const f = fuzzy(compact, s.slice(0, 160))
   if (!f || f.score < compact.length * 3) return null
+  // Scattered letters count only where a person would type them: from the
+  // start of a word, and past a skip of more than one letter only onto the
+  // start of another word ("ct" is Change type, "rsk" is Risk; "png" is not
+  // Sprint Planning).
+  const h = f.hits
+  if (!wordStart(s, h[0])) return null
+  for (let i = 1; i < h.length; i++) if (h[i] - h[i - 1] > 2 && !wordStart(s, h[i])) return null
   return { score: Math.min(f.score, 999), hits: hitsOf(f.hits) }
+}
+
+// The words people type for an action that is named otherwise: "export
+// png" for Download image (PNG 2×), "rename" for the map's title. A row is
+// also found by its label with a word swapped for one of these, scored a
+// step under the label itself and with no letters to bold.
+export const SYNONYMS = {
+  download: ['export', 'save'],
+  copy: ['export'],
+  image: ['picture', 'png'],
+  vector: ['svg'],
+  rename: ['title', 'name'],
+  delete: ['remove'],
+  clear: ['erase', 'empty'],
+}
+export function aliasesOf(label) {
+  const words = String(label || '').split(/\s+/)
+  const out = []
+  words.forEach((w, i) => {
+    const alt = SYNONYMS[w.toLowerCase().replace(/[^a-z]/g, '')]
+    if (alt) alt.forEach(a => out.push([...words.slice(0, i), a, ...words.slice(i + 1)].join(' ')))
+  })
+  return out
+}
+
+/** matchScore against the label, else against its synonyms (a step lower, nothing bold). */
+export function rowMatch(query, label) {
+  const m = matchScore(query, label)
+  if (m) return m
+  let best = null
+  for (const alias of aliasesOf(label)) {
+    const a = matchScore(query, alias)
+    if (a && (!best || a.score - 1 > best.score)) best = { score: a.score - 1, hits: [] }
+  }
+  return best
 }
 
 // ── Icons: one stroked 16px line set ─────────────────────────
@@ -145,6 +186,7 @@ export const ICONS = {
   template: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/>'),
   palette:  svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10l3 2-3 2M12 14h5"/>'),
   copy:     svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>'),
+  panel:    svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>'),
 }
 
 // ── Rows from menu.js items ──────────────────────────────────
@@ -190,14 +232,40 @@ export function menuRows(items, { idPrefix = '', meta = '' } = {}) {
 }
 
 // ── Blocks ───────────────────────────────────────────────────
-/** Select a block and bring it into view (at 100% or more), as Find does. */
+/**
+ * Select a block and bring it into view. A card already whole on screen at
+ * full detail stays where it is (the camera does not move); one off screen
+ * at full detail is panned to at the same zoom; below full detail it comes
+ * to 100%, as Find does. Every jump used to zoom to 100% and recentre, so a
+ * run of jumps lost the connection just made off the edge.
+ */
 export function jumpToBlock(id) {
   if (!state.blocks[id]) return false
-  zoomToBlocks([id])
+  const full = view.zoom >= FULL_DETAIL_ZOOM
+  if (full && wholeInView(id)) selectBlock(id)
+  else if (full) { panToBlock(id); selectBlock(id) }
+  else zoomToBlocks([id])
   // The camera is already on its way; focusing the card must not pan it too.
   withCameraHeld(() => getBlockEl(id)?.focus({ preventScroll: true }))
   announce(describeBlock(id))
   return true
+}
+
+function wholeInView(id) {
+  const vp = $.canvasViewport(), b = state.blocks[id], el = getBlockEl(id)
+  const W = vp?.clientWidth || 0, H = vp?.clientHeight || 0
+  if (!b || !(W > 0) || !(H > 0)) return false
+  const w = el?.offsetWidth || b.width || 220, h = el?.offsetHeight || 100
+  const x1 = b.x * view.zoom + view.panX, y1 = b.y * view.zoom + view.panY
+  return x1 >= 0 && y1 >= 0 && x1 + w * view.zoom <= W && y1 + h * view.zoom <= H
+}
+
+function panToBlock(id) {
+  const vp = $.canvasViewport(), b = state.blocks[id], el = getBlockEl(id)
+  const W = vp?.clientWidth || 0, H = vp?.clientHeight || 0
+  if (!b || !(W > 0) || !(H > 0)) return
+  const w = el?.offsetWidth || b.width || 220, h = el?.offsetHeight || 100
+  animateView(W / 2 - (b.x + w / 2) * view.zoom, H / 2 - (b.y + h / 2) * view.zoom, view.zoom)
 }
 
 const titleOf = b => (b?.title || '').trim() || 'Untitled'
@@ -255,7 +323,8 @@ function createPreview(rows) {
 
 // ── Maps and templates ───────────────────────────────────────
 function mapGroups() {
-  const items = mapsMenuItems()
+  // The header's Maps menu, Rename this map included.
+  const items = mapsMenuWithRename()
   // Keyed by the map's id: every new map is "Untitled map", and Recent must
   // not send two of them to the same one.
   const maps = items.filter(it => it && !it.type && it.radio).map(it => ({
@@ -310,6 +379,12 @@ function actionRows(mapActions) {
     { id: 'cmd:zoom-in', label: 'Zoom in', icon: ICONS.zoomIn, shortcut: '=', meta: 'Zoom', run: () => zoomIn() },
     { id: 'cmd:zoom-out', label: 'Zoom out', icon: ICONS.zoomOut, shortcut: '-', meta: 'Zoom', run: () => zoomOut() },
   )
+  // The right panel's tabs, so the keyboard reaches the Brief and Attention
+  // without walking every card (Alt+1, 2, 3).
+  if (!ui.embed) {
+    rows.push(...PANEL_TABS.map(t => ({ id: 'panel:' + t.tab, label: t.label, icon: ICONS.panel,
+      shortcut: (IS_MAC ? '⌥' : 'Alt+') + t.key, meta: 'Panel', run: () => showPanelTab(t.tab) })))
+  }
   rows.push(...menuRows(fileMenuItems(), { idPrefix: 'file:', meta: 'File' }))
   // The Brief tab owns Copy (js/brief.js, loaded by app.js alone): ask it.
   if (!ui.embed && [...selection.ids].some(id => state.blocks[id])) {

@@ -17,24 +17,35 @@ import { typeShape } from './cards.js'
 // canvas root carries a band class and the cards show less, larger, as the
 // map gets smaller:
 //
-//   lod-full   75% and above   the whole card
-//   lod-title  45% to 75%      the type and the title, 11px or more on screen
+//   lod-full   92% and above   the whole card
+//   lod-title  45% to 92%      the type and the title, 11px or more on screen
 //   lod-pill   25% to 45%      the type's dot and the title, in a line or two
 //   lod-dot    under 25%       the card in its type colour, its title on hover or focus
 //
-// and connection labels step aside below 60% until a line or one of its
-// cards is hovered or selected. Only what is inside a card changes: the
+// and connection labels step aside below full detail until a line or one
+// of its cards is hovered or selected. Only what is inside a card changes: the
 // card keeps its size in the world, so no line is re-routed when the zoom
 // crosses a band, and the image export (which draws from the state) is the
 // same at any zoom.
 
+// Full detail starts where the card's smallest prose, the 12px description,
+// is 11px on screen (11 / 12, rounded up): the 11px floor holds on the
+// canvas too. It started at 75%, where a description drew at 9px and the
+// type label at 8.25px, and zooming in across 75% made the type label
+// smaller (11px on the title face, 8.4px on the full card). Between 92% and
+// 100% the card's 11px strings (the type label, chips, line labels) are
+// drawn up to their screen size ([zoom] in style.css), which moves nothing.
+export const FULL_DETAIL_ZOOM = 0.92
 export const LOD_BANDS = [
-  { band: 'full', min: 0.75 },
+  { band: 'full', min: FULL_DETAIL_ZOOM },
   { band: 'title', min: 0.45 },
   { band: 'pill', min: 0.25 },
   { band: 'dot', min: 0 },
 ]
-export const LABELS_MIN_ZOOM = 0.6
+// Connection labels rest with full detail: below it an 11px label drew at
+// 6.6 to 10px. A hovered or selected line still shows its label, at its
+// screen size.
+export const LABELS_MIN_ZOOM = FULL_DETAIL_ZOOM
 // Hysteresis: during a gesture (small steps) a band holds until the zoom is
 // this far past its edge, so a pinch resting on 75% does not flicker the
 // cards between two looks. A jump (a button, Fit, an arrival) lands exactly.

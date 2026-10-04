@@ -36,6 +36,27 @@ export function labelTextWidth(text) {
 
 const hits = (r, b) => r.x < b.x + b.w && b.x < r.x + r.w && r.y < b.y + b.h && b.y < r.y + r.h
 
+// A connection's note: under its label, in lines of about 28 characters,
+// four at most. Here rather than in canvas.js because the label's place
+// depends on it: a note runs 13px a line below the pill, and placed for the
+// pill alone its third line ran under the next card (QA3).
+export const NOTE_LINE = 13
+export const NOTE_GAP = 4
+export function wrapNote(text, maxChars = 28, maxLines = 4) {
+  const out = []
+  String(text || '').split(/\r?\n/).forEach(para => {
+    let line = ''
+    para.split(/\s+/).filter(Boolean).forEach(word => {
+      if (!line) { line = word }
+      else if ((line + ' ' + word).length <= maxChars) { line += ' ' + word }
+      else { out.push(line); line = word }
+    })
+    if (line) out.push(line)
+  })
+  if (out.length > maxLines) { const t = out.slice(0, maxLines); t[maxLines - 1] += '…'; return t }
+  return out
+}
+
 // A bucket grid over boxes {x,y,w,h}, so testing a label against 300 cards,
 // 1500 runs of line and the labels already placed looks only at what is
 // near it. Each box sits in every cell it touches; a query visits the cells
@@ -175,9 +196,17 @@ export function placeLabels(routes) {
     const poly = polys.get(a.id)
     const anc = style === 'curved' ? curveAnchor(pts) : labelAnchor(poly)
     const text = connectionLabel(a)
-    if (!text) { out.set(a.id, { x: Math.round(anc.x), y: Math.round(anc.y), w: 0, h: 0, text: '', ux: anc.ux, uy: anc.uy, leader: null }); return }
-    const w = labelTextWidth(text) + LABEL_PAD_X * 2, h = LABEL_H
+    const noteLines = wrapNote(a.note)
+    if (!text && !noteLines.length) { out.set(a.id, { x: Math.round(anc.x), y: Math.round(anc.y), w: 0, h: 0, text: '', ux: anc.ux, uy: anc.uy, leader: null }); return }
+    const w = text ? labelTextWidth(text) + LABEL_PAD_X * 2 : 0, h = text ? LABEL_H : 0
     const box = (cx, cy) => ({ x: cx - w / 2, y: cy - h / 2, w, h })
+    // The label with its note under it (the note's 4px halo included): what
+    // must stay off the cards, which paint over both.
+    const noteW = noteLines.length ? Math.max(...noteLines.map(labelTextWidth)) + 8 : 0
+    const noteH = noteLines.length ? NOTE_GAP + noteLines.length * NOTE_LINE + 2 : 0
+    const whole = noteLines.length
+      ? (cx, cy) => { const ww = Math.max(w, noteW); return { x: cx - ww / 2, y: cy - h / 2, w: ww, h: h + noteH } }
+      : box
     const runs = [anc, ...(style === 'curved' ? [] : otherRuns(poly, anc))]
     let tries = []
     const slide = (run, perp, full = false) => {
@@ -197,7 +226,7 @@ export function placeLabels(routes) {
     const search = (free = LABEL_H / 2) => {
       for (const [cx, cy] of tries) {
         const r = box(cx, cy)
-        if (overCard(r)) continue
+        if (overCard(whole(cx, cy))) continue
         if (!offCards) offCards = { x: cx, y: cy }
         if (placed.some(r, b => hits(r, b))) {
           if (!snug && !placedExact.some(r, b => hits(r, b))) snug = { x: cx, y: cy }

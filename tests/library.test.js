@@ -5,7 +5,7 @@
 
 import { describe, it, assert } from './test-utils.js'
 import { state, view, canvasMeta, promptState, saveState, saveHooks, applyPromptOpts } from '../js/state.js'
-import { currentId, writeThrough, ensureLibrary, switchTo, newMap, duplicateCurrent, deleteMap } from '../js/library.js'
+import { currentId, writeThrough, ensureLibrary, switchTo, newMap, duplicateCurrent, deleteMap, deleteMapWithUndo } from '../js/library.js'
 
 // Remove every library key so each test starts from a browser that has
 // never seen the Maps menu. run-tests.html restores the real user's
@@ -165,6 +165,29 @@ describe('newMap() / switchTo() / duplicateCurrent() / deleteMap()', () => {
     assert.eq(localStorage.getItem('pathfinder-snaps-' + a), null)
     assert.eq(readIndex().length, 1)
     assert.eq(readIndex()[0].id, b)
+  })
+
+  it('Delete a map asks nothing and offers Undo, which brings back the map, its place and its snapshots (QA3)', () => {
+    seedLegacyUser()
+    ensureLibrary()
+    const a = currentId()
+    newMap()
+    const b = currentId()
+    localStorage.setItem('pathfinder-snaps-' + a, '[{"name":"kept"}]')
+    const before = readIndex().map(e => e.id)
+    let asked = 0
+    const realConfirm = window.confirm
+    window.confirm = () => { asked++; return false }
+    try { assert.ok(deleteMapWithUndo(a)) } finally { window.confirm = realConfirm }
+    assert.eq(asked, 0, 'no native confirm')
+    assert.eq(readSlot(a), null, 'deleted')
+    const btn = document.querySelector('.toast-notification .toast-action')
+    assert.eq(btn?.textContent, 'Undo')
+    btn.click()
+    assert.ok(readSlot(a)?.blocks?.m1, 'the map is back')
+    assert.deepEq(readIndex().map(e => e.id), before, 'in its old place')
+    assert.eq(localStorage.getItem('pathfinder-snaps-' + a), '[{"name":"kept"}]', 'with its snapshots')
+    assert.eq(currentId(), b, 'the open map stays open')
   })
 
   it('deleting the current map switches to the next one', () => {

@@ -63,16 +63,15 @@ describe('buildSvg() -- structure', () => {
     assert.gte(doc.querySelectorAll('rect').length, 3)
   })
 
-  it('draws an accent bar only for the accent-bar preset', () => {
+  it('a map saved with the retired accent bar exports as outline: no side stripe (QA3)', () => {
     reset()
     addBlock('g1', 'goal', 'Alpha')
-    const outlineRects = new DOMParser()
-      .parseFromString(buildSvg().svg, 'image/svg+xml').querySelectorAll('rect').length
+    const outline = buildSvg().svg
     canvasMeta.cardStyle = 'bar'
-    const barRects = new DOMParser()
-      .parseFromString(buildSvg().svg, 'image/svg+xml').querySelectorAll('rect').length
+    const bar = buildSvg().svg
     canvasMeta.cardStyle = 'outline'
-    assert.eq(barRects, outlineRects + 1)
+    assert.eq(bar, outline, 'the same picture')
+    assert.ok(!/width="3"/.test(bar), 'no 3px stripe')
   })
 
   it('renders one path per valid arrow', () => {

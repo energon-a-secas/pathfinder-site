@@ -481,6 +481,17 @@ describe('braindump: the usability dump, natural and prefixed', () => {
       .forEach(t => assert.ok(specs.find(s => s.title === t).typeCheck, t))
   })
 
+  it('plain sentences: a want is a goal, something tracked a metric, a might a risk, each still a guess to check (QA3)', () => {
+    const cases = [
+      ['We want teams to set up a shared workspace in one sitting', 'goal'],
+      ['Track how many teams finish setup', 'metric'],
+      ['Invites might get flagged as spam', 'risk'],
+    ]
+    for (const [line, type] of cases) assert.eq(categorizeLine(line).type, type, line)
+    const specs = readDump(cases.map(c => c[0]).join('\n'))
+    assert.ok(specs.every(s => s.typeCheck), 'none of them came from a prefix, so each asks for a check')
+  })
+
   it('creates them as one undo step that restores the canvas exactly', () => {
     reset()
     block('x', 'goal', 0, 0)
@@ -628,12 +639,17 @@ async function withViewport(w, h, fn) {
 }
 
 describe('braindump: a dump arrives readable', () => {
-  it('a laptop view: the columns wrap into bands, and the whole dump arrives readable', () => withViewport(1100, 760, () => {
+  it('a laptop view: the columns wrap into bands, and the dump arrives readable at its start', () => withViewport(1100, 760, () => {
     reset()
     const ids = createBlocksFromText(PREFIXED)
     const r = arriveAt(ids, { stay: true })
     assert.ok(view.zoom >= ARRIVAL_ZOOM, `${view.zoom}`)
-    assert.ok(r.whole, 'all fifteen in view')
+    assert.ok(r.moved, 'the camera came to it')
+    // At 100% (QA3: the 11px floor) fifteen cards are more than one view;
+    // the Why column, where the dump starts, is the part in view.
+    const g = state.blocks[ids.find(id => state.blocks[id].type === 'goal')]
+    const gx = g.x * view.zoom + view.panX, gy = g.y * view.zoom + view.panY
+    assert.ok(gx >= 0 && gx + W <= 1100 && gy >= 0 && gy + H <= 760, `the Why column is in view (${gx}, ${gy})`)
     const ys = new Set(ids.map(id => state.blocks[id].y))
     const goal = ids.find(id => state.blocks[id].type === 'goal'), risk = ids.find(id => state.blocks[id].type === 'risk')
     assert.gt(state.blocks[risk].y, state.blocks[goal].y, 'Doubt sits in a band under Why')
@@ -672,7 +688,7 @@ describe('braindump: a dump arrives readable', () => {
       const b = state.blocks[id], top = b.y * view.zoom + view.panY
       return top >= 0 && top + H * view.zoom <= 640
     })
-    assert.ok(shown.length >= 4, `${shown.length} of 7 cards in view`)
+    assert.ok(shown.length >= 3, `${shown.length} of 7 cards in view`)
     reset()
   }))
 
