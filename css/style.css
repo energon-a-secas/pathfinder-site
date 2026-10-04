@@ -942,9 +942,7 @@
     }
     .hl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
-    /* Tidy animates blocks to their new homes. The class sits on <body>
-       because renderBlock rewrites each block's className wholesale. */
-    body.tidying .block { transition: left 420ms var(--ease-out), top 420ms var(--ease-out); }
+    /* Tidy's move is a transform, in [zoom] (.tidy-glide). */
 
     .block.dragging { cursor: grabbing; box-shadow: var(--shadow-drag); z-index: 100; }
 
@@ -1012,7 +1010,6 @@
     .brain-dump-nest input { margin-top: 1px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
     .brain-dump-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
     .brain-dump-hint { font-size: var(--fs-12); color: var(--text-3); }
-    .canvas-root.has-hover .block:not(.related):not(:hover) { opacity: .45; transition: opacity var(--dur-1) var(--ease-out); }
 
 
     /* Block type accent: feeds the card edge, the type dot and the preset strips */
@@ -3197,9 +3194,7 @@ body.light-mode.high-contrast { --edge: oklch(0.38 0.015 285); --edge-hi: var(--
 }
 
 /* Hovering a card fades the connections it has nothing to do with: the
-   whole group, so heads and labels fade with their lines. */
-.arrow-g, .arrow-label-g { transition: opacity var(--dur-fast) var(--ease-out); }
-.canvas-root.has-hover :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .18; }
+   whole group, so heads and labels fade with their lines ([zoom]). */
 body.spotlight :is(.arrow-g, .arrow-label-g):not(.related) { opacity: .35; }
 
 /* Hovering a connection rings the two cards it joins (canvas.js
@@ -4306,6 +4301,282 @@ body.light-mode .ex-pic-light { display: block; }
 
 
 /* ════ [zoom] ════ */
+
+
+
+/* Legibility at any zoom (js/lod.js, js/zoom-controls.js, js/minimap.js).
+
+   Level of detail. applyLod puts one band class on the canvas root:
+   lod-full (75% and up), lod-title (45 to 75%), lod-pill (25 to 45%) and
+   lod-dot (under 25%), plus lod-quiet-labels under 60%. Below full detail
+   the card's own content steps back with visibility, never display, so the
+   card keeps its height and every line keeps its ends, and a face drawn
+   over it (.block-lod, paintLodFace) shows the type and the title at a
+   size that reads. The face is laid out in screen pixels: as large as the
+   card is on screen, then scaled by the zoom's inverse, so inside it 12px
+   is 12px on screen and its container queries measure screen pixels. The
+   scale is --lodk, the inverse rounded up in steps of about 4%, so a pinch
+   lays the faces out again a few times rather than on every frame, and
+   text only ever lands at its size or a step above it. A card being edited
+   keeps its own content. The box is a size container, so its queries
+   measure the card on screen and can rearrange the face inside it. */
+.block > .block-lod { display: none; container-type: size; }
+.canvas-root:is(.lod-title, .lod-pill, .lod-dot) .block:not(:has([contenteditable="true"]))
+  > :is(.block-header, .block-title, .block-desc, .block-meta, .block-actions) {
+  visibility: hidden;
+}
+/* The gap badge sits in the header row but stays: it is how a gap reads
+   from afar, and it keeps its own screen size (--mk). */
+.canvas-root:is(.lod-title, .lod-pill, .lod-dot) .block .block-gap-icons { visibility: visible; }
+.canvas-root:is(.lod-title, .lod-pill, .lod-dot) .block:not(:has([contenteditable="true"])) > .block-lod {
+  display: block;
+  position: absolute;
+  left: 0; top: 0;
+  width: calc(100% / var(--lodk, 1));
+  height: calc(100% / var(--lodk, 1));
+  transform: scale(var(--lodk, 1));
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.block-lod-face {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%; height: 100%;
+  padding: 6px 8px;
+  overflow: hidden;
+}
+/* The type's name in sentence case, unlike the card's uppercase label: at
+   45% a card is 100px on screen, and REQUIREMENT, ASSUMPTION and most of
+   the others lost their ends to the tracked capitals. */
+.block-lod-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-shrink: 0;
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semibold);
+  line-height: 14px;
+  color: var(--text-2);
+}
+/* The face's dot is the card's dot (shape and colour), shown on every
+   preset, the header strip's included. */
+.canvas-root .block .block-lod .block-type-dot { display: block; flex: 0 0 8px; width: 8px; height: 8px; }
+.block-lod-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Lines break between words, never inside one: a word longer than its
+   line ends in an ellipsis instead ("Reconcili..." rather than "Reconc /
+   iliation"). No hyphenation either: at the clamp it left fragments such
+   as "be-..." for the last word. */
+.block-lod-title {
+  min-height: 0;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 16px;
+  color: var(--text-1);
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+}
+.block-lod-title.is-empty { color: var(--text-3); font-weight: var(--fw-medium); font-style: italic; }
+/* As many whole lines as the card has room for on screen: 6px padding top
+   and bottom, the 14px type row and its 2px gap, then 16px a line. A card
+   too short for the type row and two lines puts the dot beside the title
+   instead and drops the type's name, since the title is what has to read. */
+@container (height < 108px) { .block-lod-title { -webkit-line-clamp: 4; line-clamp: 4; } }
+@container (height < 92px)  { .block-lod-title { -webkit-line-clamp: 3; line-clamp: 3; } }
+@container (height < 76px)  { .block-lod-title { -webkit-line-clamp: 2; line-clamp: 2; } }
+@container (height < 60px) {
+  .block-lod-face { flex-direction: row; align-items: center; gap: 6px; }
+  .block-lod-type { display: none; }
+}
+@container (height < 44px)  { .block-lod-title { -webkit-line-clamp: 1; line-clamp: 1; } }
+@container (width < 72px)   { .block-lod-type { display: none; } }
+
+/* Pill: the type's dot and the title at 11px, centred in the card. One
+   line, or two where the card has the height: at 30% a card is 66px wide,
+   and one line held three letters of a title. */
+.canvas-root.lod-pill .block-lod-face { flex-direction: row; align-items: center; gap: 4px; padding: 2px 4px; }
+.canvas-root.lod-pill .block-lod-head { display: flex; }
+.canvas-root.lod-pill .block-lod-type { display: none; }
+.canvas-root.lod-pill .block-lod-title {
+  min-width: 0;
+  font-size: var(--fs-11);
+  line-height: 13px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+@container (height >= 30px) {
+  .canvas-root.lod-pill .block-lod-title { -webkit-line-clamp: 2; line-clamp: 2; }
+}
+
+/* Dot: the card is its type colour, with the type's shape in the middle so
+   colour is never the only cue, and no text until hover or focus. */
+.canvas-root.lod-dot .block {
+  --card-fill: color-mix(in oklab, var(--bc, var(--text-3)) 72%, var(--card));
+  --card-edge: var(--bc, var(--border-strong));
+  --lod-ink: var(--card);
+}
+body.light-mode .canvas-root.lod-dot .block { --lod-ink: var(--text-1); }
+/* High contrast keeps its plain card, so the shape takes the type colour. */
+body.high-contrast .canvas-root.lod-dot .block { --lod-ink: var(--bc, var(--text-1)); }
+@media (prefers-contrast: more) { .canvas-root.lod-dot .block { --lod-ink: var(--bc, var(--text-1)); } }
+.canvas-root.lod-dot .block-lod-face { align-items: center; justify-content: center; padding: 0; }
+.canvas-root.lod-dot .block-lod-head { display: flex; }
+.canvas-root.lod-dot :is(.block-lod-type, .block-lod-title) { display: none; }
+.canvas-root.lod-dot .block .block-lod .block-type-dot { flex-basis: 10px; width: 10px; height: 10px; background: var(--lod-ink); }
+/* Forced colours: the shape in the text colour on the forced card. After the
+   rule above, which it ties on specificity: the other way round, the shape
+   kept --lod-ink, about 1.1:1 on the forced background. */
+@media (forced-colors: active) {
+  .canvas-root.lod-dot .block { --lod-ink: CanvasText; }
+  .canvas-root.lod-dot .block .block-lod .block-type-dot { background: CanvasText; }
+}
+
+/* The whole title, under the card while it is hovered or keyboard focused,
+   where the pill cut it or the dot left it out. Under, not over: the gap's
+   name floats above the badge. */
+.block-lod-tip { display: none; }
+.canvas-root:is(.lod-pill, .lod-dot) .block:is(:hover, :focus-visible) { z-index: 30; }
+.canvas-root:is(.lod-pill, .lod-dot) .block:is(:hover, :focus-visible) .block-lod-tip {
+  display: block;
+  position: absolute;
+  left: 0; top: calc(100% + 6px);
+  width: max-content;
+  max-width: 280px;
+  padding: 4px 8px;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  line-height: 16px;
+  overflow-wrap: anywhere;
+  color: var(--text-1);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
+}
+/* Near the canvas's right or bottom edge (or the inspector beside it) the
+   tip opens toward the left, or above, instead of running off screen
+   (lod.js placeTip sets the attributes on hover and focus). */
+.canvas-root:is(.lod-pill, .lod-dot) .block[data-tip-x="end"]:is(:hover, :focus-visible) .block-lod-tip { left: auto; right: 0; }
+.canvas-root:is(.lod-pill, .lod-dot) .block[data-tip-y="above"]:is(:hover, :focus-visible) .block-lod-tip { top: auto; bottom: calc(100% + 6px); }
+.block-lod-tip-type {
+  display: block;
+  font-size: var(--fs-11);
+  line-height: 14px;
+  color: var(--text-2);
+}
+
+/* A frame's name holds 11px on screen once cards start to summarise, and
+   no wider than its frame: the name is scaled up, so its width is capped
+   at the frame's on-screen width (less 14 world px a side) in its own
+   pixels, and ends in an ellipsis. Below 45% the band above the cards is
+   under 26px on screen, so the name moves up to its top edge to stay off
+   the first row. */
+.canvas-root:is(.lod-title, .lod-pill, .lod-dot) .frame-label:not([contenteditable="true"]) {
+  transform: scale(var(--pxn, 1));
+  transform-origin: 0 0;
+  max-width: calc((100% - 28px) / var(--pxn, 1));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.canvas-root:is(.lod-pill, .lod-dot) .frame-label:not([contenteditable="true"]) { top: 2px; line-height: 12px; }
+/* A line holds at least one screen pixel at any zoom (it fell to 0.7px
+   between 45 and 66%), and a hovered or selected one keeps its extra half
+   or whole pixel on screen above that floor. */
+.canvas-root .arrow-path {
+  stroke-width: max(var(--aw-now, var(--aw, 1.5px)),
+    calc(var(--px, 1px) + (var(--aw-now, var(--aw, 1.5px)) - var(--aw, 1.5px)) * var(--pxn, 1)));
+}
+
+/* Connection labels under 60%: they step aside until their line, or a
+   card at either end, is hovered or selected, and then read at their own
+   size on screen, growing from their centre. Notes wait for 60% too. */
+.canvas-root.lod-quiet-labels .arrow-label-g:not(.hover, .related, .sel) { display: none; }
+/* Below 45% a card's own labels would bury it and its neighbours (they sit
+   under the cards and were placed for the labels' world size): there only
+   the line itself, hovered or selected, shows its label. */
+.canvas-root:is(.lod-pill, .lod-dot) .arrow-label-g.related:not(.hover, .sel) { display: none; }
+.canvas-root.lod-quiet-labels .arrow-label-g :is(.arrow-label-bg, .arrow-label) {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(var(--pxn, 1));
+}
+.canvas-root.lod-quiet-labels .arrow-note { display: none; }
+
+/* Hover fade. Hovering a card fades the cards and lines it has nothing to
+   do with, after a 150ms dwell so a pointer crossing the map does not
+   flicker it, and less deeply than it used to (cards to 60%, lines to 30%).
+   It comes back at once. Never for a finger: a tap is not a hover, and the
+   root's data-pointer says which kind pressed last (zoom-controls.js). */
+.arrow-g, .arrow-label-g { transition: opacity var(--dur-1) var(--ease-out); }
+@media (hover: hover) {
+  /* Not in Spotlight, whose fade is the point: the hover fade out-ranked it,
+     lifting the cards Spotlight had put away above the ones related to
+     the hovered card, and dimming the card Spotlight was showing. */
+  .canvas-root.has-hover:not([data-pointer="touch"]) .block:not(.related):not(:hover):not(.spotlight *) {
+    opacity: .6;
+    transition: opacity var(--dur-2) var(--ease-out) 150ms;
+  }
+  .canvas-root.has-hover:not([data-pointer="touch"]) :is(.arrow-g, .arrow-label-g):not(.related) {
+    opacity: .3;
+    transition: opacity var(--dur-2) var(--ease-out) 150ms;
+  }
+}
+
+/* Tidy's move (animateTidy): each card slides on a transform from where it
+   was, 200ms on the house curve, no overshoot, only with Animate
+   highlights on. The lines and frames step aside while the cards travel
+   and come back drawn to the new layout. On the root, not the cards:
+   renderBlock rewrites a card's class list. */
+.canvas-root.tidy-glide > .block { transition: translate var(--dur-2) var(--ease-out); }
+.canvas-root > :is(.arrows-layer, .frames-layer) { transition: opacity var(--dur-1) var(--ease-out); }
+.canvas-root.tidy-glide > :is(.arrows-layer, .frames-layer) { opacity: 0; }
+
+/* Minimap (js/minimap.js): bottom right of the canvas, flat on surface-1.
+   The blocks draw in their type colour, the frame in a neutral ink. A
+   pointer aid (aria-hidden): Fit and zoom to selection are its keys. */
+.minimap {
+  position: absolute;
+  right: 12px; bottom: 12px;
+  z-index: 40;
+  width: 160px; height: 100px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+.minimap[hidden] { display: none; }
+.minimap-svg { display: block; width: 100%; height: 100%; }
+.minimap-b { fill: var(--mm-type, var(--text-3)); fill-opacity: .8; }
+.minimap-b.has-color { fill: var(--bc-custom); }
+body.light-mode .minimap-b.has-color { fill: var(--bc-custom-light, var(--bc-custom)); }
+.minimap-wash { fill: color-mix(in oklab, var(--text-1) 8%, transparent); }
+.minimap-frame {
+  fill: transparent;
+  stroke: var(--text-2);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+}
+.minimap.dragging, .minimap.dragging .minimap-frame { cursor: grabbing; }
+/* A view-only link keeps its review bar along the bottom edge. */
+.readonly-mode .minimap { bottom: 64px; }
+.embed-mode .minimap { display: none; }
+@media (max-width: 700px) { .minimap { display: none; } }
+@media (forced-colors: active) {
+  .minimap-b { fill: CanvasText; }
+  .minimap-wash { fill: none; }
+  .minimap-frame { stroke: Highlight; }
+}
 
 
 

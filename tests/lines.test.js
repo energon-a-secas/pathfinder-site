@@ -575,9 +575,10 @@ describe('lines: heads and line states', () => {
     try {
       const [plain, rel] = root.querySelectorAll('.arrow-g')
       const [lp, lr] = root.querySelectorAll('.arrow-label-g')
-      assert.eq(getComputedStyle(plain).opacity, '0.18')
+      // 0.3 since the design round (ZOOM): a lighter fade, after a dwell.
+      assert.eq(getComputedStyle(plain).opacity, '0.3')
       assert.eq(getComputedStyle(rel).opacity, '1')
-      assert.eq(getComputedStyle(lp).opacity, '0.18')
+      assert.eq(getComputedStyle(lp).opacity, '0.3')
       assert.eq(getComputedStyle(lr).opacity, '1')
     } finally { done() }
   })

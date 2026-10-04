@@ -1039,11 +1039,21 @@ export function setupTabNavigation() {
   // the field before the card takes focus back, so that focusin arrives with
   // no relatedTarget, exactly like focus coming from outside the page. A
   // focusout inside the canvas just before says it is only moving within.
-  let leftAt = -Infinity, leftBlock = null
+  // The camera at that moment, too: focus that comes back to the card it
+  // left with the camera where it was is a return, not an arrival (below).
+  let leftAt = -Infinity, leftBlock = null, leftCam = null
   $.canvasRoot().addEventListener('focusout', e => {
     leftBlock = e.target.closest?.('.block') || null
     leftAt = performance.now()
+    leftCam = leftBlock && { id: leftBlock.dataset.id, panX: view.panX, panY: view.panY, zoom: view.zoom }
   })
+  // A menu, the shortcut sheet, Find or a dialog closing hands focus back to
+  // the card it took it from. That card is where the person left it, so it
+  // must not pan: Escape after a context menu used to move the whole map. A
+  // Tab is still an arrival, however it lands.
+  const returning = block => !!leftCam && leftCam.id === block.dataset.id &&
+    leftCam.panX === view.panX && leftCam.panY === view.panY && leftCam.zoom === view.zoom &&
+    performance.now() - tabAt > 200
   const justLeft = block => performance.now() - leftAt < 100 && (!block || leftBlock === block)
   $.canvasRoot().addEventListener('focusin', e => {
     // Whatever inside a card the browser lands on (the card, or a button on
@@ -1098,8 +1108,10 @@ export function setupTabNavigation() {
   $.canvasRoot().addEventListener('focusin', e => {
     const block = e.target.closest('.block'); if (!block) return
     if (e.target === block) blockFocusFromPointer = fromPress()
-    // A block the pointer just placed (quick create) stays where it was put.
-    if (fromPress() || isCameraHeld()) return
+    // A block the pointer just placed (quick create) stays where it was put,
+    // and a card an overlay hands focus back to is where the person left it:
+    // neither is arriving, so neither pans.
+    if (fromPress() || isCameraHeld() || returning(block)) return
     // Focus moving within one card (into its title editor and back) is not
     // arriving at it.
     if (e.relatedTarget && block.contains(e.relatedTarget)) return

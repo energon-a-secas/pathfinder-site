@@ -35,7 +35,9 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/classify.js` | ~330 | Line classifier, outline parser, paste and Brain Dump, the card's type check |
 | `js/events.js` | ~1010 | Canvas pointer and wheel handlers, keyboard shortcuts, Tab traversal |
 | `js/navigation.js` | ~370 | Reading order, nearest block by direction, nudge, announcements, quick create from a port |
-| `js/zoom-controls.js` | ~250 | The camera: zoom cluster, zoom steps, `zoomToBlocks`/`zoomToSelection`, wheel clamp, Back to content |
+| `js/zoom-controls.js` | ~470 | The camera: zoom cluster, zoom steps, `zoomToBlocks`/`zoomToSelection`, wheel clamp, Back to content; `arriveAt` (where a template, the sample, an example or a share link lands) and `animateTidy`; sets up and re-exports `lod.js` |
+| `js/lod.js` | ~175 | Level of detail: the `lod-*` band on `#canvasRoot` (an `applyTransform` hook), the card's small-zoom face (`paintLodFace`, a `blockDecorators` painter), the hover fade's pointer kind |
+| `js/minimap.js` | ~250 | The minimap (`M`): type-coloured rects, a draggable frame, click to jump; `aria-hidden`, never on phones or in embeds |
 | `js/canvas.js` | ~435 | `renderArrows()`, `resolveRoutes()`, `pathFor()`, `fitView()`; re-exports the `arrow-*.js` modules |
 | `js/arrow-geometry.js` / `arrow-routes.js` / `arrow-labels.js` / `arrow-hover.js` | ~210 / 330 / 170 / 115 | Heads, weights and dashes; lanes and route separation; label placement; hover rings |
 | `js/arrow-edit.js` | ~270 | The inline connection label editor |
@@ -57,6 +59,11 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/voting.js` | ~70 | Dot voting as an explicit mode (View ▾ → Dot voting): `setVotingMode`, the banner; a plain click never votes |
 | `js/doc-panel.js` | ~217 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
 | `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
+
+**Key interactions added 2026-10-03 (legibility at any zoom):**
+- **Level of detail** (`lod.js`, CSS `[zoom]`): below 75% a card's own content goes `visibility: hidden` (never `display`: `getBlockDims` reads `offsetHeight`, and the lines are routed to it) and its face shows the type and title at screen size. The face is laid out in screen pixels (`width: calc(100% / var(--lodk))` plus `scale(var(--lodk))`) and is a size container, so its container queries measure the card on screen. Each new `--lodk` re-lays out every face (most of a frame at 300 cards), so a zooming gesture takes quarter-octave steps and settles on the 1/16-octave step once it rests (`LOD_GESTURE_STEPS`, `LOD_SETTLE_MS`). Face titles break between words only, a word too long for its line ending in an ellipsis. A card being edited keeps its content (`:has([contenteditable="true"])`). The image export draws from the state, so no band reaches it. The minimap redraws on every save (a `saveHooks` entry), since a drag ends with a save and no `pf:canvas-changed`.
+- **Arrival** (`arriveAt`, `arriveAfterLoad` in `zoom-controls.js`): templates (`setupTemplates`, through `runTidy({ arrive })` for the large ones) and anything arriving by link (`landIncoming` in `ui-panels.js`: share links, examples, the tutorial, `?src=`) land at 75% on the entry layer instead of a whole-map fit; Shift+1 still fits everything. A path that loads through `applyImport` calls `arriveAfterLoad`, which runs after the import's own fit frame.
+- **Tidy** no longer animates `left`/`top`: `animateTidy` slides cards on `translate` (motion on only) while lines and frames step aside. **Focus handed back does not pan**: a card that gets focus back from a menu, the shortcut sheet, Find or a dialog, with the camera where it was when focus left it, is a return, not an arrival, so the focus-pan handler in `events.js` (`returning`) leaves the camera alone; a Tab still pans.
 
 **Key interactions added 2026-09-28 (UI overhaul):**
 - **Types**: 16 in the `TYPES` registry (`utils.js`), grouped by `TYPE_STEPS` (Why, Who, Proof, What, How, Doubt, Other; `typesByStep()`). New: `stakeholder`, `metric`, `implementation`; `terminator` reads Trigger / End. Every exporter iterates the registry, and `tests/types-registry.test.js` fails when one leaves a type out. Ids never change.
@@ -369,7 +376,8 @@ How the handler is layered (`setupKeyboardShortcuts` in `events.js`): a modal di
 - `.block[data-highlight=alert|focus|go|hold|festive]` + `.block-hl-tab`: presentation ring and its word
 - `body.motion-on`: View ▾ → Animate highlights; `body.spotlight`: fade every block without a highlight
 - `.port-left` · `.port-right` · `.port-top` · `.port-bottom` · `.arrow-handle`
-- `body.tidying`: transient, animates blocks to their new positions
+- `.canvas-root.tidy-glide`: transient, slides cards on `translate` to their Tidy positions (Animate highlights only)
+- `.canvas-root.lod-full|lod-title|lod-pill|lod-dot` (+ `lod-quiet-labels` under 60%, `--lodk` the face scale) · `.block-lod`: the card's small-zoom face
 - `body[data-chrome=off]` · `body[data-zen=on]`: expanded view
 - `.pf-menu` (+ `.pf-submenu`, `.pf-header-menu`, `.ctx-*-menu`, `.insp-type-menu`, `.type-check-menu`): menu.js menus; `.type-menu-notes` / `.type-menu-note` the type lists' foot
 - `.panel-tab.active` · `.tab-pane.active` · `.action-toggle.active`

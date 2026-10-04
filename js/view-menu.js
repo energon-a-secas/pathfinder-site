@@ -24,6 +24,7 @@ import { openDropdown, closeMenus } from './menu.js'
 import { getPref, setPref } from './prefs.js'
 import { isVotingMode, setVotingMode } from './voting.js'
 import { chrome, toggleChrome, toggleZen } from './chrome.js'
+import { isMinimapOn, toggleMinimap, minimapAvailable } from './minimap.js'
 import {
   applyTheme, setCanvasCardStyle, canvasCardStyle, refreshSpotlight,
   runTidy, getLayoutDir, setLayoutDir, openShortcuts,
@@ -173,6 +174,7 @@ export function viewMenuItems() {
       action: () => { toggleChrome(); if (!chrome.frame) focusCanvas() } },
     { label: 'Zen: hide panels', shortcut: 'Z', checked: !chrome.panels,
       action: () => { toggleZen(); if (!chrome.frame) focusCanvas() } },
+    ...(minimapAvailable() ? [{ label: 'Minimap', shortcut: 'M', checked: isMinimapOn(), keepOpen: true, action: () => toggleMinimap() }] : []),
   )
   if (!ro && !ui.embed) items.push(
     { label: 'Dot voting', hint: 'Click cards to add dots. This session only', checked: isVotingMode(),

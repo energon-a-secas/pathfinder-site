@@ -4,16 +4,31 @@
 //  with it, zoom to selection, the wheel clamp, and the "Back to
 //  content" pill for when every block has left the screen.
 //
+//  Also where a map lands when it arrives (a template, the sample,
+//  an example, a share link: arriveAt) and Tidy's move. It sets up
+//  lod.js (the level-of-detail band and the hover fade) and
+//  minimap.js, and re-exports the band API.
+//
 //  Zooming is about the window, not the map, so all of it works
 //  in read-only and embed views.
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, view } from './state.js'
-import { $, clamp, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { state, selection, view, ui } from './state.js'
+import { $, clamp, getBlockEl, showToast, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, fitView } from './canvas.js'
 import { openDropdown } from './menu.js'
 import { focusBlock } from './ui-panels.js'
 import { blockSize } from './create.js'
+import { readingOrder } from './navigation.js'
+import { setupMinimap, isMinimapOn, toggleMinimap, minimapAvailable } from './minimap.js'
+import { setupLod, setupHoverDim, exactLodNext } from './lod.js'
+
+// Level of detail and the hover fade live in lod.js; this is their one
+// import point, with the rest of the camera.
+export {
+  LOD_BANDS, LABELS_MIN_ZOOM, LOD_MARGIN, LOD_STEPS_PER_OCTAVE, LOD_GESTURE_STEPS, LOD_SETTLE_MS,
+  lodBand, labelsAtRest, lodScale, currentLod, applyLod, paintLodFace,
+} from './lod.js'
 
 // Round stops for the buttons and the = / - keys, so repeated presses land
 // on numbers people recognise (50%, 100%, 200%) instead of 83.3%.
@@ -78,19 +93,25 @@ const reducedMotion = () =>
   !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 
 /**
- * Move the camera to (panX, panY, zoom). Eases over 280ms like focusBlock,
- * and jumps straight there under reduced motion.
+ * The house curve, --ease-out (cubic-bezier(0.25, 1, 0.5, 1)), as a
+ * function: a quartic ease-out, fast start and a long settle, no overshoot.
  */
-export function animateView(panX, panY, zoom) {
+export const easeOut = t => 1 - Math.pow(1 - t, 4)
+
+/**
+ * Move the camera to (panX, panY, zoom). Eases out over `ms` (280 by
+ * default, like focusBlock), and jumps straight there under reduced motion.
+ */
+export function animateView(panX, panY, zoom, ms = 280) {
   const token = ++animToken
   const to = { panX, panY, zoom: clamp(zoom, MIN_ZOOM, MAX_ZOOM) }
-  if (reducedMotion()) { Object.assign(view, to); applyTransform(); return }
+  if (reducedMotion() || !(ms > 0)) { Object.assign(view, to); applyTransform(); return }
   const from = { panX: view.panX, panY: view.panY, zoom: view.zoom }
   const start = performance.now()
   const step = now => {
     if (token !== animToken) return
-    const t = Math.min((now - start) / 280, 1)
-    const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+    const t = Math.min((now - start) / ms, 1)
+    const ease = easeOut(t)
     view.panX = from.panX + (to.panX - from.panX) * ease
     view.panY = from.panY + (to.panY - from.panY) * ease
     view.zoom = from.zoom + (to.zoom - from.zoom) * ease
@@ -218,6 +239,10 @@ function zoomMenuItems() {
     { type: 'divider' },
     { label: 'Zoom to 50%', action: () => zoomTo(0.5) },
     { label: 'Zoom to 200%', action: () => zoomTo(2) },
+    ...(minimapAvailable() ? [
+      { type: 'divider' },
+      { label: 'Minimap', shortcut: 'M', checked: isMinimapOn(), action: () => toggleMinimap() },
+    ] : []),
   ]
 }
 
@@ -247,4 +272,211 @@ export function setupZoomControls() {
   window.addEventListener('resize', queuePillCheck)
   window.addEventListener('pf:canvas-changed', queuePillCheck)
   queuePillCheck()
+
+  setupLod()
+  setupHoverDim()
+  setupMinimap()
+}
+
+// ════════════════════════════════════════════════════════════
+//  Arrival
+// ════════════════════════════════════════════════════════════
+// A template, the sample map, an example or a share link used to land at
+// a whole-map fit: 30% for the large templates, where nothing reads. It
+// lands at 75% or more instead, on the map's entry layer (its triggers, or
+// the blocks the flow starts from), with the rest a pan away and Shift+1
+// still showing all of it.
+
+export const ARRIVAL_ZOOM = 0.75
+const ARRIVAL_PAD = 80
+
+function boxOf(ids) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity
+  ids.forEach(id => {
+    const b = state.blocks[id]; if (!b) return
+    const { w, h } = blockSize(id)
+    x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y)
+    x2 = Math.max(x2, b.x + w); y2 = Math.max(y2, b.y + h)
+  })
+  return { x1, y1, x2, y2, w: x2 - x1, h: y2 - y1, cx: (x1 + x2) / 2, cy: (y1 + y2) / 2 }
+}
+
+/**
+ * Where a flow starts, among `ids`: its triggers (a Trigger / End with
+ * connections out and none in); failing that, every connected block with
+ * nothing coming in; failing that (no connections), the first block in
+ * reading order.
+ */
+export function entryBlocks(ids, arrows = state.arrows) {
+  const live = (ids || []).filter(id => state.blocks[id])
+  const set = new Set(live), into = new Set(), out = new Set()
+  arrows.forEach(a => {
+    if (a.from === a.to || !set.has(a.from) || !set.has(a.to)) return
+    out.add(a.from); into.add(a.to)
+  })
+  const roots = live.filter(id => out.has(id) && !into.has(id))
+  const triggers = roots.filter(id => state.blocks[id].type === 'terminator')
+  if (triggers.length) return triggers
+  if (roots.length) return roots
+  const sub = {}
+  live.forEach(id => { sub[id] = state.blocks[id] })
+  return readingOrder(sub).slice(0, 1)
+}
+
+// The centre, on one axis, of a window `win` wide: on the entry span
+// [e1, e2] (on its start when it is wider than the window), then kept
+// inside the map [m1, m2], so the window shows map rather than the empty
+// canvas beside it.
+function arrivalCentre(e1, e2, m1, m2, win) {
+  const c = e2 - e1 + ARRIVAL_PAD * 2 > win ? e1 - ARRIVAL_PAD + win / 2 : (e1 + e2) / 2
+  const lo = m1 - ARRIVAL_PAD + win / 2, hi = m2 + ARRIVAL_PAD - win / 2
+  return lo <= hi ? clamp(c, lo, hi) : (m1 + m2) / 2
+}
+
+/**
+ * The camera for blocks `ids` arriving in a viewport `size` ({ w, h },
+ * the canvas viewport by default): all of them when that reads (a fit of
+ * 75% or more, never past 100%), otherwise 75% on the entry layer. `whole`
+ * says whether everything is in view. Null when there is nothing to frame.
+ */
+export function arrivalView(ids, size = null) {
+  const { w: W, h: H } = size || viewportSize()
+  const live = (ids || []).filter(id => state.blocks[id])
+  if (!live.length || !(W > 0) || !(H > 0)) return null
+  const all = boxOf(live)
+  const fit = Math.min(W / (all.w + ARRIVAL_PAD * 2), H / (all.h + ARRIVAL_PAD * 2))
+  if (fit >= ARRIVAL_ZOOM) {
+    const z = clamp(Math.min(fit, 1), MIN_ZOOM, MAX_ZOOM)
+    return { zoom: z, panX: W / 2 - all.cx * z, panY: H / 2 - all.cy * z, whole: true }
+  }
+  const z = ARRIVAL_ZOOM
+  const e = boxOf(entryBlocks(live))
+  const cx = arrivalCentre(e.x1, e.x2, all.x1, all.x2, W / z)
+  const cy = arrivalCentre(e.y1, e.y2, all.y1, all.y2, H / z)
+  return { zoom: z, panX: W / 2 - cx * z, panY: H / 2 - cy * z, whole: false }
+}
+
+/** The arrival toast's second sentence, said only when part of the map is off screen. */
+export const ARRIVAL_HINT = 'Shift+1 shows all of it.'
+// With no keyboard to press it on (a phone, a tablet without one), the
+// hint names the button instead: Fit is in the status bar on every size.
+export const ARRIVAL_HINT_TOUCH = 'Fit shows all of it.'
+
+/** The hint for this device: the key where there is a fine pointer and room, the button otherwise. */
+export function arrivalHint() {
+  try {
+    const touchOnly = !window.matchMedia('(any-pointer: fine)').matches
+    const phone = window.matchMedia('(max-width: 700px)').matches
+    return touchOnly || phone ? ARRIVAL_HINT_TOUCH : ARRIVAL_HINT
+  } catch (_) { return ARRIVAL_HINT }
+}
+
+/** "Checkout 500s added." for a template, the sample or an example. */
+export function arrivalLead(name, verb = 'added') {
+  const n = String(name || '').trim()
+  return n ? `${n} ${verb}.` : `Map ${verb}.`
+}
+
+/**
+ * Land on `ids` (every block when null); see arrivalView. An embed is a
+ * figure on someone else's page, so it keeps the whole-map fit. With
+ * `lead` it says "<lead> Shift+1 shows all of it." (the lead alone when
+ * all of it is in view; on a touch-only device or a phone the hint names
+ * the Fit button instead, arrivalHint). `animate` eases there in 200ms (Tidy). Returns
+ * { whole }, or null when there was nothing to land on.
+ */
+export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, animate = false } = {}) {
+  const list = ids ? [...ids] : Object.keys(state.blocks)
+  if (ui.embed) {
+    if (!list.some(id => state.blocks[id])) return null
+    fitView()
+    return { whole: true }
+  }
+  const v = arrivalView(list)
+  if (!v) return null
+  exactLodNext()
+  if (animate) animateView(v.panX, v.panY, v.zoom, TIDY_MS)
+  else { animToken++; Object.assign(view, { panX: v.panX, panY: v.panY, zoom: v.zoom }); applyTransform() }
+  if (lead) showToast(v.whole ? lead : `${lead} ${arrivalHint()}`, type, ms)
+  return { whole: v.whole }
+}
+
+/**
+ * arriveAt after the frame an import scheduled (its lines, frames and fit),
+ * for the paths that load through applyImport: registered after that
+ * frame's callback, it runs after it in the same frame. Resolves to
+ * arriveAt's result.
+ */
+export function arriveAfterLoad(ids = null, opts = {}) {
+  return new Promise(resolve => requestAnimationFrame(() => resolve(arriveAt(ids, opts))))
+}
+
+// ════════════════════════════════════════════════════════════
+//  Tidy's move
+// ════════════════════════════════════════════════════════════
+// Tidy writes every block's new position at once. With View > Animate
+// highlights on, each card slides there from where it was (a transform,
+// 200ms on the house ease-out, no overshoot) while the lines step aside and
+// come back drawn to the new layout, and the camera moves in the same
+// 200ms. With motion off (the default) or reduced motion, it is instant.
+
+export const TIDY_MS = 200
+
+export function motionAllowed() {
+  return !!document.body?.classList.contains('motion-on') && !reducedMotion()
+}
+
+/** Every block's position, to hand to animateTidy after the layout. */
+export function positionsNow(ids = Object.keys(state.blocks)) {
+  const out = {}
+  ids.forEach(id => { const b = state.blocks[id]; if (b) out[id] = { x: b.x, y: b.y } })
+  return out
+}
+
+let tidyTimer = 0
+
+/**
+ * Slide each card from `before` (positionsNow() before the layout) to where
+ * it is now; the cards must already be rendered at their new positions.
+ * Calls `done` once they are there: at once when motion is off or nothing
+ * moved, otherwise after TIDY_MS. Returns the duration, 0 when instant.
+ */
+export function animateTidy(before, done = () => {}) {
+  const root = $.canvasRoot()
+  clearTimeout(tidyTimer)
+  root?.classList.remove('tidy-glide')
+  const moved = []
+  if (root && motionAllowed()) {
+    for (const id in before) {
+      const b = state.blocks[id], el = getBlockEl(id)
+      if (!b || !el) continue
+      const dx = before[id].x - b.x, dy = before[id].y - b.y
+      if (!dx && !dy) continue
+      el.style.translate = `${dx}px ${dy}px`
+      moved.push(el)
+    }
+  }
+  if (!moved.length) { done(); return 0 }
+  // Each card's start must be computed before the glide class arrives, or
+  // the class would slide it from where it is to its start instead. Read
+  // every card (one style pass; the canvas root's own box does not depend
+  // on its cards, so reading the root is not enough), then let them go.
+  moved.forEach(el => getComputedStyle(el).translate)
+  root.classList.add('tidy-glide')
+  moved.forEach(el => { el.style.translate = '' })
+  tidyTimer = setTimeout(() => {
+    root.classList.remove('tidy-glide')
+    done()
+  }, TIDY_MS + 20)
+  return TIDY_MS
+}
+
+/** The whole-map fit as a camera, without applying it (Tidy eases to it). */
+export function fitTarget(ids = Object.keys(state.blocks)) {
+  const live = ids.filter(id => state.blocks[id])
+  const { w: W, h: H } = viewportSize()
+  if (!live.length || !W || !H) return null
+  const all = boxOf(live), pad = 80
+  const z = clamp(Math.min(W / (all.w + pad * 2), H / (all.h + pad * 2)), MIN_ZOOM, MAX_ZOOM)
+  return { zoom: z, panX: (W - all.w * z) / 2 - all.x1 * z, panY: (H - all.h * z) / 2 - all.y1 * z }
 }

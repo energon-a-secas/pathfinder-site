@@ -23,6 +23,9 @@ import { tidyCanvas, tidySummary } from './layout.js'
 import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
 import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } from './state.js'
+// ZOOM: where a template or a link lands, and Tidy's move.
+import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint,
+         positionsNow, animateTidy, fitTarget, TIDY_MS } from './zoom-controls.js'
 import { openIncoming, incomingMessage } from './sharing.js'
 import { animateView } from './zoom-controls.js'
 
@@ -245,6 +248,7 @@ export const SHORTCUTS = [
     ['Pinch / \u2318/Ctrl + scroll', 'Zoom at the pointer'],
     ['H',                      'Hide the header and footer'],
     ['Z',                      'Zen: hide every panel too'],
+    ['M',                      'Show or hide the minimap'],
     ['Alt + H',                'High-contrast mode'],
     ['?',                      'Show this help'],
   ] },
@@ -897,42 +901,48 @@ export function setLayoutDir(dir) {
 }
 
 /**
- * Re-lay the canvas and animate every block to its new home.
+ * Re-lay the canvas and bring every block to its new home.
  *
  * Positions land in one undo step (tidyCanvas takes the snapshot), so Cmd+Z
- * restores the whole arrangement. Arrows are re-rendered each frame during the
- * transition, then routed properly once it settles.
+ * restores the whole arrangement. With Animate highlights on, the cards
+ * slide there on a transform while the lines step aside, and the camera
+ * eases to the fit in the same 200ms (zoom-controls.js animateTidy); with
+ * motion off (the default) it is all instant.
  */
 // `snapshot: false` is for a caller that already took this action's undo
 // step. Listeners pass an Event here, which has no `snapshot`: the default.
-export function runTidy({ snapshot: takeSnapshot = true } = {}) {
+// `arrive` (blocks and an arriveAt lead) lands the camera on them instead of
+// the whole-map fit: a template arranges itself on arrival.
+export function runTidy({ snapshot: takeSnapshot = true, arrive = null } = {}) {
   if (ui.readOnly) return
   const count = Object.keys(state.blocks).length
   if (count < 2) { showToast('Add at least two blocks to arrange', 'info', 1600); return }
 
+  const before = positionsNow()
   const tidied = tidyCanvas({ direction: layoutDir, snapshot: takeSnapshot !== false })
-  document.body.classList.add('tidying')
   renderAllBlocks()
   renderFrames()
-
-  const started = performance.now()
-  const step = () => {
-    renderArrows({ cheap: true })
-    renderFrames()
-    if (performance.now() - started < 460) requestAnimationFrame(step)
-    else {
-      document.body.classList.remove('tidying')
-      renderArrows({ cheap: false })
-      fitView()
-    }
-  }
-  requestAnimationFrame(step)
 
   saveState()
   ui.promptDirty = true
   runGapDetection()
   // The summary also counts lines left under a card (layout.js).
   showToast(tidySummary(tidied, count, layoutDir), 'success', 2600)
+
+  const settle = () => {
+    renderArrows({ cheap: false })
+    renderFrames()
+    window.dispatchEvent(new CustomEvent('pf:canvas-changed'))
+  }
+  const sliding = animateTidy(before, settle) > 0
+  if (!sliding) {
+    if (arrive) arriveAt(arrive.ids, { lead: arrive.lead })
+    else fitView()
+    return
+  }
+  // The camera moves with the cards, to where it will end up.
+  if (arrive) arriveAt(arrive.ids, { lead: arrive.lead, animate: true })
+  else { const t = fitTarget(); if (t) animateView(t.panX, t.panY, t.zoom, TIDY_MS) }
 }
 
 export function setupTidy() {
@@ -1287,7 +1297,7 @@ export function setupTemplates() {
     if (!tpl) return
     const wasEmpty = Object.keys(state.blocks).length === 0
     snapshot()
-    applyTemplate(tpl)
+    const added = applyTemplate(tpl)
     // A template's framing only lands on a canvas that had nothing on it. On a
     // merge the existing situation is somebody's deliberate choice.
     const framed = wasEmpty && applyTemplateSituation(tpl, canvasMeta, devOpts)
@@ -1304,13 +1314,14 @@ export function setupTemplates() {
 
     // The big templates exist to be read as a shape, so arrange them straight
     // away rather than dropping a knot of boxes and hoping the button is found.
+    // Either way it lands readable, on where its flow starts (zoom-controls.js
+    // arriveAt), not at a whole-map fit too small to read.
     if (tpl.large) {
       // The template click already took its undo step above: one click, one Cmd+Z.
-      runTidy({ snapshot: false })
-      if (framed) showToast(`${tpl.name} added, arranged, and the Situation set to match`, 'success', 3200)
+      const lead = framed ? `${tpl.name} added and arranged, with its Situation.` : `${tpl.name} added and arranged.`
+      runTidy({ snapshot: false, arrive: { ids: added, lead } })
     } else {
-      fitView()
-      showToast(`Added ${tpl.name}. Press Tidy or L to arrange it`, 'success', 2600)
+      arriveAt(added, { lead: `${arrivalLead(tpl.name)} Press Tidy or L to arrange it.`, ms: 2600 })
     }
   })
 }
@@ -1341,6 +1352,26 @@ function forgetLinkInUrl({ hash = false, src = false, via = false } = {}) {
 }
 
 /**
+ * A map that arrived by link (a share link, an example, the tutorial's
+ * example, ?src=) lands readable on where its flow starts, after the
+ * import's own frame (zoom-controls.js arriveAt): the blocks it brought on
+ * a merge, the whole map otherwise. The toast is the path's own message,
+ * plus "Shift+1 shows all of it." (on a phone, "Fit shows all of it.") when
+ * part of the map is off screen; a
+ * plain open that shows everything says nothing, as before.
+ */
+function landIncoming(r, msg) {
+  if (!r) return
+  const ids = r.mode === 'merge' ? Object.values(r.idMap || {}) : null
+  const skipped = r.dropped ? r.dropped.blocks + r.dropped.arrows + r.dropped.groups : 0
+  arriveAfterLoad(ids).then(a => {
+    if (!msg && (!a || a.whole)) return
+    const lead = msg ? (/[.!?]$/.test(msg) ? msg : msg + '.') : arrivalLead(canvasMeta.title || 'Shared map', 'opened')
+    showToast(a && !a.whole ? `${lead} ${arrivalHint()}` : lead, skipped ? 'warning' : 'success', 3600)
+  })
+}
+
+/**
  * Load a #s= or #z= share link. Returns true when the hash held a canvas
  * (for #s=, which decodes synchronously), a Promise for #z= (inflating is
  * asynchronous; the promise is truthy, so init still skips ?src=), or
@@ -1358,8 +1389,7 @@ export function checkShareUrl() {
       source: 'link',
       onApplied: r => {
         forgetLinkInUrl({ hash: true, via: true })
-        const msg = incomingMessage(r, 'shared map')
-        if (msg) showToast(msg, r.dropped && (r.dropped.blocks + r.dropped.arrows + r.dropped.groups) ? 'warning' : 'success', 3600)
+        landIncoming(r, incomingMessage(r, 'shared map'))
       },
     })
     return true
@@ -1413,7 +1443,7 @@ export async function checkSrcUrl() {
   flagLowConfidence(parsed.low, r.idMap)
   const skipped = r.dropped.blocks + r.dropped.arrows + r.dropped.groups
   const where = r.mode === 'new' ? ' as a new map. Yours is under Maps' : r.mode === 'merge' ? ' into your map' : ''
-  showToast(skipped
+  landIncoming(r, skipped
     ? `Loaded ${r.imported} blocks from the link${where}, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`
-    : `Loaded ${r.imported} block${r.imported === 1 ? '' : 's'} from the link${where}`, skipped ? 'warning' : 'success', 3600)
+    : `Loaded ${r.imported} block${r.imported === 1 ? '' : 's'} from the link${where}`)
 }

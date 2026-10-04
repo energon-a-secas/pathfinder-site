@@ -419,7 +419,7 @@ describe('design tokens: no hard-coded colour outside a token block', () => {
     assert.match(css, /--ease-out:\s*cubic-bezier\(0\.25, 1, 0\.5, 1\)/)
   })
 
-  it('motion: every transition names its properties and runs on --ease-out, and none moves layout but Tidy', async () => {
+  it('motion: every transition names its properties and runs on --ease-out, and none moves layout, Tidy included', async () => {
     for (const url of ['../css/style.css', '../css/trace.css']) {
       const css = stripComments(await fetchText(url))
       for (const m of css.matchAll(/([^{};]*\{[^{}]*?)transition:\s*([^;{}]+);/g)) {
@@ -430,7 +430,6 @@ describe('design tokens: no hard-coded colour outside a token block', () => {
           assert.match(part, /var\(--ease-out\)/, `${url}: ${part.trim()} runs on the ease-out curve`)
         }
         const sel = m[1].slice(0, m[1].indexOf('{')).trim()
-        if (/^body\.tidying \.block$/.test(sel)) continue   // Tidy, owned by the ZOOM stream
         assert.ok(!/(^|,\s*)(left|top|right|bottom|width|height)\s/.test(val), `${url}: ${sel} animates a layout property (${val})`)
       }
     }
