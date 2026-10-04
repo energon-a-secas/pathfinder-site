@@ -657,9 +657,9 @@ describe('QA2 a11y: focus stays put when a control re-renders or removes itself'
     } finally { host.remove(); reset() }
   })
 
-  it('the generated prompt has a name, and the tablist holds only tabs', async () => {
+  it('the generated brief has a name, and the tablist holds only tabs', async () => {
     const doc = await markup()
-    assert.eq(doc.getElementById('promptOutput').getAttribute('aria-label'), 'Generated prompt')
+    assert.eq(doc.getElementById('promptOutput').getAttribute('aria-label'), 'Generated brief')
     const tablist = doc.querySelector('.panel-tablist')
     assert.ok(tablist)
     assert.deepEq([...tablist.children].map(c => c.className.split(' ')[0]), ['panel-tab', 'panel-tab', 'panel-tab'])

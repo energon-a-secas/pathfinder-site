@@ -963,13 +963,18 @@ describe('design tokens: card states never wear a type colour', () => {
     }
   })
 
-  it('the health score is text in the text colour, never a status or type colour', async () => {
+  // The Brief tab's readiness line replaced the health score (2026-10-03):
+  // what is open, in words, in the text colours, never a grade in a colour.
+  it('readiness is text in the text colours, never a status or type colour', async () => {
     for (const [name, cls] of THEMES) {
       const t = await themed(cls)
       try {
-        const box = t.add(['a', 'b', 'c'].map(g => `<span class="health-score grade-${g}">58</span>`).join(''))
-        box.querySelectorAll('.health-score').forEach(el =>
-          assert.deepEq(cssRgba(getComputedStyle(el).color), t.color('var(--text-1)'), `${name} ${el.className}`))
+        const box = t.add('<p class="brief-ready"><span><strong>7 open items</strong>: 2 assumptions, 3 gaps.</span> <button class="brief-link">Review</button></p>')
+        const line = box.querySelector('.brief-ready')
+        assert.deepEq(cssRgba(getComputedStyle(line).color), t.color('var(--text-2)'), `${name}: the line`)
+        assert.deepEq(cssRgba(getComputedStyle(line.querySelector('strong')).color), t.color('var(--text-1)'), `${name}: the count`)
+        assert.deepEq(cssRgba(getComputedStyle(line.querySelector('.brief-link')).color), t.color('var(--text-1)'), `${name}: Review`)
+        assert.ok(parseFloat(getComputedStyle(line).fontSize) >= 11, `${name}: the 11px floor`)
       } finally { t.done() }
     }
   })

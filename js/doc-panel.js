@@ -159,7 +159,7 @@ export function openDocPopup(blockId, anchorEl) {
     return
   }
   if (!resolved.fetchable) {
-    body.innerHTML = `<div class="doc-popup-note">This page is outside the configured docs base, so it can't be previewed inline (browser security).<br><a href="${escHtml(resolved.url)}" target="_blank" rel="noopener noreferrer">Open it in a new tab ↗</a><br><span class="doc-popup-hint">Set a docs base URL under Prompt → Dev Options to preview same-site pages.</span></div>`
+    body.innerHTML = `<div class="doc-popup-note">This page is outside the configured docs base, so it can't be previewed inline (browser security).<br><a href="${escHtml(resolved.url)}" target="_blank" rel="noopener noreferrer">Open it in a new tab ↗</a><br><span class="doc-popup-hint">Set a docs base URL under Brief, Framing, Prompt options to preview same-site pages.</span></div>`
     return
   }
 

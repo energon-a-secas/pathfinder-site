@@ -395,7 +395,7 @@
            not a tab. -->
       <div class="panel-tablist">
         <button class="panel-tab active" data-tab="inspector">Inspector</button>
-        <button class="panel-tab"        data-tab="prompt">Prompt</button>
+        <button class="panel-tab"        data-tab="prompt">Brief</button>
         <button class="panel-tab" data-tab="attention" title="Needs attention">Attention<span class="tab-count" id="attentionCount" hidden></span></button>
       </div>
       <button class="panel-collapse-btn" id="panelCollapseBtn" title="Hide details panel" aria-label="Hide details panel" aria-controls="panelContent" aria-expanded="true">
@@ -725,110 +725,141 @@
         </div>
       </div>
 
-      <!-- Prompt pane -->
-      <div class="tab-pane" id="promptPane">
-        <div class="prompt-summary" id="promptSummary">No blocks yet.</div>
-        <div id="healthBar" class="health-bar" style="display:none"></div>
-        <div id="gapBreakdown" class="gap-breakdown" style="display:none"></div>
-        <div id="promptDiff" class="prompt-diff" style="display:none"></div>
+      <!-- Brief pane (js/brief.js). The tab keeps its id, "prompt", for
+           every caller that refreshes it. Top to bottom: mode and Copy, one
+           readiness line, the framing folded into one row, the brief as a
+           document that takes the rest of the height, and the way back. -->
+      <div class="tab-pane brief-pane" id="promptPane">
+        <div class="brief-head">
+          <div class="brief-modes dev-radio-group" id="modeGroup" role="group" aria-label="Mode">
+            <button type="button" class="radio-opt" data-value="investigate">Investigate</button>
+            <button type="button" class="radio-opt" data-value="explore">Explore</button>
+            <button type="button" class="radio-opt active" data-value="plan">Plan</button>
+            <button type="button" class="radio-opt" data-value="build">Build</button>
+            <button type="button" class="radio-opt" data-value="clarify">Clarify</button>
+          </div>
+          <p class="mode-desc" id="modeDesc"></p>
+          <div class="brief-actions">
+            <button type="button" class="btn btn-primary copy-btn" id="copyPromptBtn" aria-keyshortcuts="Meta+Shift+C Control+Shift+C" title="Copy the brief (Cmd or Ctrl + Shift + C)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
+              <span class="brief-copy-label">Copy brief</span>
+            </button>
+            <div class="brief-scope" id="briefScope" role="group" aria-label="What the brief covers">
+              <button type="button" class="brief-scope-opt" data-scope="map" aria-pressed="true"><span class="brief-scope-wide">Whole map</span><span class="brief-scope-narrow">Map</span></button>
+              <button type="button" class="brief-scope-opt" data-scope="selection" aria-pressed="false" aria-disabled="true">Selection<span class="brief-scope-n" id="briefScopeCount"></span></button>
+            </div>
+          </div>
+          <p class="brief-ready" id="briefReady" hidden>
+            <span id="briefReadyText"></span>
+            <button type="button" class="brief-link" id="briefReviewBtn">Review</button>
+          </p>
+          <p class="brief-diff" id="promptDiff" hidden></p>
+          <p class="brief-diff" id="briefLong" hidden></p>
+        </div>
 
-        <div class="insp-section" id="patchSection">
-          <div class="insp-label">Paste a reply or a review <span class="insp-label-hint">an assistant's reply or a reviewer's notes; the patch inside updates this canvas</span></div>
-          <button class="btn btn-secondary btn-sm" id="patchOpenBtn">Paste a reply…</button>
+        <div class="brief-framing">
+          <button type="button" class="brief-framing-toggle" id="briefFramingBtn" aria-expanded="false" aria-controls="briefFraming">
+            <span class="brief-row-label">Framing</span>
+            <span class="brief-framing-summary" id="briefFramingSummary"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <div class="brief-framing-body" id="briefFraming" hidden>
+            <section class="brief-group situation-section" id="situationSection" aria-labelledby="situationHeading">
+              <h3 class="brief-group-title" id="situationHeading">Situation <span class="brief-hint">where the assistant stands when it reads this</span></h3>
+              <div id="situationFields"></div>
+              <label class="brief-field-label" for="situationRepoHint">Repo or path <span class="brief-hint">optional</span></label>
+              <input class="insp-input" id="situationRepoHint" type="text" maxlength="300"
+                     placeholder="The billing service, src/billing">
+              <label class="brief-field-label" for="situationConstraints">Boundaries <span class="brief-hint">one per line</span></label>
+              <textarea class="insp-textarea" id="situationConstraints" rows="2" maxlength="1000"
+                placeholder="Do not touch the auth module&#10;No new dependencies&#10;Ship behind a flag"></textarea>
+              <label class="brief-field-label" for="contextBrief">Context <span class="brief-hint">who it is for, the stack, the ask</span></label>
+              <textarea class="insp-textarea" id="contextBrief" rows="2"
+                placeholder="Two lines the assistant reads first: who this is for, the stack, what you want back"></textarea>
+            </section>
+
+            <section class="brief-group brief-presets-group" id="presetsSection" aria-labelledby="presetsHeading">
+              <h3 class="brief-group-title" id="presetsHeading">Presets <span class="brief-hint">set the mode, where it runs and the options in one go</span></h3>
+              <div class="dev-check-group brief-presets" id="promptPresets">
+                <button type="button" class="preset-opt" data-preset="claude-code">Build in Claude Code</button>
+                <button type="button" class="preset-opt" data-preset="cursor-ts">Build in Cursor, TypeScript</button>
+                <button type="button" class="preset-opt" data-preset="pm-clarify">Clarify in a chat</button>
+              </div>
+            </section>
+
+            <div class="dev-options" id="devOptions">
+              <button type="button" class="dev-options-header" id="devOptionsHeader" aria-expanded="false" aria-controls="devOptionsBody">
+                Prompt options
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+              </button>
+              <div class="dev-options-body" id="devOptionsBody">
+                <div class="dev-row">
+                  <div class="brief-field-label" id="toneLabel">Tone</div>
+                  <div class="dev-radio-group" id="toneGroup" role="group" aria-labelledby="toneLabel">
+                    <button type="button" class="radio-opt active" data-value="auto">Auto</button>
+                    <button type="button" class="radio-opt" data-value="formal">Formal</button>
+                    <button type="button" class="radio-opt" data-value="casual">Casual</button>
+                    <button type="button" class="radio-opt" data-value="technical">Technical</button>
+                  </div>
+                </div>
+                <div class="dev-row">
+                  <div class="brief-field-label" id="detailLabel">Detail</div>
+                  <div class="dev-radio-group" id="detailGroup" role="group" aria-labelledby="detailLabel">
+                    <button type="button" class="radio-opt" data-value="brief">Short</button>
+                    <button type="button" class="radio-opt active" data-value="standard">Standard</button>
+                    <button type="button" class="radio-opt" data-value="detailed">Detailed</button>
+                  </div>
+                </div>
+                <div class="dev-row">
+                  <div class="brief-field-label" id="includeLabel">Also ask for</div>
+                  <div class="dev-check-group" id="prePromptGroup" role="group" aria-labelledby="includeLabel">
+                    <button type="button" class="check-opt" data-value="tasks">Tasks with acceptance criteria</button>
+                    <button type="button" class="check-opt" data-value="edge">Edge cases</button>
+                    <button type="button" class="check-opt" data-value="errors">Error handling</button>
+                    <button type="button" class="check-opt" data-value="docs">Function documentation</button>
+                    <button type="button" class="check-opt" data-value="security">Security implications</button>
+                    <button type="button" class="check-opt" data-value="typescript">TypeScript types</button>
+                  </div>
+                </div>
+                <div class="dev-row">
+                  <label class="brief-field-label" for="docsBaseInput">Docs base URL <span class="brief-hint">previews linked docs under this address</span></label>
+                  <input class="insp-input" id="docsBaseInput" type="url" placeholder="https://docs.example.com/">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brief-doc" id="briefDoc" tabindex="0" role="region" aria-label="Brief preview">
+          <div class="brief-docbar">
+            <button type="button" class="brief-outline-btn" id="briefOutlineBtn" aria-haspopup="menu" aria-expanded="false" hidden>
+              <span class="sr-only">Section: </span><span class="brief-section-name" id="briefSectionName">Sections</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
+            </button>
+            <button type="button" class="brief-tokens" id="briefTokens" aria-expanded="false" aria-controls="briefTokensNote"></button>
+            <p class="brief-tokens-note" id="briefTokensNote" hidden></p>
+          </div>
+          <article class="brief-md" id="promptOutput" aria-label="Generated brief"></article>
+        </div>
+
+        <section class="brief-reply" id="patchSection" aria-labelledby="replyHeading">
+          <div class="brief-reply-head">
+            <h3 class="brief-group-title" id="replyHeading">Bring the reply back</h3>
+            <button type="button" class="btn btn-secondary btn-sm" id="patchOpenBtn" aria-controls="patchPanel" aria-describedby="patchHint">Paste a reply</button>
+          </div>
+          <p class="brief-reply-hint" id="patchHint">Paste the assistant's reply or a reviewer's notes. The patch inside updates this map, and one undo takes it back.</p>
           <div id="patchPanel" style="display:none">
+            <label class="sr-only" for="patchInput">The reply to apply</label>
             <textarea class="insp-textarea" id="patchInput" rows="5"
               placeholder="Paste the whole reply. The ```pathfinder-patch``` block inside is found automatically."></textarea>
             <p class="attention-summary">Choose the changes to include. Expand each one to review its full before and after.</p>
             <div class="patch-preview" id="patchPreview"></div>
             <div class="patch-actions">
-              <button class="btn btn-primary btn-sm" id="patchApplyBtn" disabled>Apply to canvas</button>
-              <button class="btn btn-ghost btn-sm" id="patchCancelBtn">Close</button>
+              <button type="button" class="btn btn-primary btn-sm" id="patchApplyBtn" disabled>Apply to map</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="patchCancelBtn">Close</button>
             </div>
           </div>
-        </div>
-
-        <div class="insp-section situation-section" id="situationSection">
-          <div class="insp-label">Situation <span class="insp-label-hint">where the tool is standing when it reads this</span></div>
-          <div id="situationFields"></div>
-          <input class="insp-input" id="situationRepoHint" type="text" maxlength="300"
-                 placeholder="Which repo or path, if it helps (optional)">
-          <div class="insp-label" style="margin-top:8px">Boundaries <span class="insp-label-hint">one per line</span></div>
-          <textarea class="insp-textarea" id="situationConstraints" rows="2" maxlength="1000"
-            placeholder="Do not touch the auth module&#10;No new dependencies&#10;Ship behind a flag"></textarea>
-          <div class="situation-preview" id="situationPreview"></div>
-        </div>
-
-        <div class="insp-section">
-          <div class="insp-label">Engagement Context <span class="insp-label-hint">framing the AI sees first</span></div>
-          <textarea class="insp-textarea" id="contextBrief" rows="2"
-            placeholder="One or two lines of framing: who this is for, the stack, constraints, the ask…"></textarea>
-        </div>
-
-        <div class="prompt-mode-row">
-          <div class="insp-label" style="margin-bottom:6px">Presets <span class="insp-label-hint">one click sets mode + dev options</span></div>
-          <div class="dev-check-group" id="promptPresets">
-            <button class="preset-opt" data-preset="claude-code">Claude Code</button>
-            <button class="preset-opt" data-preset="cursor-ts">Cursor + TS</button>
-            <button class="preset-opt" data-preset="pm-clarify">PM clarify</button>
-          </div>
-        </div>
-
-        <div class="prompt-mode-row">
-          <div class="insp-label" style="margin-bottom:6px">Mode</div>
-          <div class="dev-radio-group" id="modeGroup">
-            <button class="radio-opt" data-value="investigate">Investigate</button>
-            <button class="radio-opt" data-value="explore">Explore</button>
-            <button class="radio-opt active" data-value="plan">Plan</button>
-            <button class="radio-opt" data-value="build">Build</button>
-            <button class="radio-opt" data-value="clarify">Clarify</button>
-          </div>
-          <div class="mode-desc" id="modeDesc"></div>
-        </div>
-
-        <div class="dev-options" id="devOptions">
-          <button type="button" class="dev-options-header" id="devOptionsHeader" aria-expanded="false" aria-controls="devOptionsBody">
-            Dev Options
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
-          </button>
-          <div class="dev-options-body" id="devOptionsBody">
-            <div class="dev-row">
-              <div class="insp-label" style="margin-bottom:6px">Tone</div>
-              <div class="dev-radio-group" id="toneGroup">
-                <button class="radio-opt active" data-value="auto">Auto</button>
-                <button class="radio-opt" data-value="formal">Formal</button>
-                <button class="radio-opt" data-value="casual">Casual</button>
-                <button class="radio-opt" data-value="technical">Technical</button>
-              </div>
-            </div>
-            <div class="dev-row">
-              <div class="insp-label" style="margin-bottom:6px">Detail level</div>
-              <div class="dev-radio-group" id="detailGroup">
-                <button class="radio-opt" data-value="brief">Brief</button>
-                <button class="radio-opt active" data-value="standard">Standard</button>
-                <button class="radio-opt" data-value="detailed">Detailed</button>
-              </div>
-            </div>
-            <div class="dev-row">
-              <div class="insp-label" style="margin-bottom:6px">Include in prompt</div>
-              <div class="dev-check-group" id="prePromptGroup">
-                <button class="check-opt" data-value="tasks">Tasks + acceptance criteria</button>
-                <button class="check-opt" data-value="edge">Edge case handling</button>
-                <button class="check-opt" data-value="errors">Error handling</button>
-                <button class="check-opt" data-value="docs">Function documentation</button>
-                <button class="check-opt" data-value="security">Security implications</button>
-                <button class="check-opt" data-value="typescript">TypeScript types</button>
-              </div>
-            </div>
-            <div class="dev-row">
-              <div class="insp-label" style="margin-bottom:6px">Docs base URL <span class="insp-label-hint">enables inline doc previews for pages under this URL</span></div>
-              <input class="insp-input" id="docsBaseInput" type="url" placeholder="https://docs.yoursite.com/">
-            </div>
-          </div>
-        </div>
-
-        <div class="insp-label" style="margin-bottom:6px">Generated Prompt</div>
-        <textarea class="prompt-output" id="promptOutput" readonly aria-label="Generated prompt"></textarea>
-        <button class="btn btn-primary btn-block copy-btn" id="copyPromptBtn">Copy Prompt</button>
+        </section>
       </div>
 
     </div><!-- /panel-content -->

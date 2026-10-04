@@ -441,12 +441,14 @@ export function setupShortcutOverlay() {
   })
 }
 
-// ── Engagement Context field ─────────────────────────────────
-// One-or-two-line framing that opens the generated prompt. Lives in the
-// Prompt pane (where it shapes the output the user is about to copy).
+// ── Context field ────────────────────────────────────────────
+// One or two lines of framing the assistant reads first (canvasMeta.
+// contextBrief). It sits in the Brief tab's Situation, beside the other
+// framing; the brief prints it before the map.
 export function syncContextBrief() {
   const el = document.getElementById('contextBrief')
   if (el && el.value !== (canvasMeta.contextBrief || '')) el.value = canvasMeta.contextBrief || ''
+  refreshFramingSummary()
 }
 
 export function setupContextBrief() {
@@ -459,6 +461,7 @@ export function setupContextBrief() {
   el.addEventListener('input', () => {
     canvasMeta.contextBrief = el.value
     debouncedSave()
+    refreshFramingSummary()
     ui.promptDirty = true
     if (ui.activeTab === 'prompt') refreshPrompt()
   })
@@ -504,15 +507,15 @@ export function setupPanelTabs() {
   showTab(ui.activeTab)
 }
 
-// ── Prompt mode descriptions ─────────────────────────────────
-// One-line plain-language explanation of what each mode asks the AI to do,
-// shown under the mode selector so the choice isn't a guess.
+// ── Mode descriptions ────────────────────────────────────────
+// One plain line per mode, under the mode control, so the choice is not a
+// guess. Each says what the assistant is asked to hand back.
 const MODE_DESCS = {
-  investigate: 'Establishes what is actually true before anything changes. Findings must carry their evidence, unknowns stay marked as unknown, and disagreements between the canvas and reality get reported rather than smoothed over. Use it when you are picking up somebody else\'s system.',
-  explore: 'Surfaces gaps, risky assumptions, and missing links, asks questions instead of proposing solutions. Good for pressure-testing an early canvas.',
-  plan:    'Turns the canvas into a phased implementation plan with concrete outputs per phase. The default for "give me a roadmap".',
-  build:   'Treats requirements and outputs as a task checklist and asks for working code. Use once the plan is settled.',
-  clarify: 'Returns a prioritized list of clarifying questions (blocking → nice-to-have), each tied to a block, plus a readiness read. Best when you want gaps and useful questions before committing.',
+  investigate: 'Establish what is true first: evidence for each finding, unknowns left marked as unknown.',
+  explore: 'Find the gaps and the risky assumptions, and ask instead of proposing fixes.',
+  plan:    'A phased plan with a concrete output for each phase.',
+  build:   'Work the checklist in dependency order and write the code.',
+  clarify: 'Prioritized clarifying questions, each tied to a block, before anything is planned.',
 }
 
 export function refreshModeDesc() {
@@ -520,34 +523,105 @@ export function refreshModeDesc() {
   if (el) el.textContent = MODE_DESCS[devOpts.mode] || MODE_DESCS.plan
 }
 
+// ── The framing summary ──────────────────────────────────────
+// The Situation, read back as one line ("This repo, Claude Code, read the
+// code first"), so the Brief tab's Framing row says what the brief assumes
+// without being opened.
+
+const FRAMING_WORDS = {
+  codebase: { none: 'No code yet', current: 'This repo', other: 'Code elsewhere', greenfield: 'Greenfield' },
+  runtime: { chat: 'in a chat', code: 'in Claude Code', ide: 'in an IDE' },
+  firstMove: { read: 'read the code first', ask: 'ask questions first', plan: 'propose a plan first', act: 'start work directly' },
+}
+
+export function framingSummary(situation = canvasMeta.situation, contextBrief = canvasMeta.contextBrief) {
+  const sit = { ...SITUATION_DEFAULT, ...(situation || {}) }
+  const word = (field, key) => FRAMING_WORDS[field][key] || SITUATION_FIELDS[field]?.options?.[key]?.label || key
+  let out = [word('codebase', sit.codebase), word('runtime', sit.runtime), word('firstMove', sit.firstMove)].join(', ')
+  const bounds = (sit.constraints || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).length
+  const extras = []
+  if (bounds) extras.push(`${bounds} boundar${bounds === 1 ? 'y' : 'ies'}`)
+  if ((contextBrief || '').trim()) extras.push('context')
+  if (extras.length) out += `; ${extras.join(', ')}`
+  return out
+}
+
+/** Write the Framing row's one-line summary (and, view-only, the values). */
+export function refreshFramingSummary() {
+  syncReadonlyValues()
+  const el = document.getElementById('briefFramingSummary'); if (!el) return
+  const text = framingSummary()
+  el.textContent = text
+  el.closest('button')?.setAttribute('title', `Framing: ${text}`)
+}
+
+/**
+ * On a view-only link the framing's text fields are the author's values:
+ * each shows as text after its label ("none" when empty), not as a box
+ * that looks like it takes typing.
+ */
+const READONLY_FIELDS = ['situationRepoHint', 'situationConstraints', 'contextBrief', 'docsBaseInput']
+export function syncReadonlyValues() {
+  if (!ui.readOnly) return
+  READONLY_FIELDS.forEach(id => {
+    const input = document.getElementById(id); if (!input) return
+    input.hidden = true
+    let shown = input.nextElementSibling?.matches?.('.brief-value[data-value-for]') ? input.nextElementSibling : null
+    if (!shown) {
+      shown = document.createElement('p')
+      shown.className = 'brief-value'
+      shown.dataset.valueFor = id
+      input.after(shown)
+    }
+    const v = (input.value || '').trim()
+    shown.textContent = v || 'none'
+    shown.classList.toggle('is-none', !v)
+  })
+}
+
 // ── Situation ────────────────────────────────────────────────
 
 /**
  * The engagement setup: what code exists, what the assistant can reach, and
  * what it should do first. Rendered from SITUATION_FIELDS so the control and
- * the sentence it produces cannot drift apart, and previewed live because the
- * whole point is being able to read what you are about to hand over.
+ * the sentence it produces cannot drift apart. The brief below shows the
+ * lines it contributes, and the Framing row reads it back in one line.
+ * On a view-only link it is the author's framing: shown, not changed.
  */
 export function setupSituation() {
   const host = document.getElementById('situationFields')
   const repo = document.getElementById('situationRepoHint')
   const cons = document.getElementById('situationConstraints')
   if (!host) return
+  const locked = ui.readOnly
+  if (locked) { if (repo) repo.readOnly = true; if (cons) cons.readOnly = true }
 
   const paint = () => {
     const sit = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}) }
+    // View-only: each row reads "Label  chosen value", with no choices.
+    if (locked) {
+      host.innerHTML = Object.entries(SITUATION_FIELDS).map(([key, field]) => `
+        <div class="situation-row is-value">
+          <div class="brief-field-label situation-row-label">${escHtml(field.label)}</div>
+          <p class="brief-value" data-situation-shown="${key}">${escHtml(field.options[sit[key]]?.label || 'none')}</p>
+        </div>`).join('')
+      if (repo) repo.value = sit.repoHint || ''
+      if (cons) cons.value = sit.constraints || ''
+      refreshSituationPreview()
+      return
+    }
     // Rebuilding the buttons drops focus to the page: put it back on the
     // same choice, so a keyboard user stays where they were.
     const had = host.contains(document.activeElement) && document.activeElement.closest('[data-situation-value]')
     const back = had && [had.closest('[data-situation]')?.dataset.situation, had.dataset.situationValue]
     host.innerHTML = Object.entries(SITUATION_FIELDS).map(([key, field]) => `
       <div class="situation-row">
-        <div class="insp-label situation-row-label" id="situation-${key}-label">${escHtml(field.label)}
-          <span class="insp-label-hint">${escHtml(field.hint)}</span></div>
-        <div class="dev-radio-group" data-situation="${key}" role="group" aria-labelledby="situation-${key}-label">
+        <div class="brief-field-label situation-row-label" id="situation-${key}-label">${escHtml(field.label)}
+          <span class="brief-hint">${escHtml(field.hint)}</span></div>
+        <div class="dev-radio-group" data-situation="${key}" data-count="${Object.keys(field.options).length}" role="group" aria-labelledby="situation-${key}-label">
           ${Object.entries(field.options).map(([val, opt]) =>
             `<button type="button" class="radio-opt${sit[key] === val ? ' active' : ''}" data-situation-value="${val}"
-                     aria-pressed="${sit[key] === val}" title="${escHtml(opt.line)}">${escHtml(opt.label)}</button>`).join('')}
+                     aria-pressed="${sit[key] === val}"${locked ? ' aria-disabled="true"' : ''} title="${escHtml(opt.line)}">${escHtml(opt.label)}</button>`).join('')}
         </div>
       </div>`).join('')
     if (back) host.querySelector(`[data-situation="${back[0]}"] [data-situation-value="${back[1]}"]`)?.focus({ preventScroll: true })
@@ -557,13 +631,14 @@ export function setupSituation() {
   }
 
   host.addEventListener('click', e => {
+    if (locked) return
     const btn = e.target.closest('[data-situation-value]'); if (!btn) return
     const key = btn.closest('[data-situation]')?.dataset.situation; if (!key) return
     canvasMeta.situation = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}), [key]: btn.dataset.situationValue }
-    paint(); saveState(); ui.promptDirty = true; refreshPrompt()
+    paint(); saveState(); syncPresetButtons(); ui.promptDirty = true; refreshPrompt()
   })
 
-  const bindText = (el, key) => el && el.addEventListener('input', () => {
+  const bindText = (el, key) => el && !locked && el.addEventListener('input', () => {
     canvasMeta.situation = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}), [key]: el.value }
     refreshSituationPreview(); debouncedSave(); ui.promptDirty = true; refreshPrompt()
   })
@@ -575,24 +650,64 @@ export function setupSituation() {
 }
 
 let syncSituation = () => {}
-export function refreshSituation() { syncSituation() }
+export function refreshSituation() { syncSituation(); syncPresetButtons() }
 
-/** Show the exact lines the situation will contribute to the prompt. */
-export function refreshSituationPreview() {
-  const el = document.getElementById('situationPreview'); if (!el) return
-  el.textContent = situationSection().trim()
-}
+/**
+ * The situation's one-line read-back on the Framing row. (It used to be a
+ * preview box of the exact lines; the brief below now shows those lines in
+ * place, so the box said everything twice.)
+ */
+export function refreshSituationPreview() { refreshFramingSummary() }
 
-// ── Dev options ──────────────────────────────────────────────
+// ── Prompt options and presets ───────────────────────────────
 function syncRadioAria(groupEl) {
   groupEl.querySelectorAll('.radio-opt').forEach(b =>
     b.setAttribute('aria-pressed', b.classList.contains('active') ? 'true' : 'false')
   )
 }
 
+/**
+ * One-click presets: a bundle of mode, where the brief will run, and the
+ * prompt options, for the common hand-overs. A preset sets the same fields
+ * the controls do, nothing more: "Build in Claude Code" picks Claude Code
+ * under Running in, so the two can never disagree about where it runs.
+ */
+export const PRESETS = {
+  'claude-code': { label: 'Build in Claude Code', runtime: 'code', mode: 'build', tone: 'auto', detail: 'standard', pre: ['tasks', 'errors', 'edge'] },
+  'cursor-ts':   { label: 'Build in Cursor, TypeScript', runtime: 'ide', mode: 'build', tone: 'technical', detail: 'standard', pre: ['typescript', 'tasks', 'docs'] },
+  'pm-clarify':  { label: 'Clarify in a chat', runtime: 'chat', mode: 'clarify', tone: 'formal', detail: 'standard', pre: [] },
+}
+
+/** Whether the current options are exactly what a preset sets. */
+export function presetMatches(key, opts = devOpts, situation = canvasMeta.situation) {
+  const pz = PRESETS[key]; if (!pz) return false
+  const runtime = { ...SITUATION_DEFAULT, ...(situation || {}) }.runtime
+  const pre = [...(opts.prePrompts || [])].sort().join(',')
+  return opts.mode === pz.mode && opts.tone === pz.tone && opts.detail === pz.detail &&
+    runtime === pz.runtime && pre === [...pz.pre].sort().join(',')
+}
+
+/** Apply a preset: one save, the controls and the brief follow. */
+export function applyPreset(key) {
+  const pz = PRESETS[key]; if (!pz || ui.readOnly) return false
+  devOpts.mode = pz.mode; devOpts.tone = pz.tone; devOpts.detail = pz.detail
+  devOpts.prePrompts = new Set(pz.pre)
+  canvasMeta.situation = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}), runtime: pz.runtime }
+  syncSituation()
+  syncPromptOptControls()
+  debouncedSave()
+  return true
+}
+
+function syncPresetButtons() {
+  document.querySelectorAll('#promptPresets .preset-opt').forEach(b =>
+    b.setAttribute('aria-pressed', presetMatches(b.dataset.preset) ? 'true' : 'false'))
+}
+
 export function setupDevOptions() {
   // Set initial aria-pressed on all radio groups
   document.querySelectorAll('.dev-radio-group').forEach(g => syncRadioAria(g))
+  const locked = ui.readOnly
 
   // A real button, so Tone, Detail and the rest are reachable by keyboard.
   const devHeader = document.getElementById('devOptionsHeader')
@@ -600,19 +715,32 @@ export function setupDevOptions() {
     const open = document.getElementById('devOptions').classList.toggle('open')
     devHeader.setAttribute('aria-expanded', open ? 'true' : 'false')
   })
+  // Tone, detail and the extras are the author's choices: on a view-only
+  // link they show, they do not change. The mode stays live there: it is a
+  // way of reading the same map.
+  if (locked) {
+    // Shown as values: the chosen option reads as text (the rest are not
+    // drawn) and is out of the tab order; presets, being actions, go.
+    document.querySelectorAll('#toneGroup .radio-opt, #detailGroup .radio-opt, #prePromptGroup .check-opt, #promptPresets .preset-opt')
+      .forEach(b => { b.setAttribute('aria-disabled', 'true'); b.tabIndex = -1 })
+    const presets = document.getElementById('presetsSection'); if (presets) presets.hidden = true
+    const docs = document.getElementById('docsBaseInput'); if (docs) docs.readOnly = true
+  }
   document.getElementById('toneGroup').addEventListener('click', e => {
-    const btn = e.target.closest('.radio-opt'); if (!btn) return
+    const btn = e.target.closest('.radio-opt'); if (!btn || locked) return
     document.querySelectorAll('#toneGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active'); devOpts.tone = btn.dataset.value
     syncRadioAria(document.getElementById('toneGroup'))
+    syncPresetButtons()
     debouncedSave()
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
   document.getElementById('detailGroup').addEventListener('click', e => {
-    const btn = e.target.closest('.radio-opt'); if (!btn) return
+    const btn = e.target.closest('.radio-opt'); if (!btn || locked) return
     document.querySelectorAll('#detailGroup .radio-opt').forEach(b => b.classList.remove('active'))
     btn.classList.add('active'); devOpts.detail = btn.dataset.value
     syncRadioAria(document.getElementById('detailGroup'))
+    syncPresetButtons()
     debouncedSave()
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
@@ -623,6 +751,7 @@ export function setupDevOptions() {
     devOpts.mode = btn.dataset.value
     syncRadioAria(document.getElementById('modeGroup'))
     refreshModeDesc()
+    syncPresetButtons()
     debouncedSave()
     ui.promptDirty = true; refreshPrompt()
   })
@@ -632,33 +761,26 @@ export function setupDevOptions() {
   const docsBaseInput = document.getElementById('docsBaseInput')
   if (docsBaseInput) {
     docsBaseInput.value = getDocsBase()
-    docsBaseInput.addEventListener('input', () => setDocsBase(docsBaseInput.value))
+    if (!locked) docsBaseInput.addEventListener('input', () => setDocsBase(docsBaseInput.value))
   }
 
   document.getElementById('prePromptGroup').addEventListener('click', e => {
-    const btn = e.target.closest('.check-opt'); if (!btn) return
+    const btn = e.target.closest('.check-opt'); if (!btn || locked) return
     btn.classList.toggle('active')
     btn.classList.contains('active') ? devOpts.prePrompts.add(btn.dataset.value)
                                      : devOpts.prePrompts.delete(btn.dataset.value)
+    btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false')
+    syncPresetButtons()
     debouncedSave()
     ui.promptDirty = true; if (ui.activeTab==='prompt') refreshPrompt()
   })
 
-  // One-click presets: a bundle of mode + dev options for the common
-  // handovers. They set the same fields the controls below do, nothing more.
-  const PRESETS = {
-    'claude-code': { label: 'Claude Code', mode: 'build', tone: 'auto', detail: 'standard', pre: ['tasks', 'errors', 'edge'] },
-    'cursor-ts':   { label: 'Cursor + TS', mode: 'build', tone: 'technical', detail: 'standard', pre: ['typescript', 'tasks', 'docs'] },
-    'pm-clarify':  { label: 'PM clarify', mode: 'clarify', tone: 'formal', detail: 'standard', pre: [] },
-  }
   document.getElementById('promptPresets')?.addEventListener('click', e => {
-    const btn = e.target.closest('.preset-opt'); if (!btn) return
-    const pz = PRESETS[btn.dataset.preset]; if (!pz) return
-    devOpts.mode = pz.mode; devOpts.tone = pz.tone; devOpts.detail = pz.detail
-    devOpts.prePrompts = new Set(pz.pre)
-    syncPromptOptControls()
-    debouncedSave()
-    showToast(`${pz.label}: ${pz.mode} mode${pz.pre.length ? `, ${pz.pre.length} extras` : ''}`, 'success', 1800)
+    const btn = e.target.closest('.preset-opt'); if (!btn || locked) return
+    const pz = PRESETS[btn.dataset.preset]
+    if (!applyPreset(btn.dataset.preset)) return
+    const runtime = SITUATION_FIELDS.runtime.options[pz.runtime]?.label || pz.runtime
+    showToast(`${pz.label}: ${pz.mode} mode, running in ${runtime}${pz.pre.length ? `, ${pz.pre.length} extras` : ''}`, 'success', 2000)
   })
 
   // A replace (share link, import, Maps switch) can change the options under
@@ -667,7 +789,7 @@ export function setupDevOptions() {
   syncPromptOptControls()
 }
 
-/** Reflect devOpts into the Prompt tab controls (mode, tone, detail, pre). */
+/** Reflect devOpts into the Brief tab controls (mode, tone, detail, extras, presets). */
 export function syncPromptOptControls() {
   syncModeButtons()
   const setRadio = (groupId, val) => {
@@ -680,35 +802,29 @@ export function syncPromptOptControls() {
   }
   setRadio('toneGroup', devOpts.tone)
   setRadio('detailGroup', devOpts.detail)
-  document.querySelectorAll('#prePromptGroup .check-opt').forEach(b =>
-    b.classList.toggle('active', devOpts.prePrompts.has(b.dataset.value)))
+  document.querySelectorAll('#prePromptGroup .check-opt').forEach(b => {
+    const on = devOpts.prePrompts.has(b.dataset.value)
+    b.classList.toggle('active', on)
+    b.setAttribute('aria-pressed', on ? 'true' : 'false')
+  })
+  syncPresetButtons()
   refreshModeDesc()
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
 }
 
-// ── Copy prompt button ───────────────────────────────────────
-export function setupCopyPrompt() {
-  document.getElementById('copyPromptBtn').addEventListener('click', () => {
-    const promptOutput = $.promptOutput()
-    if (!promptOutput.value) return
-    copyText(promptOutput.value).then(ok => {
-      if (!ok) { showToast('Copy failed \u2014 select the text and press Ctrl/Cmd+C', 'warning'); return }
-      markExported()
-      ui.promptDirty = true; refreshPrompt()
-      showToast('Prompt copied to clipboard', 'success')
-      const btn = document.getElementById('copyPromptBtn')
-      btn.textContent = '\u2713 Copied!'; btn.classList.add('copied')
-      setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied') }, 2000)
-    })
-  })
-}
+// ── Copy the brief ───────────────────────────────────────────
+// The Brief tab (js/brief.js, set up from app.js) owns Copy, its
+// confirmation, the status bar's copy button and Cmd/Ctrl+Shift+C. It is
+// imported by app.js alone: brief.js reads the Attention tab's model, and
+// importing it from here put attention.js inside gaps.js's own evaluation.
+// Kept so app.js's start-up call stays valid.
+export function setupCopyPrompt() {}
 
-// \u2500\u2500 Clipboard helper \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 // copyText now lives in utils.js; re-exported so existing importers keep working.
 export { copyText }
 
-// Keep the quick action quiet; detailed readiness belongs in the Prompt pane.
+// Keep the quick action quiet; what is open and what goes out live in the Brief tab.
 export function refreshQuickCopy() {
   const button = document.getElementById('copyPromptPill')
   if (!button) return
@@ -716,34 +832,25 @@ export function refreshQuickCopy() {
   button.disabled = !Object.keys(state.blocks).length
 }
 
-/** Clicks on the gap breakdown jump to the first offending block. */
-export function setupGapBreakdown() {
-  document.getElementById('gapBreakdown')?.addEventListener('click', e => {
-    const row = e.target.closest('.gap-row[data-bid]'); if (!row) return
-    focusBlock(row.dataset.bid)
-  })
-}
+/**
+ * The per-rule gap list that sat in the Prompt tab is gone: the Attention tab
+ * lists every open item, and the Brief tab's readiness line counts them the
+ * same way and links there. Kept so app.js's start-up call stays valid.
+ */
+export function setupGapBreakdown() {}
 
+/**
+ * The status bar's copy button: its name and whether it can act. Its click
+ * is wired by js/brief.js (setupBrief): always the whole map, with the same
+ * confirmation as the Brief tab's Copy.
+ */
 export function setupQuickCopy() {
   const button = document.getElementById('copyPromptPill')
   if (!button) return
   const label = document.getElementById('copyPillLabel')
-  let resetLabel
-  button.addEventListener('click', async () => {
-    if (ui.readOnly || ui.embed || !Object.keys(state.blocks).length) return
-    const copied = await copyText(generatePrompt())
-    if (!copied) { showToast('Copy failed. Open the Prompt tab to copy manually', 'warning'); return }
-    markExported()
-    ui.promptDirty = true
-    refreshPrompt()
-    clearTimeout(resetLabel)
-    label.textContent = 'Copied'
-    button.setAttribute('aria-label', 'Prompt copied')
-    resetLabel = setTimeout(() => {
-      label.textContent = 'Copy prompt'
-      button.setAttribute('aria-label', 'Copy prompt')
-    }, 1800)
-  })
+  if (label) label.textContent = 'Copy brief'
+  button.setAttribute('aria-label', 'Copy brief')
+  button.title = 'Copy the brief for the whole map'
   window.addEventListener('pf:canvas-changed', refreshQuickCopy)
   window.addEventListener('pf:save-status', refreshQuickCopy)
   refreshQuickCopy()
@@ -758,16 +865,9 @@ export function setupQuickCopy() {
 export function setupExportDropdown() {
   const on = (id, fn) => document.getElementById(id)?.addEventListener('click', fn)
 
-  on('exportCopyPrompt', () => {
-    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
-    ui.promptDirty = true
-    copyText(generatePrompt()).then(ok => {
-      if (!ok) { showToast('Copy failed: open the Prompt tab and copy manually', 'warning'); return }
-      markExported()
-      ui.promptDirty = true; refreshPrompt()
-      showToast('AI-ready prompt copied to clipboard', 'success')
-    })
-  })
+  // The whole map's brief, through the Brief tab's own Copy (js/brief.js),
+  // so File says what went the same way the tab and the status bar do.
+  on('exportCopyPrompt', () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: { scope: 'map' } })))
 
   on('copyDiagramInstructions', () => {
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {

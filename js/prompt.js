@@ -5,7 +5,7 @@ import { dependencyEdges, connectionLabel, impliedVerb, relationOf } from './rel
 
 import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, typeInfo, askedQuestions } from './utils.js'
-import { runGapDetection, GAP_META, nextEmptyStep } from './gaps.js'
+import { runGapDetection, GAP_META, FINDING_ACKS, nextEmptyStep } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 import { taskChecklist, mitigationIndex, cardAnswer, IMPLIED_MITIGATION } from './task-plan.js'
 
@@ -504,6 +504,9 @@ export function buildQuestionPrompt(block, question) {
 }
 
 // ── Canvas health score ───────────────────────────────────────
+// No longer drawn: since 2026-10-03 the Brief tab says what is open in one
+// readiness line (js/brief.js), counted the way the Attention tab counts,
+// instead of grading the map with a number. Kept as an API, with its tests.
 export function computeHealthScore() {
   const blocks = Object.values(state.blocks)
   const n = blocks.length
@@ -603,89 +606,244 @@ export function getPromptDiff() {
   return { added, removed, modified, addedArrows, removedArrows, modifiedArrows, framingChanged, groupsChanged }
 }
 
-// ── Refresh prompt panel ─────────────────────────────────────
+// ── Refresh the Brief tab ────────────────────────────────────
+// The Brief tab draws itself (js/brief.js registers its renderer here, so
+// this module holds no pane markup). Without a renderer, as in the test
+// harness, the plain output field is filled instead.
+let briefRenderer = null
+export function setBriefRenderer(fn) { briefRenderer = typeof fn === 'function' ? fn : null }
+
 export function refreshPrompt() {
   if (!ui.promptDirty) return
-  $.promptOutput().value = generatePrompt()
-
-  const bCount = Object.keys(state.blocks).length
-  const aCount = state.arrows.length
-  const { count: gCount } = runGapDetection()
-  $.promptSummary().innerHTML = bCount === 0
-    ? 'No blocks yet.'
-    : `<strong>${bCount}</strong> block${bCount!==1?'s':''} \u00B7 <strong>${aCount}</strong> connection${aCount!==1?'s':''}`
-      + (gCount ? ` \u00B7 <span class="gap-badge">\u26A0 ${gCount} gap${gCount!==1?'s':''}</span>` : '')
-
-  // Health score
-  const healthBar = document.getElementById('healthBar')
-  if (healthBar) {
-    const score = computeHealthScore()
-    if (score === null) {
-      healthBar.style.display = 'none'
-    } else {
-      const grade = score >= 80 ? 'a' : score >= 50 ? 'b' : 'c'
-      const label = score >= 80 ? 'Healthy' : score >= 50 ? 'Needs attention' : 'Critical gaps'
-      const tips  = []
-      const blocks = Object.values(state.blocks)
-      if (gCount) tips.push(`${gCount} gap${gCount>1?'s':''}`)
-      // The same test as the score and the canvas "no Why" finding: a Problem
-      // answers the Why as well as a Goal does.
-      if (!blocks.some(b => TYPES[b.type]?.step === 'why') && bCount >= 3) tips.push('no Goal or Problem')
-      if (blocks.filter(b => !b.description?.trim()).length > 2) tips.push('blocks missing descriptions')
-      // The next question to ask: the first of the six steps with no block
-      // (a missing Why already has its own tip above).
-      const next = nextEmptyStep(state.blocks)
-      if (next && next.id !== 'why' && bCount >= 3) tips.push(`next: ${next.label}, ${next.hint}`)
-      healthBar.style.display = ''
-      healthBar.innerHTML =
-        `<div class="health-score grade-${grade}">${score}</div>` +
-        `<div class="health-details"><strong>${label}</strong>` +
-        (tips.length ? `<br>${tips.join(' \u00B7 ')}` : '') +
-        `</div>`
+  try {
+    if (briefRenderer) briefRenderer()
+    else {
+      const out = $.promptOutput()
+      if (out && 'value' in out) out.value = generatePrompt()
     }
+  } finally {
+    ui.promptDirty = false
+  }
+}
+
+// ── Brief helpers: size, outline, scope ───────────────────────
+
+/**
+ * Characters per token for Markdown, measured on Claude's own output
+ * (tokenizer.json, `measured.markdown`), and how far a whole-text estimate
+ * from that table lands from the real count (`error_bar_note`): half of
+ * estimates within 20.7% (the median), three in four within 28.4% (p75).
+ * An estimate, said as one: the Brief tab prints "about", never a count.
+ */
+export const CHARS_PER_TOKEN = 2.99
+export const TOKEN_ERROR = 0.207
+export const TOKEN_ERROR_P75 = 0.284
+
+export function estimateTokens(text) {
+  const n = String(text || '').length
+  return n ? Math.max(1, Math.round(n / CHARS_PER_TOKEN)) : 0
+}
+
+/** An estimate rounded to what it can claim: tens under 1,000, hundreds above. */
+export function roundTokens(n) {
+  if (!n) return 0
+  return n < 1000 ? Math.max(10, Math.round(n / 10) * 10) : Math.round(n / 100) * 100
+}
+
+/** "640 tokens", "2.4k tokens", "18k tokens": the short form for a label. */
+export function formatTokens(n) {
+  const r = roundTokens(n)
+  if (r < 1000) return `${r} tokens`
+  return `${r < 10000 ? (r / 1000).toFixed(1).replace(/\.0$/, '') : Math.round(r / 1000)}k tokens`
+}
+
+/**
+ * The brief's headings, in order: `# ` (the map's title) and `## `
+ * (sections), each with the line it starts on and how many top-level
+ * items it lists. Fenced code is skipped, so a fence in a description
+ * cannot invent a section.
+ */
+export function briefOutline(text) {
+  const out = []
+  let cur = null, fence = false
+  String(text || '').split('\n').forEach((line, i) => {
+    if (/^\s*```[\w-]*\s*$/.test(line)) { fence = !fence; return }
+    if (fence) return
+    const h = line.match(/^(#{1,2}) (\S.*)$/)
+    if (h) { cur = { level: h[1].length, title: h[2].trim(), line: i, items: 0 }; out.push(cur); return }
+    if (cur && /^(?:•|-|\d+\.|◆) /.test(line)) cur.items++
+  })
+  return out
+}
+
+/** How many `## ` sections a brief has. */
+export function briefSectionCount(text) {
+  return briefOutline(text).filter(s => s.level === 2).length
+}
+
+/**
+ * The part of the map a scoped brief covers: the selected blocks plus every
+ * block one connection away from them.
+ */
+export function briefScope(ids, blocks = state.blocks, arrows = state.arrows) {
+  const selected = new Set([...(ids || [])].filter(id => blocks[id]))
+  const scope = new Set(selected)
+  arrows.forEach(a => {
+    if (!blocks[a.from] || !blocks[a.to]) return
+    if (selected.has(a.from)) scope.add(a.to)
+    if (selected.has(a.to)) scope.add(a.from)
+  })
+  return { selected, scope, neighbours: scope.size - selected.size, total: Object.keys(blocks).length }
+}
+
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`
+
+/**
+ * The gap sections of a scoped brief, from the whole map's detection result
+ * (`whole`, a runGapDetection result) limited to the blocks in `scope`. A
+ * gap is a claim about the map, so it is never re-checked on the part: a
+ * risk mitigated by a block outside the scope is not "unmitigated".
+ * Written the way generatePrompt writes its own; the brief tests hold the
+ * two to the same text for a scope that covers the map.
+ */
+export function scopedGapText(whole, scope, blocks = state.blocks, acceptedIntro = '') {
+  const acked = (id, gap) => (blocks[id]?.gapAck || []).includes(gap)
+  const open = (whole.details || []).filter(d => scope.has(d.id))
+    .flatMap(d => d.gaps.filter(g => !acked(d.id, g))
+      .map(g => `• ${typeInfo(d.type).label}: "${d.title}": ${GAP_META[g]?.prompt || g}`))
+  // A finding about the whole map (no ids) stands as it is, and so does one
+  // whose blocks are all in the part. One that names blocks partly outside
+  // it would quote titles the brief says not to refer to: it is said once
+  // per block in the part instead, in the words its acceptance uses, which
+  // name no other block.
+  const findings = (whole.findings || []).flatMap(f => {
+    const ids = f.ids || []
+    if (!ids.length || ids.every(id => scope.has(id))) return [`• Canvas: ${f.text}`]
+    const ack = FINDING_ACKS[f.kind]
+    if (!ack || !GAP_META[ack]) return ids.some(id => scope.has(id)) ? [`• Canvas: ${f.text}`] : []
+    return ids.filter(id => scope.has(id) && blocks[id] && !acked(id, ack))
+      .map(id => `• ${typeInfo(blocks[id].type).label}: "${blocks[id].title || '(untitled)'}": ${GAP_META[ack].prompt}`)
+  })
+  let out = ''
+  if (open.length || findings.length) out += '\n## Planning Gaps Detected\n' + [...open, ...findings].join('\n') + '\n'
+  const inScope = Object.fromEntries(Object.keys(blocks).filter(id => scope.has(id)).map(id => [id, blocks[id]]))
+  const accepted = acceptedGapLines(inScope, firingGaps(whole))
+  if (accepted.length) out += '\n## Accepted gaps\n' + (acceptedIntro ? acceptedIntro + '\n' : '') + accepted.join('\n') + '\n'
+  return out
+}
+
+/**
+ * The Build checklist with only the selected blocks' tasks. A neighbour is
+ * in a scoped brief to be read, not built, so its task leaves the list (its
+ * title can still appear in an "after:" line, as context). A note line
+ * ("Not ordered by the map", the cycle warning) stays only while a task it
+ * introduces does. Items are found by the checklist's own shape: a line
+ * that opens `- [ ]` or `- [x]`, then its `Block: <id> (<Type>)` line.
+ */
+export function focusChecklist(body, selected) {
+  const segs = []
+  String(body || '').split('\n').forEach(line => {
+    const cur = segs[segs.length - 1]
+    if (/^- \[[ xX]\]/.test(line)) segs.push({ item: true, lines: [line], id: null })
+    else if (!line.trim() || /^\s/.test(line)) {
+      if (cur) cur.lines.push(line); else segs.push({ item: false, lines: [line] })
+    } else segs.push({ item: false, lines: [line] })
+    const last = segs[segs.length - 1]
+    if (last.item && !last.id) { const m = line.match(/^\s+Block: (\S+) \(/); if (m) last.id = m[1] }
+  })
+  const keep = segs.map(s => !s.item || !s.id || selected.has(s.id))
+  // A note stays while some kept task follows it.
+  for (let i = segs.length - 1, after = false; i >= 0; i--) {
+    if (segs[i].item) { after = after || keep[i]; continue }
+    if (segs[i].lines.some(l => l.trim())) keep[i] = after
+  }
+  const tasks = segs.filter((s, i) => s.item && keep[i]).length
+  const text = segs.filter((_, i) => keep[i]).flatMap(s => s.lines).join('\n')
+    .replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '')
+  return { text: tasks ? text + '\n' : '', tasks, dropped: segs.filter((s, i) => s.item && !keep[i]).length }
+}
+
+/** Swap one `## ` section's body (heading kept) for what `fn` returns; '' drops the section. */
+function replaceSection(text, heading, fn) {
+  const head = `## ${heading}\n`
+  const at = text.startsWith(head) ? 0 : (text.indexOf(`\n${head}`) + 1 || -1)
+  if (at < 0) return text
+  const from = at + head.length
+  const next = text.indexOf('\n## ', from - 1)
+  const end = next < 0 ? text.length : next + 1
+  const body = fn(text.slice(from, end))
+  return body ? text.slice(0, from) + body + (end < text.length ? '\n' : '') + text.slice(end)
+    : text.slice(0, at) + text.slice(end)
+}
+
+/** Cut one `## ` section (heading to the next `## ` or the end) out of a brief. */
+function cutSection(text, heading) {
+  const at = text.indexOf(`\n## ${heading}\n`)
+  if (at < 0) return { text, body: '' }
+  const next = text.indexOf('\n## ', at + 4)
+  const end = next < 0 ? text.length : next
+  return { text: text.slice(0, at) + text.slice(end), body: text.slice(at, end) }
+}
+
+/**
+ * A brief for part of the map: the selected blocks and their direct
+ * neighbours, said to be partial in its own `## Scope` section, so the
+ * reader neither treats the rest of the map as empty nor touches it. The
+ * block-id list, the connections and the checklist cover only the scope;
+ * the gap sections come from the whole map. With nothing selected, or a
+ * scope that covers every block, it is the whole brief.
+ */
+export function generateScopedPrompt(ids) {
+  const all = state.blocks, arrows = state.arrows
+  const { selected, scope, neighbours, total } = briefScope(ids, all, arrows)
+  if (!selected.size || scope.size >= total) return generatePrompt()
+  const whole = runGapDetection()
+  let text
+  try {
+    state.blocks = Object.fromEntries(Object.keys(all).filter(id => scope.has(id)).map(id => [id, all[id]]))
+    state.arrows = arrows.filter(a => scope.has(a.from) && scope.has(a.to))
+    text = generatePrompt()
+  } finally {
+    state.blocks = all
+    state.arrows = arrows
+    // The generator painted the part's gaps on its cards: paint the map's.
+    runGapDetection()
   }
 
-  // Per-rule breakdown: which lint rules fire, how often, and a click that
-  // takes you to the first offender instead of leaving you to hunt for it.
-  const breakdown = document.getElementById('gapBreakdown')
-  if (breakdown) {
-    const { details, canvasFindings } = runGapDetection()
-    const byRule = new Map()
-    details.forEach(d => {
-      const cls = d.gaps[0]
-      if (!byRule.has(cls)) byRule.set(cls, { n: 0, first: d.id })
-      byRule.get(cls).n++
-    })
-    const rows = [...byRule.entries()].map(([cls, r]) =>
-      `<button class="gap-row" data-bid="${r.first}" title="Jump to the first one">` +
-      `<span>${GAP_META[cls]?.short || cls}</span><span class="gap-row-n">${r.n}</span></button>`)
-    ;(canvasFindings || []).forEach(f => {
-      rows.push(`<div class="gap-row canvas"><span>${f}</span></div>`)
-    })
-    breakdown.style.display = rows.length ? '' : 'none'
-    breakdown.innerHTML = rows.join('')
-  }
+  // Swap the part's gap sections for the whole map's.
+  const cutGaps = cutSection(text, 'Planning Gaps Detected')
+  const cutAcc = cutSection(cutGaps.text, 'Accepted gaps')
+  const intro = cutAcc.body.split('\n')[2] || ''
+  const acceptedIntro = intro.startsWith('•') ? '' : intro
+  text = cutAcc.text
+  const gaps = scopedGapText(whole, scope, all, acceptedIntro ||
+    'The author reviewed these and chose to leave them as they are. Do not raise them again as findings; mention one only if it now blocks the work.')
+  const reply = text.indexOf('\n## When you reply\n')
+  text = reply < 0 ? text + '\n' + gaps : text.slice(0, reply) + gaps + text.slice(reply)
 
-  // Prompt diff
-  const diffEl = document.getElementById('promptDiff')
-  if (diffEl) {
-    const diff = getPromptDiff()
-    if (!diff) {
-      diffEl.style.display = 'none'
-    } else {
-      const parts = []
-      if (diff.added.length)    parts.push(`<span class="diff-added">+${diff.added.length} block${diff.added.length>1?'s':''}</span>`)
-      if (diff.removed.length)  parts.push(`<span class="diff-removed">\u2212${diff.removed.length} removed</span>`)
-      if (diff.modified.length) parts.push(`<span class="diff-changed">~${diff.modified.length} modified</span>`)
-      if (diff.addedArrows)     parts.push(`<span class="diff-added">+${diff.addedArrows} connection${diff.addedArrows>1?'s':''}</span>`)
-      if (diff.removedArrows)   parts.push(`<span class="diff-removed">\u2212${diff.removedArrows} connection${diff.removedArrows>1?'s':''} removed</span>`)
-      if (diff.modifiedArrows)  parts.push(`<span class="diff-changed">${diff.modifiedArrows} connection${diff.modifiedArrows>1?'s':''} modified</span>`)
-      if (diff.framingChanged)  parts.push('<span class="diff-changed">Brief or prompt options changed</span>')
-      if (diff.groupsChanged)   parts.push('<span class="diff-changed">Groups changed</span>')
-      diffEl.style.display = ''
-      diffEl.innerHTML = `<div class="prompt-diff-title">Changes since last export</div>${parts.join(' \u00B7 ')}`
-    }
-  }
+  // The checklist is the selection's work only: a neighbour is context.
+  let droppedTasks = 0, keptTasks = 0
+  text = replaceSection(text, 'Implementation checklist', body => {
+    const r = focusChecklist(body, selected)
+    droppedTasks = r.dropped; keptTasks = r.tasks
+    return r.text
+  })
 
-  ui.promptDirty = false
+  // Say it is partial, and which blocks it is about, before the task.
+  const name = id => `"${(all[id].title || '(untitled)').slice(0, 60)}" (${id})`
+  const order = Object.keys(all)
+  const focus = order.filter(id => selected.has(id))
+  const context = order.filter(id => scope.has(id) && !selected.has(id))
+  const lines = [
+    `- Selected, the subject of this brief: ${focus.map(name).join(', ')}`,
+    ...(context.length ? [`- Connected directly, context only (read them; do not plan, build or change them): ${context.map(name).join(', ')}`] : []),
+  ]
+  if (droppedTasks && !keptTasks) lines.push('- None of the selected blocks is a task, so there is no checklist: the connected tasks are context, not work.')
+  const note = '## Scope\n' +
+    `This brief covers part of the map, ${scope.size} of ${total} blocks: ${plural(selected.size, 'selected block')}` +
+    `${neighbours ? ` and the ${plural(neighbours, 'block')} connected to ${selected.size === 1 ? 'it' : 'them'} directly` : ''}. ` +
+    'The rest of the map is left out on purpose: do not assume it is empty, and do not change or refer to blocks that are not listed here. ' +
+    'Gaps were checked against the whole map.\n' + lines.join('\n') + '\n\n'
+  const task = text.indexOf('## Task\n')
+  return task < 0 ? note + text : text.slice(0, task) + note + text.slice(task)
 }

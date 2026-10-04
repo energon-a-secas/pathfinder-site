@@ -29,6 +29,9 @@ import { setupPersistence } from './persistence-ui.js'
 import { setupAttention } from './attention.js'
 import { setupComparison } from './comparison-ui.js'
 import { setupCommandPalette } from './command-palette.js'
+// The Brief tab. Imported here and nowhere else: it reads the Attention
+// tab's model, which must not load inside gaps.js's own evaluation.
+import { setupBrief } from './brief.js'
 import { checkSrcUrl } from './ui-panels.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
@@ -123,6 +126,7 @@ function init() {
   setupPatchUI()
   setupAttention()
   setupComparison()
+  setupBrief()
   setupReview()
   setupArrowEdit()
   setupViewMenu()

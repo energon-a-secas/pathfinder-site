@@ -982,12 +982,15 @@ describe('Insights: QA round', () => {
     }
   })
 
-  it('light mode: the Prompt tab\'s score and gap badge are readable', async () => {
+  // The Brief tab's readiness line replaced the score and the gap badge
+  // (2026-10-03); every part of it reads at 4.5:1 in light mode.
+  it('light mode: the Brief tab\'s readiness line is readable', async () => {
     const frame = document.createElement('iframe')
     frame.style.cssText = 'position:fixed;left:-5000px;top:0;width:600px;height:300px;border:0'
     frame.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css"></head><body class="light-mode">' +
-      '<div class="right-panel"><span class="gap-badge">5 gaps</span>' +
-      ['a', 'b', 'c'].map(g => `<span class="health-score grade-${g}">58</span>`).join('') + '</div></body></html>'
+      '<div class="right-panel"><p class="brief-ready"><span><strong>5 open items</strong>: 2 questions, 3 gaps.</span> ' +
+      '<button class="brief-link">Review</button></p><p class="brief-diff">Since your last copy: 1 block added.</p>' +
+      '<span class="brief-tokens">About 2.4k tokens</span></div></body></html>'
     const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
     document.body.appendChild(frame)
     await loaded
@@ -999,14 +1002,10 @@ describe('Insights: QA round', () => {
       const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
       const page = rgbOf(win.getComputedStyle(doc.body).backgroundColor)
       const panel = over(rgbOf(win.getComputedStyle(doc.querySelector('.right-panel')).backgroundColor), page)
-      const badge = doc.querySelector('.gap-badge')
-      const badgeBg = over(rgbOf(win.getComputedStyle(badge).backgroundColor), panel)
-      const rb = ratio(rgbOf(win.getComputedStyle(badge).color), badgeBg)
-      assert.ok(rb >= 4.5, `gap badge ${rb.toFixed(2)}:1`)
-      doc.querySelectorAll('.health-score').forEach(el => {
-        const r = ratio(rgbOf(win.getComputedStyle(el).color), panel)
-        assert.ok(r >= 3, `${el.className} ${r.toFixed(2)}:1`)
-      })
+      for (const sel of ['.brief-ready', '.brief-ready strong', '.brief-link', '.brief-diff', '.brief-tokens']) {
+        const r = ratio(rgbOf(win.getComputedStyle(doc.querySelector(sel)).color), panel)
+        assert.ok(r >= 4.5, `${sel} ${r.toFixed(2)}:1`)
+      }
     } finally { frame.remove() }
   })
 })
