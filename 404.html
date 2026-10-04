@@ -14,38 +14,38 @@
   <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/styles/base.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* The site's tokens and buttons come from /css/style.css (root-absolute,
-       so a 404 at any depth finds it). The page still reads if that file is
-       what went missing: this fallback restates the few tokens it needs. */
+    /* The site's tokens, buttons and the .nf rules come from /css/style.css
+       (root-absolute, so a 404 at any depth finds it). The page still reads
+       if that file is what went missing: this restates the few tokens the
+       layout needs. */
     :root {
       --bg: oklch(0.165 0.012 285);
-      --text-1: oklch(0.96 0.006 285);
+      --text-1: oklch(0.96 0.008 285);
       --text-2: oklch(0.80 0.010 285);
       --text-3: oklch(0.66 0.010 285);
     }
     body {
       margin: 0; height: auto; min-height: 100dvh; overflow: visible;
       display: grid; place-items: center;
-      background: var(--bg); color: var(--text-1); text-align: center;
+      background: var(--bg); color: var(--text-1);
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      padding: 2rem;
+      padding: 2rem 1rem;
+      box-sizing: border-box;
     }
-    .code { font-size: clamp(3rem, 12vw, 6rem); font-weight: 700; line-height: 1;
-            margin: 0; color: var(--text-3); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-    h1 { font-size: 1.25rem; font-weight: 600; margin: .75rem 0 .35rem; }
-    p  { color: var(--text-2); margin: 0 0 1.5rem; max-width: 34ch; }
-    .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   </style>
 </head>
 <body>
-  <main>
-    <p class="code">404</p>
+<!-- The app's saved theme (View, Light mode) reaches this page too. -->
+<script>try{if(localStorage.getItem('pathfinder-theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
+  <main class="nf">
+    <p class="nf-code">404</p>
     <h1>That page is not here</h1>
-    <p>The link may be old, or the address may have a typo in it.</p>
-    <div class="actions">
-      <a class="btn btn-primary" href="/">Back to Pathfinder</a>
-      <a class="btn btn-secondary" href="https://neorgon.com">All tools</a>
-    </div>
+    <p>The link may be old, or the address may have a typo in it. Your maps are safe: they live in this browser, not at an address.</p>
+    <nav class="nf-links" aria-label="Where to go">
+      <a class="btn btn-primary" href="/">Open Pathfinder</a>
+      <a class="btn btn-secondary" href="/tutorial.html">Walkthrough</a>
+      <a class="btn btn-secondary" href="/examples.html">Examples</a>
+    </nav>
   </main>
 </body>
 </html>

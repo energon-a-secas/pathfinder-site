@@ -2,7 +2,7 @@
 
 # Pathfinder
 
-Map your project visually. Export a structured prompt that front-loads everything an AI needs to build it right.
+Plan the work before an agent builds it.
 
 [![Live][badge-site]][url-site]
 [![HTML5][badge-html]][url-html]
@@ -26,30 +26,26 @@ Map your project visually. Export a structured prompt that front-loads everythin
 
 </div>
 
----
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
+  <img src="docs/screenshot-dark.png" width="1440" alt="Pathfinder with a bug investigation open: typed cards for the report, the problem, open questions and assumptions, connected in order, with the brief's settings open in the right panel.">
+</picture>
 
-Pathfinder is a strategy canvas for planning work before anyone builds it. You place typed blocks (goals, stakeholders, metrics, requirements, implementation work, risks, questions, decisions, and more) on an infinite canvas, connect them with arrows, and watch the tool flag the gaps your plan hasn't addressed yet. When the picture looks right, one click collapses the whole diagram into a structured AI prompt that front-loads all that context, so the assistant can reason about your project rather than assume through it.
-
-It speaks other tools' formats too: JSON Canvas (Obsidian) and Mermaid
-flowcharts import and export without losing a block's type, so a plan can
-arrive from a vault or a README and the result can live back in it.
-
-The core loop is: **diagram first, then generate a brief**. The canvas makes implicit relationships explicit. The prompt builder turns those relationships into a planning document you can hand to any AI.
-
----
-
-**New here?** [Take the walkthrough](https://pathfinder.neorgon.com/tutorial.html). One worked example from a vague bug report to a brief a coding assistant can act on.
-
-## Usage
-
-No install or build step required.
+1. **Map** the work as typed blocks: goals, stakeholders, metrics, requirements, work, risks, assumptions and open questions, connected by what each one means for the next.
+2. **See the gaps** the plan has not addressed: a goal with nothing under it, a risk nothing mitigates, a requirement with no way to tell it is done.
+3. **Hand over a brief** that front-loads all of it for Claude Code, Cursor or any assistant, then fold the reply back into the map.
 
 ```bash
-python3 -m http.server 8778
-# open http://localhost:8778
+make dev    # http://localhost:8807, with caching off
 ```
 
-Or open `index.html` directly in a browser.
+It runs entirely in the browser: no account, no backend, nothing uploaded. It also speaks
+JSON Canvas (Obsidian) and Mermaid, so a plan can arrive from a vault or a README and live
+back in one. New here? [Take the walkthrough](https://pathfinder.neorgon.com/tutorial.html),
+or open one of the [examples](https://pathfinder.neorgon.com/examples.html).
+
+The pictures here, the share card and the example maps are drawn by the app itself:
+`make assets` redraws them (headless Chrome, `tools/render-assets.mjs`).
 
 ---
 

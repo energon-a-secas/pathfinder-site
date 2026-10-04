@@ -19,7 +19,12 @@
   <meta property="og:url" content="https://pathfinder.neorgon.com/tutorial.html">
   <meta property="og:site_name" content="Neorgon">
   <meta property="og:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Plan the work before an agent builds it. Below the line, a Pathfinder map of a bug investigation: typed blocks for the symptom, suspects and evidence, connected in order.">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta name="twitter:image:alt" content="Plan the work before an agent builds it. Below the line, a Pathfinder map of a bug investigation: typed blocks for the symptom, suspects and evidence, connected in order.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://pathfinder.neorgon.com/tutorial.html">
   <meta name="theme-color" content="#0e0e13">
@@ -35,6 +40,8 @@
   <meta name="neo-repo" content="energon-a-secas/pathfinder-site">
 </head>
 <body class="doc-page">
+<!-- The app's saved theme (View, Light mode) reaches the reading pages too. -->
+<script>try{if(localStorage.getItem('pathfinder-theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 
 <a class="skip-link" href="#main">Skip to content</a>
 
@@ -45,7 +52,7 @@
         <div class="header-title-wrap">
       <h1>Pathfinder</h1>
       <div class="header-subtitle">Walkthrough</div>
-    
+
         </div>
       </a>
   </div>
@@ -70,7 +77,6 @@
 
 <main class="doc" id="main">
 
-  <p class="doc-kicker">Walkthrough</p>
   <h1>From a vague bug report to a brief worth handing over</h1>
   <p class="doc-lede">
     One worked example, start to finish. The case is deliberately ordinary: checkout
@@ -78,9 +84,44 @@
     repository open to help rather than guess. Roughly ten minutes.
   </p>
 
+  <!-- The map and the brief lines are drawn from the app by
+       tools/render-assets.mjs (make assets); the notes are step 2's. -->
+  <figure class="doc-strip" aria-labelledby="stripCaption">
+    <div class="doc-strip-part">
+      <p class="doc-strip-label"><span class="doc-strip-num" aria-hidden="true">1</span>Your notes</p>
+      <pre class="doc-strip-text"><code>checkout 500s for some people
+started sometime last week maybe?
+probably the payment service
+we deployed on Tuesday
+does it happen on staging
+no test covers the retry path</code></pre>
+    </div>
+    <div class="doc-strip-part">
+      <p class="doc-strip-label"><span class="doc-strip-num" aria-hidden="true">2</span>The map</p>
+      <div class="ex-pic-frame">
+        <a class="ex-pic-link ex-pic-dark" href="examples/checkout.svg"><img class="ex-pic doc-strip-pic" data-pic="checkout-strip" src="examples/checkout-strip.svg" width="1853" height="193" alt="The checkout investigation map, along its main row: the report received, the problem, whether it happens on staging, the payment service assumption, the root cause, a failing test and Fixed and proven. Opens the whole map."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/checkout-light.svg"><img class="ex-pic doc-strip-pic" data-pic="checkout-strip" src="examples/checkout-strip-light.svg" width="1853" height="193" alt="The checkout investigation map, along its main row: the report received, the problem, whether it happens on staging, the payment service assumption, the root cause, a failing test and Fixed and proven. Opens the whole map."></a>
+      </div>
+      <p class="ex-pic-note">Its main row. Scroll sideways, or open the picture for the whole map.</p>
+    </div>
+    <div class="doc-strip-part">
+      <p class="doc-strip-label"><span class="doc-strip-num" aria-hidden="true">3</span>The brief</p>
+      <pre class="doc-strip-text"><code><!-- brief:checkout -->## Situation
+- The relevant repository is open to you.
+## Task
+Investigate. Establish what is actually true before anything is changed or proposed.
+## Assumptions (validate before building)
+• It started with Tuesday's deploy<!-- /brief --></code></pre>
+    </div>
+    <figcaption class="doc-strip-caption" id="stripCaption">
+      Where this walkthrough goes: the notes you start with, the map they become,
+      and the opening of the brief that map hands to an assistant.
+    </figcaption>
+  </figure>
+
   <div class="doc-cta">
-    <button class="btn btn-primary" id="loadExample">Load this example into the canvas</button>
-    <span class="doc-cta-note">Opens Pathfinder with the finished version of what we build below. Your current canvas is left alone until you confirm.</span>
+    <button class="btn btn-primary" id="loadExample" type="button">Open the finished map</button>
+    <span class="doc-cta-note">It opens as a new map, so the one you were working on stays as it was.</span>
   </div>
 
   <h2>The situation</h2>
@@ -96,17 +137,17 @@
 
   <h2>Step 1. Say where you are standing, before you draw anything</h2>
   <p>
-    Open the <strong>Prompt</strong> tab and fill in <strong>Situation</strong> first. It
-    is four choices and takes about fifteen seconds:
+    Open the <strong>Prompt</strong> tab in the right panel and set the
+    <strong>Situation</strong> first. It is four choices and takes about fifteen seconds:
   </p>
   <ul class="doc-list">
-    <li><strong>Codebase → This repo.</strong> The code exists and the assistant can see it.</li>
-    <li><strong>Running in → Claude Code.</strong> It has file and shell access.</li>
-    <li><strong>Start by → Reading the code.</strong> Before any theory.</li>
+    <li><strong>Codebase: This repo.</strong> The code exists and the assistant can see it.</li>
+    <li><strong>Running in: Claude Code.</strong> It has file and shell access.</li>
+    <li><strong>Start by: Reading the code.</strong> Before any theory.</li>
     <li><strong>Boundaries.</strong> One per line. Here: <code>Reproduce before theorising</code>.</li>
   </ul>
   <p>
-    The panel shows you the exact lines this produces, because the point is being able to
+    These choices become the first lines of the brief, because the point is being able to
     read what you are about to hand over:
   </p>
   <pre class="doc-pre"><code>## Situation
@@ -128,8 +169,8 @@
 
   <h2>Step 2. Get the mess out of your head</h2>
   <p>
-    On an empty canvas you get a <strong>Brain Dump</strong> box. One idea per line, no
-    formatting, no thinking about types:
+    An empty map opens on a start panel. Choose <strong>Paste your notes</strong> (or
+    press <kbd>1</kbd>) and write one idea per line, no formatting, no thinking about types:
   </p>
   <pre class="doc-pre"><code>checkout 500s for some people
 started sometime last week maybe?
@@ -138,15 +179,21 @@ we deployed on Tuesday
 does it happen on staging
 no test covers the retry path</code></pre>
   <p>
-    Press <strong>Turn into blocks</strong>. Each line is classified and dropped on the
-    canvas as a typed block, with a correction chip under any it was unsure about. Fix
-    the wrong ones with a click. Two minutes of typing beats twenty minutes of dragging
-    boxes.
+    Press <strong>Turn into blocks</strong>. Each line becomes a typed block. Where the
+    classifier was unsure of a type, the card's label carries a <strong>▾</strong>: click
+    it, or press <kbd>T</kbd> on the card, to confirm the type or change it. Two minutes of
+    typing beats twenty minutes of dragging boxes.
   </p>
   <p>
-    The shortcut for this exact case: the <strong>Investigate a Bug</strong> template in
-    the palette. It lands thirteen blocks, arranges them, and sets the Situation to match
-    in one click. Use it as scaffolding and delete what does not apply.
+    When you already know what a line is, say so: start it with <code>Problem:</code>,
+    <code>Assume:</code>, <code>Risk:</code> or another prefix the panel lists, and that
+    type is used as written. End a line with <code>?</code> to make it a question.
+  </p>
+  <p>
+    The shortcut for this exact case: the <strong>Investigate a bug</strong> template
+    (<strong>Start from a template</strong> on the start panel, or the palette). It lands
+    thirteen blocks, arranges them, and sets the Situation to match in one click. Use it as
+    scaffolding and delete what does not apply.
   </p>
 
   <h2>Step 3. Separate what you know from what you assume</h2>
@@ -155,29 +202,29 @@ no test covers the retry path</code></pre>
     service"</em>. That is not a problem, and it is not a question. It is a belief you are
     about to act on without checking, which makes it an <strong>Assumption</strong>.
   </p>
-  <p>The distinction is not pedantry, because the export treats the three differently:</p>
+  <p>The distinction is not pedantry, because the brief treats the three differently:</p>
   <ul class="doc-list">
     <li><strong>Problem</strong>: the observable symptom. <em>Checkout returns 500 on card payments.</em> Stated without a theory attached.</li>
-    <li><strong>Assumption</strong>: a belief nobody has checked. <em>It started with Tuesday's deploy.</em> The prompt tells the reader to pressure-test it, and when the repository is reachable, to go and settle it rather than ask.</li>
-    <li><strong>Open Question</strong>: a genuine unknown. <em>Does it happen on staging?</em> The prompt tells the reader that guessing here is how the plan goes wrong.</li>
+    <li><strong>Assumption</strong>: a belief nobody has checked. <em>It started with Tuesday's deploy.</em> The brief tells the reader to pressure-test it, and when the repository is reachable, to go and settle it rather than ask.</li>
+    <li><strong>Open Question</strong>: a genuine unknown. <em>Does it happen on staging?</em> The brief tells the reader that guessing here is how the plan goes wrong.</li>
   </ul>
   <p>
-    Select the "probably the payment service" block and switch its type to Assumption.
-    A Question block has a one-click <strong>Promote to Assumption</strong> button for
-    exactly this moment.
+    Select the "probably the payment service" block and change its type to Assumption.
+    A question you have been treating as settled has its own button in the inspector,
+    <strong>Treating this as true? Make it an Assumption</strong>, for exactly this moment.
   </p>
 
   <h2>Step 4. Connect them, and say why</h2>
   <p>
-    Drag from the dot on a block's edge to another block. Then select the arrow and give
+    Drag from the dot on a block's edge to another block. Then select the line and give
     it a label from the presets: <code>depends on</code>, <code>blocks</code>,
-    <code>underpins</code>, <code>mitigates</code>. Unlabelled arrows say two things are
-    related; labelled arrows say how, and the export carries the label through as the
-    dependency order.
+    <code>enables</code>, <code>mitigates</code> and more. An unlabelled line says two
+    things are related; a labelled one says how, and the brief carries the label through
+    as the dependency order.
   </p>
   <p>
-    If an arrow leaves from an awkward side, select it and pick a side under
-    <strong>Connection points</strong>, or drag its endpoint handle onto the port you
+    If a line leaves from an awkward side, select it and pick a side under
+    <strong>Connection points</strong>, or drag its endpoint handle onto the side you
     want. Connections route themselves around other blocks, so you should rarely need to.
   </p>
 
@@ -185,8 +232,8 @@ no test covers the retry path</code></pre>
   <p>
     <kbd>L</kbd>, or the <strong>Tidy</strong> button. The canvas is rearranged into
     layers along the flow, connections are re-pointed to match, and the toast tells you
-    how many crossings are left. The direction toggle beside it switches between
-    left-to-right and top-to-bottom.
+    how many crossings are left. The caret beside Tidy picks left to right or top to
+    bottom.
   </p>
   <p>
     It is one undo step. If you hate the result, <kbd>Cmd/Ctrl</kbd>+<kbd>Z</kbd> puts
@@ -199,15 +246,16 @@ no test covers the retry path</code></pre>
 
   <h2>Step 6. Read what the tool is telling you</h2>
   <p>
-    Blocks with a ring and a small icon in the header have a gap. An isolated block has a dashed edge: it is connected to nothing,
-    which usually means it does not belong or you have not finished the thought. An
-    assumption not anchored to a goal or requirement is one nobody has said why they
-    care about.
+    A block with a gap wears a dashed amber ring and a small badge on its corner; hover or
+    focus the card and the badge names the gap. A block connected to nothing usually does
+    not belong, or you have not finished the thought. An assumption not anchored to a goal
+    or requirement is one nobody has said why they care about.
   </p>
   <p>
-    The health score on the Prompt tab is blunt on purpose. If it says the canvas is thin,
-    the prompt will be thin, and no amount of mode-switching fixes that. The Attention tab
-    lists every gap, and a gap you mean to keep can be accepted there or in the inspector.
+    The Prompt tab says how many gaps are still open before you copy anything, and it is
+    blunt on purpose: if the map is thin, the brief will be thin, and no amount of
+    mode-switching fixes that. The Attention tab lists every gap, and a gap you mean to
+    keep can be accepted there or in the inspector.
   </p>
 
   <h2>Step 7. Pick what you want back</h2>
@@ -222,8 +270,9 @@ no test covers the retry path</code></pre>
 
   <h2>Step 8. Hand it over</h2>
   <p>
-    <strong>Copy prompt</strong> in the bar under the canvas, or File ▾ for a file. What
-    lands in the paste buffer opens like this:
+    <strong>Copy prompt</strong> in the bar under the canvas, or the copy button in the
+    Prompt tab; File ▾ has it as a file. What lands in the paste buffer opens like
+    this:
   </p>
   <pre class="doc-pre"><code>## Situation
 - ... (the four lines from step 1)
@@ -251,29 +300,30 @@ something you could have read.</code></pre>
     A canvas you are about to walk somebody through has a different job from one you
     are working in. Select the blocks that carry your point and give them a
     <strong>Highlight</strong>: Alert for the thing to look at first, Focus for what you
-    are discussing, Festive if you want a moving border nobody can ignore.
+    are discussing.
   </p>
   <p>
-    Right-click any block and choose <strong>Select all Problems</strong> to mark a whole
-    type at once. Then turn on <strong>Spotlight</strong>, which fades everything you did
-    not mark. The contrast does the work, not the colour.
+    Right-click any block and choose <strong>Select all</strong> of its type to mark a
+    whole type at once. Then turn on <strong>Spotlight</strong>, which fades everything you
+    did not mark. The contrast does the work, not the colour.
   </p>
   <p class="doc-aside">
     Highlights say "look here" and nothing more. They travel with a share link and reach
-    the image export, but they stay out of the prompt on purpose: the block type already
+    the image export, but they stay out of the brief on purpose: the block type already
     says what a block is, and colour that means two things at once means neither.
   </p>
 
   <h2>Step 10. Bring the answer back</h2>
   <p>
     An investigation that ends in a chat log is an investigation you will run again in
-    three weeks. Put what came back into the canvas. The quickest way is the Prompt tab's
-    <strong>Paste a reply or a review</strong>: paste the whole reply, and the patch the
-    prompt asked for is previewed and applied as one undo step. By hand, it looks like this:
+    three weeks. Put what came back into the canvas. The quickest way is
+    <strong>Paste a reply or a review</strong> in the Prompt tab: paste the whole reply,
+    and the patch the brief asked for is previewed and applied as one undo step.
+    By hand, it looks like this:
   </p>
   <ul class="doc-list">
-    <li>An answered question goes in the question's <strong>Answer</strong> field. It travels with the canvas and shows up in the next export.</li>
-    <li>A settled assumption becomes a <strong>Decision</strong>, with the evidence in its description. Then delete the assumption. It is not one any more.</li>
+    <li>An answered question gets its answer in the inspector. It travels with the canvas and shows up in the next brief.</li>
+    <li>A settled assumption becomes a <strong>Decision</strong>: change its type, and its connections stay. Put the evidence in <strong>Rationale</strong>, and if it turned out to be false, rewrite the title to say what is true.</li>
     <li>Something new that was discovered becomes a block wired to whatever it affects.</li>
   </ul>
   <p>
@@ -285,9 +335,9 @@ something you could have read.</code></pre>
   <ul class="doc-list">
     <li><strong>Download Markdown</strong>: every block type as a section, connections with their labels, and a Mermaid graph of the topology for anything that renders it.</li>
     <li><strong>Download JSON</strong>: the whole canvas including the Situation. This is the one to hand a terminal session directly.</li>
-    <li><strong>Share → Copy link</strong>: the entire canvas encoded in the URL. Nothing is uploaded; the link is the data.</li>
+    <li><strong>Share, Copy link</strong>: the entire canvas encoded in the URL. Nothing is uploaded; the link is the data.</li>
     <li><strong>Copy AI diagram-builder prompt</strong>. The other direction. Paste it into any assistant, describe your problem, import the JSON it hands back.</li>
-    <li><a href="examples.html">Examples</a>: three more finished maps to load and reshape: inherit a codebase, migrate a system, the blank bug template.</li>
+    <li><a href="examples.html">Examples</a>: five finished maps, from this bug investigation to a recurring report.</li>
     <li><a href="llms.txt">llms.txt</a>: the format spec, if you would rather generate canvases than draw them.</li>
   </ul>
 
@@ -301,7 +351,7 @@ something you could have read.</code></pre>
 
   <div class="doc-cta doc-cta-end">
     <a class="btn btn-primary" href="./">Open the canvas</a>
-    <span class="doc-cta-note">Nothing is uploaded. Your canvas stays in this browser.</span>
+    <span class="doc-cta-note">Nothing is uploaded. Your maps stay in this browser.</span>
   </div>
 
 </main>

@@ -21,3 +21,5 @@ exclude:
   - vendor/cache/
   - vendor/gems/
   - vendor/ruby/
+# The asset renderer (make assets) is a development tool, not part of the site.
+  - tools

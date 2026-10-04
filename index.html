@@ -13,15 +13,16 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Pathfinder | Strategy Canvas</title>
   <meta name="description" content="Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt">
-  <meta property="og:title" content="Pathfinder: Strategy Canvas">
-  <meta property="og:description" content="Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt">
+  <meta property="og:title" content="Pathfinder: plan the work before an agent builds it">
+  <meta property="og:description" content="Map goals, work, risks and open questions as typed blocks, see what the plan is missing, and export a brief for Claude Code, Cursor or any assistant.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://pathfinder.neorgon.com/">
   <meta property="og:site_name" content="Neorgon">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Pathfinder: Strategy Canvas">
-  <meta name="twitter:description" content="Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt">
+  <meta name="twitter:title" content="Pathfinder: plan the work before an agent builds it">
+  <meta name="twitter:description" content="Map goals, work, risks and open questions as typed blocks, see what the plan is missing, and export a brief for Claude Code, Cursor or any assistant.">
   <meta name="twitter:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta name="twitter:image:alt" content="Plan the work before an agent builds it. Below the line, a Pathfinder map of a bug investigation: typed blocks for the symptom, suspects and evidence, connected in order.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://pathfinder.neorgon.com/">
   <meta property="og:locale" content="en_US">
@@ -29,6 +30,7 @@
   <meta property="og:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Plan the work before an agent builds it. Below the line, a Pathfinder map of a bug investigation: typed blocks for the symptom, suspects and evidence, connected in order.">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -195,37 +197,82 @@
 
     <!-- Empty state hint -->
     <div class="canvas-hint" id="canvasHint">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-      <!-- Shown when the canvas is empty and the Brain Dump is not: today that
-           is a view-only link, so each view says only what it can do. -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h2.5a2 2 0 0 1 2 2v5"/></svg>
+      <!-- Shown when the canvas is empty and the start panel is not: today
+           that is a view-only link, so each view says only what it can do. -->
       <p class="canvas-hint-view">This map is empty.</p>
       <p class="canvas-hint-edit">Double-click empty canvas to add a block, or drag one in from the palette.<br>
         Double-click a card to edit it; click a dot on its edge to add the next block.</p>
     </div>
 
-    <!-- Brain Dump empty state: fastest on-ramp from messy text to a canvas -->
+    <!-- Start panel: the first-run empty state (js/start-panel.js). It goes
+         once the map has a block (canvas.js updateHint), and never shows on a
+         view-only link or an embed. Keys 1, 2 and 3 pick the options. -->
     <div class="brain-dump" id="brainDump">
-      <div class="brain-dump-card" data-canvas-ui>
-        <h2>Start with a brain dump</h2>
-        <p>Paste or type your messy thoughts: one idea per line. We’ll turn them into typed, AI-ready blocks. A type we were unsure of shows a ▾ on its card label: click it to confirm or change it.</p>
-        <textarea class="input" id="brainDumpInput" rows="6" spellcheck="false"
-          placeholder="Ship the onboarding flow before the seed demo&#10;Build the PRD&#10;  - Overview &amp; summary&#10;  - Goals and success metrics&#10;  - Scope and requirements&#10;Users will pay for the pro tier&#10;Will SSO-only auth be acceptable?"></textarea>
-        <label class="brain-dump-nest" for="brainDumpNest">
-          <input type="checkbox" id="brainDumpNest" checked>
-          <span>Fold indented / bulleted lines into the item above as its description</span>
-        </label>
-        <div class="brain-dump-actions">
-          <button class="btn btn-primary" id="brainDumpBtn" type="button">Turn into blocks</button>
-          <span class="brain-dump-hint">or <a href="tutorial.html">walk through a worked example</a></span>
+      <section class="brain-dump-card start-panel" id="startPanel" data-canvas-ui aria-labelledby="startTitle">
+        <h2 class="start-title" id="startTitle">Plan the work before an agent builds it</h2>
+        <p class="start-lede">Map goals, work, risks and open questions as typed blocks. Pathfinder names what the plan is missing, then turns the map into a brief for Claude Code, Cursor or any assistant.</p>
+
+        <div class="start-options" role="group" aria-label="Ways to start">
+          <div class="start-option">
+            <button type="button" class="start-opt" id="startNotesBtn" aria-expanded="false" aria-controls="startNotes" aria-keyshortcuts="1">
+              <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>
+              <span class="start-opt-text"><span class="start-opt-title">Paste your notes</span><span class="start-opt-desc">One idea per line. Each becomes a typed block you can correct.</span></span>
+              <kbd class="start-key" aria-hidden="true">1</kbd>
+            </button>
+            <div class="start-notes" id="startNotes" hidden>
+              <label class="sr-only" for="brainDumpInput">Your notes, one idea per line</label>
+              <textarea class="input" id="brainDumpInput" rows="6" spellcheck="false" aria-describedby="startPrefixLine"
+                placeholder="Goal: Cut onboarding drop-off before the Q3 review&#10;Problem: New users stall at workspace setup&#10;Assume: Admins skip the invite step&#10;Metric: Activation within 7 days&#10;Risk: A setup checklist slows experienced admins&#10;What counts as activated?"></textarea>
+              <!-- start-panel.js rewrites this from the classifier's prefix table. -->
+              <div class="start-help" id="startPrefixHelp"><p id="startPrefixLine">Start a line with <code>Goal:</code>, <code>Problem:</code>, <code>Who:</code>, <code>Metric:</code>, <code>Req:</code>, <code>Build:</code>, <code>Risk:</code> or <code>Assume:</code> to set its type, and end a question with <code>?</code>. Indented lines add detail to the line above.</p></div>
+              <label class="brain-dump-nest" for="brainDumpNest">
+                <input type="checkbox" id="brainDumpNest" checked>
+                <span>Fold indented and bulleted lines into the line above</span>
+              </label>
+              <div class="brain-dump-actions">
+                <button class="btn btn-primary" id="brainDumpBtn" type="button">Turn into blocks</button>
+                <span class="start-submit-hint" id="startSubmitHint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="start-opt" id="startTemplateBtn" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="2">
+            <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.5"/><rect x="13.5" y="4" width="7" height="7" rx="1.5"/><rect x="3.5" y="14" width="7" height="7" rx="1.5"/><path d="M17 14v7M13.5 17.5h7"/></svg>
+            <span class="start-opt-text"><span class="start-opt-title">Start from a template</span><span class="start-opt-desc">A bug, an inherited codebase, a migration or a recurring report</span></span>
+            <kbd class="start-key" aria-hidden="true">2</kbd>
+          </button>
+          <button type="button" class="start-opt" id="startSampleBtn" aria-keyshortcuts="3">
+            <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.3 7.2l7.4 3.6M8.3 16.8l7.4-3.6"/></svg>
+            <span class="start-opt-text"><span class="start-opt-title">Open the sample map</span><span class="start-opt-desc" id="startSampleDesc">A finished bug investigation (12 blocks) and the brief it produces</span></span>
+            <kbd class="start-key" aria-hidden="true">3</kbd>
+          </button>
         </div>
-        <!-- One button per question a map answers (TYPE_STEPS), rendered by
-             palette.js; each adds that step's first type and opens its title. -->
-        <section class="map-steps" aria-labelledby="mapStepsTitle">
-          <h3 class="map-steps-title" id="mapStepsTitle">Or map it in six steps</h3>
-          <div class="map-steps-row" id="mapSteps"></div>
-          <p class="map-steps-hint">Double-click empty canvas to add a block. Double-click a card to edit it. Click a dot on a card's edge to add the next block there.</p>
+
+        <!-- First-block pills (start-panel.js firstBlockPillsHtml writes the
+             same markup; the suite holds them equal). Each adds its type at
+             the middle of the view (palette.js addTypeAtCenter) and opens
+             its title. -->
+        <section class="start-first" aria-labelledby="startFirstTitle">
+          <h3 class="start-first-title" id="startFirstTitle">Or add a first block</h3>
+          <div class="start-first-row" id="startFirstBlocks">
+            <button type="button" class="start-pill" data-type="goal" title="What you want to achieve"><span class="palette-dot" data-shape="ring" style="background:var(--c-goal)" aria-hidden="true"></span>Goal</button>
+            <button type="button" class="start-pill" data-type="problem" title="An issue happening now"><span class="palette-dot" data-shape="ring" style="background:var(--c-problem)" aria-hidden="true"></span>Problem</button>
+            <button type="button" class="start-pill" data-type="stakeholder" title="Who receives, approves or is affected"><span class="palette-dot" data-shape="ring" style="background:var(--c-stakeholder)" aria-hidden="true"></span>Stakeholder</button>
+            <button type="button" class="start-pill" data-type="metric" title="A measurable signal with a target"><span class="palette-dot" data-shape="square" style="background:var(--c-metric)" aria-hidden="true"></span>Metric</button>
+            <button type="button" class="start-pill" data-type="requirement" title="Must be true when done"><span class="palette-dot" data-shape="square" style="background:var(--c-requirement)" aria-hidden="true"></span>Requirement</button>
+            <button type="button" class="start-pill" data-type="risk" title="Something that might go wrong"><span class="palette-dot" data-shape="diamond" style="background:var(--c-risk)" aria-hidden="true"></span>Risk</button>
+            <button type="button" class="start-pill" data-type="question" title="A genuine unknown"><span class="palette-dot" data-shape="diamond" style="background:var(--c-question)" aria-hidden="true"></span>Open Question</button>
+          </div>
         </section>
-      </div>
+
+        <footer class="start-foot">
+          <span>Saved in this browser. No account, nothing uploaded.</span>
+          <span class="start-foot-links">
+            <a href="tutorial.html">Walkthrough</a>
+            <button type="button" class="start-link" id="startShortcutsBtn"><kbd aria-hidden="true">?</kbd> Shortcuts</button>
+          </span>
+        </footer>
+      </section>
     </div>
 
     <!-- Rubber-band select -->
@@ -383,9 +430,12 @@
 
       <!-- Inspector pane -->
       <div class="tab-pane active" id="inspectorPane">
+        <!-- Nothing selected. The tab names are the live tab labels
+             (start-panel.js, kept in step if a tab is renamed), each one
+             opens its tab, and each sentence reads with any label. -->
         <div class="inspector-empty" id="inspectorEmpty">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-          Select a block to<br>inspect its properties
+          <p class="insp-empty-lead"><span class="insp-empty-edit">Select a block to edit it here.</span><span class="insp-empty-view">Select a block to read it here.</span></p>
+          <p class="insp-empty-tabs"><button type="button" class="insp-empty-tab" data-goto-tab="prompt">Prompt</button> is what you hand to an agent. <button type="button" class="insp-empty-tab" data-goto-tab="attention">Attention</button> lists what the plan is missing.</p>
         </div>
 
         <!-- One block. Everything that changes what the block says sits above

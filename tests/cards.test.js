@@ -832,7 +832,7 @@ describe('cards -- empty state', () => {
     assert.includes(hint.querySelector('.canvas-hint-edit').textContent, 'Double-click empty canvas to add a block')
     assert.includes(hint.querySelector('.canvas-hint-edit').textContent, 'Double-click a card to edit it')
     assert.ok(!/arrow keys|Fit view/i.test(hint.textContent), 'no promise the app does not keep')
-    assert.ok(doc.querySelector('#brainDump #mapSteps'), 'the starter sits in the Brain Dump card')
+    assert.ok(doc.querySelector('#brainDump #startFirstBlocks .start-pill'), 'the first-block pills sit in the start panel')
     assert.eq(doc.querySelectorAll('#blocksList .palette-item').length, 0, 'the palette rows come from the registry')
 
     const s = await styled('readonly-mode')

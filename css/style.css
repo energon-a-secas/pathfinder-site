@@ -2405,18 +2405,16 @@
     body.doc-page .header-bar { position: sticky; top: 0; z-index: 40; }
 
     .doc {
+      /* The footer kit makes body a flex column, so .doc is a flex item:
+         without width and min-width it grew to its widest code block and
+         the page scrolled sideways on a phone (718px at 390). */
+      width: 100%; min-width: 0; box-sizing: border-box;
       max-width: 720px;
       margin: 0 auto;
       padding: 40px 24px 72px;
       color: var(--text-secondary);
       font-size: var(--fs-16);
       line-height: 1.68;
-    }
-    /* The accent is for selection, focus and the primary action, so the
-       page label is quiet ink. */
-    .doc-kicker {
-      font-size: var(--fs-11); font-weight: 700; letter-spacing: .14em;
-      text-transform: uppercase; color: var(--text-3); margin-bottom: 10px;
     }
     .doc h1 {
       font-size: 2rem; line-height: 1.2; font-weight: 700;
@@ -3798,49 +3796,37 @@ body.light-mode .canvas-hint svg { opacity: .2; }
   .palette .palette-item .palette-dot { width: 9px; height: 9px; }
 }
 
-/* ── Empty state: Brain Dump plus the six-step starter ── */
+/* ── palette.js's six-step starter (renderStepStarter) ──
+   One small control per question a map answers: the type's dot and name,
+   the step's word in quieter ink before it. The start panel no longer
+   mounts it (its first-block pills are .start-pill, in [frontdoor]), so
+   only the suite renders it now. */
 .brain-dump { overflow-y: auto; }
-.brain-dump-hint a { color: var(--text-secondary); }
-.map-steps {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
+.map-steps { margin-top: var(--space-5); }
 .map-steps-title {
-  margin: 0 0 8px;
-  font-size: var(--fs-11); font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-12); font-weight: var(--fw-medium); line-height: var(--lh-ui);
+  color: var(--text-3);
 }
-.map-steps-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.map-steps-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .map-step {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-  min-width: 0;
-  padding: 7px 10px;
-  font: inherit; text-align: left;
-  color: var(--text-secondary);
-  background: var(--surface-1);
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 0; min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font: inherit; font-size: var(--fs-12); line-height: 1; text-align: left;
+  color: var(--text-2);
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
 }
 .map-step:hover { background: var(--surface-2); border-color: var(--border-strong); }
 .map-step:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
-.map-step-head { display: flex; align-items: baseline; gap: 6px; font-size: var(--fs-13); font-weight: 700; color: var(--text-primary); }
-.map-step-num { font-size: var(--fs-11); font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.map-step-type {
-  display: flex; align-items: center; gap: 6px;
-  max-width: 100%;
-  font-size: var(--fs-12); color: var(--text-muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.map-step-head { display: inline-flex; align-items: baseline; gap: 4px; font-size: var(--fs-11); font-weight: var(--fw-medium); color: var(--text-3); }
+.map-step-num { display: none; font-size: var(--fs-11); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.map-step-type { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: var(--fw-medium); color: var(--text-2); }
 .map-step-type .palette-dot { flex: 0 0 8px; width: 8px; height: 8px; }
-.brain-dump-card .map-steps-hint { margin: 10px 0 0; font-size: var(--fs-12); color: var(--text-muted); }
-@media (max-width: 420px) { .map-steps-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
-/* Muted grey on the light step buttons measured 4.4:1. */
-body.light-mode .map-step-num,
-body.light-mode .map-step-type { color: var(--text-secondary); }
 
 
 /* Tinted cards: muted description text fell under 4.5:1 on the tint. */
@@ -4056,6 +4042,267 @@ body.light-mode .map-step-type { color: var(--text-secondary); }
 
 /* ════ [frontdoor] ════ */
 
+
+
+/* ── Start panel (js/start-panel.js): the first-run empty state ──
+   One flat surface (the .brain-dump-card rules above), three keyed
+   options, the six-step starter, a line on storage. The top padding
+   keeps the panel clear of "Find blocks" (16px from the top, 40px tall)
+   when the canvas is too narrow for the two to sit side by side. */
+.brain-dump { padding: 64px var(--space-6) var(--space-6); }
+.start-panel {
+  width: min(560px, 100%);
+  padding: var(--space-6) var(--space-6) var(--space-4);
+}
+.start-panel .start-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-20); font-weight: var(--fw-semibold); line-height: var(--lh-tight);
+  color: var(--text-1);
+}
+.start-panel .start-lede {
+  margin: 0 0 var(--space-5);
+  max-width: 62ch;
+  font-size: var(--fs-13); line-height: var(--lh-body);
+  color: var(--text-2);
+}
+
+.start-options { display: flex; flex-direction: column; gap: var(--space-2); }
+.start-opt {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3);
+  width: 100%; min-height: 56px;
+  padding: 10px var(--space-3);
+  font: inherit; text-align: left;
+  color: var(--text-1);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.start-opt:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.start-opt:active { background: var(--surface-3); }
+.start-opt:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+.start-opt-icon { width: 16px; height: 16px; color: var(--text-3); }
+.start-opt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.start-opt-title { font-size: var(--fs-13); font-weight: var(--fw-semibold); line-height: var(--lh-ui); color: var(--text-1); }
+.start-opt-desc { font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-3); }
+.start-panel kbd {
+  display: inline-block; min-width: 20px;
+  padding: 2px 5px;
+  font: var(--fw-semibold) var(--fs-11)/1.3 var(--font-mono);
+  text-align: center;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* Paste your notes: the option opens in place, its field under it. */
+.start-option.is-open { border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.start-option.is-open > .start-opt { border-color: transparent; background: transparent; }
+.start-notes { padding: 0 var(--space-3) var(--space-3); }
+.start-notes[hidden] { display: none; }
+.start-panel .start-notes textarea {
+  width: 100%; min-height: 144px;
+  margin: 0 0 var(--space-2);
+  resize: vertical;
+  line-height: var(--lh-body);
+}
+.start-panel .start-help {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-12); line-height: var(--lh-ui);
+  color: var(--text-3);
+}
+.start-panel .start-help p { margin: 0; font-size: inherit; line-height: inherit; color: inherit; }
+.start-panel .start-help code {
+  padding: 0 3px;
+  font: var(--fs-11)/1.4 var(--font-mono);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.start-prefixes { margin-top: var(--space-1); }
+.start-prefixes summary {
+  display: inline-block;
+  color: var(--text-2);
+  cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.start-prefixes summary:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); border-radius: var(--radius-sm); }
+.start-prefix-list { display: flex; flex-wrap: wrap; gap: 4px var(--space-3); margin-top: var(--space-1); }
+.start-panel .brain-dump-nest { margin-bottom: var(--space-3); }
+.start-submit-hint { font-size: var(--fs-12); color: var(--text-3); }
+/* A phone or tablet without a pointer that hovers has no Ctrl key to press. */
+@media (hover: none) and (pointer: coarse) { .start-submit-hint { display: none; } }
+
+/* Or add a first block: one pill per type, its dot and its name. */
+.start-first { margin-top: var(--space-5); }
+.start-panel .start-first-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-12); font-weight: var(--fw-medium); line-height: var(--lh-ui);
+  color: var(--text-3);
+}
+.start-first-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.start-pill {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font: inherit; font-size: var(--fs-12); font-weight: var(--fw-medium); line-height: 1;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.start-pill:hover { color: var(--text-1); background: var(--surface-2); border-color: var(--border-strong); }
+.start-pill:active { background: var(--surface-3); }
+.start-pill:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+.start-pill .palette-dot { flex: 0 0 8px; width: 8px; height: 8px; }
+
+/* The storage line: what happens to the map, said once. */
+.start-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-5); padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-12); line-height: var(--lh-ui);
+  color: var(--text-3);
+}
+.start-foot-links { display: inline-flex; align-items: center; gap: var(--space-4); }
+.start-foot a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+.start-foot a:hover { color: var(--text-1); }
+.start-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 24px; padding: 0;
+  font: inherit; color: var(--text-2);
+  background: none; border: 0;
+  cursor: pointer;
+}
+.start-link:hover { color: var(--text-1); }
+.start-foot a:focus-visible, .start-link:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); border-radius: var(--radius-sm); }
+
+/* The template picker under option 2: a worked map's line is its shape. */
+.start-template-menu { max-width: min(360px, calc(100vw - 16px)); }
+
+@media (max-width: 700px) {
+  .brain-dump { padding: 64px var(--space-3) var(--space-4); }
+  .start-panel { padding: var(--space-5) var(--space-4) var(--space-3); }
+  .start-opt { grid-template-columns: 16px minmax(0, 1fr); }
+  .start-panel .start-key { display: none; }
+}
+
+/* ── The right panel with nothing selected ── */
+.insp-empty-lead { margin: 0 0 var(--space-2); font-size: var(--fs-13); color: var(--text-2); }
+.insp-empty-tabs { margin: 0 auto; max-width: 30ch; font-size: var(--fs-12); line-height: var(--lh-body); color: var(--text-3); }
+.insp-empty-view { display: none; }
+.readonly-mode .insp-empty-view { display: inline; }
+.readonly-mode .insp-empty-edit { display: none; }
+.insp-empty-tab {
+  padding: 0;
+  font: inherit; font-weight: var(--fw-semibold);
+  color: var(--text-2);
+  background: none; border: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.insp-empty-tab:hover { color: var(--text-1); }
+.insp-empty-tab:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); border-radius: var(--radius-sm); }
+
+/* ── Reading pages: pictures drawn by the app (tools/render-assets.mjs) ──
+   Each picture comes in both themes; the page shows the one that matches.
+   A picture is drawn at 0.8 of the map's own size (its width and height
+   attributes, which make-assets writes), so a card title is 11px or more,
+   never shrunk to the column: the frame scrolls sideways instead, and the
+   picture is a link to the whole map at full size. */
+.ex-pic-frame {
+  overflow-x: auto; overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.ex-pic-frame:has(.ex-pic-link:focus-visible) { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+.ex-pic-link { display: block; width: max-content; cursor: zoom-in; }
+.ex-pic-link:focus-visible { outline: none; }
+.ex-pic { display: block; max-width: none; height: auto; }
+.ex-pic-light { display: none; }
+body.light-mode .ex-pic-dark { display: none; }
+body.light-mode .ex-pic-light { display: block; }
+.doc .ex-pic-note { margin: var(--space-2) 0 0; font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-3); }
+
+/* Examples: one column, by job. Each map is its picture, the opening of
+   its brief, and one action. */
+.ex { margin-top: var(--space-8); }
+.ex + .ex { padding-top: var(--space-2); }
+.ex-figure { margin: var(--space-5) 0 var(--space-4); }
+.ex-brief { margin-top: var(--space-3); }
+.ex-brief-label {
+  display: block; margin-bottom: var(--space-2);
+  font-size: var(--fs-12); font-weight: var(--fw-medium); color: var(--text-3);
+}
+.ex-brief-text, .doc-strip-text {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  /* On the pre itself, or the line box keeps the page's 16px/1.68 strut. */
+  font: var(--fs-12)/1.6 var(--font-mono);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+.doc .ex-brief-text code, .doc .doc-strip-text code {
+  padding: 0; background: none; border: 0;
+  font: inherit;
+  color: var(--text-2);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ex-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin: var(--space-4) 0 var(--space-3); }
+.ex-meta { font-size: var(--fs-13); color: var(--text-3); }
+.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); }
+.ex-link {
+  padding: 0;
+  font: inherit; color: var(--accent);
+  background: none; border: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ex-link:hover { color: var(--accent-hover); }
+.ex-link:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); border-radius: var(--radius-sm); }
+
+/* The walkthrough's strip: notes, the map they become, the brief. Wider
+   than the reading column on a wide screen, stacked on a narrow one. */
+.doc-strip { margin: var(--space-6) 0 var(--space-2); display: grid; gap: var(--space-4); }
+.doc-strip-part { min-width: 0; }
+.doc .doc-strip-label {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-13); font-weight: var(--fw-semibold); color: var(--text-1);
+}
+.doc-strip-num {
+  display: inline-grid; place-items: center;
+  width: 20px; height: 20px;
+  font: var(--fw-semibold) var(--fs-11)/1 var(--font-mono);
+  color: var(--text-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.doc-strip-caption { grid-column: 1 / -1; font-size: var(--fs-13); line-height: var(--lh-body); color: var(--text-3); }
+@media (min-width: 1000px) {
+  .doc-strip {
+    width: min(1120px, calc(100vw - 64px));
+    margin-left: 50%; transform: translateX(-50%);
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* The 404 page: the site's tokens, a quiet number, three ways on. */
+.nf { width: 100%; max-width: 420px; text-align: center; }
+.nf-code { margin: 0; font-size: var(--fs-20); font-weight: var(--fw-semibold); color: var(--text-3); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.nf h1 { margin: var(--space-2) 0 var(--space-2); font-size: var(--fs-20); font-weight: var(--fw-semibold); line-height: var(--lh-tight); color: var(--text-1); }
+.nf p:not(.nf-code) { margin: 0 auto var(--space-6); max-width: 36ch; font-size: var(--fs-14); line-height: var(--lh-body); color: var(--text-2); }
+.nf-links { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
 
 
 /* ════ [zoom] ════ */

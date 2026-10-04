@@ -11,6 +11,8 @@ help:
 	@echo "  make dev      Same, with caching off (use this while editing)"
 	@echo "  make kill     Kill this project's HTTP server"
 	@echo "  make test     Run the browser suite in headless Chrome"
+	@echo "  make assets   Redraw the share card, example pictures and README screenshots"
+	@echo "  make test-tools  Test the asset tools (ports, served files, Chrome cleanup)"
 	@echo ""
 
 # ── Dev server ────────────────────────────────────────────────────────────────
@@ -43,3 +45,18 @@ kill:
 .PHONY: test
 test:
 	@node tests/headless.mjs . $(or $(TEST_PORT),9399)
+
+# ── Assets ────────────────────────────────────────────────────────────────────
+# The share card (og-preview.jpg), the example pictures (examples/*.svg), the
+# brief excerpts in examples.html and tutorial.html, and the README screenshots
+# (docs/screenshot-*.png), all drawn by the app itself in headless Chrome.
+# Rerun it when the canvas, the exporter, the brief or the examples change.
+.PHONY: assets
+assets:
+	@node tools/render-assets.mjs $(or $(ASSETS_PORT),9850)
+
+# The asset tools' own checks: a taken port is refused, the server serves
+# this repository, and Chrome's throwaway profile is gone after close.
+.PHONY: test-tools
+test-tools:
+	@node --test tools/cdp.test.mjs

@@ -853,25 +853,8 @@ export function openTypeChipMenu(anchor) {
   return openDropdown(anchor, typeCheckItems(id), { label: 'Block type', className: 'type-check-menu' })
 }
 
-// ── Brain Dump empty state ───────────────────────────────────
-export function setupBrainDump() {
-  const btn   = document.getElementById('brainDumpBtn')
-  const input = document.getElementById('brainDumpInput')
-  if (!btn || !input) return
-  const nestToggle = document.getElementById('brainDumpNest')
-  const run = () => {
-    const text = input.value.trim()
-    if (!text) { input.focus(); return }
-    createBlocksFromText(text, nestToggle ? nestToggle.checked : true)
-    input.value = ''
-  }
-  btn.addEventListener('click', run)
-  // Cmd/Ctrl+Enter submits; plain Enter keeps adding lines.
-  input.addEventListener('keydown', e => {
-    e.stopPropagation()
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run() }
-  })
-}
+// The start panel's wiring (the notes field, Turn into blocks) lives in
+// start-panel.js; this module keeps the text-to-blocks work it calls.
 
 let typeChecksWired = false
 export function setupTypeChips() {

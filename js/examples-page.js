@@ -6,12 +6,28 @@
 //  gets the new-map, replace or merge choice. Four of the five
 //  ARE the large built-in templates: the gallery reuses the
 //  content the app already ships instead of maintaining a second
-//  copy that would drift.
+//  copy that would drift. Their pictures and brief excerpts are
+//  drawn from these same payloads by tools/render-assets.mjs.
 // ════════════════════════════════════════════════════════════
 
 import { EXAMPLE_CANVAS } from './example-canvas.js'
 import { TEMPLATES } from './templates.js'
 import { DEFAULT_ARROW_WEIGHT } from './utils.js'
+
+/**
+ * The gallery, in the order of the job each map does. `key` is what a
+ * page's data-example names; `slug` names the generated files
+ * (examples/<slug>.svg, -light.svg) and the brief markers. `picture`
+ * marks the maps the page shows with a picture and an excerpt; the
+ * blank bug template is a plain link under the first.
+ */
+export const EXAMPLES = [
+  { key: 'checkout', slug: 'checkout', picture: true },
+  { key: 'Investigate a Bug', slug: 'investigate-a-bug', picture: false },
+  { key: 'Inherit a Codebase', slug: 'inherit-a-codebase', picture: true },
+  { key: 'Migrate a System', slug: 'migrate-a-system', picture: true },
+  { key: 'Recurring Reporting Flow', slug: 'recurring-reporting-flow', picture: true },
+]
 
 /**
  * Convert a template (relative dx/dy blocks, index-based arrows) into a
@@ -45,15 +61,17 @@ export function templateToPayload(tpl) {
 }
 
 function checkoutPayload() {
+  const copy = JSON.parse(JSON.stringify(EXAMPLE_CANVAS))
   return {
-    blocks: Object.fromEntries(EXAMPLE_CANVAS.blocks.map(b => [b.id, b])),
-    arrows: EXAMPLE_CANVAS.arrows,
+    blocks: Object.fromEntries(copy.blocks.map(b => [b.id, b])),
+    arrows: copy.arrows,
     groups: {},
-    meta: EXAMPLE_CANVAS.meta,
+    meta: copy.meta,
   }
 }
 
-function payloadFor(key) {
+/** The canvas payload an example opens, or null for an unknown key. */
+export function payloadFor(key) {
   if (key === 'checkout') return checkoutPayload()
   const tpl = TEMPLATES.find(t => t.name === key)
   return tpl ? templateToPayload(tpl) : null

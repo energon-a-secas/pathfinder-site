@@ -12,14 +12,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://gc.zgo.at https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.neorgon.org; font-src 'self'; img-src 'self' data: https://cdn.neorgon.org https://neorgon.goatcounter.com; connect-src 'self' https://neorgon.goatcounter.com https://cloudflareinsights.com">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Pathfinder | Examples</title>
-  <meta name="description" content="Four worked strategy canvases you can load with one click: a bug investigation, inheriting a codebase, migrating a system, validating before building">
+  <meta name="description" content="Five finished Pathfinder maps you open in one click: a checkout bug, a blank bug template, an inherited codebase, a migration and a recurring report.">
   <meta property="og:title" content="Pathfinder: Examples">
-  <meta property="og:description" content="Four worked strategy canvases you can load with one click: a bug investigation, inheriting a codebase, migrating a system">
+  <meta property="og:description" content="Five finished Pathfinder maps you open in one click: a checkout bug, a blank bug template, an inherited codebase, a migration and a recurring report.">
   <meta property="og:type" content="article">
   <meta property="og:url" content="https://pathfinder.neorgon.com/examples.html">
   <meta property="og:site_name" content="Neorgon">
   <meta property="og:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Plan the work before an agent builds it. Below the line, a Pathfinder map of a bug investigation: typed blocks for the symptom, suspects and evidence, connected in order.">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://pathfinder.neorgon.com/og-preview.jpg">
+  <meta name="twitter:image:alt" content="Plan the work before an agent builds it. Below the line, a Pathfinder map of a bug investigation: typed blocks for the symptom, suspects and evidence, connected in order.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://pathfinder.neorgon.com/examples.html">
   <meta name="theme-color" content="#0e0e13">
@@ -35,6 +40,8 @@
   <meta name="neo-repo" content="energon-a-secas/pathfinder-site">
 </head>
 <body class="doc-page">
+<!-- The app's saved theme (View, Light mode) reaches the reading pages too. -->
+<script>try{if(localStorage.getItem('pathfinder-theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 
 <a class="skip-link" href="#main">Skip to content</a>
 
@@ -45,7 +52,7 @@
         <div class="header-title-wrap">
       <h1>Pathfinder</h1>
       <div class="header-subtitle">Examples</div>
-    
+
         </div>
       </a>
   </div>
@@ -68,93 +75,151 @@
   </div>
 </header>
 
+<!-- The pictures and the brief lines are drawn from the app itself by
+     tools/render-assets.mjs (make assets): rerun it when the maps, the
+     exporter or the brief change. Each map opens as a new map. -->
 <main class="doc" id="main">
 
-  <p class="doc-kicker">Examples</p>
-  <h1>Five maps worth stealing</h1>
+  <h1>Five finished maps to start from</h1>
   <p class="doc-lede">
-    Each one is a finished canvas you can load with a click and reshape into your
-    own situation. They are the same worked material the app ships: real titles,
-    real descriptions, connections that mean something, and a Situation already
-    framed, so the exported brief reads like a brief from the first second.
+    Each one opens as a new map, so the map you were working on stays as it was.
+    They are the maps the app ships: real titles, connections that mean something,
+    and a Situation already set, so the brief reads like a brief from the first copy.
   </p>
 
-  <h2>Investigate a bug</h2>
-  <p>
-    The walkthrough's case: checkout fails for some people, nobody knows why, and
-    you want a coding assistant to read the repository instead of inventing a
-    plausible theory. Twelve blocks that separate the symptom from the beliefs
-    around it, framed in Investigate mode with the reproduction as the first
-    boundary. If you only load one example, load this one, then read the
-    <a href="tutorial.html">walkthrough</a> that builds it from nothing.
-  </p>
-  <div class="doc-cta">
-    <button class="btn btn-primary" data-example="checkout">Load: Checkout 500s investigation</button>
-    <span class="doc-cta-note">12 blocks · Investigate mode · your current canvas is left alone until you confirm.</span>
-  </div>
+  <section class="ex" aria-labelledby="ex-checkout">
+    <h2 id="ex-checkout">Investigate a bug</h2>
+    <p>
+      The walkthrough's case: checkout fails for some people, nobody knows why, and
+      you want a coding assistant to read the repository instead of inventing a
+      plausible theory. Twelve blocks that separate the symptom from the beliefs
+      around it, with the reproduction as the first boundary. The
+      <a href="tutorial.html">walkthrough</a> builds it from nothing.
+    </p>
+    <figure class="ex-figure">
+      <div class="ex-pic-frame">
+        <a class="ex-pic-link ex-pic-dark" href="examples/checkout.svg"><img class="ex-pic" data-pic="checkout" src="examples/checkout.svg" width="1853" height="590" loading="lazy" alt="The checkout investigation map: the report leads to the problem, then to reproducing it, two open questions and two assumptions, and on to the root cause, a failing test and Fixed and proven. Opens the whole map."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/checkout-light.svg"><img class="ex-pic" data-pic="checkout" src="examples/checkout-light.svg" width="1853" height="590" loading="lazy" alt="The checkout investigation map: the report leads to the problem, then to reproducing it, two open questions and two assumptions, and on to the root cause, a failing test and Fixed and proven. Opens the whole map."></a>
+      </div>
+      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <figcaption class="ex-brief">
+        <span class="ex-brief-label">From the brief it produces</span>
+        <pre class="ex-brief-text"><code><!-- brief:checkout -->### Constraints and boundaries
+- Reproduce before theorising
+## Open Questions (Review Before Assuming)
+• Does it happen on staging?<!-- /brief --></code></pre>
+      </figcaption>
+    </figure>
+    <div class="ex-actions">
+      <button class="btn btn-primary" type="button" data-example="checkout">Open as a new map</button>
+      <span class="ex-meta">12 blocks, Investigate mode</span>
+    </div>
+    <p class="ex-also">
+      Your own bug, not this one?
+      <button class="ex-link" type="button" data-example="Investigate a Bug">Open the blank bug template</button>:
+      the same shape without the checkout story, 13 blocks, framed for a repository
+      you have open and told to reproduce before theorising.
+    </p>
+  </section>
 
-  <h2>Investigate a bug, the blank template</h2>
-  <p>
-    The same shape without the checkout story: symptom, suspects, evidence, then a
-    fix that has to prove itself. Use it when the bug is yours and the story
-    above does not fit. It lands arranged, framed for a repository you have open,
-    and told to reproduce before theorising.
-  </p>
-  <div class="doc-cta">
-    <button class="btn btn-primary" data-example="Investigate a Bug">Load: Investigate a Bug</button>
-    <span class="doc-cta-note">13 blocks · Investigate mode</span>
-  </div>
+  <section class="ex" aria-labelledby="ex-inherit">
+    <h2 id="ex-inherit">Inherit a codebase</h2>
+    <p>
+      Somebody left, the repository is yours now, and the first wrong move is
+      trusting what the README says. This map works from an unknown repository to a
+      first safe change: what is believed, what is actually verified, and the
+      questions whose guessed answers cost the most.
+    </p>
+    <figure class="ex-figure">
+      <div class="ex-pic-frame">
+        <a class="ex-pic-link ex-pic-dark" href="examples/inherit-a-codebase.svg"><img class="ex-pic" data-pic="inherit-a-codebase" src="examples/inherit-a-codebase.svg" width="1501" height="503" loading="lazy" alt="The Inherit a codebase map: from being handed the repository to a first change shipped, through running it, its tests and one traced request, two assumptions about the README and the tests, the risk of breaking something invisible, and a rollback you have tried. Opens the whole map."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/inherit-a-codebase-light.svg"><img class="ex-pic" data-pic="inherit-a-codebase" src="examples/inherit-a-codebase-light.svg" width="1501" height="503" loading="lazy" alt="The Inherit a codebase map: from being handed the repository to a first change shipped, through running it, its tests and one traced request, two assumptions about the README and the tests, the risk of breaking something invisible, and a rollback you have tried. Opens the whole map."></a>
+      </div>
+      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <figcaption class="ex-brief">
+        <span class="ex-brief-label">From the brief it produces</span>
+        <pre class="ex-brief-text"><code><!-- brief:inherit-a-codebase -->### Constraints and boundaries
+- Read before writing
+## Planning Gaps Detected
+• Goal: "Be able to make a safe change": no requirement: goal has no linked requirement, metric or implementation, so nothing sits under it<!-- /brief --></code></pre>
+      </figcaption>
+    </figure>
+    <div class="ex-actions">
+      <button class="btn btn-primary" type="button" data-example="Inherit a Codebase">Open as a new map</button>
+      <span class="ex-meta">13 blocks, Investigate mode</span>
+    </div>
+  </section>
 
-  <h2>Inherit a codebase</h2>
-  <p>
-    Somebody left, the repo is yours now, and the first wrong move is trusting
-    what the README says. This map works from "unknown repo" to a first safe
-    change: what is believed, what is actually verified, and the questions whose
-    guessed answers cost the most.
-  </p>
-  <div class="doc-cta">
-    <button class="btn btn-primary" data-example="Inherit a Codebase">Load: Inherit a Codebase</button>
-    <span class="doc-cta-note">13 blocks · Investigate mode</span>
-  </div>
+  <section class="ex" aria-labelledby="ex-migrate">
+    <h2 id="ex-migrate">Migrate a system</h2>
+    <p>
+      Old to new with a way back at every step. The part most migrations skip is
+      the reconciliation loop: old against new, per entity, every day, with a
+      threshold that blocks the next phase. This map carries it, plus the risks
+      that live at the cutover and an end that only fires when the old system is
+      off, not merely unused.
+    </p>
+    <figure class="ex-figure">
+      <div class="ex-pic-frame">
+        <a class="ex-pic-link ex-pic-dark" href="examples/migrate-a-system.svg"><img class="ex-pic" data-pic="migrate-a-system" src="examples/migrate-a-system.svg" width="1533" height="511" loading="lazy" alt="The Migrate a system map: requirements for no data loss and reversibility, the shadow-write, read and write phases in order, the reconciliation report that gates them, the cutover risks, and the old system switched off. Opens the whole map."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/migrate-a-system-light.svg"><img class="ex-pic" data-pic="migrate-a-system" src="examples/migrate-a-system-light.svg" width="1533" height="511" loading="lazy" alt="The Migrate a system map: requirements for no data loss and reversibility, the shadow-write, read and write phases in order, the reconciliation report that gates them, the cutover risks, and the old system switched off. Opens the whole map."></a>
+      </div>
+      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <figcaption class="ex-brief">
+        <span class="ex-brief-label">From the brief it produces</span>
+        <pre class="ex-brief-text"><code><!-- brief:migrate-a-system -->### Constraints and boundaries
+- No big-bang cutover
+## Planning Gaps Detected
+• Requirement: "No data loss": no acceptance criteria: "done" is undefined for this requirement<!-- /brief --></code></pre>
+      </figcaption>
+    </figure>
+    <div class="ex-actions">
+      <button class="btn btn-primary" type="button" data-example="Migrate a System">Open as a new map</button>
+      <span class="ex-meta">15 blocks, Plan mode</span>
+    </div>
+  </section>
 
-  <h2>Migrate a system</h2>
-  <p>
-    Old to new with a way back at every step. The shape most migrations skip is
-    the reconciliation loop: old versus new, per entity, every day, with a
-    threshold that blocks the next phase. This map carries it, plus the risks
-    that live at the cutover and the terminator that only fires when the old
-    system is off, not merely unused.
-  </p>
-  <div class="doc-cta">
-    <button class="btn btn-primary" data-example="Migrate a System">Load: Migrate a System</button>
-    <span class="doc-cta-note">15 blocks · Plan mode</span>
-  </div>
-
-  <h2>A recurring reporting flow</h2>
-  <p>
-    Reports that go out every sprint and every quarter, mapped the way the six
-    steps read: the goal they serve, who reads each one, the lead time that says
-    whether it works, and the difference between the work done once (building
-    the scheduler, an Implementation) and the run that repeats (a Process, started
-    by a Trigger). One weekly report reaches nobody on the map, and the gap check
-    says so: that is the question worth asking before automating it.
-  </p>
-  <div class="doc-cta">
-    <button class="btn btn-primary" data-example="Recurring Reporting Flow">Load: Recurring Reporting Flow</button>
-    <span class="doc-cta-note">16 blocks · Plan mode</span>
-  </div>
+  <section class="ex" aria-labelledby="ex-report">
+    <h2 id="ex-report">Plan a recurring report</h2>
+    <p>
+      Reports that go out every sprint and every quarter, mapped the way the six
+      steps read: the goal they serve, who reads each one, the lead time that says
+      whether it works, and the difference between the work done once (building the
+      scheduler, an Implementation) and the run that repeats (a Process, started by
+      a Trigger). One weekly report reaches nobody on the map, and the gap check says
+      so: that is the question worth asking before automating it.
+    </p>
+    <figure class="ex-figure">
+      <div class="ex-pic-frame">
+        <a class="ex-pic-link ex-pic-dark" href="examples/recurring-reporting-flow.svg"><img class="ex-pic" data-pic="recurring-reporting-flow" src="examples/recurring-reporting-flow.svg" width="1453" height="699" loading="lazy" alt="The Recurring reporting flow map: executives and delivery leads, the goal and the report lead time metric, the scheduler built once, the sprint-end and quarter-end runs, and a weekly status report nobody on the map receives. Opens the whole map."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/recurring-reporting-flow-light.svg"><img class="ex-pic" data-pic="recurring-reporting-flow" src="examples/recurring-reporting-flow-light.svg" width="1453" height="699" loading="lazy" alt="The Recurring reporting flow map: executives and delivery leads, the goal and the report lead time metric, the scheduler built once, the sprint-end and quarter-end runs, and a weekly status report nobody on the map receives. Opens the whole map."></a>
+      </div>
+      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <figcaption class="ex-brief">
+        <span class="ex-brief-label">From the brief it produces</span>
+        <pre class="ex-brief-text"><code><!-- brief:recurring-reporting-flow -->### Constraints and boundaries
+- Automate only the reports someone reads
+## Planning Gaps Detected
+• Output: "Weekly status report": no consumer: output with no outgoing connection and no linked stakeholder, so nobody on the map receives it<!-- /brief --></code></pre>
+      </figcaption>
+    </figure>
+    <div class="ex-actions">
+      <button class="btn btn-primary" type="button" data-example="Recurring Reporting Flow">Open as a new map</button>
+      <span class="ex-meta">16 blocks, Plan mode</span>
+    </div>
+  </section>
 
   <h2>Make one of these yours</h2>
   <ul class="doc-list">
-    <li>Load it and it opens as a new map, so the one you were working on is untouched. <strong>Merge</strong> (add it beside yours) and <strong>Replace</strong> are the other choices in the same dialog.</li>
-    <li>Reshape it, then <strong>Templates → Save canvas as template</strong> keeps your version as a starting point.</li>
-    <li><strong>Copy prompt</strong> exports it as a brief; paste the reply into <strong>Paste a reply or a review</strong> and its <code>pathfinder-patch</code> folds the answers back in.</li>
+    <li>Each opens as a new map, so the one you were working on is untouched. <strong>Merge</strong> (add it beside yours) and <strong>Replace</strong> are the other choices in the same dialog.</li>
+    <li>Reshape it, then <strong>Templates, Save canvas as template</strong> keeps your version as a starting point.</li>
+    <li><strong>Copy prompt</strong> hands it over as a brief; paste the reply into <strong>Paste a reply or a review</strong> in the Prompt tab, and its <code>pathfinder-patch</code> folds the answers into the map.</li>
     <li>Prefer generating to clicking? <a href="llms.txt">llms.txt</a> is the format spec.</li>
   </ul>
 
   <div class="doc-cta doc-cta-end">
     <a class="btn btn-primary" href="./">Open the canvas</a>
-    <span class="doc-cta-note">Nothing is uploaded. Your canvas stays in this browser.</span>
+    <span class="doc-cta-note">Nothing is uploaded. Your maps stay in this browser.</span>
   </div>
 
 </main>

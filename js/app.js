@@ -11,7 +11,8 @@ import {
   setupCanvasTitle, setupArrowEvents, setupCanvasPointerEvents,
   setupKeyboardShortcuts, setupTabNavigation
 } from './events.js'
-import { setupPasteHandler, setupTypeChips, setupBrainDump } from './classify.js'
+import { setupPasteHandler, setupTypeChips } from './classify.js'
+import { setupStartPanel } from './start-panel.js'
 import { setupPalette } from './palette.js'
 import { setupInspectorEvents } from './inspector.js'
 import { applyPrefs } from './prefs.js'
@@ -94,7 +95,7 @@ function init() {
   setupPasteHandler()
   setupTypeChips()
   setupContextMenu()
-  setupBrainDump()
+  setupStartPanel()
   setupSearchEvents()
   buildShortcutGrid()
   setupShortcutOverlay()
