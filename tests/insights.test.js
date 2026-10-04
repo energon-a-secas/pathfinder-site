@@ -959,7 +959,7 @@ describe('Insights: QA round', () => {
 
   it('Attention refreshes on a settled save, not on every keystroke\'s pending one', () => {
     const host = document.createElement('div')
-    host.innerHTML = '<span id="attentionCount" hidden></span><select id="attentionFilter"><option value="">All items</option></select>' +
+    host.innerHTML = '<span id="attentionCount" hidden></span><button type="button" id="attentionFilter" data-value=""></button>' +
       '<p id="attentionSummary"></p><ul id="attentionList"></ul>'
     document.body.appendChild(host)
     const phase = saveStatus.phase

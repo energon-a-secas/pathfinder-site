@@ -28,6 +28,8 @@ import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint,
          positionsNow, animateTidy, fitTarget, TIDY_MS } from './zoom-controls.js'
 import { openIncoming, incomingMessage } from './sharing.js'
 import { animateView } from './zoom-controls.js'
+import { setupFilter, filterValue, setFilterValue } from './filter-menu.js'
+import { typeDot } from './type-menu.js'
 
 // ── Search ───────────────────────────────────────────────────
 let searchReturnFocus = null
@@ -85,15 +87,15 @@ function setSearchFocus(index, scroll = false) {
 }
 
 function refreshSearch() {
-  const allMaps = !ui.readOnly && !ui.embed && document.getElementById('searchScope')?.value === 'all'
+  const allMaps = !ui.readOnly && !ui.embed && filterValue(document.getElementById('searchScope')) === 'all'
   const filters = {
-    type: document.getElementById('searchType')?.value || '',
-    status: document.getElementById('searchStatus')?.value || '',
+    type: filterValue(document.getElementById('searchType')),
+    status: filterValue(document.getElementById('searchStatus')),
   }
   const results = allMaps ? searchSavedMaps($.searchInput().value, filters) : searchBlocks(state.blocks, $.searchInput().value, filters)
   $.searchResults().innerHTML = results.map(({ block: b, source, excerpt, mapId, mapName, current }, i) =>
     `<div class="search-result" id="search-result-${i}" role="option" aria-selected="false" data-id="${escHtml(b.id)}" data-map="${escHtml(mapId || '')}">
-       <span class="search-result-dot" style="background:var(--c-${b.type})" aria-hidden="true"></span>
+       <span class="search-result-dot" data-shape="${escHtml(TYPES[b.type]?.shape || 'dot')}" style="background:var(--c-${TYPES[b.type] ? b.type : 'custom'})" aria-hidden="true"></span>
        <span class="search-result-content">
          <span class="search-result-title">${escHtml(b.title || '(untitled)')}</span>
          ${allMaps ? `<span class="search-result-map">${escHtml(mapName)}${current ? ' · current map' : ''}</span>` : ''}
@@ -135,23 +137,25 @@ function chooseSearchResult(id, mapId) {
 export function setupSearchEvents() {
   const overlay = $.searchOverlay()
   const searchInput = $.searchInput()
+  // Type, status and scope are the one filter control (filter-menu.js).
   const scope = document.getElementById('searchScope')
   if (scope) {
-    scope.closest('.search-scope').hidden = ui.readOnly || ui.embed
-    scope.addEventListener('change', refreshSearch)
+    scope.hidden = ui.readOnly || ui.embed
+    setupFilter(scope, { name: 'Search in', onChange: refreshSearch, options: () => [
+      { value: 'current', label: 'This map' }, { value: 'all', label: 'All saved maps' }] })
   }
   document.getElementById('searchBtn')?.addEventListener('click', () => ui.searchOpen ? closeSearch() : openSearch())
   document.getElementById('searchClose')?.addEventListener('click', () => closeSearch())
-  for (const [id, defs] of [['searchType', TYPES], ['searchStatus', STATUS_DEFS]]) {
-    const select = document.getElementById(id)
-    if (!select) continue
-    Object.entries(defs).forEach(([value, { label }]) => select.add(new Option(label, value)))
-    select.addEventListener('change', refreshSearch)
-  }
+  setupFilter(document.getElementById('searchType'), { name: 'Type', onChange: refreshSearch, options: () => [
+    { value: '', label: 'All types' },
+    ...Object.keys(TYPES).map(t => ({ value: t, label: TYPES[t].label, dot: typeDot(t), dotShape: TYPES[t].shape }))] })
+  setupFilter(document.getElementById('searchStatus'), { name: 'Status', onChange: refreshSearch, options: () => [
+    { value: '', label: 'All statuses' },
+    ...Object.entries(STATUS_DEFS).map(([value, { label }]) => ({ value, label }))] })
   document.getElementById('searchReset')?.addEventListener('click', () => {
     searchInput.value = ''
-    document.getElementById('searchType').value = ''
-    document.getElementById('searchStatus').value = ''
+    setFilterValue(document.getElementById('searchType'), '')
+    setFilterValue(document.getElementById('searchStatus'), '')
     refreshSearch()
     searchInput.focus()
   })
@@ -1213,14 +1217,57 @@ export function setPaletteSection(sectionId, open) {
   }
 }
 
-/** Fold Templates away, but only if the user has not already opened it by hand. */
+/**
+ * Fold Templates away, but only if the user has not already opened it by
+ * hand. Content arriving in bulk (a template, a shared map, another map)
+ * also folds the palette to its rail, on the same terms (setPaletteRail).
+ */
 export function collapseTemplatesAfterUse() {
   if (ui.readOnly) return
+  autoPaletteRail(true)
   let pinned = null
   try { pinned = localStorage.getItem('pathfinder-pal-templatesSection') } catch (_) {}
   if (pinned === '1') return
   setPaletteSection('templatesSection', false)
   try { localStorage.removeItem('pathfinder-pal-templatesSection') } catch (_) {}
+}
+
+// ── The palette rail ──
+// Once a map has content the palette has done most of its job, and the map
+// is the interface: with no choice of the person's own, a map with blocks
+// shows the palette as its 48px rail (a dot per type, each still a button,
+// draggable, named on hover and focus), and an empty map shows it whole.
+// The collapse button records a choice ('1' rail, '0' open) that always
+// wins. Only on wide windows: narrower ones get the rail (1024px and under)
+// or the strip (phones) from the stylesheet already.
+const PALETTE_KEY = 'pathfinder-palette-collapsed'
+function paletteChoice() { try { return localStorage.getItem(PALETTE_KEY) } catch (_) { return null } }
+function reflectPalette() {
+  const palette = document.getElementById('palette'), btn = document.getElementById('paletteCollapseBtn')
+  if (!palette || !btn) return
+  const on = palette.classList.contains('collapsed')
+  btn.title = on ? 'Show palette' : 'Hide palette'
+  btn.setAttribute('aria-label', btn.title)
+  btn.setAttribute('aria-expanded', on ? 'false' : 'true')
+}
+/** Show the palette as its rail or whole; `remember` records it as the person's choice. */
+export function setPaletteRail(on, { remember = false } = {}) {
+  const palette = document.getElementById('palette'); if (!palette) return
+  palette.classList.toggle('collapsed', !!on)
+  if (remember) { try { localStorage.setItem(PALETTE_KEY, on ? '1' : '0') } catch (_) {} }
+  reflectPalette()
+}
+/**
+ * With no choice recorded: the rail once the map has content and the window
+ * is wide, the whole palette when the map is empty. `arrived` is content
+ * landing in bulk; a block added one at a time from the palette leaves it
+ * where it is, so the list never folds away under the pointer.
+ */
+function autoPaletteRail(arrived = false) {
+  if (ui.readOnly || paletteChoice() !== null) return
+  const has = Object.keys(state.blocks).length > 0
+  if (!has) setPaletteRail(false)
+  else if (arrived && window.matchMedia('(min-width: 1025px)').matches) setPaletteRail(true)
 }
 
 export function setupPaletteSections() {
@@ -1250,23 +1297,18 @@ export function setupPaletteSections() {
     }
   })
 
-  // Palette collapse button, now in the palette header
+  // Palette collapse button, in the palette header. A press is the person's
+  // own choice and is kept; until there is one, the map's content decides
+  // (the rail section above).
   const collapseBtn = document.getElementById('paletteCollapseBtn')
   const palette = document.getElementById('palette')
   if (collapseBtn && palette) {
-    const reflect = () => {
-      const on = palette.classList.contains('collapsed')
-      collapseBtn.title = on ? 'Show palette' : 'Hide palette'
-      collapseBtn.setAttribute('aria-label', collapseBtn.title)
-      collapseBtn.setAttribute('aria-expanded', on ? 'false' : 'true')
-    }
-    try { if (localStorage.getItem('pathfinder-palette-collapsed') === '1') palette.classList.add('collapsed') } catch (_) {}
-    reflect()
-    collapseBtn.addEventListener('click', () => {
-      palette.classList.toggle('collapsed')
-      try { localStorage.setItem('pathfinder-palette-collapsed', palette.classList.contains('collapsed') ? '1' : '0') } catch (_) {}
-      reflect()
-    })
+    const choice = paletteChoice()
+    if (choice !== null) setPaletteRail(choice === '1')
+    else autoPaletteRail(true)
+    collapseBtn.addEventListener('click', () => setPaletteRail(!palette.classList.contains('collapsed'), { remember: true }))
+    // An emptied map (Clear, a new map) brings the whole palette back.
+    window.addEventListener('pf:canvas-changed', () => autoPaletteRail(false))
   }
 }
 

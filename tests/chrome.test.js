@@ -73,6 +73,8 @@ function block(id, extra = {}) {
 
 const labels = items => items.filter(i => i && !i.type).map(i => i.label)
 const find = (items, label) => items.find(i => i && i.label === label)
+// View, Facilitation: the Session timer and dot voting.
+const facilitation = items => { const f = find(items, 'Facilitation'); return f ? f.submenu() : [] }
 
 // The real header, parsed from the page itself rather than restated here.
 let pageDoc = null
@@ -87,14 +89,20 @@ async function page() {
 // ── Header markup ────────────────────────────────────────────
 
 describe('chrome -- header markup', () => {
-  it('holds Maps, File, Share, Tidy, View, Help and GitHub, in that order', async () => {
+  it('holds File, Share, Tidy, View, Help and GitHub, in that order, with Maps in the map breadcrumb', async () => {
     const doc = await page()
     const actions = doc.querySelector('.header-bar .header-actions')
     const order = [...actions.children]
       .filter(el => el.matches('div, button, a'))
       .map(el => el.id || (el.classList.contains('header-github') ? 'github' : el.className))
-    assert.deepEq(order, ['mapsWrapper', 'exportWrapper', 'shareWrapper', 'tidyGroup', 'viewBtn', 'helpBtn', 'github'])
+    assert.deepEq(order, ['exportWrapper', 'shareWrapper', 'tidyGroup', 'viewBtn', 'helpBtn', 'github'])
     assert.match(doc.getElementById('exportBtn').textContent, /^File\b/)
+    // The open map's name is a breadcrumb beside the mark: Maps / title.
+    const crumb = doc.querySelector('.header-logo .map-crumb')
+    assert.ok(crumb, 'the breadcrumb sits with the product mark')
+    assert.deepEq([...crumb.children].filter(el => !el.matches('input')).map(el => el.id || el.className),
+      ['mapsWrapper', 'map-crumb-sep', 'canvasTitle'])
+    assert.ok(!doc.querySelector('.header-title-link #canvasTitle'), 'the title is no longer inside the home link')
   })
 
   it('drops the standalone controls that moved into the menus', async () => {
@@ -124,7 +132,7 @@ describe('chrome -- header markup', () => {
 
   it('every control is a real button or link with a name, and a text label in the overflow panel', async () => {
     const doc = await page()
-    const controls = [...doc.querySelectorAll('.header-actions button, .header-actions a')]
+    const controls = [...doc.querySelectorAll('.header-actions button, .header-actions a, .map-crumb button')]
       .filter(el => !el.closest('.file-actions, .hdr-menu-source') && !el.closest('.export-dropdown'))
     assert.gte(controls.length, 8)
     controls.forEach(el => {
@@ -349,8 +357,9 @@ describe('chrome -- View menu', () => {
     assert.match(heads[1], /this map/i)
     ;['Dark theme', 'Light theme', 'Snap to grid', 'Pin connections to the port you drag from',
       'Always show connection notes', 'Animate highlights', 'High contrast',
-      'Hide header and footer', 'Zen: hide panels', 'Dot voting', 'Card style',
+      'Hide header and footer', 'Zen: hide panels', 'Facilitation', 'Card style',
       'Spotlight: fade unhighlighted'].forEach(l => assert.ok(find(items, l), `View has "${l}"`))
+    ;['Session timer', 'Dot voting'].forEach(l => assert.ok(find(facilitation(items), l), `Facilitation has "${l}"`))
     assert.ok(!items.some(i => /tint/i.test(i.label || '')), 'no separate tint toggle')
   })
 
@@ -424,11 +433,11 @@ describe('chrome -- View menu', () => {
   it('Dot voting turns the session-only mode on and off', () => {
     reset()
     try {
-      assert.eq(find(viewMenuItems(), 'Dot voting').checked, false)
-      find(viewMenuItems(), 'Dot voting').action()
+      assert.eq(find(facilitation(viewMenuItems()), 'Dot voting').checked, false)
+      find(facilitation(viewMenuItems()), 'Dot voting').action()
       assert.ok(isVotingMode())
-      assert.eq(find(viewMenuItems(), 'Dot voting').checked, true)
-      find(viewMenuItems(), 'Dot voting').action()
+      assert.eq(find(facilitation(viewMenuItems()), 'Dot voting').checked, true)
+      find(facilitation(viewMenuItems()), 'Dot voting').action()
       assert.ok(!isVotingMode())
     } finally { setVotingMode(false) }
   })
@@ -441,6 +450,8 @@ describe('chrome -- View menu', () => {
       ;['Snap to grid', 'Pin connections to the port you drag from', 'Card style',
         'Spotlight: fade unhighlighted', 'Dot voting'].forEach(l =>
         assert.ok(!find(items, l), `no "${l}" on a view-only link`))
+      assert.ok(!find(facilitation(items), 'Dot voting'), 'no dot voting on a view-only link')
+      assert.ok(find(facilitation(items), 'Session timer'), 'a presenter can still time the session')
       assert.eq(items.filter(i => i.type === 'heading').length, 1)
       ;['Dark theme', 'Animate highlights', 'High contrast', 'Hide header and footer'].forEach(l =>
         assert.ok(find(items, l), `view-only keeps "${l}"`))
@@ -794,13 +805,15 @@ describe('chrome -- header layout', () => {
     }
   })
 
-  it('GitHub stays in the bar above the kit breakpoint, and the bar still fits', async () => {
-    for (const width of [701, 720, 768, 800]) {
+  it('GitHub is in the bar from 1101px and in Help below it, and the bar still fits', async () => {
+    // Under 1100px the bar's room goes to the open map's name (consistency):
+    // view-menu.js helpMenuItems lists GitHub whenever the icon is hidden.
+    for (const [width, shown] of [[701, false], [720, false], [768, false], [800, false], [1100, false], [1101, true], [1280, true]]) {
       const frame = await headerFrame(width)
       try {
         const doc = frame.contentDocument, win = frame.contentWindow
         const gh = doc.querySelector('.header-github')
-        assert.neq(win.getComputedStyle(gh).display, 'none', `GitHub shown at ${width}px`)
+        assert.eq(win.getComputedStyle(gh).display !== 'none', shown, `GitHub ${shown ? 'shown' : 'in Help'} at ${width}px`)
         const right = Math.max(...[...doc.querySelectorAll('.header-actions > *, .header-home')]
           .filter(el => win.getComputedStyle(el).display !== 'none')
           .map(el => el.getBoundingClientRect().right))

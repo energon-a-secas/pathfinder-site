@@ -61,26 +61,31 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <!-- ── Header ──────────────────────────────────────────────── -->
-<header class="header-bar" data-header-mode="app" data-header-skin="custom">
+<header class="header-bar" data-header-mode="app" data-header-skin="custom" data-pf-bar="app">
   <div class="header-logo">
     <a href="./" class="header-title-link" aria-label="Pathfinder">
         <img src="energon-classic-logo.png" class="header-logo-img" alt="">
         <div class="header-title-wrap">
       <h1>Pathfinder</h1>
-      <div class="header-subtitle" id="canvasTitle" tabindex="0">Strategy canvas</div>
-    
         </div>
       </a>
+    <!-- The open map, as a breadcrumb: Maps ▾ / its title. The title renames
+         on click, Enter or F2 (events.js setupCanvasTitle); untitled, it reads
+         "Untitled map" in the muted ink. View-only links drop Maps and keep
+         the title as plain text. -->
+    <div class="map-crumb" role="group" aria-label="Open map">
+      <div class="export-wrapper" id="mapsWrapper">
+        <button type="button" class="header-btn map-crumb-maps" id="mapsBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Your maps"><svg class="map-crumb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.25l5.75 3L8 8.25l-5.75-3z"/><path d="M2.25 8.25L8 11.25l5.75-3"/><path d="M2.25 11L8 14l5.75-3"/></svg><span class="map-crumb-word">Maps</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
+      </div>
+      <input type="file" id="importMapsFile" accept=".json" style="display:none">
+      <span class="map-crumb-sep" aria-hidden="true">/</span>
+      <div class="map-crumb-title is-untitled" id="canvasTitle" tabindex="0" data-placeholder="Untitled map">Untitled map</div>
+    </div>
   </div>
 
   <div class="header-right">
     <div class="readonly-badge" id="readonlyBadge" style="display:none">View only</div>
     <div class="header-actions">
-      <!-- Canvas library -->
-      <div class="export-wrapper" id="mapsWrapper">
-        <button class="header-btn" id="mapsBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Your maps">Maps<span class="hdr-caret" aria-hidden="true">▾</span></button>
-      </div>
-      <input type="file" id="importMapsFile" accept=".json" style="display:none">
 
       <!-- File: import first, every export, then clearing the map. These rows
            are the menu's source, not its display: js/view-menu.js renders them
@@ -88,21 +93,21 @@
            its listeners. data-file-group splits the menu with dividers, and
            data-readonly="ok" keeps a row on view-only links. -->
       <div class="export-wrapper" id="exportWrapper">
-        <button class="header-btn" id="exportBtn" aria-haspopup="menu" aria-expanded="false" title="Import, export and download">File<span class="hdr-caret" aria-hidden="true">▾</span></button>
+        <button class="header-btn" id="exportBtn" aria-haspopup="menu" aria-expanded="false" title="Import, export and download"><span>File</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
         <div class="file-actions" id="fileActions" hidden>
-          <button type="button" id="importJSON" data-file-group="import"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg> Import JSON / Canvas / Mermaid…</button>
-          <button type="button" id="exportCopyPrompt" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Copy Prompt</button>
-          <button type="button" id="copyDiagramInstructions" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 14H6v-2h2v2zm0-3H6V9h2v2zm0-3H6V6h2v2zm7 6h-5v-2h5v2zm3-3h-8V9h8v2zm0-3h-8V6h8v2z"/></svg> Copy AI diagram-builder prompt</button>
-          <button type="button" id="exportJSON" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg> Download JSON</button>
-          <button type="button" id="exportMarkdown" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12C21.35 6 22 6.63 22 7.41v9.18c0 .78-.65 1.41-1.44 1.41zM6.81 15.19v-3.33l1.56 1.88 1.56-1.88v3.33h1.61V8.81H9.94L8.38 10.7 6.81 8.81H5.2v6.38h1.61zm7.26-3.81h-1.61V8.81h-1.61v2.57H9.24l2.9 3.64 2.9-3.64z"/></svg> Download Markdown</button>
-          <button type="button" id="exportMermaid" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h5v5H5zM14 3h5v5h-5zM9.5 16h5v5h-5zM7 8h2v3.5h6V8h2v5.5h-4V16h-2v-2.5H7z"/></svg> Copy Mermaid</button>
-          <button type="button" id="exportJsonCanvas" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg> Download JSON Canvas</button>
-          <button type="button" id="exportSpecBundle" data-file-group="data"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg> Download Spec bundle (zip)</button>
-          <button type="button" id="exportPNG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg> Download Image (PNG 2×)</button>
-          <button type="button" id="exportSVG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 5.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S11.83 10 11 10s-1.5-.67-1.5-1.5zM17 17H7l2.5-3.2 1.79 2.15 2.5-3.22L17 17z"/></svg> Download Vector (SVG)</button>
-          <button type="button" id="exportMeetingSummary" data-file-group="handoff"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg> Export Meeting Summary</button>
-          <button type="button" id="exportToPresentationSage" data-file-group="handoff"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg> Open in Presentation Sage</button>
-          <button type="button" id="clearBtn" data-file-group="danger"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Clear this map…</button>
+          <button type="button" id="importJSON" data-file-group="import"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.25V2.75"/><path d="M5.25 5.5L8 2.75l2.75 2.75"/><path d="M2.75 9.75v2.5c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1v-2.5"/></svg> Import JSON / Canvas / Mermaid…</button>
+          <button type="button" id="exportCopyPrompt" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg> Copy prompt</button>
+          <button type="button" id="copyDiagramInstructions" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 2.75h8.5c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1H7.5l-3 2.5v-2.5h-.75c-.55 0-1-.45-1-1v-5.5c0-.55.45-1 1-1z"/><path d="M5.75 5.5h4.5M5.75 7.5h2.5"/></svg> Copy AI diagram-builder prompt</button>
+          <button type="button" id="exportJSON" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.75h-.5C4.67 2.75 4 3.42 4 4.25v2C4 7.22 3.5 8 2.75 8 3.5 8 4 8.78 4 9.75v2c0 .83.67 1.5 1.5 1.5H6"/><path d="M10 2.75h.5c.83 0 1.5.67 1.5 1.5v2c0 .97.5 1.75 1.25 1.75-.75 0-1.25.78-1.25 1.75v2c0 .83-.67 1.5-1.5 1.5H10"/></svg> Download JSON</button>
+          <button type="button" id="exportMarkdown" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="3.75" width="12.5" height="8.5" rx="1.5"/><path d="M4.25 10V6l1.75 2 1.75-2v4"/><path d="M11 6v4M9.5 8.5L11 10l1.5-1.5"/></svg> Download Markdown</button>
+          <button type="button" id="exportMermaid" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4" height="3.5" rx=".75"/><rect x="9.75" y="2.25" width="4" height="3.5" rx=".75"/><rect x="6" y="10.25" width="4" height="3.5" rx=".75"/><path d="M4.25 5.75v1.5c0 .55.45 1 1 1h5.5c.55 0 1-.45 1-1v-1.5M8 8.25v2"/></svg> Copy Mermaid</button>
+          <button type="button" id="exportJsonCanvas" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="9" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="2.25" y="9" width="4.75" height="4.75" rx="1"/><rect x="9" y="9" width="4.75" height="4.75" rx="1"/></svg> Download JSON Canvas</button>
+          <button type="button" id="exportSpecBundle" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="3" rx=".75"/><path d="M3.25 5.75v6.5c0 .55.45 1 1 1h7.5c.55 0 1-.45 1-1v-6.5"/><path d="M6.5 8.25h3"/></svg> Download spec bundle (zip)</button>
+          <button type="button" id="exportPNG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><circle cx="5.75" cy="6.25" r="1.25"/><path d="M13.75 10.5L10.5 7.25 4 13.25"/></svg> Download image (PNG 2×)</button>
+          <button type="button" id="exportSVG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.25 12.25C5.5 6 10.5 10 12.75 3.75"/><rect x="1.75" y="11.5" width="2.75" height="2.75" rx=".5"/><rect x="11.5" y="1.75" width="2.75" height="2.75" rx=".5"/></svg> Download vector (SVG)</button>
+          <button type="button" id="exportMeetingSummary" data-file-group="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.25 2.25h-4.5c-.55 0-1 .45-1 1v9.5c0 .55.45 1 1 1h6.5c.55 0 1-.45 1-1V5.25z"/><path d="M9.25 2.25v3h3"/><path d="M6 8.25h4M6 10.75h4"/></svg> Export meeting summary</button>
+          <button type="button" id="exportToPresentationSage" data-file-group="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.75" width="12" height="8" rx="1"/><path d="M8 10.75v2.5M5.5 13.25h5"/></svg> Open in Presentation Sage</button>
+          <button type="button" id="clearBtn" data-file-group="danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.75 4.25h10.5"/><path d="M6.25 4.25v-1.5h3.5v1.5"/><path d="M4 4.25l.6 8.1c.04.52.47.9.99.9h4.82c.52 0 .95-.38.99-.9l.6-8.1"/></svg> Clear this map…</button>
         </div>
       </div>
       <input type="file" id="importFile" accept=".json,.canvas,.mmd,.md,.txt" style="display:none">
@@ -111,23 +116,23 @@
            Like File, its rows are the menu's source (js/view-menu.js renders
            them through menu.js), so each keeps its id and its listener. -->
       <div class="export-wrapper" id="shareWrapper" data-keep-mobile>
-        <button class="header-btn" id="shareBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Share canvas">Share</button>
+        <button class="header-btn" id="shareBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Share canvas"><span>Share</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
         <div class="hdr-menu-source" id="shareActions" hidden>
-          <button type="button" id="shareCopyLink" data-menu-group="share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg> Copy link</button>
-          <button type="button" id="shareCopyReadOnly" data-menu-group="share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg> Copy view-only link</button>
-          <button type="button" id="shareCopyEmbed" data-menu-group="share"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg> Copy embed code</button>
+          <button type="button" id="shareCopyLink" data-menu-group="share"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.75 9.25a2.5 2.5 0 0 0 3.54 0l2.12-2.12a2.5 2.5 0 0 0-3.54-3.54l-.7.7"/><path d="M9.25 6.75a2.5 2.5 0 0 0-3.54 0L3.59 8.87a2.5 2.5 0 0 0 3.54 3.54l.7-.7"/></svg> Copy link</button>
+          <button type="button" id="shareCopyReadOnly" data-menu-group="share"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.75 8S4 3.75 8 3.75 14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z"/><circle cx="8" cy="8" r="2"/></svg> Copy view-only link</button>
+          <button type="button" id="shareCopyEmbed" data-menu-group="share"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5"/></svg> Copy embed code</button>
         </div>
       </div>
 
       <!-- Tidy: the main part arranges the map, the caret picks the direction. -->
       <div class="header-btn-group header-split" id="tidyGroup" role="group" aria-label="Tidy">
         <button class="header-btn" id="tidyBtn" title="Arrange blocks into layers and re-point every connection along the flow (L)">Tidy</button>
-        <button class="header-btn header-split-caret" id="tidyMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Tidy direction" title="Tidy direction"><span class="hdr-when-menu">Tidy direction</span><span aria-hidden="true">▾</span></button>
+        <button class="header-btn header-split-caret" id="tidyMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Tidy direction" title="Tidy direction"><span class="hdr-when-menu">Tidy direction</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
       </div>
 
-      <button class="header-btn" id="viewBtn" aria-haspopup="menu" aria-expanded="false" title="Theme, snapping, motion and card style">View<span class="hdr-caret" aria-hidden="true">▾</span></button>
+      <button class="header-btn" id="viewBtn" aria-haspopup="menu" aria-expanded="false" title="Theme, snapping, motion and card style"><span>View</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
 
-      <button class="header-btn" id="helpBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Help" title="Shortcuts, walkthrough and examples"><span class="hdr-when-bar" aria-hidden="true">?</span><span class="hdr-when-menu">Help</span><span class="hdr-caret" aria-hidden="true">▾</span></button>
+      <button class="header-btn" id="helpBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Help" title="Shortcuts, walkthrough and examples"><span class="hdr-when-bar" aria-hidden="true">?</span><span class="hdr-when-menu">Help</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
 
       <a class="header-btn header-btn-icon header-github" href="https://github.com/energon-a-secas/pathfinder-site" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">
       <svg viewBox="0 0 98 96" fill="currentColor" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>
@@ -160,7 +165,7 @@
     <div class="palette-head">
       <span class="palette-head-title">Palette</span>
       <button class="palette-collapse-btn" id="paletteCollapseBtn" title="Hide palette" aria-label="Hide palette" aria-controls="templatesSection blocksSection" aria-expanded="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5 6h2v12H5" fill="currentColor" stroke="none" opacity=".35"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><path d="M6 2.75v10.5"/></svg>
       </button>
     </div>
 
@@ -168,7 +173,7 @@
     <div class="palette-section" id="templatesSection">
       <button class="palette-section-toggle" id="templatesToggle" type="button" data-rail="Tpl" aria-label="Templates" title="Templates" aria-expanded="true" aria-controls="templatesList">
         <span>Templates</span>
-        <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+        <svg class="section-indicator" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/><path class="section-plus" d="M8 4v8"/></svg>
       </button>
       <div class="palette-section-body" id="templatesList"></div>
     </div>
@@ -177,7 +182,7 @@
     <div class="palette-section" id="blocksSection">
       <button class="palette-section-toggle" id="blocksToggle" type="button" data-rail="Types" aria-label="Blocks" title="Blocks" aria-expanded="true" aria-controls="blocksList">
         <span>Blocks</span>
-        <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+        <svg class="section-indicator" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/><path class="section-plus" d="M8 4v8"/></svg>
       </button>
       <div class="palette-section-body" id="blocksList">
         <!-- Rendered by palette.js from the type registry (TYPES and TYPE_STEPS
@@ -280,24 +285,24 @@
 
     <!-- Search remains reachable on touch screens and in view-only links. -->
     <button class="canvas-search-toggle" id="searchBtn" data-canvas-ui aria-controls="searchOverlay" aria-expanded="false" title="Find blocks (Ctrl or Cmd + F)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.25"/><path d="M10.25 10.25l3.25 3.25"/></svg>
       Find blocks
     </button>
     <section class="search-overlay" id="searchOverlay" data-canvas-ui role="search" aria-label="Find blocks" style="display:none">
       <div class="search-heading">
         <input class="search-input" id="searchInput" type="text" role="combobox"
                aria-label="Search block content" aria-autocomplete="list" aria-controls="searchResults" aria-expanded="false"
-               placeholder="Search titles, notes, questions…" autocomplete="off" spellcheck="false">
+               placeholder="Search titles, notes and questions" autocomplete="off" spellcheck="false">
         <button class="search-close" id="searchClose" aria-label="Close search" title="Close search (Esc)">×</button>
       </div>
+      <!-- Type, status and where to search: chips that open menu.js lists
+           (filter-menu.js), the one picker the rest of the app uses. -->
       <div class="search-filters">
-        <select id="searchType" aria-label="Filter by block type"><option value="">All types</option></select>
-        <select id="searchStatus" aria-label="Filter by status"><option value="">All statuses</option></select>
-        <button id="searchReset" type="button">Reset</button>
+        <button type="button" class="insp-chip filter-chip" id="searchType" data-value="" aria-label="Type: All types"><span class="insp-chip-text">All types</span></button>
+        <button type="button" class="insp-chip filter-chip" id="searchStatus" data-value="" aria-label="Status: All statuses"><span class="insp-chip-text">All statuses</span></button>
+        <button type="button" class="insp-chip filter-chip" id="searchScope" data-value="current" aria-label="Search in: This map"><span class="insp-chip-text">This map</span></button>
+        <button id="searchReset" type="button" class="btn btn-ghost btn-sm">Reset</button>
       </div>
-      <label class="search-scope" for="searchScope">Search in
-        <select id="searchScope"><option value="current">This map</option><option value="all">All saved maps</option></select>
-      </label>
       <p class="search-summary" id="searchSummary" role="status" aria-live="polite"></p>
       <div class="search-results" id="searchResults" role="listbox" aria-label="Matching blocks"></div>
       <p class="search-empty" id="searchEmpty" hidden></p>
@@ -384,11 +389,11 @@
         <span class="sheet-title is-empty" id="sheetTitle">Nothing selected</span>
         <span class="sheet-timer" id="sheetTimer" aria-hidden="true" hidden></span>
         <span class="sr-only" id="sheetAction">. Expand details</span>
-        <svg class="sheet-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+        <svg class="sheet-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 9.5L8 6l3.5 3.5"/></svg>
       </span>
     </button>
     <button class="panel-reopen" id="panelReopenBtn" title="Show details panel" aria-label="Show details panel" aria-controls="panelContent" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><path d="M10 2.75v10.5"/></svg>
     </button>
     <div class="panel-tabs">
       <!-- The tablist holds the tabs only; the collapse button beside it is
@@ -399,7 +404,7 @@
         <button class="panel-tab" data-tab="attention" title="Needs attention">Attention<span class="tab-count" id="attentionCount" hidden></span></button>
       </div>
       <button class="panel-collapse-btn" id="panelCollapseBtn" title="Hide details panel" aria-label="Hide details panel" aria-controls="panelContent" aria-expanded="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 6h2v12h-2" fill="currentColor" stroke="none" opacity=".35"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><path d="M10 2.75v10.5"/></svg>
       </button>
     </div>
     <div class="comparison-header" id="comparisonHeader" hidden>
@@ -422,8 +427,8 @@
 
       <div class="tab-pane" id="attentionPane">
         <h2 class="attention-heading">Needs attention</h2>
-        <label class="sr-only" for="attentionFilter">Filter attention items</label>
-        <select class="insp-input" id="attentionFilter"><option value="">All items</option></select>
+        <!-- The category filter: a chip that opens a menu.js list (filter-menu.js). -->
+        <button type="button" class="insp-chip filter-chip" id="attentionFilter" data-value="" aria-haspopup="menu" aria-expanded="false" aria-label="Show: All items"><span class="insp-chip-text">All items</span><svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
         <p class="attention-summary" id="attentionSummary" role="status"></p>
         <ul class="attention-list" id="attentionList"></ul>
       </div>
@@ -445,37 +450,37 @@
             <button type="button" class="insp-chip insp-type-btn" id="inspTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Type">
               <span class="insp-dot" id="inspTypeDot" aria-hidden="true"></span>
               <span class="insp-chip-text" id="inspTypeLabel">Type</span>
-              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
             <span class="insp-status-wrap" id="statusPicker">
               <button type="button" class="insp-chip insp-status-btn" id="inspStatusBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Status">
                 <span class="insp-status-glyph" id="inspStatusGlyph" aria-hidden="true"></span>
                 <span class="insp-chip-text" id="inspStatusLabel">Status</span>
-                <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
               </button>
             </span>
             <button type="button" class="insp-icon-btn" id="inspMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="More block actions" title="More actions">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="3.5" cy="8" r=".75"/><circle cx="8" cy="8" r=".75"/><circle cx="12.5" cy="8" r=".75"/></svg>
             </button>
           </div>
 
           <div class="insp-section">
             <label class="insp-label" for="inspTitle">Title</label>
-            <input class="insp-input" id="inspTitle" type="text" placeholder="Block title…" autocomplete="off">
+            <input class="insp-input" id="inspTitle" type="text" placeholder="Name this block" autocomplete="off">
           </div>
           <div class="insp-section">
             <label class="insp-label" for="inspDesc">Description</label>
-            <textarea class="insp-textarea insp-autogrow" id="inspDesc" placeholder="Describe this block…" rows="2"></textarea>
+            <textarea class="insp-textarea insp-autogrow" id="inspDesc" placeholder="Add the detail someone needs to act on this" rows="2"></textarea>
           </div>
 
           <!-- Fields the block's type reads. Shown only when they apply. -->
           <div class="insp-section" id="criteriaSection" style="display:none">
             <label class="insp-label" for="inspCriteria"><span id="criteriaLabelText">Acceptance criteria</span> <span class="insp-label-hint" id="criteriaHint">one per line</span></label>
-            <textarea class="insp-textarea insp-autogrow" id="inspCriteria" placeholder="Returns within 200ms&#10;Works with an empty cart" rows="2"></textarea>
+            <textarea class="insp-textarea insp-autogrow" id="inspCriteria" placeholder="e.g. Responds within 200ms at peak load&#10;Works for signed-out visitors" rows="2"></textarea>
           </div>
           <div class="insp-section" id="rationaleSection" style="display:none">
             <label class="insp-label" for="inspRationale">Rationale <span class="insp-label-hint">why this choice; what was rejected</span></label>
-            <textarea class="insp-textarea insp-autogrow" id="inspRationale" placeholder="Chosen because… Rejected: X (too slow), Y (no budget)" rows="2"></textarea>
+            <textarea class="insp-textarea insp-autogrow" id="inspRationale" placeholder="e.g. Cheapest to undo. Rejected: a rewrite (too slow)" rows="2"></textarea>
           </div>
           <div class="insp-section" id="typeActionsSection" hidden>
             <div class="insp-toggle-row" id="typeActions" role="group" aria-label="Actions for this block"></div>
@@ -502,7 +507,7 @@
             <summary class="insp-summary">Notes <span class="insp-summary-hint" id="notesHint"></span></summary>
             <div class="insp-disclosure-body">
               <label class="sr-only" for="inspNotes">Notes</label>
-              <textarea class="insp-textarea insp-autogrow" id="inspNotes" placeholder="Freeform notes…" rows="3"></textarea>
+              <textarea class="insp-textarea insp-autogrow" id="inspNotes" placeholder="Anything worth keeping that is not the description" rows="3"></textarea>
             </div>
           </details>
           <details class="insp-disclosure" data-disclosure="docs" id="docsDetails">
@@ -510,7 +515,7 @@
             <div class="insp-disclosure-body" id="docRefSection">
               <button class="insp-link-btn" id="promoteSeeRef" type="button" hidden title="Turn the 'See:' line in the description into a real documentation reference"></button>
               <label class="insp-sublabel" for="docRefHref">Link</label>
-              <input class="insp-input" id="docRefHref" type="url" placeholder="https://docs.example.com/page  (or /path)">
+              <input class="insp-input" id="docRefHref" type="url" placeholder="https:// or /path">
               <label class="insp-sublabel" for="docRefLabel">Label <span class="insp-label-hint">optional</span></label>
               <input class="insp-input" id="docRefLabel" type="text" placeholder="What the link is" maxlength="80">
               <label class="insp-sublabel" for="docRefAnchor">Anchor <span class="insp-label-hint">optional, e.g. section-name</span></label>
@@ -526,14 +531,14 @@
                 <button type="button" class="insp-chip" id="inspPriorityBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Priority">
                   <span class="insp-dot" id="inspPriorityDot" aria-hidden="true"></span>
                   <span class="insp-chip-text" id="inspPriorityText">None</span>
-                  <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                  <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
                 </button>
               </div>
               <div class="insp-toggle-row" role="group" aria-label="Planning intent">
-                <button type="button" class="action-toggle" data-action="recollect" aria-pressed="false" title="Review past decisions or context relevant here"><span class="action-tick" aria-hidden="true"></span>Recollect</button>
-                <button type="button" class="action-toggle" data-action="reinforce" aria-pressed="false" title="Strengthen or validate the current approach"><span class="action-tick" aria-hidden="true"></span>Reinforce</button>
+                <button type="button" class="action-toggle" data-action="recollect" aria-pressed="false" title="Review past decisions or context relevant here"><span class="action-tick" aria-hidden="true"></span>Look back</button>
+                <button type="button" class="action-toggle" data-action="reinforce" aria-pressed="false" title="Strengthen or validate the current approach"><span class="action-tick" aria-hidden="true"></span>Strengthen</button>
               </div>
-              <p class="insp-help">Recollect: review past decisions or context here. Reinforce: strengthen the current approach. Both reach the prompt as badges.</p>
+              <p class="insp-help">Look back: review past decisions first. Strengthen: firm up the chosen approach. The brief tags them recollect and reinforce.</p>
             </div>
           </details>
           <details class="insp-disclosure" data-disclosure="appearance" id="appearanceDetails">
@@ -545,21 +550,21 @@
                   <button type="button" class="insp-chip insp-chip-sm insp-chip-dot" id="inspColourBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Colour">
                     <span class="insp-dot" id="inspColourDot" aria-hidden="true"></span>
                     <span class="insp-chip-text" id="inspColourText">Type colour</span>
-                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
                   </button>
                 </div>
                 <div class="insp-appearance-cell">
                   <span class="insp-sublabel" aria-hidden="true">Card</span>
                   <button type="button" class="insp-chip insp-chip-sm" id="inspCardBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Card style">
                     <span class="insp-chip-text" id="inspCardText">Default</span>
-                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
                   </button>
                 </div>
                 <div class="insp-appearance-cell">
                   <span class="insp-sublabel" aria-hidden="true">Border</span>
                   <button type="button" class="insp-chip insp-chip-sm" id="inspBorderBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Border">
                     <span class="insp-chip-text" id="inspBorderText">Auto</span>
-                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
                   </button>
                 </div>
                 <div class="insp-appearance-cell">
@@ -567,7 +572,7 @@
                   <button type="button" class="insp-chip insp-chip-sm insp-chip-dot" id="inspHighlightBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Highlight">
                     <span class="insp-dot" id="inspHighlightDot" aria-hidden="true"></span>
                     <span class="insp-chip-text" id="inspHighlightText">None</span>
-                    <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
                   </button>
                 </div>
               </div>
@@ -583,15 +588,15 @@
             <button type="button" class="insp-chip" id="multiTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Type for every selected block">
               <span class="insp-dot" id="multiTypeDot" aria-hidden="true"></span>
               <span class="insp-chip-text" id="multiTypeText">Type</span>
-              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
             <button type="button" class="insp-chip" id="multiStatusBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Status for every selected block">
               <span class="insp-chip-text" id="multiStatusText">Status</span>
-              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
             <button type="button" class="insp-chip" id="multiPriorityBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Priority for every selected block">
               <span class="insp-chip-text" id="multiPriorityText">Priority</span>
-              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
           </div>
           <div class="insp-section">
@@ -603,18 +608,18 @@
           <div class="insp-section insp-btn-row" id="multiArrangeRow">
             <button type="button" class="insp-chip" id="multiAlignBtn" aria-haspopup="menu" aria-expanded="false">
               <span class="insp-chip-text">Align</span>
-              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
             <button type="button" class="insp-chip" id="multiDistributeBtn" aria-haspopup="menu" aria-expanded="false">
               <span class="insp-chip-text">Distribute</span>
-              <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
             <button class="insp-chip" id="groupBlocksBtn" type="button"><span class="insp-chip-text">Group</span></button>
           </div>
           <div id="frameSection" style="display:none">
             <div class="insp-section">
               <label class="insp-label" for="frameLabelInput">Group label</label>
-              <input class="insp-input" id="frameLabelInput" type="text" placeholder="Group name…" maxlength="40" autocomplete="off">
+              <input class="insp-input" id="frameLabelInput" type="text" placeholder="Name this group" maxlength="40" autocomplete="off">
             </div>
             <button class="btn btn-secondary btn-sm insp-quiet-btn" id="ungroupBtn" type="button">Ungroup</button>
           </div>
@@ -626,19 +631,19 @@
           <div class="insp-arrow-head">
             <div class="inspector-arrow-info" id="arrowInfo"></div>
             <button type="button" class="insp-icon-btn" id="arrowReverse" aria-label="Reverse direction" title="Reverse direction">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h12l-3-3M17 17H5l3 3"/></svg>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.75 5.25h7.5l-2-2M11.25 10.75h-7.5l2 2"/></svg>
             </button>
           </div>
           <div class="insp-section">
             <label class="insp-label" for="arrowLabelInput">Label</label>
             <input class="insp-input" id="arrowLabelInput" type="text" list="arrowLabelSuggestions"
-                   placeholder="e.g. depends on, produces…" maxlength="40" autocomplete="off">
+                   placeholder="e.g. depends on, produces" maxlength="40" autocomplete="off">
             <datalist id="arrowLabelSuggestions"></datalist>
           </div>
           <div class="insp-section">
             <label class="insp-label" for="arrowRelation">Meaning</label>
             <select class="insp-input insp-select" id="arrowRelation" aria-describedby="arrowRelationHint">
-              <option value="">From label or arrow direction</option>
+              <option value="">Auto (from the label and card types)</option>
               <option value="precedes">Comes before</option>
               <option value="depends-on">Depends on</option>
               <option value="blocks">Blocks</option>
@@ -650,7 +655,7 @@
           <div class="insp-section">
             <label class="insp-label" for="arrowNoteInput">Note <span class="insp-label-hint">shown on hover or when selected</span></label>
             <textarea class="insp-textarea insp-autogrow" id="arrowNoteInput" rows="2"
-                      placeholder="Longer annotation for this connection…" maxlength="400"></textarea>
+                      placeholder="Why these two connect, in a sentence or two" maxlength="400"></textarea>
           </div>
           <div class="insp-section" id="arrowLineSection">
             <div class="insp-label">Line</div>
@@ -690,7 +695,7 @@
               <button type="button" class="insp-chip" id="arrowColourBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Colour">
                 <span class="insp-dot" id="arrowColourDot" aria-hidden="true"></span>
                 <span class="insp-chip-text" id="arrowColourText">Default</span>
-                <svg class="insp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
               </button>
             </div>
           </div>
@@ -864,12 +869,13 @@
 
     </div><!-- /panel-content -->
 
-    <div class="timer-widget" id="timerWidget">
+    <!-- Hidden until View, Facilitation, Session timer shows it (view-menu.js). -->
+    <div class="timer-widget" id="timerWidget" hidden>
       <button class="timer-toggle" id="timerToggleBtn" aria-expanded="false" aria-controls="timerControls">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.75"/><path d="M8 5v3l2 1.25"/></svg>
         <span>Session timer</span>
         <span class="timer-display" id="timerDisplay">10:00</span>
-        <svg class="section-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/><path class="section-plus" d="M12 6v12"/></svg>
+        <svg class="section-indicator" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/><path class="section-plus" d="M8 4v8"/></svg>
       </button>
       <div class="timer-controls" id="timerControls" style="display:none">
         <label for="timerMinutes">Minutes</label>

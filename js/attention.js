@@ -6,6 +6,7 @@ import { detectGaps, CRITERIA_GAPS, GAP_META, FINDING_ACKS, FINDING_META, gapExp
 import { categorizeLine } from './classify.js'
 import { mutateBlocks } from './render.js'
 import { retypeBlocks } from './type-menu.js'
+import { setupFilter, filterValue } from './filter-menu.js'
 
 // Open-issue kinds first, in the order the tab lists them. `accepted` is last
 // and is not an open issue: it is listed so an accepted gap stays visible and
@@ -196,10 +197,20 @@ export function setupAttention() {
   const list = document.getElementById('attentionList'), filter = document.getElementById('attentionFilter')
   if (!list || !filter) return
   let shown = []
-  Object.entries(ATTENTION_KINDS).forEach(([value, label]) => filter.add(new Option(label, value)))
+  // The category filter is the one filter control (filter-menu.js): a chip
+  // that opens a menu.js list, each category with its count.
+  let model = { items: [], accepted: [] }
+  const countOf = kind => [...model.items, ...model.accepted].filter(item => item.kind === kind).length
+  setupFilter(filter, {
+    name: 'Show',
+    options: () => [{ value: '', label: 'All items' },
+      ...Object.entries(ATTENTION_KINDS).map(([value, label]) => ({ value, label, count: countOf(value) }))],
+    onChange: () => refresh(),
+  })
   const refresh = () => {
-    const { items, accepted } = attentionModel(state.blocks, state.arrows, { groups: state.groups })
-    shown = [...items, ...accepted].filter(item => !filter.value || item.kind === filter.value)
+    const { items, accepted } = model = attentionModel(state.blocks, state.arrows, { groups: state.groups })
+    const kind = filterValue(filter)
+    shown = [...items, ...accepted].filter(item => !kind || item.kind === kind)
     const badge = document.getElementById('attentionCount')
     if (badge) {
       badge.textContent = items.length > 99 ? '99+' : String(items.length)
@@ -214,7 +225,7 @@ export function setupAttention() {
     if (summary) {
       summary.textContent = open.length
         ? `${open.length} item${open.length === 1 ? '' : 's'} across ${count} block${count === 1 ? '' : 's'}${accText ? `, ${accText}` : ''}`
-        : accText ? `No open items, ${accText}.` : filter.value ? 'No items in this category.' : 'No outstanding items in these checks.'
+        : accText ? `No open items, ${accText}.` : kind ? 'No items in this category.' : 'No outstanding items in these checks.'
     }
     // A rebuild under keyboard focus (the save that follows an action runs
     // this again) used to drop focus to the page: keep it on the row at the
@@ -229,7 +240,6 @@ export function setupAttention() {
     const next = [...lis.slice(fromRow), ...lis.slice(0, fromRow).reverse()].map(pick).find(Boolean)
     ;(next || filter).focus({ preventScroll: true })
   }
-  filter.addEventListener('change', refresh)
   list.addEventListener('click', e => {
     const actBtn = e.target.closest('[data-attention-act]')
     if (actBtn) {

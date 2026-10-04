@@ -31,8 +31,12 @@ import {
   runTidy, getLayoutDir, setLayoutDir, openShortcuts,
 } from './ui-panels.js'
 import { mapsMenuItems } from './library.js'
+import { renameMap } from './events.js'
+import { isPhoneSheet, sheetState, setSheet } from './inspector.js'
 
 const TINT_KEY = 'pathfinder-tint'
+// prefs.js key: the Session timer's row is shown (View, Facilitation).
+const TIMER_PREF = 'sessionTimer'
 
 // An embedded canvas is someone else's page: it never writes the visitor's
 // preferences (prefs.js applies the same rule to its own keys).
@@ -89,6 +93,61 @@ export function setMotion(on) { setPref('motion', !!on) }
 
 // Session only, like the Alt+H key it mirrors.
 export function setHighContrast(on) { document.body.classList.toggle('high-contrast', !!on) }
+
+// ── Facilitation: the Session timer and dot voting ──
+// Both serve someone running a session, not the lead's daily flow, so they
+// share one submenu and the timer's row exists only once it is asked for
+// (it used to sit at the foot of the side panel for everyone, always).
+
+/** Whether the Session timer's row is shown. Never in an embed. */
+export function sessionTimerShown() { return !ui.embed && !!getPref(TIMER_PREF) }
+
+const timerRunning = () => document.getElementById('timerWidget')?.classList.contains('active')
+
+/** Show or hide the timer's row to match the preference. */
+export function applySessionTimer() {
+  const widget = document.getElementById('timerWidget')
+  if (widget) widget.hidden = !sessionTimerShown()
+}
+
+/**
+ * Show the timer (opened, with focus on Start, and on a phone the sheet
+ * raised so its row is in view) or hide it. Hiding stops a running timer:
+ * a countdown nobody can see should not beep at the end of it.
+ */
+export function setSessionTimer(on) {
+  if (ui.embed) return
+  if (!on && timerRunning()) document.getElementById('timerResetBtn')?.click()
+  setPref(TIMER_PREF, !!on)
+  applySessionTimer()
+  if (!on) return
+  const controls = document.getElementById('timerControls')
+  if (controls && controls.style.display !== 'flex') document.getElementById('timerToggleBtn')?.click()
+  try { if (isPhoneSheet() && sheetState() === 'peek') setSheet('half') } catch (_) {}
+  const start = document.getElementById('timerStartBtn')
+  const target = start && start.style.display !== 'none' ? start : document.getElementById('timerPauseBtn')
+  target?.focus({ preventScroll: true })
+}
+
+export function facilitationItems() {
+  const shown = sessionTimerShown()
+  const items = [
+    { label: 'Session timer', checked: shown,
+      hint: shown ? (timerRunning() ? 'Running. Hiding it stops it' : 'At the foot of the side panel') : 'A countdown for a timed session',
+      action: () => setSessionTimer(!shown) },
+  ]
+  if (!ui.readOnly) items.push(
+    { label: 'Dot voting', hint: 'Click cards to add dots. This session only', checked: isVotingMode(),
+      action: () => setVotingMode(!isVotingMode()) },
+  )
+  return items
+}
+
+function facilitationHint() {
+  const on = [sessionTimerShown() && 'timer shown', !ui.readOnly && isVotingMode() && 'dot voting on'].filter(Boolean)
+  if (on.length) return on.join(', ').replace(/^./, c => c.toUpperCase())
+  return ui.readOnly ? 'Session timer' : 'Session timer, dot voting'
+}
 
 /** Spotlight rides on the map. It needs something highlighted to be useful. */
 export function setSpotlight(on) {
@@ -177,9 +236,8 @@ export function viewMenuItems() {
       action: () => { toggleZen(); if (!chrome.frame) focusCanvas() } },
     ...(minimapAvailable() ? [{ label: 'Minimap', shortcut: 'M', checked: isMinimapOn(), keepOpen: true, action: () => toggleMinimap() }] : []),
   )
-  if (!ro && !ui.embed) items.push(
-    { label: 'Dot voting', hint: 'Click cards to add dots. This session only', checked: isVotingMode(),
-      action: () => setVotingMode(!isVotingMode()) },
+  if (!ui.embed) items.push(
+    { label: 'Facilitation', hint: facilitationHint(), submenu: facilitationItems },
   )
   if (!ro) {
     const anyHighlight = Object.values(state.blocks).some(b => b.highlight)
@@ -244,7 +302,17 @@ export function tidyMenuItems() {
 // Reading material opens beside the canvas, so the map stays where it was.
 function openPage(href) { window.open(href, '_blank', 'noopener') }
 
+// The bar's GitHub icon gives way to the map's title under 1100px (style.css
+// [consistency]); Help carries the link whenever the icon is not on screen,
+// so it is never further than one menu away. On phones the kit's panel shows
+// the icon's own row, and Help leaves it out there.
+function githubLink() {
+  const a = document.querySelector('.header-github')
+  return a && !a.getClientRects().length ? a.href : null
+}
+
 export function helpMenuItems() {
+  const github = githubLink()
   return [
     commandPaletteMenuItem(),
     { label: 'Keyboard shortcuts', shortcut: '?', action: openShortcuts },
@@ -252,6 +320,7 @@ export function helpMenuItems() {
     { label: 'Walkthrough', hint: 'A worked example, step by step', action: () => openPage('tutorial.html') },
     { label: 'Examples', hint: 'Finished maps to open and take apart', action: () => openPage('examples.html') },
     { label: 'Trace: diagrams as text', hint: 'Troubleshooting trees and architecture maps', action: () => openPage('trace.html') },
+    ...(github ? [{ type: 'divider' }, { label: 'Source on GitHub', hint: 'The code, issues and releases', action: () => openPage(github) }] : []),
   ]
 }
 
@@ -282,7 +351,10 @@ function leaveOverflow() {
 // toggle keeps the list open with its mark updated.
 
 const INLINE = 'hdr-inline-menu'
-const INLINE_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+// The one icon set (16px grid, 1.5px stroke): the check menu.js draws, and
+// the chevron on the bar's buttons.
+const INLINE_CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 8.5l2.75 2.75 5.75-6.5"/></svg>'
+const INLINE_CARET = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>'
 
 /** Fold every in-panel list away (they are rebuilt on each open). */
 export function closeInlineMenus() {
@@ -319,7 +391,7 @@ function inlineRow(item) {
     (item.icon ? `<span class="hdr-inline-icon" aria-hidden="true">${item.icon}</span>` : '') +
     `<span class="hdr-inline-text"><span class="hdr-inline-label">${escHtml(item.label || '')}</span>` +
     (item.hint ? `<span class="hdr-inline-hint">${escHtml(item.hint)}</span>` : '') + '</span>' +
-    (item.submenu ? '<span class="hdr-inline-caret" aria-hidden="true">▾</span>' : '')
+    (item.submenu ? `<span class="hdr-inline-caret" aria-hidden="true">${INLINE_CARET}</span>` : '')
   b._pfItem = item
   return b
 }
@@ -424,6 +496,19 @@ function wire(id, itemsFn, label) {
   })
 }
 
+// Maps, with Rename this map beside the other this-map actions. A click on
+// the title does the same; on a narrow phone, where the title waits off the
+// bar, this is the way in (events.js renameMap).
+export function mapsMenuWithRename() {
+  const items = mapsMenuItems()
+  if (ui.readOnly) return items
+  const at = items.findIndex(i => i.label === 'Duplicate this map')
+  const rename = { label: 'Rename this map', hint: 'Or click its name in the bar', action: renameMap }
+  if (at < 0) items.push(rename)
+  else items.splice(at, 0, rename)
+  return items
+}
+
 let inlineWired = false
 function wireInlineDismissal() {
   if (inlineWired) return
@@ -439,11 +524,12 @@ function wireInlineDismissal() {
 }
 
 export function setupViewMenu() {
-  wire('mapsBtn', mapsMenuItems, 'Maps')
+  wire('mapsBtn', mapsMenuWithRename, 'Maps')
   wire('exportBtn', () => fileMenuItems(), 'File')
   wire('shareBtn', () => shareMenuItems(), 'Share')
   wire('tidyMenuBtn', tidyMenuItems, 'Tidy direction')
   wire('viewBtn', viewMenuItems, 'View')
   wire('helpBtn', helpMenuItems, 'Help')
   wireInlineDismissal()
+  applySessionTimer()
 }

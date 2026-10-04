@@ -419,9 +419,17 @@ export const ACTION_DEFS = {
   validate:  'Test or confirm this before relying on it',
 }
 
+// The word each action shows on a card chip and an inspector toggle: plain
+// verbs, one name everywhere. The ids stay as they are (saved maps and the
+// prompt's tags carry them); only the words a person reads changed.
+export const ACTION_LABELS = {
+  resolve: 'Resolve', prepare: 'Prepare', validate: 'Validate',
+  recollect: 'Look back', reinforce: 'Strengthen',
+}
+
 export const STATUS_DEFS = {
-  'not-started': { label: 'Not Started', icon: '\u25CB' },
-  'in-progress': { label: 'In Progress', icon: '\u25D4' },
+  'not-started': { label: 'Not started', icon: '\u25CB' },
+  'in-progress': { label: 'In progress', icon: '\u25D4' },
   'done':        { label: 'Done',        icon: '\u25CF' },
   'blocked':     { label: 'Blocked',     icon: '\u25A0' },
 }
@@ -735,19 +743,38 @@ export function placeToast(toast) {
   return true
 }
 
-// Toast notification + screen-reader announcement
+// Toast notification + screen-reader announcement.
+//
+// A toast is a neutral surface with the message in the primary ink; the
+// status speaks through a stroked 16px icon in its status colour (DESIGN.md
+// Toasts). Coloured text made a long message hard to read and gave the
+// status colours a second job. The icon is decorative: the words say it.
+const TOAST_ICONS = {
+  success: '<path d="M3.75 8.5l2.75 2.75 5.75-6.5"/>',
+  info:    '<circle cx="8" cy="8" r="5.75"/><path d="M8 7.25v3.5"/><path d="M8 5.25v.01"/>',
+  warning: '<path d="M8 2.75l5.75 10H2.25z"/><path d="M8 6.75v2.75"/><path d="M8 11.5v.01"/>',
+  error:   '<circle cx="8" cy="8" r="5.75"/><path d="M5.9 5.9l4.2 4.2M10.1 5.9l-4.2 4.2"/>',
+}
+export function toastIcon(type) {
+  return '<svg class="toast-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (TOAST_ICONS[type] || TOAST_ICONS.info) + '</svg>'
+}
+
 let toastTimeout
 export function showToast(message, type = 'info', duration = 3000) {
   const existing = document.querySelector('.toast-notification')
   if (existing) existing.remove()
 
+  const kind = Object.hasOwn(TOAST_ICONS, type) ? type : 'info'
   const toast = document.createElement('div')
-  toast.className = `toast-notification toast-${type}`
+  toast.className = `toast-notification toast-${kind}`
   // Announced by screen readers. Without these the toast is
   // invisible to anyone not looking at that corner of the screen.
   toast.setAttribute('role', 'status');
   toast.setAttribute('aria-live', 'polite');
-  toast.textContent = message
+  toast.innerHTML = toastIcon(kind) + '<span class="toast-msg"></span>'
+  toast.lastElementChild.textContent = message
   document.body.appendChild(toast)
   placeToast(toast)
 

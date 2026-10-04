@@ -1001,7 +1001,7 @@ describe('roundtrip: the connection menu reads an unlabelled arrow the way the b
     try {
       hit.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }))
       rowOf(lastMenu(), 'Meaning').click()
-      return rowOf(lastMenu(), 'From label or direction')?.querySelector('.pf-menu-hint')?.textContent
+      return rowOf(lastMenu(), 'Auto (from the label and card types)')?.querySelector('.pf-menu-hint')?.textContent
     } finally {
       closeMenus()
       document.querySelectorAll('.ctx-test-svg').forEach(el => el.remove())

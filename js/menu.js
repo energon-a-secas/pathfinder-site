@@ -23,8 +23,9 @@ import { escHtml } from './utils.js'
 const HOVER_DELAY = 120
 const PAD = 8
 
-const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
-const CARET_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
+// The one icon set (DESIGN.md Iconography): a 16px grid, a 1.5px stroke.
+const CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 8.5l2.75 2.75 5.75-6.5"/></svg>'
+const CARET_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4.5L10 8l-3.5 3.5"/></svg>'
 
 // The open stack: index 0 is the root menu, each later entry a submenu of
 // the one before it. `parentItem` is the row that opened it.

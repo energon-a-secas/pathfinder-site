@@ -655,7 +655,7 @@ function arrowMenuItems(aid, pt) {
   return tidyItems([
     { ctx: 'edit-label', label: 'Edit label', icon: I.label, shortcut: 'Enter', action: () => startArrowLabelEdit(aid, pt) },
     { ctx: 'meaning', label: 'Meaning', icon: I.meaning, submenu: () => [
-      { label: 'From label or direction', hint: `Reads as: ${RELATIONS[relationOf({ ...a, relation: null }, state.blocks)].toLowerCase()}`,
+      { label: 'Auto (from the label and card types)', hint: `Reads as: ${RELATIONS[relationOf({ ...a, relation: null }, state.blocks)].toLowerCase()}`,
         radio: true, checked: !a.relation, action: () => applyArrow(aid, { relation: null }) },
       DIV,
       ...Object.entries(RELATIONS).map(([k, label]) => ({

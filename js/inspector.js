@@ -18,7 +18,7 @@ import { relationHint, impliedVerb, RELATIONS } from './relations.js'
 import { state, selection, ui, view, canvasMeta, debouncedSave,
          snapshotOnce, resetSnapshotToken } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
-         STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ARROW_LABEL_PRESETS, CARD_STYLES,
+         STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ACTION_LABELS, ARROW_LABEL_PRESETS, CARD_STYLES,
          DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
 import { renderFrames, arrowRoute, arrowPattern } from './canvas.js'
 import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
@@ -74,10 +74,50 @@ const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform || '')
 // Priority is drawn as signal bars, never a colour: the type colours mean
 // types (cards.js chipIcon).
 
-const ACTION_LABELS = { resolve: 'Resolve', prepare: 'Prepare', validate: 'Validate', recollect: 'Recollect', reinforce: 'Reinforce' }
 // Read by no check: they only reach the prompt as badges, so they live in
 // Planning rather than next to the type's own action.
 const PLANNING_ACTIONS = ['recollect', 'reinforce']
+
+// Placeholders, written per type and set in the muted italic (CSS), so an
+// empty field reads as a prompt to fill it, never as content. The title's is
+// an example name of that type (what a card of it is called, not what the
+// type means: the type's definition is the type menu's job); the done-list's
+// are examples of that type's criteria. Both are led by "e.g.", and an
+// Output's name an output, not a cart. None ends in an ellipsis.
+const TITLE_PLACEHOLDERS = {
+  goal: 'e.g. Halve checkout support calls',
+  problem: 'e.g. 1 in 50 orders fails at payment',
+  stakeholder: 'e.g. Support team leads',
+  metric: 'e.g. Weekly checkout failure rate',
+  requirement: 'e.g. Orders survive a payment retry',
+  output: 'e.g. Weekly reliability report',
+  implementation: 'e.g. Add retries to the payment client',
+  process: 'e.g. Triage new incidents',
+  terminator: 'e.g. Order placed',
+  decision: 'e.g. Retry payments from a queue',
+  resource: 'e.g. Payments service',
+  assumption: 'e.g. Most failures are timeouts',
+  risk: 'e.g. A retry charges a card twice',
+  question: 'e.g. Which failures are safe to retry?',
+  context: 'e.g. Peak season starts in November',
+  custom: 'Name this block',
+}
+const DESC_PLACEHOLDER = 'Add the detail someone needs to act on this'
+const CRITERIA_PLACEHOLDERS = {
+  goal: 'e.g. Support calls about checkout halve by June\nNo new step for returning customers',
+  requirement: 'e.g. Responds within 200ms at peak load\nWorks for signed-out visitors',
+  output: 'e.g. Reviewed by the support lead\nPublished where the team looks for it',
+  implementation: 'e.g. Tests cover the failure paths\nShipped behind a flag',
+  metric: 'e.g. 40 teams on the report by March\nReady by 9am every Monday',
+}
+export function placeholdersFor(type) {
+  const cfg = TYPES[type] || TYPES.custom
+  return {
+    title: TITLE_PLACEHOLDERS[type] || TITLE_PLACEHOLDERS.custom,
+    desc: DESC_PLACEHOLDER,
+    criteria: CRITERIA_PLACEHOLDERS[type] || (cfg.criteria === 'Targets' ? CRITERIA_PLACEHOLDERS.metric : CRITERIA_PLACEHOLDERS.requirement),
+  }
+}
 
 const WEIGHTS = [1, 1.5, 2.5, 3.5]
 
@@ -289,8 +329,9 @@ function renderBlockInspector(b) {
   setField(inspTitle, b.title || '', isNew)
   setField(inspDesc, b.description || '', isNew)
   setField(inspNotes, b.notes || '', isNew)
-  viewOnly(inspTitle, ro)
-  viewOnly(inspDesc, ro, { empty: !(b.description || '').trim() })
+  const ph = placeholdersFor(b.type)
+  viewOnly(inspTitle, ro, { placeholder: ph.title })
+  viewOnly(inspDesc, ro, { empty: !(b.description || '').trim(), placeholder: ph.desc })
   viewOnly(inspNotes, ro)
 
   // Fields the type reads. The registry names the done-list: "Acceptance
@@ -305,8 +346,7 @@ function renderBlockInspector(b) {
       setText('criteriaHint', targets ? 'one per line, each with a number' : 'one per line')
       const el = $.inspCriteria()
       setField(el, (b.criteria || []).join('\n'), isNew)
-      viewOnly(el, ro, { empty: !(b.criteria || []).length,
-        placeholder: targets ? 'Teams on the report: 40 by March\nReady by 9am Monday' : 'Returns within 200ms\nWorks with an empty cart' })
+      viewOnly(el, ro, { empty: !(b.criteria || []).length, placeholder: ph.criteria })
     }
   }
   const rationaleSection = byId('rationaleSection')
@@ -501,7 +541,7 @@ function wireAnswerField(el) {
 
 // ── Header fit ───────────────────────────────────────────────
 // The type's name is what the header row is for. When it would lose letters
-// next to a status word ("Implementation" beside "In Progress" in a 320px
+// next to a status word ("Implementation" beside "In progress" in a 320px
 // panel), the status drops to its glyph, which keeps its colour, tooltip and
 // accessible name. Measured rather than guessed: labels come from the
 // registry and panels come in more than one width. The observer re-fits when
@@ -624,12 +664,12 @@ export function renderQuestions(b) {
   questionsList.innerHTML = (b.questions || []).map((q, i) => `
     <div class="question-item${q.answer ? ' answered' : ''}">
       <div class="question-row">
-        <input type="text" value="${escHtml(q.text)}" placeholder="Enter question…" data-qi="${i}" aria-label="Question ${i + 1}"${ro ? ' readonly' : ''}>
+        <input type="text" value="${escHtml(q.text)}" placeholder="Ask a question" data-qi="${i}" aria-label="Question ${i + 1}"${ro ? ' readonly' : ''}>
         <button type="button" class="q-ask" data-qi="${i}" title="Copy a grounded prompt for this question">Ask</button>
         ${ro ? '' : `<button type="button" class="q-del" data-qi="${i}" title="Delete" aria-label="Delete question ${i + 1}">×</button>`}
       </div>
       <textarea class="question-answer" data-qi="${i}" rows="2" aria-label="Answer to question ${i + 1}"
-        placeholder="Paste the assistant's answer here…"${ro ? ' readonly' : ''}>${escHtml(q.answer || '')}</textarea>
+        placeholder="Paste the assistant's answer"${ro ? ' readonly' : ''}>${escHtml(q.answer || '')}</textarea>
     </div>`).join('')
 
   const live = () => state.blocks[id]
@@ -754,7 +794,7 @@ function renderArrowInspector(a) {
   if (labelInput) {
     setField(labelInput, a.label || '', isNew)
     viewOnly(labelInput, ro, { empty: !(a.label || '').trim(),
-      placeholder: verb ? `Implied: ${verb}` : 'e.g. depends on, produces…' })
+      placeholder: verb ? `Implied: ${verb}` : 'e.g. depends on, produces' })
   }
   const list = byId('arrowLabelSuggestions')
   if (list) {

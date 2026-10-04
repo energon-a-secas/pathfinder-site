@@ -5,7 +5,7 @@
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture, resetSnapshotToken, undoEntry, applyPromptOpts } from './state.js'
-import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS,
+import { $, TYPES, ACTION_DEFS, ACTION_LABELS, STATUS_DEFS, PRIORITY_DEFS,
          DEFAULT_WIDTH, DEFAULT_CARD_STYLE, DEFAULT_ARROW_WEIGHT,
          escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
@@ -70,7 +70,7 @@ export function renderBlock(id) {
 
   // Chips are neutral: an icon and a word say which one it is, never a
   // colour (red and amber already mean a type and a gap).
-  const word = a => escHtml(String(a).charAt(0).toUpperCase() + String(a).slice(1))
+  const word = a => escHtml(ACTION_LABELS[a] || String(a).charAt(0).toUpperCase() + String(a).slice(1))
   const actHtml = (b.actions || []).map(a =>
     `<span class="chip action-badge ${escHtml(a)}" title="${escHtml(ACTION_DEFS[a] || a)}">${chipIcon('action', a)}<span>${word(a)}</span></span>`).join('')
   const statusLabel = STATUS_DEFS[b.status]?.label || b.status
@@ -496,7 +496,11 @@ export function deleteGroup(gid) {
 // ── Canvas title ─────────────────────────────────────────────
 export function updateCanvasTitle() {
   const el = $.canvasTitle()
-  const t = canvasMeta.title || 'Strategy canvas'
+  // The open map's name, in the header's breadcrumb (Maps / title). An
+  // untitled map says so in the muted ink, the way Maps lists it, rather
+  // than showing a tagline that reads like the product's.
+  const t = (canvasMeta.title || '').trim() || 'Untitled map'
+  el.classList.toggle('is-untitled', !(canvasMeta.title || '').trim())
   if (el.contentEditable !== 'true') {
     el.textContent = t
     // A control that renames the map, except in a view-only page, where it

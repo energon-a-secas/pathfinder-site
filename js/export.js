@@ -5,13 +5,16 @@
 import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts,
          buildShareUrlAsync } from './state.js'
 import { mermaidShapeFor, toMermaid } from './interop.js'
-import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, genId, getAllVotes, typeInfo, showToast, askedQuestions } from './utils.js'
+import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, ACTION_LABELS, genId, getAllVotes, typeInfo, showToast, askedQuestions } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { generatePrompt, refreshPrompt, situationSection, connectionReading } from './prompt.js'
 import { cardAnswer } from './task-plan.js'
+
+/** An action as a person reads it: "Look back", not the id "recollect". */
+const actionWord = a => ACTION_LABELS[a] || a
 
 // ── Import JSON ───────────────────────────────────────────────
 /**
@@ -179,7 +182,9 @@ export function buildMarkdown() {
         md += '\n'
       }
       if (b.rationale?.trim()) md += `**Rationale:** ${b.rationale.trim()}\n\n`
-      if (b.actions?.length) md += `**Actions:** ${b.actions.join(', ')}\n\n`
+      // People read this file: the actions by the words the app shows (the
+      // prompt keeps the ids, which its legend explains).
+      if (b.actions?.length) md += `**Actions:** ${b.actions.map(actionWord).join(', ')}\n\n`
       if (b.docRef && (b.docRef.href || b.docRef.label)) {
         const ref = b.docRef.label || b.docRef.href
         const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
@@ -360,7 +365,7 @@ export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmit
   if (actionBlocks.length) {
     actionBlocks.forEach(b => {
       b.actions.forEach(action => {
-        md += `- [ ] **${titleOf(b)}** (${action})`
+        md += `- [ ] **${titleOf(b)}** (${actionWord(action)})`
         if (b.notes) md += `\n  *Context: ${oneLine(b.notes)}*`
         md += '\n'
       })

@@ -53,12 +53,13 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 | `js/export.js` | ~445 | JSON / Markdown export, `applyImport`, meeting summary, Presentation Sage |
 | `js/interop.js` | ~570 | JSON Canvas in and out, Mermaid in and out (`toMermaid`, which the Markdown export uses too) |
 | `js/image-export.js` | ~315 | Diagram export: native SVG + 2x PNG, drawn to the card and line specs |
-| `js/view-menu.js` | ~445 | Header menus: Maps, File, Share, Tidy direction, View, Help; in place inside the phone overflow panel |
+| `js/view-menu.js` | ~520 | Header menus: Maps (with Rename this map), File, Share, Tidy direction, View (Facilitation: the Session timer, dot voting), Help (GitHub when the bar's icon is hidden); in place inside the phone overflow panel |
+| `js/filter-menu.js` | ~65 | The one filter control: Attention's category and Find blocks' type, status and scope are chips that open a menu.js list (`setupFilter`, `filterValue`) |
 | `js/ui-panels.js` | ~1390 | Search, shortcut sheet (`SHORTCUTS`), panel tabs, dev options, File and Share actions, Tidy, share-link arrival |
 | `js/library.js` | ~545 | Maps library: per-map slots, write-through autosave, snapshots + diff, the Maps menu items |
 | `js/sharing.js` | ~400 | Incoming links and files (open as a new map by default), other-tab warning, backup status |
 | `js/chrome.js` | ~90 | `H` / `Z` expanded view |
-| `js/voting.js` | ~70 | Dot voting as an explicit mode (View ▾ → Dot voting): `setVotingMode`, the banner; a plain click never votes |
+| `js/voting.js` | ~70 | Dot voting as an explicit mode (View ▾ → Facilitation → Dot voting): `setVotingMode`, the banner; a plain click never votes |
 | `js/doc-panel.js` | ~217 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
 | `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
 
@@ -70,7 +71,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 **Key interactions added 2026-09-28 (UI overhaul):**
 - **Types**: 16 in the `TYPES` registry (`utils.js`), grouped by `TYPE_STEPS` (Why, Who, Proof, What, How, Doubt, Other; `typesByStep()`). New: `stakeholder`, `metric`, `implementation`; `terminator` reads Trigger / End. Every exporter iterates the registry, and `tests/types-registry.test.js` fails when one leaves a type out. Ids never change.
 - **One type picker, one retype rule** (`type-menu.js`): the inspector's Type dropdown, Change type, the quick-add picker and the card's type check build from `typeMenuItems`; every pick goes through `retypeBlock` (clears `typeCheck` and `typeHint`, drops a colour that was only the old type's). Do not write a second picker.
-- **One menu component** (`menu.js`): right-click menus for a block, a selection, a connection and the canvas (`context-menu.js`, also `Shift+F10`); header menus Maps, File, Share, Tidy direction, View, Help (`view-menu.js`), rendered in place inside the kit's overflow panel on phones. Only the trace page still uses the old `.export-dropdown` markup.
+- **One menu component** (`menu.js`): right-click menus for a block, a selection, a connection and the canvas (`context-menu.js`, also `Shift+F10`); header menus Maps (the breadcrumb), File, Share, Tidy direction, View, Help (`view-menu.js`), rendered in place inside the kit's overflow panel on phones. Only the trace page still uses the old `.export-dropdown` markup.
 - **Editing on the card** (`inline-edit.js`): double-click, `Enter`/`F2`, `Shift+Enter` for the description; Escape commits. Double-click a line, or `Enter`/`F2` on a selected one, edits its label (`arrow-edit.js`). Double-click empty canvas opens the quick-add picker; Fit moved to `Shift+1` and the status bar.
 - **Quick create**: click a port, drop a port's line on empty canvas (the same quick-add picker, `suggestedNextTypes` first), `Alt+Arrow`, `Cmd/Ctrl+Enter`.
 - **Lines**: `arrow.style` is the route (`routed`, `curved`, `straight`, `elbow`) and `arrow.pattern` the dash (`solid`, `dashed`, `dotted`); a legacy `dashed`/`dotted` style loads as curved + pattern. New connections draw at `DEFAULT_ARROW_WEIGHT` (1.5); a saved arrow without a weight keeps drawing at 2 (`arrowWeight`). Labels are pills placed off bends and cards. `portsBy: 'import'` marks sides an imported file chose; Tidy and a drag release them like `tidy` pins, and a drag lands on whole pixels.
@@ -79,6 +80,12 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **Undo carries the map settings**: every undo entry holds `cardStyle` and `spotlight` (their setters snapshot), and a replace's entry (`snapshot({ framing: true })`) holds the whole framing: title, brief, situation, prompt options. Title and brief edits take no snapshot of their own, which is why an ordinary entry leaves them alone.
 - **Sharing**: new links are `#z=` (deflate-raw, base64url) carrying `?via=share`; `#s=` still decodes. A link, `?src=` or an imported file opens as a new map by default, in a real dialog; Replace keeps a named snapshot first. A modal dialog owns the keyboard: the global key handler bails on `dialog:modal`.
 - **JSON Canvas and Mermaid round-trip every type**: `toMermaid` (File ▾ → Copy Mermaid, and the Markdown export's graph) writes a shape and a `class` line per type; JSON Canvas export writes each type's exact hex and `pathfinderType`. Import reads those before any guessing.
+
+**Key interactions added 2026-10-03 (design round, one vocabulary):**
+- **The header names the open map**: `Maps ▾ / <title>` sits beside the product name (`.map-crumb` in `.header-logo`); the title is 14px/600, "Untitled map" muted when empty, and renames on click, `Enter`/`F2` or Maps → Rename this map (`renameMap` in `events.js`); a keyboard commit keeps focus on it. The kit's logo block never shrinks, so `--crumb-title-max` (style.css `[consistency]`) is the only thing keeping the bar on one row: GitHub moves into Help under 1100px, Maps is its icon under 860px, and on phones under 433px the title waits until Rename opens it. Never hide or restyle the kit's `h1`: site header changes are skin tokens only. `tests/consistency.test.js` sweeps the widths.
+- **Header buttons are ghosts on the app page only** (`[data-pf-bar="app"]` on index.html's `<header>`): trace.html and the doc pages keep their boxed buttons until they move to the same vocabulary.
+- **One filter control** (`filter-menu.js`), **neutral toasts** (a status icon, the text in `--text-1`), **the Session timer** hidden until View → Facilitation shows it (prefs `sessionTimer`), **the palette rail** once a map has content (until the person picks), and **the inspector as a property sheet**: multi-line content full width with its label above, short values in an 88px label column; per-type example placeholders led by "e.g.", never an ellipsis.
+- **One icon set**: stroked, a 16px grid, a 1.5px stroke, in menus (`menu.js` check and chevron), the header and the inspector.
 
 **Key interactions added 2026-08-24 (async review):**
 - **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into Paste a reply or a review; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
@@ -106,7 +113,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 **Key interactions added 2026-08-24 (tidy pins, pill, maps):**
 - **Tidy port pins carry provenance** (`portsBy: 'tidy'`). Tidy never overwrites a hand-pinned side; a same-layer edge gets perpendicular geometry ports (not bottom→bottom); a backward edge keeps the under-detour only when `routed`, other styles go back to auto; dragging a block releases tidy pins on its arrows (`releaseTidyPins` in `layout.js`, called from the drag pointerup). Pins matching the pre-provenance scheme are adopted and healed on the next Tidy.
 - **Copy prompt** lives in the bottom canvas utility bar alongside zoom and save status. It uses a standard copy icon with inline confirmation. Zen (`Z`) hides the bar. The older floating pill and its `pathfinder-pill` setting have been retired.
-- **Maps** (header, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
+- **Maps** (the header breadcrumb `Maps ▾ / <title>`, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
 - `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
 - **Acceptance criteria + decision rationale + Spec bundle**: `block.criteria[]` (requirement/goal/output) and `block.rationale` (decision) edit in the inspector, feed the prompt (Build's `[NEEDS INPUT]` placeholder only appears when criteria are missing), the Markdown export, and **File ▾ → Download Spec bundle (zip)**: spec/plan/tasks/EARS-requirements built by `spec-export.js`, zipped by `zip.js`.
 - **Prompt options travel with the canvas** (`meta.prompt`). `serializeCanvas()` in `state.js` is the single serializer (autosave, share, Maps, JSON export); `applyPromptOpts()` applies a load back into `devOpts`; the `pf:prompt-opts-changed` event resyncs the Prompt tab (`syncPromptOptControls`). Preset chips (Claude Code, Cursor + TS, PM clarify) set the bundle in one click. The tutorial example carries `mode: investigate`. `flowSection()` orders workflow steps by whole-graph layering and numbers only process steps.
@@ -143,7 +150,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - Right-click any block for a quick-action menu (`context-menu.js`); also `Shift+F10`/ContextMenu key on the selected block.
 - Arrows carry an optional `note` (richer than `label`), hidden until hover/selection, or always shown via **View ▾ → Always show connection notes** (`ui.showArrowText`, persisted `pathfinder-arrowtext`, body class `show-arrow-text`).
 - Right panel collapses via a chevron (persisted `pathfinder-panel-collapsed`).
-- File ▾ → **Download Image (PNG 2×)** / **Download Vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`) to the card and line specs. No DOM screenshot.
+- File ▾ → **Download image (PNG 2×)** / **Download vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`) to the card and line specs. No DOM screenshot.
 - Brain Dump folds indented/bulleted lines into the parent block's description (toggle in the card); `parseOutline()` in `classify.js`.
 - Prompt pane shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
 - **Dark theme is the default** (no OS-preference opt-in); light mode only when explicitly saved.
@@ -342,15 +349,15 @@ From **File ▾** in the header (the rows are hidden buttons in `#fileActions`; 
 | Action | Output |
 |--------|--------|
 | Import JSON / Canvas / Mermaid | One picker, format-detected (`detectFormat`): pathfinder JSON, JSON Canvas, or a Mermaid flowchart. Opens as a new map by default; Replace (after a named snapshot) and Merge are the dialog's other choices (`sharing.js`) |
-| Copy Prompt | Clipboard: markdown AI prompt |
+| Copy prompt | Clipboard: markdown AI prompt |
 | Copy AI diagram-builder prompt | Clipboard: `DIAGRAM_BUILDER_PROMPT`, generated from the registry |
 | Download JSON | `pathfinder.json`: full canvas (blocks + arrows + meta + timestamp) |
 | Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of the order silently drops those blocks), labelled connections, and the Mermaid graph |
 | Copy Mermaid | Clipboard: `toMermaid()`, the same graph: every block declared, a shape and a `class` line per type, groups as subgraphs |
 | Download JSON Canvas | `<title>.canvas` (jsoncanvas.org): each node in its type's exact hex plus `pathfinderType`, criteria as checklists, groups as group nodes, edge sides from pinned ports |
-| Download Spec bundle | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
-| Download Image / Vector | PNG 2x / SVG from `image-export.js` |
-| Export Meeting Summary / Open in Presentation Sage | Hand-offs |
+| Download spec bundle (zip) | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
+| Download image / vector | PNG 2x / SVG from `image-export.js` |
+| Export meeting summary / Open in Presentation Sage | Hand-offs; both write an action by its word (Look back, Strengthen), the prompt by its id |
 | Clear this map… | Danger; one undo step |
 
 Import reads a type before it guesses: `pathfinderType`, an exact type hex, a Mermaid `class` line, then the shape, and only then the classifier (`categorizeLine`), whose low-confidence calls are marked `typeCheck`.

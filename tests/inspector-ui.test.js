@@ -483,14 +483,17 @@ describe('Inspector: one block', () => {
     assert.eq(byId('inspHighlightText').textContent, 'Focus')
   })
 
-  it('Appearance is one row of four named menu buttons in a 320px panel', () => {
+  it('Appearance is four named menu buttons, one per property row, in a 320px panel', () => {
     reset()
     block('r', { type: 'requirement', color: '#34d399', highlight: 'go' })
     selectBlock('r')
     byId('appearanceDetails').open = true
     const ids = ['inspColourBtn', 'inspCardBtn', 'inspBorderBtn', 'inspHighlightBtn']
-    const tops = ids.map(id => Math.round(byId(id).getBoundingClientRect().top))
-    assert.eq(new Set(tops).size, 1, `one row: ${tops.join(', ')}`)
+    // The property sheet (consistency): a row per property, like Priority,
+    // each button beside its label, all four lined up on one column.
+    const boxes = ids.map(id => byId(id).getBoundingClientRect())
+    assert.eq(new Set(boxes.map(b => Math.round(b.top))).size, 4, `a row each: ${boxes.map(b => Math.round(b.top)).join(', ')}`)
+    assert.eq(new Set(boxes.map(b => Math.round(b.left))).size, 1, 'one column of controls')
     assert.eq(byId('inspColourBtn').getAttribute('aria-label'), 'Colour: Emerald')
     assert.eq(byId('inspHighlightBtn').getAttribute('aria-label'), 'Highlight: Go')
     assert.eq(byId('inspCardBtn').getAttribute('aria-label'), 'Card style: map default')
@@ -938,8 +941,8 @@ describe('Inspector: review fixes', () => {
     atMost(label.scrollWidth, label.clientWidth + 0.5, `Implementation is whole (${label.clientWidth} of ${label.scrollWidth}px)`)
     assert.ok(head.classList.contains('is-tight'), 'the status word gave way')
     assert.eq(byId('inspStatusLabel').checkVisibility(), false)
-    assert.eq(byId('inspStatusBtn').getAttribute('aria-label'), 'Status: In Progress', 'the status is still named')
-    assert.eq(byId('inspStatusBtn').title, 'Status: In Progress')
+    assert.eq(byId('inspStatusBtn').getAttribute('aria-label'), 'Status: In progress', 'the status is still named')
+    assert.eq(byId('inspStatusBtn').title, 'Status: In progress')
     selectBlock('g')
     assert.ok(!head.classList.contains('is-tight'), 'a short type keeps the status word')
     assert.eq(byId('inspStatusLabel').checkVisibility(), true)
@@ -1096,18 +1099,18 @@ describe('Inspector: review fixes', () => {
     closeMenus()
   })
 
-  it('Appearance stays one row with its longest values, in the 320px and the 280px panel', () => {
+  it('Appearance keeps its longest values whole: rows in the 320px panel, one row in the 280px one', () => {
     reset()
     block('r', { cardStyle: 'bar', borderWidth: 1.5, highlight: 'alert', color: '#34d399' })
     selectBlock('r')
     byId('appearanceDetails').open = true
     const width = host.el.style.width
     try {
-      for (const w of ['320px', '280px']) {
+      for (const [w, rows] of [['320px', 4], ['280px', 1]]) {
         host.el.style.width = w
         const tops = ['inspColourBtn', 'inspCardBtn', 'inspBorderBtn', 'inspHighlightBtn']
           .map(id => Math.round(byId(id).getBoundingClientRect().top))
-        assert.eq(new Set(tops).size, 1, `${w}: ${tops.join(', ')}`)
+        assert.eq(new Set(tops).size, rows, `${w}: ${tops.join(', ')}`)
         const text = byId('inspCardText')
         atMost(text.scrollWidth, text.clientWidth + 0.5, `${w}: "Accent bar" is whole`)
       }
@@ -1880,7 +1883,7 @@ describe('Inspector: phone sheet', () => {
 })
 
 // A phone-sized page: the stylesheets and the page's own markup, no scripts.
-async function phoneFrame(width, height, { bodyClass = '', state: st = 'peek', selected = true, timerOpen = false, zen = false } = {}) {
+async function phoneFrame(width, height, { bodyClass = '', state: st = 'peek', selected = true, timer = false, timerOpen = false, zen = false } = {}) {
   const doc = new DOMParser().parseFromString(await pageMarkup(), 'text/html')
   doc.querySelectorAll('script, img').forEach(n => n.remove())
   doc.getElementById('rightPanel').dataset.sheet = st
@@ -1889,6 +1892,8 @@ async function phoneFrame(width, height, { bodyClass = '', state: st = 'peek', s
     doc.getElementById('inspectorContent').style.display = ''
     doc.getElementById('inspTitle').setAttribute('value', 'One place for the numbers')
   }
+  // The timer's row exists only once View, Facilitation shows it.
+  if (timer || timerOpen) doc.getElementById('timerWidget').hidden = false
   if (timerOpen) doc.getElementById('timerControls').style.display = 'flex'
   const frame = document.createElement('iframe')
   frame.style.cssText = `position:fixed;left:-6000px;top:0;width:${width}px;height:${height}px;border:0`
@@ -1912,7 +1917,9 @@ const styleIn = (frame, sel, pseudo) => frame.contentWindow.getComputedStyle(pse
 // panel's scroll box, and above the timer row.
 function titleClear(frame) {
   const doc = frame.contentDocument
-  const r = boxIn(frame, '#inspTitle'), box = boxIn(frame, '#panelContent'), timer = boxIn(frame, '#timerWidget')
+  const r = boxIn(frame, '#inspTitle'), box = boxIn(frame, '#panelContent')
+  // A hidden timer row (the default) is no floor: the panel's own edge is.
+  const timer = frame.contentDocument.getElementById('timerWidget').hidden ? { top: box.bottom } : boxIn(frame, '#timerWidget')
   const hits = []
   for (const fx of [0.05, 0.5, 0.95]) for (const fy of [0.1, 0.5, 0.9]) hits.push(doc.elementFromPoint(r.x + r.width * fx, r.y + r.height * fy)?.id || '?')
   return { ok: r.height > 20 && hits.every(h => h === 'inspTitle') && r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5 && r.bottom <= timer.top + 0.5,
@@ -1939,7 +1946,7 @@ describe('Inspector: phone sheet layout', () => {
     })
 
     it(`${W}x${H}: half shows the Title whole, with the Session timer below it`, async () => {
-      const f = await phoneFrame(W, H, { state: 'half' })
+      const f = await phoneFrame(W, H, { state: 'half', timer: true })
       try {
         const p = boxIn(f, '#rightPanel')
         assert.ok(Math.abs(p.height - Math.max(300, H * 0.52)) <= 1, `about half: ${Math.round(p.height)}px`)

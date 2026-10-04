@@ -34,11 +34,21 @@ import { ARROW_DIRS, PORT_DIR, readingOrder, nearestInDirection, currentBlockId,
          untabCardControls, isCameraHeld, revealShift, announce, announcer } from './navigation.js'
 
 // ── Canvas title editing ─────────────────────────────────────
-// The title sits inside the header's home link (the kit's markup contract),
-// so every press on it must stop there: left to the link it reloaded the
-// page instead of renaming. Enter, F2 or Space renames from the keyboard;
-// Enter commits and Escape puts the old title back. updateCanvasTitle gives
-// it its name and role.
+// The title is the header breadcrumb's last part (Maps / title). A press on
+// it renames and stops there, so nothing around it (it used to sit inside
+// the home link, which reloaded the page) takes the click. Enter, F2 or
+// Space renames from the keyboard; Enter commits and Escape puts the old
+// title back, and both leave focus on the title, so a keyboard user carries
+// on from where they were rather than from the top of the page. Maps,
+// Rename this map does the same (renameMap), which is the way in on a narrow
+// phone, where the title waits off the bar until it is asked for. An
+// untitled map opens empty, so "Untitled map" is never saved as a name.
+// updateCanvasTitle gives it its name and role.
+let startRename = () => {}
+
+/** Rename the open map in place, as a click on its title does. */
+export function renameMap() { startRename() }
+
 export function setupCanvasTitle() {
   const canvasTitleEl = $.canvasTitle()
   let before = ''
@@ -46,6 +56,7 @@ export function setupCanvasTitle() {
   const start = () => {
     if (ui.readOnly || editing()) return
     before = canvasMeta.title || ''
+    if (!before.trim()) canvasTitleEl.textContent = ''
     canvasTitleEl.contentEditable = 'true'
     canvasTitleEl.setAttribute('role', 'textbox')
     canvasTitleEl.setAttribute('aria-label', 'Map title')
@@ -53,17 +64,34 @@ export function setupCanvasTitle() {
     const r = document.createRange(); r.selectNodeContents(canvasTitleEl)
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(r)
   }
+  startRename = start
+  const commit = () => {
+    // Back to the name's start while the field is still laid out: a long
+    // name scrolled under the caret would otherwise come back showing its
+    // tail, or nothing, once it is a plain ellipsized title again.
+    canvasTitleEl.scrollLeft = 0
+    canvasTitleEl.contentEditable = 'false'
+    canvasMeta.title = canvasTitleEl.textContent.trim()
+    updateCanvasTitle()
+    debouncedSave()
+  }
+  // From the keyboard: commit, and keep focus on the title (it is a button
+  // again, with its tabindex), with no text selection left inside it. On a
+  // narrow phone the title leaves the bar again, so focus goes to Maps,
+  // where the rename started.
+  const commitInPlace = () => {
+    commit()
+    window.getSelection()?.removeAllRanges()
+    const target = canvasTitleEl.getClientRects().length ? canvasTitleEl : document.getElementById('mapsBtn')
+    target?.focus({ preventScroll: true })
+  }
   canvasTitleEl.addEventListener('click', e => {
     if (ui.readOnly) return   // view-only: the title is just the link's text
     e.preventDefault(); e.stopPropagation()
     start()
   })
   canvasTitleEl.addEventListener('blur', () => {
-    if (!editing()) return
-    canvasTitleEl.contentEditable = 'false'
-    canvasMeta.title = canvasTitleEl.textContent.trim()
-    updateCanvasTitle()
-    debouncedSave()
+    if (editing()) commit()
   })
   canvasTitleEl.addEventListener('keydown', e => {
     if (!editing()) {
@@ -72,8 +100,8 @@ export function setupCanvasTitle() {
       }
       return
     }
-    if (e.key === 'Enter') { e.preventDefault(); canvasTitleEl.blur() }
-    else if (e.key === 'Escape') { e.preventDefault(); canvasTitleEl.textContent = before; canvasTitleEl.blur() }
+    if (e.key === 'Enter') { e.preventDefault(); commitInPlace() }
+    else if (e.key === 'Escape') { e.preventDefault(); canvasTitleEl.textContent = before; commitInPlace() }
     e.stopPropagation()
   })
 }
