@@ -660,7 +660,7 @@ describe('categorizeLine() -- plural-safe and new cues', () => {
 })
 
 describe('createBlocksFromText() -- type check', () => {
-  it('marks only the low-confidence guesses for a person to check, in one undo step', () => {
+  it('marks every guess for a person to check, and only a prefixed line is certain, in one undo step', () => {
     reset()
     const ids = createBlocksFromText('goal: Ship the scheduler\nPortfolio Reporting\nKey Results', false)
     assert.eq(ids.length, 3)
@@ -670,7 +670,8 @@ describe('createBlocksFromText() -- type check', () => {
     assert.eq(b.type, 'stakeholder')
     assert.eq(b.typeCheck, true, 'a guess waits to be confirmed')
     assert.eq(c.type, 'metric')
-    assert.ok(!c.typeCheck)
+    assert.eq(c.typeCheck, true, 'a confident guess waits too (design round: only a prefix is certain)')
+    assert.eq(categorizeLine('Key Results').confidence, 'high', 'the classifier itself is still sure')
     document.querySelectorAll('.type-chip, .type-chip-menu').forEach(el => el.remove())
     ids.forEach(id => document.getElementById('b-' + id)?.remove())
     reset()

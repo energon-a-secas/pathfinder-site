@@ -1,17 +1,180 @@
 // ════════════════════════════════════════════════════════════
-//  classify.js: text to typed blocks. The line classifier, outline
-//  parser, paste handler, Brain Dump card and the type check that
-//  follows an import (a button on the card's type label).
+//  classify.js: text to typed blocks. The brain dump's syntax
+//  (PREFIXES, headings, "- " criteria), the line classifier, the
+//  outline parser, the dump itself (step columns, a free space,
+//  a readable arrival), the paste handler, the Brain Dump card and
+//  the type check that follows a guess (a button on the card's type
+//  label). Only a prefix, a heading or a trailing "?" is certain.
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, view, selection, snapshot, debouncedSave } from './state.js'
-import { $, genId, getBlockEl, showToast, TYPES, DEFAULT_WIDTH } from './utils.js'
-import { renderArrows, updateHint } from './canvas.js'
+import { state, ui, view, selection, snapshot, debouncedSave, toWorld } from './state.js'
+import { $, genId, getBlockEl, showToast, clamp, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { renderArrows, updateHint, applyTransform } from './canvas.js'
 import { renderAllBlocks, mutateBlocks, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { openDropdown, isMenuOpen } from './menu.js'
 import { modalDialogOpen } from './navigation.js'
 import { typeMenuItems, retypeBlocks } from './type-menu.js'
+import { layoutByStep, STEP_LAYOUT } from './layout.js'
+import { blockSize, nearestFreeSpot, occupiedRects } from './create.js'
+
+// ── Prefixes: the brain dump's own syntax ────────────────────
+//
+// A line that starts with one of the `sure` words and a colon ("goal:",
+// "risk:") gets that type outright, and so does a line that ends with "?"
+// (an Open Question). A line made of nothing but a type word ("Risks:",
+// "## Open questions") is a heading: every line in its list gets that type.
+// Nothing else is certain. The other `keys` are words notes use for many
+// things ("Done:", "Task:", "Target:", "Should:"), so a line led by one of
+// them takes that type as a guess, keeps the word in its title, and asks
+// for a check; a trailing "?" wins over one of them. A line with no prefix
+// at all is typed by the scoring below and asks for a check too, because a
+// confident wrong type is the one nobody questions.
+//
+// `show` is what the start panel teaches, short form first; `sure` is
+// `show` plus the type's own full spelling; `keys` are every spelling
+// read, sure ones included; `example` is a line the panel can show. In
+// step order (Why, Who, Proof, What, How, Doubt, Other), so a list rendered
+// from this reads the way the map is built. Every type but Other has one.
+export const PREFIXES = [
+  { type: 'goal',           show: ['goal'],               sure: ['goal'],
+    keys: ['goal', 'objective', 'aim', 'vision'],
+    example: 'Cut onboarding drop-off before the Q3 review' },
+  { type: 'problem',        show: ['problem'],            sure: ['problem'],
+    keys: ['problem', 'issue', 'blocker', 'bug', 'pain', 'challenge'],
+    example: 'New users stall at workspace setup' },
+  { type: 'stakeholder',    show: ['who', 'stakeholder'], sure: ['who', 'stakeholder'],
+    keys: ['who', 'stakeholder', 'audience', 'sponsor'],
+    example: 'Workspace admins' },
+  // "Target:" heads a number more often than an aim: a number with a target
+  // is a Metric (TYPE_DISAMBIGUATION).
+  { type: 'metric',         show: ['metric'],             sure: ['metric'],
+    keys: ['metric', 'kpi', 'okr', 'kr', 'key result', 'measure', 'target'],
+    example: 'Activation within 7 days' },
+  { type: 'requirement',    show: ['req', 'requirement'], sure: ['req', 'requirement'],
+    keys: ['req', 'requirement', 'need', 'must', 'should', 'shall'],
+    example: 'Setup can be finished in one sitting' },
+  { type: 'output',         show: ['output'],             sure: ['output'],
+    keys: ['output', 'deliverable', 'result', 'outcome'],
+    example: 'A setup checklist in the product' },
+  // A task is done once, to build or change something: an Implementation,
+  // not a step every run of a flow repeats.
+  { type: 'implementation', show: ['build', 'impl'],      sure: ['build', 'impl', 'implementation'],
+    keys: ['build', 'impl', 'implementation', 'implement', 'work item', 'work', 'epic', 'initiative', 'task', 'do'],
+    example: 'Add a guided setup checklist' },
+  // "Action:" stays a step: a workflow written out names each step that way.
+  { type: 'process',        show: ['step'],               sure: ['step', 'process'],
+    keys: ['step', 'process', 'action'],
+    example: 'Send the invite reminder' },
+  { type: 'terminator',     show: ['trigger'],            sure: ['trigger'],
+    keys: ['trigger', 'start', 'begin', 'end', 'finish', 'done'],
+    example: 'A new workspace is created' },
+  { type: 'decision',       show: ['decision'],           sure: ['decision'],
+    keys: ['decision', 'decided', 'chose', 'choice'],
+    example: 'Show the checklist to new workspaces only' },
+  { type: 'resource',       show: ['resource'],           sure: ['resource'],
+    keys: ['resource', 'system', 'team', 'tool', 'asset', 'budget'],
+    example: 'The onboarding email service' },
+  { type: 'assumption',     show: ['assume'],             sure: ['assume', 'assumption'],
+    keys: ['assume', 'assumption', 'belief', 'hypothesis'],
+    example: 'Admins skip the invite step' },
+  { type: 'risk',           show: ['risk'],               sure: ['risk'],
+    keys: ['risk', 'concern', 'danger', 'threat'],
+    example: 'A setup checklist slows experienced admins' },
+  { type: 'question',       show: ['question'],           sure: ['question', 'open question', 'q'],
+    keys: ['question', 'open question', 'q'],
+    example: 'What counts as activated?' },
+  { type: 'context',        show: ['context'],            sure: ['context'],
+    keys: ['context', 'background', 'note', 'info', 'status'],
+    example: 'Activation dipped after the pricing change' },
+]
+
+/** The criteria a dumped line's "- " children become, by type (Targets on a metric). */
+export const CRITERIA_FROM_BULLETS = new Set(['requirement', 'metric'])
+
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+const longestFirst = words => [...words].sort((a, b) => b.length - a.length).map(escRe).join('|')
+
+// A sure word reads with a colon or the older full stop ("goal: x", "Goal :
+// x", "goal. x"); any other key only with a colon, since "Done. Moving on"
+// is a sentence. The longest spelling is tried first, so "work item:" is
+// not read as "work"; with the colon required, no two keys match one line. A word that asks ("who") with a "?" at the end of the
+// line is a question however it is led: "Who: owns the rollout?".
+const ASKING = new Set(['who'])
+const PREFIX_PATTERNS = PREFIXES.flatMap(({ type, sure, keys }) => {
+  const loose = keys.filter(k => !sure.includes(k))
+  return [
+    { type, sure: true, re: new RegExp(`^(${longestFirst(sure)})(?:\\s*:|\\.)\\s*`, 'i') },
+    ...(loose.length ? [{ type, sure: false, re: new RegExp(`^(${longestFirst(loose)})\\s*:\\s*`, 'i') }] : []),
+  ]
+})
+
+// Words that make a heading. Every key and its plural, plus each type's own
+// label and plural ("Open questions", "Work items"). Not the words a list
+// heading uses for something else: "Done:" lists finished work, "Tasks:" and
+// "Notes:" anything at all, so their lines are typed one by one instead.
+const NOT_A_HEADING = new Set(['do', 'done', 'start', 'begin', 'end', 'finish', 'task', 'action', 'note', 'info',
+  'status', 'result', 'target', 'team', 'budget', 'work'])
+const pluralOf = w => /(s|x|ch|sh)$/.test(w) ? w + 'es' : w + 's'
+const HEADINGS = new Map()
+PREFIXES.forEach(({ type, keys }) => {
+  const add = w => { w = w.toLowerCase().replace(/\s+/g, ' ').trim(); if (w && !HEADINGS.has(w)) HEADINGS.set(w, type) }
+  keys.filter(k => !NOT_A_HEADING.has(k)).forEach(k => { add(k); add(pluralOf(k)) })
+  const t = TYPES[type]
+  if (t) { add(t.label); add(t.plural || ''); add(pluralOf(t.label)) }
+})
+HEADINGS.set('hypotheses', 'assumption')
+
+// Markup a pasted note carries that is not part of the line: a bullet (the
+// ones a document editor pastes too, an en dash among them), a number, a
+// task box, a Markdown heading, bold around the first words.
+const BULLETS = '-*•◦▪‣\\u2013'
+function cleanLine(raw) {
+  return String(raw || '')
+    .replace(new RegExp(`^\\s*[${BULLETS}+]\\s+`), '')
+    .replace(/^\s*\d+[.)]\s+/, '')
+    .replace(/^\[[ xX]\]\s+/, '')
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^(\*\*|__)([^*_]+?)\1\s*/, '$2 ')
+    .trim()
+}
+
+/**
+ * The type a heading line stands for ("Risks:", "## Open questions",
+ * "**Requirements:**"), or null when the line is not one. A heading is only
+ * the word: "Goal: ship it" is a goal, "Goal:" alone heads a list of goals.
+ */
+export function headingType(text) {
+  const raw = String(text || '').trim()
+  const markdown = /^#{1,6}\s+/.test(raw)
+  const s = raw.replace(/^#{1,6}\s+/, '').replace(/^(\*\*|__)([^*_]+?)\1/, '$2').replace(/(\*\*|__)$/, '').trim()
+  const colon = /\s*:$/.test(s)
+  if (!markdown && !colon) return null
+  const word = s.replace(/\s*:$/, '').trim().toLowerCase().replace(/\s+/g, ' ')
+  return HEADINGS.get(word) || null
+}
+
+/**
+ * The prefix a cleaned line starts with, or null: { type, sure, word, rest },
+ * where `word` is the prefix as written and `rest` the line after it.
+ */
+function matchPrefix(line) {
+  for (const { re, type, sure } of PREFIX_PATTERNS) {
+    const m = line.match(re)
+    if (m) return { type, sure, word: m[1], rest: line.slice(m[0].length).trim() }
+  }
+  return null
+}
+
+/**
+ * A title starts with a capital, as every template and card does: "goal:
+ * cut drop-off" is the card "Cut drop-off". Only a first word written all
+ * in lower case changes, so "iOS app" and "OIDC client" stay as typed.
+ */
+export function capitalFirst(text) {
+  const s = String(text || '')
+  return /^\p{Ll}[\p{Ll}'’-]*(?=[\s,;!?]|$)/u.test(s) ? s[0].toUpperCase() + s.slice(1) : s
+}
 
 // ── Text → blocks classification ─────────────────────────────
 //
@@ -19,23 +182,6 @@ import { typeMenuItems, retypeBlocks } from './type-menu.js'
 // leading first-person/article ("we need…", "the API…") and SCORE the whole
 // line against weighted keyword sets so natural prose lands on a real type
 // instead of dumping into the gray 'custom' bucket.
-const PREFIX_PATTERNS = [
-  { re: /^(goal|objective|aim|target|vision)[:.]\s*/i,         type: 'goal' },
-  { re: /^(problem|issue|blocker|bug|pain|challenge)[:.]\s*/i, type: 'problem' },
-  { re: /^(risk|concern|danger|threat)[:.]\s*/i,               type: 'risk' },
-  { re: /^(assum(e|ption)|belief|hypothesis)[:.]\s*/i,         type: 'assumption' },
-  { re: /^(need|req(uirement)?|must|should|shall)[:.]\s*/i,    type: 'requirement' },
-  { re: /^(decision|decided|chose|choice)[:.]\s*/i,            type: 'decision' },
-  { re: /^(resource|system|team|tool|asset|budget)[:.]\s*/i,   type: 'resource' },
-  { re: /^(output|deliverable|result|outcome)[:.]\s*/i,        type: 'output' },
-  { re: /^(context|background|note|info|status)[:.]\s*/i,      type: 'context' },
-  { re: /^(question)[:.]\s*/i,                                 type: 'question' },
-  { re: /^(action|step|process|task|do)[:.]\s*/i,             type: 'process' },
-  { re: /^(start|end|begin|finish|done|trigger)[:.]\s*/i,     type: 'terminator' },
-  { re: /^(metric|kpi|okr|kr|key result|measure)[:.]\s*/i,     type: 'metric' },
-  { re: /^(stakeholder|audience|sponsor|who)[:.]\s*/i,         type: 'stakeholder' },
-  { re: /^(implementation|implement|build|work|epic|initiative)[:.]\s*/i, type: 'implementation' },
-]
 
 const UNITS = '(day|week|month|quarter|year|sprint|release|morning|evening|monday|tuesday|wednesday|thursday|friday)'
 // Whitespace or a hyphen: "end of day" and "end-of-day" are the same phrase.
@@ -214,8 +360,15 @@ const SCORE_RULES = {
 const LEADING_FILLER = new RegExp(`^(we|i|the(?!\\s+end${SEP}of${SEP}(the${SEP})?${UNITS}\\b)|our|they|it|this|that|there)\\s+`, 'i')
 
 /**
- * Classify one raw line into { type, title, confidence }.
- * confidence: 'high' (explicit prefix or strong score) | 'low' (weak/none).
+ * Classify one raw line into { type, title, confidence, source }.
+ * confidence: 'high' (a prefix word or a strong score) | 'low' (weak/none).
+ * source: 'prefix' (a `sure` PREFIXES word, which leaves the title), 'question'
+ * (a trailing "?"), 'alias' (another PREFIXES key, which stays in the title)
+ * or 'guess' (the scoring). Only the first two are certain: the brain dump
+ * asks for a check on every alias and guess, confident or not, and the
+ * importers on the low-confidence ones. `afterPrefix` marks a title that
+ * followed a prefix word, which the dump starts with a capital (capitalFirst);
+ * the importers keep the title as written.
  * A title alone cannot always carry its type: the eleven reporting-flow
  * titles in tests/types-registry.test.js now all land where their author
  * meant, but eight of them only as a guess ("ACME Model Reporting" could
@@ -223,21 +376,32 @@ const LEADING_FILLER = new RegExp(`^(we|i|the(?!\\s+end${SEP}of${SEP}(the${SEP})
  * why low-confidence calls ask to be checked.
  */
 export function categorizeLine(raw) {
-  const line = raw.replace(/^\s*[-*•]\s+/, '').replace(/^\s*\d+\.\s+/, '').trim()
+  const line = cleanLine(raw)
+  const pre = matchPrefix(line)
+  const asks = /[?？]$/.test(line)
 
-  // 1. Explicit prefix: authoritative.
-  for (const { re, type } of PREFIX_PATTERNS) {
-    const m = line.match(re)
-    if (m) return { type, title: line.slice(m[0].length).trim() || line, confidence: 'high' }
+  // 1. A sure prefix: authoritative, unless it is a word that asks ("Who:")
+  // on a line that asks.
+  if (pre?.sure && pre.rest && !(asks && ASKING.has(pre.word.toLowerCase()))) {
+    return { type: pre.type, title: pre.rest, confidence: 'high', source: 'prefix', afterPrefix: true }
   }
 
-  // 2. A trailing "?" is a genuine question unless it reads as a belief.
+  // 2. A trailing "?" (or the full-width "？") is a genuine question unless
+  // it reads as a belief. It wins over a prefix word that is not sure, and
+  // the word joins the question: "Should: we support SAML?" asks "Should we
+  // support SAML?".
   const looksAssumed = /\b(assume|assuming|expect|believe|will work|should be|probably|likely)\b/i.test(line)
-  if (line.endsWith('?') && !looksAssumed) {
-    return { type: 'question', title: line, confidence: 'high' }
+  if (asks && !looksAssumed) {
+    if (pre?.rest) return { type: 'question', title: `${pre.word} ${pre.rest}`, confidence: 'high', source: 'question', afterPrefix: true }
+    return { type: 'question', title: line, confidence: 'high', source: 'question' }
   }
 
-  // 3. Score the whole line (filler-stripped) against keyword cues.
+  // 3. Any other prefix word: its type, as a guess. The word stays in the
+  // title, since it was the writer's word and not this syntax: "Done:
+  // client merged" and "Start: 3 March" mean less without it.
+  if (pre?.rest) return { type: pre.type, title: line, confidence: 'high', source: 'alias' }
+
+  // 4. Score the whole line (filler-stripped) against keyword cues.
   const probe = line.replace(LEADING_FILLER, '')
   let best = { type: 'custom', score: 0 }
   for (const [type, rules] of Object.entries(SCORE_RULES)) {
@@ -249,9 +413,24 @@ export function categorizeLine(raw) {
     if (score > best.score) best = { type, score }
   }
 
-  if (best.score >= 3) return { type: best.type, title: line, confidence: 'high' }
-  if (best.score >= 1) return { type: best.type, title: line, confidence: 'low' }
-  return { type: 'custom', title: line, confidence: 'low' }
+  if (best.score >= 3) return { type: best.type, title: line, confidence: 'high', source: 'guess' }
+  if (best.score >= 1) return { type: best.type, title: line, confidence: 'low', source: 'guess' }
+  return { type: 'custom', title: line, confidence: 'low', source: 'guess' }
+}
+
+// One line of a dump: how deep it sits, whether it is a list item, its text.
+// Depth = indentUnits*10 + (isBullet ? 1 : 0), where two spaces or one tab is
+// one indent unit, so "Header / - bullet" nests without indentation. A dash,
+// star, plus or number is a marker only with a space after it, as Markdown
+// has it: "-5% since launch" and "3.5% churn" are not list items. A bullet
+// glyph always is.
+const MARKER = /^(\s*)([-*+–](?=\s|$)|[•◦▪‣]|\d+[.)](?=\s|$))?\s*/
+function lineParts(raw) {
+  const m = raw.match(MARKER)
+  const ws = (m[1] || '').replace(/\t/g, '  ')
+  const bullet = !!m[2]
+  const content = raw.slice(m[0].length).replace(/^\[[ xX]\]\s+/, '').trim()
+  return { depth: Math.floor(ws.length / 2) * 10 + (bullet ? 1 : 0), bullet, content }
 }
 
 /**
@@ -260,78 +439,335 @@ export function categorizeLine(raw) {
  * description. A line is a child only when it is "deeper" than the current
  * block, so a flat bullet list (all same depth) still becomes sibling blocks.
  *
- * Depth = indentUnits*10 + (isBullet ? 1 : 0), where two spaces or one tab is
- * one indent unit. This lets "Header / - bullet / - bullet" nest without
- * requiring the bullets to be spatially indented.
+ * A heading ("Risks:", "## Open questions", see headingType) makes no block:
+ * it types the list under it. Its list is the lines deeper than it, or, when
+ * the first line under it sits at its own depth, the lines at that depth up
+ * to a blank line ("Word:") or the next heading (Markdown). Each item carries `section` (the heading's type or null)
+ * and `children` ([{ text, bullet }], the raw form of `description`).
  */
 export function parseOutline(text) {
-  const MARKER = /^(\s*)([-*•]|\d+[.)])?\s*/
-  const items = []          // { line, description: [lines] }
-  let current = null, currentDepth = 0
-  text.split(/\r?\n/).forEach(raw => {
-    if (!raw.trim()) return
-    const m = raw.match(MARKER)
-    const ws = (m[1] || '').replace(/\t/g, '  ')
-    const isBullet = !!m[2]
-    const depth = Math.floor(ws.length / 2) * 10 + (isBullet ? 1 : 0)
-    const content = raw.slice(m[0].length).trim()
-    if (!content) return
-    if (current && depth > currentDepth) {
-      current.description.push(isBullet ? '• ' + content : content)
-    } else {
-      current = { line: content, description: [] }
-      currentDepth = depth
-      items.push(current)
+  const items = []          // { line, description: [lines], children, depth, section }
+  let current = null        // the item deeper lines fold into
+  let section = null        // { type, depth, itemDepth }
+  String(text || '').split(/\r?\n/).forEach(raw => {
+    if (!raw.trim()) {
+      // A blank line ends a flat list under a "Word:" heading; a bulleted or
+      // indented one ends where a shallower line starts. A Markdown heading
+      // runs to the next heading, since pasted Markdown puts a blank line
+      // between its paragraphs.
+      if (section && !section.markdown && section.itemDepth != null && section.itemDepth <= section.depth) section = null
+      return
     }
+    const { depth, bullet, content } = lineParts(raw)
+    if (!content) return
+    if (section && depth < (section.itemDepth ?? section.depth)) section = null
+    const child = current && depth > current.depth
+    const head = child ? null : headingType(content)
+    const markdown = !child && /^#{1,6}\s/.test(content)
+    if (head) { section = { type: head, depth, itemDepth: null, markdown }; current = null; return }
+    // Any other Markdown heading ("## Timeline") ends the section above it.
+    if (markdown) section = null
+    if (child) {
+      current.children.push({ text: content, bullet })
+      current.description.push(bullet ? '• ' + content : content)
+      return
+    }
+    if (section && section.itemDepth == null) section.itemDepth = depth
+    current = { line: content, description: [], children: [], depth, section: section ? section.type : null }
+    items.push(current)
   })
   return items
 }
 
 /**
- * Turn freeform text into a column of typed blocks. Shared by the paste
- * handler and the Brain Dump card. Returns the array of created block ids.
- * When `nest` is true (default), indented/bulleted lines fold into the
- * description of the block above them.
+ * What a dump of text becomes, before anything touches the canvas: one
+ * { type, title, description, criteria, typeCheck, source } per block. Pure.
+ *
+ * The type comes from the line's own sure prefix, else the heading it sits
+ * under, else a trailing "?", else another prefix word or the classifier,
+ * and those last two are guesses (`typeCheck`). Under a requirement or a
+ * metric typed by a prefix or a heading the "- " lines are its criteria (a
+ * metric's Targets); everywhere else, a guessed requirement included, and
+ * for lines without a marker, they fold into the description. With `nest`
+ * off every line is its own block, still typed by its heading.
  */
-export function createBlocksFromText(text, nest = true) {
-  const items = nest
-    ? parseOutline(text)
-    : text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(line => ({ line, description: [] }))
-  if (!items.length) return []
+export function readDump(text, nest = true) {
+  const outline = parseOutline(text)
+  const items = nest ? outline : outline.flatMap(it => [
+    { ...it, description: [], children: [] },
+    ...it.children.map(c => ({ line: c.text, description: [], children: [], section: it.section })),
+  ])
+  return items.map(item => {
+    const own = categorizeLine(item.line)
+    const fromHeading = !!item.section && own.source !== 'prefix'
+    const type = fromHeading ? item.section : own.type
+    const source = fromHeading ? 'heading' : own.source
+    const certain = source === 'prefix' || source === 'heading' || source === 'question'
+    const { title, overflow } = splitTitle(own.afterPrefix ? capitalFirst(own.title) : own.title)
+    const spec = { type, title, description: item.description.join('\n'), criteria: [],
+      typeCheck: !certain, source }
+    if (overflow) spec.description = overflow + (spec.description ? '\n' + spec.description : '')
+    // Only a type somebody wrote makes bullets criteria: under a guess they
+    // stay in the description, which every type shows, so a guess fixed to
+    // a type without criteria cannot hide them.
+    if (certain && CRITERIA_FROM_BULLETS.has(type) && item.children.some(c => c.bullet)) {
+      const seen = new Set(), rest = []
+      item.children.forEach(c => {
+        if (!c.bullet) { rest.push(c.text); return }
+        const text = c.text.slice(0, 300), key = text.toLowerCase()
+        if (seen.has(key)) return
+        // normalize.js keeps 30; past that the line stays, in the description.
+        if (spec.criteria.length >= 30) { rest.push('• ' + c.text); return }
+        seen.add(key); spec.criteria.push(text)
+      })
+      spec.description = [overflow, ...rest].filter(Boolean).join('\n')
+    }
+    return spec
+  })
+}
 
-  const vp = $.canvasViewport()
-  const r  = vp.getBoundingClientRect()
-  const cx = (r.width  / 2 - view.panX) / view.zoom - DEFAULT_WIDTH / 2
-  const cy = (r.height / 2 - view.panY) / view.zoom - (items.length * 90) / 2
+/** The longest title a dumped line keeps; a card's title is never clamped. */
+export const TITLE_MAX = 120
+
+// A full stop after one of these ends a word, not a sentence: "e.g. the
+// two big ones" carries on.
+const ABBREVIATION = /(?:^|[\s(])(?:e\.g|i\.e|etc|vs|cf|approx|incl|esp|viz|al|mr|mrs|ms|dr|st|no|fig|inc|ltd|co|jr|sr)\.$/i
+
+// Where the first sentence of `s` ends (an index just past its . ! or ?),
+// at least 12 characters in and no further than TITLE_MAX, or 0. A
+// sentence ends where the next word does not start in lower case and the
+// full stop does not close an abbreviation.
+function firstSentenceEnd(s) {
+  const re = /[.!?](?=\s+(\S))/g
+  let m
+  while ((m = re.exec(s))) {
+    const end = m.index + 1
+    if (end > TITLE_MAX) break
+    if (m.index < 12 || /\p{Ll}/u.test(m[1])) continue
+    if (s[m.index] === '.' && ABBREVIATION.test(s.slice(0, end))) continue
+    return end
+  }
+  return 0
+}
+
+/**
+ * A pasted paragraph is not a title. Past TITLE_MAX characters the title is
+ * the first sentence when that fits, and the rest of the line moves to the
+ * description; otherwise it is cut at a word with an ellipsis and the
+ * description keeps the whole line. Nothing typed is lost either way.
+ */
+export function splitTitle(text) {
+  const s = String(text || '').trim()
+  if (s.length <= TITLE_MAX) return { title: s, overflow: '' }
+  const end = firstSentenceEnd(s)
+  if (end) return { title: s.slice(0, end), overflow: s.slice(end).trim() }
+  const cut = s.slice(0, TITLE_MAX)
+  const at = cut.lastIndexOf(' ')
+  return { title: (at > TITLE_MAX / 2 ? cut.slice(0, at) : cut).replace(/[\s,;:]+$/, '') + '…', overflow: s }
+}
+
+/** The zoom a dump arrives at, at least: the band where a card's text reads. */
+export const READABLE_ZOOM = 0.75
+
+/**
+ * Turn freeform text into typed blocks in step columns (Why, Who, Proof,
+ * What, How, Doubt, then Other), in the nearest free space to the middle of
+ * the view, or to `at` (a world point: the arrangement's top-left sits half
+ * a card left of it) when given. Shared by the paste handler and the Brain
+ * Dump card. One undo step. Returns the array of created block ids. When
+ * `nest` is true (default), indented/bulleted lines fold into the block
+ * above them.
+ *
+ * The camera then shows the result at a readable zoom (arriveAtBlocks), as a
+ * microtask, so a caller that moves the new blocks right after (the canvas
+ * menu's Paste as blocks) has moved them first; if that put them on a card,
+ * they move clear of it first (settleDump).
+ */
+export function createBlocksFromText(text, nest = true, { at = null } = {}) {
+  if (ui.readOnly) return []
+  const specs = readDump(text, nest)
+  if (!specs.length) return []
 
   snapshot()
-  const created = []
-  items.forEach((item, i) => {
-    const { type, title, confidence } = categorizeLine(item.line)
+  const ids = specs.map(spec => {
     const id = genId()
     state.blocks[id] = {
-      id, type, title, description: item.description.join('\n'), notes: '',
-      x: cx, y: cy + i * 90,
+      id, type: spec.type, title: spec.title, description: spec.description, notes: '',
+      x: 0, y: 0,
       actions: [], questions: [],
       docRef: null,
       width: null, color: null, collapsed: false, groupId: null,
       status: null, priority: null,
+      cardStyle: null, borderWidth: null, highlight: null,
     }
-    // A guess the classifier was not sure of waits for a person to confirm
-    // it, and says so on the card, instead of passing as a real type.
-    if (confidence === 'low') state.blocks[id].typeCheck = true
-    created.push({ id, confidence })
+    if (spec.criteria.length) state.blocks[id].criteria = spec.criteria
+    // A type the classifier picked, however sure it was, waits for a person
+    // to confirm it, and says so on the card, instead of passing as real.
+    if (spec.typeCheck) state.blocks[id].typeCheck = true
+    return id
   })
 
+  // Render first: the columns stack by each card's real height, and a card
+  // with a description is taller than the estimate.
+  renderAllBlocks()
+  placeDump(ids, at)
   renderAllBlocks()
   renderArrows()
   runGapDetection()
   updateHint()
   debouncedSave()
   ui.promptDirty = true
-  showTypeChips(created)
-  showToast(`Created ${created.length} block${created.length > 1 ? 's' : ''}`)
-  return created.map(c => c.id)
+
+  const guessed = specs.filter(s => s.typeCheck).length
+  queueMicrotask(() => {
+    const live = ids.filter(id => state.blocks[id])
+    if (!live.length) return
+    settleDump(live)
+    const { all } = arriveAtBlocks(live)
+    showToast(dumpSummary(live.length, guessed, all), 'info', guessed || !all ? 4200 : 2600)
+  })
+  return ids
+}
+
+// A phone has no Shift+1; the status bar's Fit button does the same.
+const fitHint = () => {
+  try { return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(pointer: fine)').matches ? 'Fit' : 'Shift+1' } catch (_) { return 'Shift+1' }
+}
+
+/**
+ * The toast after a dump: how many, how many types to check, how to see
+ * them all. `fit` names the way to see everything ('Shift+1', or 'Fit' on
+ * a touch screen).
+ */
+export function dumpSummary(count, guessed = 0, allInView = true, fit = fitHint()) {
+  let msg = `Added ${count} block${count === 1 ? '' : 's'}`
+  if (guessed) {
+    msg += guessed === count && count > 1
+      ? ', every type a guess to check'
+      : `, ${guessed} with a guessed type to check`
+  }
+  if (!allInView) msg += `. ${fit} shows all of ${count === 1 ? 'it' : 'them'}`
+  return msg
+}
+
+// The margin arriveAtBlocks keeps around what it frames, in screen pixels.
+const ARRIVAL_PAD = 48
+
+/**
+ * The step arrangement that fits the view a dump arrives in, a viewport of
+ * `W` by `H` screen pixels. A wide view gets columns, wrapped into bands
+ * where that lets the whole dump show larger: of every place the columns
+ * could break into a new band below, the one whose arrangement fits the
+ * view at the highest zoom (one band when that is no worse). A tall view
+ * (a phone) gets step rows, as many cards across as read at READABLE_ZOOM.
+ * With no laid-out viewport, plain columns. Pure: sizes in, layoutByStep's
+ * result out.
+ */
+export function layoutDump(nodes, W = 0, H = 0) {
+  if (!(W > 0 && H > 0)) return layoutByStep(nodes)
+  const availW = Math.max(1, W - ARRIVAL_PAD * 2), availH = Math.max(1, H - ARRIVAL_PAD * 2)
+  if (H > W) {
+    const cardW = Math.max(DEFAULT_WIDTH, ...nodes.map(n => n.w || 0)), gap = STEP_LAYOUT.rowGap
+    const across = Math.max(1, Math.floor((availW / READABLE_ZOOM + gap) / (cardW + gap)))
+    return layoutByStep(nodes, { direction: 'TB', grow: false, maxPerColumn: across })
+  }
+  const zoomOf = l => Math.min(1, availW / Math.max(1, l.width), availH / Math.max(1, l.height))
+  const one = layoutByStep(nodes)
+  const width = new Map(nodes.map(n => [n.id, n.w || DEFAULT_WIDTH]))
+  let best = one, bestZoom = zoomOf(one)
+  one.lanes.forEach(lane => {
+    const wrap = one.positions.get(lane.ids[0]).x + Math.max(...lane.ids.map(id => width.get(id)))
+    if (wrap >= one.width) return
+    const l = layoutByStep(nodes, { wrap })
+    const z = zoomOf(l)
+    if (z > bestZoom + 1e-6) { best = l; bestZoom = z }
+  })
+  return best
+}
+
+// Step columns that fit the view, then the nearest free space for the whole
+// arrangement, so a dump on a busy map never lands on a card.
+function placeDump(ids, at) {
+  const nodes = ids.map(id => ({ id, type: state.blocks[id].type, ...blockSize(id) }))
+  const vp = $.canvasViewport()
+  const layout = layoutDump(nodes, vp?.clientWidth || 0, vp?.clientHeight || 0)
+  let want
+  if (at && Number.isFinite(at.x) && Number.isFinite(at.y)) want = { x: at.x - DEFAULT_WIDTH / 2, y: at.y }
+  else {
+    const r = $.canvasViewport().getBoundingClientRect()
+    const c = toWorld(r.width / 2, r.height / 2)
+    want = { x: c.x - layout.width / 2, y: c.y - layout.height / 2 }
+  }
+  const spot = nearestFreeSpot(want.x, want.y, layout.width, layout.height, occupiedRects(ids), { step: 40 })
+  ids.forEach(id => {
+    const p = layout.positions.get(id) || { x: 0, y: 0 }
+    state.blocks[id].x = spot.x + p.x
+    state.blocks[id].y = spot.y + p.y
+  })
+}
+
+/**
+ * Keep a dump off the cards that were there before it, after its caller
+ * has had its say: the canvas menu's Paste as blocks moves the arrangement
+ * to where the menu opened, which can be on a card. The arrangement moves
+ * as one to the nearest free space; nothing happens when it is clear.
+ * Part of the dump's own undo step. Returns true when it moved.
+ */
+export function settleDump(ids) {
+  const live = ids.filter(id => state.blocks[id])
+  if (!live.length) return false
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  live.forEach(id => {
+    const b = state.blocks[id], { w, h } = blockSize(id)
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + w); maxY = Math.max(maxY, b.y + h)
+  })
+  const spot = nearestFreeSpot(minX, minY, maxX - minX, maxY - minY, occupiedRects(live), { step: 40 })
+  const dx = spot.x - Math.round(minX), dy = spot.y - Math.round(minY)
+  if (!dx && !dy) return false
+  live.forEach(id => {
+    const b = state.blocks[id]
+    b.x = Math.round(b.x + dx); b.y = Math.round(b.y + dy)
+  })
+  renderAllBlocks()
+  renderArrows()
+  runGapDetection()
+  debouncedSave()
+  return true
+}
+
+/**
+ * Show blocks that just arrived, at a zoom where they read. Nothing moves
+ * when they are already in view at READABLE_ZOOM or closer. Otherwise they
+ * fit when that zoom allows (never past 100%); when they cannot, the camera
+ * goes to READABLE_ZOOM on their start (the Why column, top first), and the
+ * result says not all of them are in view. Returns { moved, all }.
+ */
+export function arriveAtBlocks(ids) {
+  const vp = $.canvasViewport()
+  const W = vp?.clientWidth || 0, H = vp?.clientHeight || 0
+  const live = (ids || []).filter(id => state.blocks[id])
+  if (!W || !H || !live.length) return { moved: false, all: true }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  live.forEach(id => {
+    const b = state.blocks[id], { w, h } = blockSize(id)
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + w); maxY = Math.max(maxY, b.y + h)
+  })
+  const z0 = view.zoom
+  const inView = minX * z0 + view.panX >= 0 && minY * z0 + view.panY >= 0 &&
+    maxX * z0 + view.panX <= W && maxY * z0 + view.panY <= H
+  if (inView && z0 >= READABLE_ZOOM) return { moved: false, all: true }
+  const pad = ARRIVAL_PAD
+  const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY)
+  const fit = Math.min((W - pad * 2) / bw, (H - pad * 2) / bh)
+  const z = clamp(fit >= READABLE_ZOOM ? Math.min(fit, 1) : READABLE_ZOOM, MIN_ZOOM, MAX_ZOOM)
+  const fitsX = bw * z <= W - pad * 2 + 0.5, fitsY = bh * z <= H - pad * 2 + 0.5
+  view.zoom = z
+  view.panX = Math.round(fitsX ? (W - bw * z) / 2 - minX * z : pad - minX * z)
+  view.panY = Math.round(fitsY ? (H - bh * z) / 2 - minY * z : pad - minY * z)
+  applyTransform()
+  return { moved: true, all: fitsX && fitsY }
 }
 
 let pasteWired = false

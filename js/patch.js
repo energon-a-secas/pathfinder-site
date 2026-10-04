@@ -21,7 +21,8 @@ import { connectionLabel } from './relations.js'
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, snapshot, saveState, serializeCanvas } from './state.js'
-import { genId, escHtml, showToast, STATUS_DEFS, TYPES } from './utils.js'
+import { genId, escHtml, showToast, STATUS_DEFS, TYPES, DEFAULT_WIDTH } from './utils.js'
+import { placeNewBlocks, occupiedRects } from './create.js'
 import { normalizeBlock, normalizeArrow } from './normalize.js'
 import { retypeBlock } from './type-menu.js'
 import { renderAllBlocks, renderInspector } from './render.js'
@@ -305,9 +306,9 @@ export function buildPlan(patch) {
     const id = String(rb.id).trim()
     idCounts.set(id, (idCounts.get(id) || 0) + 1)
   })
-  const placed = Object.values(state.blocks)
-  let px = placed.length ? Math.max(...placed.map(b => b.x)) + 340 : 0
-  let py = placed.length ? Math.min(...placed.map(b => b.y)) : 0
+  // A new block without coordinates is placed once the arrows are read, next
+  // to what it connects to (placeNewBlocks); apply reads the result.
+  const where = new Map(), autoPlace = []
   newBlocks.forEach(rb => {
     if (rb?.id != null && idCounts.get(String(rb.id).trim()) > 1) {
       return miss('block', rb.id, 'Duplicate new block id; use a unique id for each block')
@@ -321,15 +322,23 @@ export function buildPlan(patch) {
     const finalId = Object.hasOwn(state.blocks, clean.id) || Object.hasOwn(Object.prototype, clean.id) ? genId() : clean.id
     idMap.set(clean.id, finalId)
     pendingTitle.set(finalId, clean.title || '(new block)')
-    const x = Number.isFinite(rb?.x) ? clean.x : px
-    const y = Number.isFinite(rb?.y) ? clean.y : py
-    if (!Number.isFinite(rb?.x)) py += 150
+    // Both coordinates: kept as given. One: where the search for a free
+    // slot starts, beside what the block connects to on the other axis.
+    if (Number.isFinite(rb?.x) && Number.isFinite(rb?.y)) where.set(finalId, { x: clean.x, y: clean.y, w: clean.width || DEFAULT_WIDTH })
+    else {
+      autoPlace.push({ key: finalId, w: clean.width || undefined,
+        fixed: { x: Number.isFinite(rb?.x) ? clean.x : undefined, y: Number.isFinite(rb?.y) ? clean.y : undefined } })
+    }
     blockOps.set(finalId, ops.length)
     add('block', true, `New ${clean.type}: "${short(clean.title || '(untitled)', 44)}"`, {
       read: graph => blockDetails(graph.blocks[finalId]),
-      apply(graph) { graph.blocks[finalId] = { ...structuredClone(clean), id: finalId, x, y } },
+      apply(graph) {
+        const at = where.get(finalId) || { x: 0, y: 0 }
+        graph.blocks[finalId] = { ...structuredClone(clean), id: finalId, x: at.x, y: at.y }
+      },
     })
   })
+  const links = []
   const connected = new Set(state.arrows.map(a => JSON.stringify([a.from, a.to])))
   ;(Array.isArray(patch.arrows) ? patch.arrows : []).forEach(ra => {
     const clean = normalizeArrow(ra)
@@ -361,6 +370,7 @@ export function buildPlan(patch) {
       return miss('arrow', `${nameOf(f.id)} → ${nameOf(t.id)}`, 'Already connected or included in this patch')
     }
     connected.add(pair)
+    links.push({ from: f.id, to: t.id })
     const arrowId = genId()
     add('arrow', true, `Connect "${short(nameOf(f.id) || clean.from, 26)}" → "${short(nameOf(t.id) || clean.to, 26)}"${clean.label ? ` (${short(clean.label, 20)})` : ''}`, {
       conf: f.how === 'fuzzy' || t.how === 'fuzzy' ? 'fuzzy' : 'id',
@@ -372,6 +382,18 @@ export function buildPlan(patch) {
       },
     })
   })
+
+  // New blocks land beside what they connect to (right of a block that
+  // points at them, left of one they point at), never on a card.
+  if (autoPlace.length) {
+    autoPlace.forEach(it => {
+      it.anchors = links.filter(l => l.from === it.key || l.to === it.key)
+        .map(l => l.to === it.key ? { id: l.from, side: 'right' } : { id: l.to, side: 'left' })
+    })
+    // A new block with coordinates is a card in the way and an anchor too.
+    const known = new Map([...where].map(([key, p]) => [key, { x: p.x, y: p.y, w: p.w, h: 100 }]))
+    placeNewBlocks(autoPlace, { occupied: [...occupiedRects(), ...known.values()], known }).forEach((p, key) => where.set(key, p))
+  }
 
   return { ops, note: String(patch.note || '').trim(), baseline: planBaseline(), applied: false }
 }

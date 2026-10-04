@@ -11,11 +11,13 @@
 //
 //  `layoutGraph` is pure: sizes in, positions out. `tidyCanvas`
 //  is the thin app-facing wrapper that reads state and writes
-//  block positions.
+//  block positions. Blocks no connection touches are arranged in
+//  step columns (`layoutByStep`, also the brain dump's arrangement)
+//  beside the flow, and a map with no connections is all columns.
 // ════════════════════════════════════════════════════════════
 
 import { state, snapshot } from './state.js'
-import { getBlockDims } from './utils.js'
+import { getBlockDims, TYPES, TYPE_STEPS } from './utils.js'
 import { resolveRoutes, linesUnderCards } from './canvas.js'
 
 export const LAYOUT_DEFAULTS = {
@@ -23,6 +25,26 @@ export const LAYOUT_DEFAULTS = {
   layerGap:  120,    // clearance between one layer and the next
   nodeGap:   38,     // clearance between siblings inside a layer
   sweeps:    6,      // crossing-reduction passes
+}
+
+/**
+ * The least clear space between two cards that nothing else put there. A
+ * line between two cards closer than this has no room for its head, so a
+ * connection between touching cards draws nothing visible. Every placement
+ * (create.js, the brain dump, a patch, the step columns) keeps it.
+ */
+export const CARD_GAP = 40
+
+/**
+ * Step columns: the brain dump's arrangement, and Tidy's for the blocks no
+ * connection touches, where a flow has nothing to say. `columnGap` separates two
+ * steps; the columns one long step wraps into sit `CARD_GAP` apart, so they
+ * read as one step.
+ */
+export const STEP_LAYOUT = {
+  columnGap:    80,
+  rowGap:       CARD_GAP,
+  maxPerColumn: 6,
 }
 
 // ── 1. Cycle breaking ────────────────────────────────────────
@@ -294,6 +316,94 @@ export function layoutGraph(nodes, edges, opts = {}) {
   return { positions, layerOf: layer, crossings: ordered.crossings, reversed }
 }
 
+// ── Step columns ─────────────────────────────────────────────
+
+/** The step a type answers ('why' ... 'doubt'), 'other' for anything else. */
+export function stepOfType(type) {
+  const s = TYPES[type]?.step
+  return TYPE_STEPS.some(x => x.id === s) ? s : 'other'
+}
+
+/**
+ * Lay blocks out by the question each type answers: one column per step in
+ * TYPE_STEPS order (Why, Who, Proof, What, How, Doubt, then Other), steps
+ * with no block left out. Inside a step the nodes keep the order given; a
+ * step with more than `maxPerColumn` wraps into a second column beside the
+ * first, and unless `grow` is false a very long step makes its columns
+ * longer too. With `wrap` set (a width), the columns flow like words in a
+ * line: one that would end past `wrap` starts a new band of columns below,
+ * `columnGap` under the tallest of the band above. 'TB' turns the columns
+ * into rows (and `wrap` does nothing). Pure: sizes in, top-left positions
+ * out, measured from (0, 0).
+ *
+ * @param {Array<{id,type,w,h}>} nodes
+ * @returns {{positions: Map<string,{x,y}>, lanes: Array<{step,ids}>, width: number, height: number}}
+ */
+export function layoutByStep(nodes, { direction = 'LR', grow = true, wrap = Infinity, ...opts } = {}) {
+  const O = { ...STEP_LAYOUT, ...opts }
+  const horiz = direction !== 'TB'
+  const limit = horiz && Number.isFinite(wrap) && wrap > 0 ? wrap : Infinity
+  const lanes = []
+  TYPE_STEPS.forEach(s => {
+    const members = nodes.filter(n => stepOfType(n.type) === s.id)
+    // A very long step grows its columns too, so fifty cards make a block
+    // of five columns of ten rather than a strip nine columns wide.
+    const per = Math.max(1, Math.floor(O.maxPerColumn) || 1, grow ? Math.ceil(Math.sqrt(members.length * 2)) : 1)
+    for (let i = 0; i < members.length; i += per) lanes.push({ step: s.id, nodes: members.slice(i, i + per) })
+  })
+
+  const positions = new Map()
+  let main = 0, mainMax = 0, band = 0, bandCross = 0
+  lanes.forEach((lane, li) => {
+    const extent = Math.max(...lane.nodes.map(n => horiz ? n.w : n.h))
+    if (main > 0 && main + extent > limit) {
+      band += bandCross + O.columnGap
+      bandCross = 0
+      main = 0
+    }
+    let cross = 0
+    lane.nodes.forEach((n, i) => {
+      if (i) cross += O.rowGap
+      positions.set(n.id, horiz ? { x: main, y: band + cross } : { x: band + cross, y: main })
+      cross += horiz ? n.h : n.w
+    })
+    bandCross = Math.max(bandCross, cross)
+    mainMax = Math.max(mainMax, main + extent)
+    const next = lanes[li + 1]
+    main += extent + (next && next.step === lane.step ? O.rowGap : O.columnGap)
+  })
+  const crossEnd = lanes.length ? band + bandCross : 0
+  return {
+    positions,
+    lanes: lanes.map(l => ({ step: l.step, ids: l.nodes.map(n => n.id) })),
+    width: horiz ? mainMax : crossEnd,
+    height: horiz ? crossEnd : mainMax,
+  }
+}
+
+/**
+ * The blocks among `ids` that a connection touches. A line to itself or to
+ * a block that is not there connects nothing. Tidy lays these out as a flow
+ * and every other block in step columns, so the loose cards of a half-wired
+ * map neither reverse its flow nor pile into one trailing lane.
+ */
+export function connectedIds(ids, edges) {
+  const all = new Set(ids)
+  const linked = new Set()
+  edges.forEach(e => {
+    if (e.from === e.to || !all.has(e.from) || !all.has(e.to)) return
+    linked.add(e.from); linked.add(e.to)
+  })
+  return linked
+}
+
+// Top to bottom in a column, left to right in a row: the order a person
+// gave the blocks, which their step keeps.
+const readingOrder = (nodes, horiz) => nodes.slice().sort((a, b) => {
+  const p = state.blocks[a.id], q = state.blocks[b.id]
+  return horiz ? (p.y - q.y) || (p.x - q.x) : (p.x - q.x) || (p.y - q.y)
+})
+
 // ── App-facing wrapper ───────────────────────────────────────
 
 /**
@@ -302,7 +412,10 @@ export function layoutGraph(nodes, edges, opts = {}) {
  * cleanly reverse is one nobody dares press.
  *
  * Block positions are written directly; the caller is responsible for
- * re-rendering and for any animation.
+ * re-rendering and for any animation. The connected blocks get the layered
+ * flow and the rest step columns (layoutByStep) under it, or beside it top
+ * to bottom; the result counts them in `loose`. A map with no connections
+ * at all is all step columns, and the result says so with `mode: 'steps'`.
  */
 export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } = {}) {
   const ids = Object.keys(state.blocks)
@@ -316,12 +429,30 @@ export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } =
     .filter(a => state.blocks[a.from] && state.blocks[a.to])
     .map(a => ({ from: a.from, to: a.to, id: a.id }))
 
-  const { positions, layerOf, crossings } = layoutGraph(nodes, edges, { direction })
-
   // Keep the diagram where the user left it rather than teleporting it to
   // the origin: anchor the new layout on the old bounding box's top-left.
   const anchorX = Math.min(...ids.map(id => state.blocks[id].x))
   const anchorY = Math.min(...ids.map(id => state.blocks[id].y))
+
+  const linked = connectedIds(ids, edges)
+  if (!linked.size) return tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY })
+
+  const horizontal = direction !== 'TB'
+  const flow = nodes.filter(n => linked.has(n.id))
+  const loose = nodes.filter(n => !linked.has(n.id))
+  const { positions, layerOf, crossings } = layoutGraph(flow,
+    edges.filter(e => linked.has(e.from) && linked.has(e.to)), { direction })
+  if (loose.length) {
+    // The loose cards in step columns, a column gap under the flow (or
+    // right of it top to bottom), lined up with its start.
+    const box = flow.reduce((r, n) => {
+      const p = positions.get(n.id); if (!p) return r
+      return { x: Math.min(r.x, p.x), y: Math.min(r.y, p.y), r: Math.max(r.r, p.x + n.w), b: Math.max(r.b, p.y + n.h) }
+    }, { x: Infinity, y: Infinity, r: -Infinity, b: -Infinity })
+    const at = horizontal ? { x: box.x, y: box.b + STEP_LAYOUT.columnGap } : { x: box.r + STEP_LAYOUT.columnGap, y: box.y }
+    const steps = layoutByStep(readingOrder(loose.map(n => ({ ...n, type: state.blocks[n.id].type })), horizontal), { direction })
+    steps.positions.forEach((p, id) => positions.set(id, { x: p.x + at.x, y: p.y + at.y }))
+  }
 
   // A caller that already took the step (applying a template arranges what
   // it just added) passes snapshot: false, so one click stays one undo.
@@ -389,19 +520,64 @@ export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } =
   let underCards = 0
   try { underCards = linesUnderCards(resolveRoutes()).length } catch (_) {}
 
-  return { moved, crossings, underCards }
+  return { moved, crossings, underCards, loose: loose.length }
 }
 
-/** The toast Tidy shows: what moved, and what is still in the way. */
-export function tidySummary({ moved, crossings, underCards = 0 }, count, direction = 'LR') {
+/**
+ * Tidy for a map with no connections: step columns, each step in the order
+ * its blocks read now (top to bottom in a column, left to right in a row),
+ * so the order a person gave them survives. Pins Tidy or an import wrote
+ * go back to auto, since a column says nothing about which side a line
+ * should leave from; a pin somebody chose stays.
+ */
+function tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY }) {
+  const at = id => state.blocks[id]
+  const ordered = readingOrder(nodes.map(n => ({ ...n, type: at(n.id).type })), direction !== 'TB')
+  const { positions } = layoutByStep(ordered, { direction })
+
+  if (takeSnapshot) snapshot()
+  let moved = 0
+  ordered.forEach(n => {
+    const p = positions.get(n.id); if (!p) return
+    const b = at(n.id)
+    const nx = Math.round(p.x + anchorX), ny = Math.round(p.y + anchorY)
+    if (nx !== b.x || ny !== b.y) moved++
+    b.x = nx; b.y = ny
+  })
+  state.arrows.forEach(a => {
+    if (a.portsBy !== 'tidy' && a.portsBy !== 'import') return
+    a.fromPort = null; a.toPort = null
+    delete a.portsBy
+  })
+
+  let underCards = 0
+  try { underCards = linesUnderCards(resolveRoutes()).length } catch (_) {}
+  return { moved, crossings: 0, underCards, mode: 'steps' }
+}
+
+/** The undo shortcut as this platform spells it (ui-panels.js undoKeyLabel reads the same). */
+const undoKey = () => {
+  try { return /mac|iphone|ipad|ipod/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '') ? 'Cmd+Z' : 'Ctrl+Z' } catch (_) { return 'Ctrl+Z' }
+}
+
+/**
+ * The toast Tidy shows: what moved, what is still in the way, and where the
+ * blocks no line touches went. `undo` names the undo shortcut.
+ */
+export function tidySummary({ moved, crossings, underCards = 0, mode = 'flow', loose = 0 }, count, direction = 'LR', undo = undoKey()) {
   const under = underCards ? `${underCards} line${underCards === 1 ? '' : 's'} under a card` : ''
   // Nothing moved is exactly when a line left under a card most needs
   // saying: Tidy will not fix it by running again.
   if (!moved) return under ? `Already arranged, ${under}` : 'Already arranged'
+  const lanes = direction === 'TB' ? 'step rows' : 'step columns'
+  if (mode === 'steps') {
+    return `Arranged ${count} blocks in ${lanes}, since none are connected${under ? `, ${under}` : ''}. Undo with ${undo}`
+  }
   const dir = direction === 'TB' ? 'top to bottom' : 'left to right'
   const bits = [`${crossings} crossing${crossings === 1 ? '' : 's'}`]
   if (under) bits.push(under)
-  return `Arranged ${count} blocks ${dir}, ${bits.join(', ')}. Undo with Cmd+Z`
+  if (loose) bits.push(`${loose} unconnected in ${lanes} ${direction === 'TB' ? 'beside it' : 'below'}`)
+  return `Arranged ${count} blocks ${dir}, ${bits.join(', ')}. Undo with ${undo}`
 }
 
 /**

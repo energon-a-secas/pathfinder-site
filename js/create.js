@@ -4,6 +4,9 @@
 //  The palette, the canvas add menu, quick-create from a port,
 //  the keyboard and the gap fixes all create through these, so
 //  each creation is one undo step and lands in title editing.
+//  Every one lands in a free slot (nearestFreeSpot), CARD_GAP
+//  clear of every card; the brain dump and a patch's new blocks
+//  use the same helpers (occupiedRects, placeNewBlocks).
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, snapshot } from './state.js'
@@ -12,6 +15,7 @@ import { renderArrows, resolveRoutes, arrowMidpoint } from './canvas.js'
 import { renderBlock, selectBlock, createBlock, addArrow, mutateBlock } from './render.js'
 import { startInlineEdit } from './inline-edit.js'
 import { impliedVerb } from './relations.js'
+import { CARD_GAP } from './layout.js'
 
 const GAP = 80        // distance from the source block's side
 const STEP = 24       // how far to slide along the side when that spot is taken
@@ -65,13 +69,131 @@ export function blockSize(id) {
   return { w: d.w || b?.width || DEFAULT_WIDTH, h: d.h || 100 }
 }
 
-function overlapsAny(x, y, w, h, skip) {
-  const M = 12
-  return Object.values(state.blocks).some(o => {
-    if (o.id === skip) return false
-    const d = blockSize(o.id)
-    return x < o.x + d.w + M && x + w + M > o.x && y < o.y + d.h + M && y + h + M > o.y
+// ── Free slots ───────────────────────────────────────────────
+//
+// Creation never lands on a card. Every path that makes a block (a palette
+// click or drop, the quick-add picker, quick create, splitting a line, the
+// brain dump, a patch's new findings) asks for the nearest spot that keeps
+// CARD_GAP clear of every card, so a line between two of them always has
+// room to show.
+
+/** The rectangles the blocks occupy (rendered size, else the estimate), leaving out `skip`. */
+export function occupiedRects(skip = []) {
+  const left = new Set(skip)
+  return Object.values(state.blocks).filter(b => !left.has(b.id)).map(b => {
+    const { w, h } = blockSize(b.id)
+    return { x: b.x, y: b.y, w, h }
   })
+}
+
+function isClear(x, y, w, h, rects, gap) {
+  for (const r of rects) {
+    if (x < r.x + r.w + gap && x + w + gap > r.x && y < r.y + r.h + gap && y + h + gap > r.y) return false
+  }
+  return true
+}
+
+// Grid offsets around a point, nearest first, built once. Equal distances
+// prefer below, then right, then left, then above: the next item of a list
+// reads under the last one.
+const SEARCH_RINGS = 60
+let searchOrder = null
+function offsetsNearestFirst() {
+  if (searchOrder) return searchOrder
+  const out = []
+  for (let i = -SEARCH_RINGS; i <= SEARCH_RINGS; i++) {
+    for (let j = -SEARCH_RINGS; j <= SEARCH_RINGS; j++) if (i || j) out.push([i, j, i * i + j * j])
+  }
+  out.sort((a, b) => a[2] - b[2] || b[1] - a[1] || b[0] - a[0])
+  searchOrder = out
+  return out
+}
+
+/**
+ * The top-left nearest to (x, y) where a w by h box overlaps none of `rects`
+ * and keeps `gap` clear of each. (x, y) itself when it is free. Searches a
+ * grid of `step` pixels out to 60 steps; past that, the box goes right of
+ * everything, level with the request. Pure; whole pixels out.
+ */
+export function nearestFreeSpot(x, y, w, h, rects, { gap = CARD_GAP, step = 20 } = {}) {
+  const fx = Math.round(x), fy = Math.round(y)
+  if (!rects.length || isClear(fx, fy, w, h, rects, gap)) return { x: fx, y: fy }
+  // Only cards inside the search window can block a candidate.
+  const reach = SEARCH_RINGS * step + gap
+  const near = rects.filter(r => r.x < fx + w + reach && r.x + r.w > fx - reach && r.y < fy + h + reach && r.y + r.h > fy - reach)
+  for (const [i, j] of offsetsNearestFirst()) {
+    const px = fx + i * step, py = fy + j * step
+    if (isClear(px, py, w, h, near, gap)) return { x: px, y: py }
+  }
+  return { x: Math.round(Math.max(...rects.map(r => r.x + r.w)) + gap * 2), y: fy }
+}
+
+/**
+ * Move block `id` to the nearest free slot from where it is now (no undo
+ * step, no render: the caller owns both). Returns true when it moved.
+ */
+export function placeFree(id, opts) {
+  const b = state.blocks[id]
+  if (!b) return false
+  const { w, h } = blockSize(id)
+  const p = nearestFreeSpot(b.x, b.y, w, h, occupiedRects([id]), opts)
+  if (p.x === b.x && p.y === b.y) return false
+  b.x = p.x; b.y = p.y
+  return true
+}
+
+/**
+ * Where blocks that are not on the canvas yet should land (a patch's new
+ * findings): beside a block each one connects to, to its right when that
+ * block points at the new one and to its left when the new one points at
+ * it, else in a column right of the map; always the nearest slot that keeps
+ * CARD_GAP from every card, the ones placed here included. An anchor may be
+ * another new block: those wait until it is placed, so a chain of findings
+ * grows out from the map instead of starting over at its edge.
+ *
+ * An item may bring one coordinate of its own (`fixed: { x }` or `{ y }`):
+ * the search starts from it.
+ *
+ * @param {Array<{key, w?, h?, fixed?: {x?, y?}, anchors?: Array<{id, side: 'left'|'right'}>}>} items
+ * @param {{occupied?: Array<{x,y,w,h}>, known?: Map<string,{x,y,w,h}>, gap?: number}} [opts]
+ *   `occupied` defaults to every block on the canvas; `known` holds blocks
+ *   that are not on the canvas yet but have a place (a patch's new blocks
+ *   with coordinates), so an item can anchor on them
+ * @returns {Map<string,{x,y}>} top-left per key, whole pixels
+ */
+export function placeNewBlocks(items, { occupied = occupiedRects(), known = new Map(), gap = CARD_GAP } = {}) {
+  const rects = occupied.slice()
+  const placed = new Map()
+  const rectOf = id => {
+    if (placed.has(id)) return placed.get(id)
+    if (known.has(id)) return known.get(id)
+    const b = state.blocks[id]
+    return b ? { x: b.x, y: b.y, ...blockSize(id) } : null
+  }
+  const right = rects.length ? Math.max(...rects.map(r => r.x + r.w)) : 0
+  const top = rects.length ? Math.min(...rects.map(r => r.y)) : 0
+  const anchorOf = it => (it.anchors || []).find(a => a && rectOf(a.id)) || null
+  const waiting = items.slice()
+  while (waiting.length) {
+    // Next: the first item with nothing to wait for (no anchor, or one that
+    // is placed); when every one left waits on another, the first of them.
+    let i = waiting.findIndex(it => !(it.anchors || []).length || anchorOf(it))
+    if (i < 0) i = 0
+    const it = waiting.splice(i, 1)[0]
+    const w = it.w || DEFAULT_WIDTH, h = it.h || 100
+    const anchor = anchorOf(it)
+    const a = anchor ? rectOf(anchor.id) : null
+    const want = { ...(!a ? { x: right + GAP + gap, y: top }
+      : anchor.side === 'left' ? { x: a.x - GAP - w, y: a.y }
+      : { x: a.x + a.w + GAP, y: a.y }) }
+    if (Number.isFinite(it.fixed?.x)) want.x = it.fixed.x
+    if (Number.isFinite(it.fixed?.y)) want.y = it.fixed.y
+    const p = nearestFreeSpot(want.x, want.y, w, h, rects, { gap })
+    const r = { x: p.x, y: p.y, w, h }
+    rects.push(r)
+    placed.set(it.key, r)
+  }
+  return new Map([...placed].map(([k, r]) => [k, { x: r.x, y: r.y }]))
 }
 
 function finishCreate(id, { edit, select }) {
@@ -81,8 +203,9 @@ function finishCreate(id, { edit, select }) {
 }
 
 /**
- * Create a block centred on world point (wx, wy). One undo step. Selects it
- * and starts title editing unless told not to.
+ * Create a block centred on world point (wx, wy), or in the nearest free
+ * slot when a card is in the way. One undo step. Selects it and starts
+ * title editing unless told not to.
  */
 export function createBlockAt(type, wx, wy, { edit = true, select = true } = {}) {
   if (ui.readOnly || !Object.hasOwn(TYPES, type)) return null
@@ -95,6 +218,7 @@ export function createBlockAt(type, wx, wy, { edit = true, select = true } = {})
   const { w, h } = blockSize(id)
   b.x = Math.round(wx - w / 2)
   b.y = Math.round(wy - h / 2)
+  placeFree(id)
   renderBlock(id)
   renderArrows()
   if (edit) startInlineEdit(id, 'title', { selectAll: true })
@@ -103,8 +227,9 @@ export function createBlockAt(type, wx, wy, { edit = true, select = true } = {})
 
 /**
  * Create a block beside `fromId` and connect them. The new block sits 80px
- * beyond the chosen side and slides 24px along that side until it overlaps
- * nothing, so repeated calls stack instead of piling up. One undo step.
+ * beyond the chosen side and slides 24px along that side until it keeps
+ * CARD_GAP clear of every card, so repeated calls stack instead of piling
+ * up (and, past the slide's reach, takes the nearest free slot). One undo step.
  * The arrow runs from -> new unless `incoming` is true (new -> from).
  * `incoming: 'auto'` picks the way the implied verb reads
  * (defaultConnectDirection): a Metric added from a Goal points at the Goal.
@@ -128,10 +253,16 @@ export function createConnected(fromId, type, { dir = 'right', incoming = false,
   // Slide along the side the block grew from: down a right/left side,
   // rightwards along a top/bottom one.
   const slideY = dir !== 'up' && dir !== 'down'
-  for (let i = 0; i < MAX_STEPS && overlapsAny(x, y, n.w, n.h, id); i++) {
+  const x0 = x, y0 = y
+  const rects = occupiedRects([id])
+  let i = 0
+  for (; i < MAX_STEPS && !isClear(x, y, n.w, n.h, rects, CARD_GAP); i++) {
     if (slideY) y += STEP; else x += STEP
   }
+  // A side crowded past the slide's reach: the nearest free slot instead.
+  if (i === MAX_STEPS) { x = x0; y = y0 }
   b.x = Math.round(x); b.y = Math.round(y)
+  placeFree(id)
   renderBlock(id)
   if (incoming) addArrow(id, fromId, null, null, { undo: false, relation })
   else addArrow(fromId, id, null, null, { undo: false, relation })
@@ -164,6 +295,8 @@ export function insertOnArrow(aid, type, { edit = true } = {}) {
   const nb = state.blocks[id]
   const { w, h } = blockSize(id)
   nb.x = Math.round(mid.x - w / 2); nb.y = Math.round(mid.y - h / 2)
+  // Two close cards leave no room at the midpoint: never land on either.
+  placeFree(id)
   const second = { ...JSON.parse(JSON.stringify(a)), id: genId(), from: id, fromPort: null, label: '', note: '' }
   if (!second.note) delete second.note
   a.to = id

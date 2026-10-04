@@ -5,7 +5,7 @@
 //  Doubt). Click, Enter or drag a type onto the canvas.
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, toWorld } from './state.js'
+import { ui, toWorld } from './state.js'
 import { $, TYPES, typesByStep, escHtml } from './utils.js'
 import { createBlockAt } from './create.js'
 
@@ -56,14 +56,16 @@ export function renderStepStarter(row = document.getElementById('mapSteps')) {
   }).join('')
 }
 
-/** Add a block of `type` at the middle of the visible canvas, in title edit. */
+/**
+ * Add a block of `type` at the middle of the visible canvas, in title edit.
+ * A card already there pushes it to the nearest free slot (createBlockAt),
+ * so a second click lands beside the first instead of on top of it.
+ */
 export function addTypeAtCenter(type) {
   if (ui.readOnly || !Object.hasOwn(TYPES, type)) return null
   const r = $.canvasViewport().getBoundingClientRect()
   const w = toWorld(r.width / 2, r.height / 2)
-  // A small stagger so repeated clicks do not stack cards exactly.
-  const n = Object.keys(state.blocks).length % 5
-  return createBlockAt(type, w.x + n * 12, w.y + n * 10)
+  return createBlockAt(type, w.x, w.y)
 }
 
 // ── Hover and focus tip ──────────────────────────────────────

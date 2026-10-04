@@ -126,13 +126,16 @@ describe('categorizeLine() -- a new cue alone is never a confident call', () => 
 })
 
 describe('createBlocksFromText() -- the new guesses ask for a check', () => {
-  it('types each reporting line and marks only the guesses, in one undo step', () => {
+  // Since the design round (BRAINDUMP) only a prefix, a heading or a
+  // trailing "?" is certain in a dump: a confident guess is flagged too.
+  it('types each reporting line and marks every guess, confident or not, in one undo step', () => {
     reset()
     const before = getUndoHistory().length
     const ids = createBlocksFromText('Schedule status notes\nEnd of Sprint\nPortfolio Reporting\nEvery End of Sprint', false)
     assert.eq(getUndoHistory().length, before + 1, 'one undo step for the whole paste')
     const got = ids.map(id => [state.blocks[id].type, !!state.blocks[id].typeCheck])
-    assert.deepEq(got, [['implementation', true], ['output', true], ['stakeholder', true], ['terminator', false]])
+    assert.deepEq(got, [['implementation', true], ['output', true], ['stakeholder', true], ['terminator', true]])
+    assert.eq(categorizeLine('Every End of Sprint').confidence, 'high', 'the classifier is still sure of the cadence')
     ids.forEach(id => document.getElementById('b-' + id)?.remove())
     reset()
   })
@@ -227,14 +230,16 @@ table('categorizeLine() -- a hyphenated period end reads like the spaced one', [
 ])
 
 describe('createBlocksFromText() -- the review lines, typed and flagged as a person would see them', () => {
-  it('a risk stays a confident risk, and each guess asks for a check', () => {
+  it('a risk stays a risk (a confident one), and in a dump every guess asks for a check', () => {
     reset()
     const ids = createBlocksFromText([
       'Upgrade breaks the integration', 'Schedule migration risk', 'End of release', 'Rework rate above 20%',
       'Year-end reporting', 'Tax reporting', 'End-of-day report', 'Board reporting',
     ].join('\n'), false)
     const got = ids.map(id => `${state.blocks[id].type}${state.blocks[id].typeCheck ? '?' : ''}`)
-    assert.deepEq(got, ['risk', 'risk', 'output?', 'metric?', 'output?', 'custom?', 'output?', 'stakeholder?'])
+    assert.deepEq(got, ['risk?', 'risk?', 'output?', 'metric?', 'output?', 'custom?', 'output?', 'stakeholder?'])
+    ;['Upgrade breaks the integration', 'Schedule migration risk'].forEach(line =>
+      assert.eq(call(line), 'risk/high', 'still a confident call for the importers'))
     ids.forEach(id => document.getElementById('b-' + id)?.remove())
     reset()
   })
@@ -337,14 +342,16 @@ table('categorizeLine() -- only a period a team reports on names its report', [
 ])
 
 describe('createBlocksFromText() -- a noun reading asks for a check, an object does not', () => {
-  it('flags every guess from the second review and trusts only the work with an object', () => {
+  it('flags every guess from the second review; the classifier trusts only the work with an object', () => {
     reset()
     const ids = createBlocksFromText([
       'Prototype results from the integration', 'Upgrade guide for the migration', 'Install failures after the migration',
       'Replace the integration', 'Supply Chain Reporting', 'End of day', 'Month-end close',
     ].join('\n'), false)
     const got = ids.map(id => `${state.blocks[id].type}${state.blocks[id].typeCheck ? '?' : ''}`)
-    assert.deepEq(got, ['output?', 'implementation?', 'implementation?', 'implementation', 'custom?', 'terminator?', 'process?'])
+    assert.deepEq(got, ['output?', 'implementation?', 'implementation?', 'implementation?', 'custom?', 'terminator?', 'process?'])
+    assert.eq(call('Replace the integration'), 'implementation/high', 'confident, but in a dump only a prefix is certain')
+    assert.eq(call('Upgrade guide for the migration'), 'implementation/low')
     ids.forEach(id => document.getElementById('b-' + id)?.remove())
     reset()
   })
