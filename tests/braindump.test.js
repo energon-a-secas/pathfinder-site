@@ -14,9 +14,10 @@ import { state, ui, view, selection, getUndoHistory, getRedoFuture } from '../js
 import { TYPES, TYPE_STEPS, DEFAULT_WIDTH } from '../js/utils.js'
 import { undo, deselectAll } from '../js/render.js'
 import {
-  PREFIXES, CRITERIA_FROM_BULLETS, READABLE_ZOOM, TITLE_MAX, categorizeLine, headingType, parseOutline, readDump,
-  splitTitle, createBlocksFromText, arriveAtBlocks, dumpSummary, capitalFirst, layoutDump, settleDump, resolveTypeCheck,
+  PREFIXES, CRITERIA_FROM_BULLETS, TITLE_MAX, categorizeLine, headingType, parseOutline, readDump,
+  splitTitle, createBlocksFromText, dumpSummary, capitalFirst, layoutDump, settleDump, resolveTypeCheck,
 } from '../js/classify.js'
+import { arriveAt, ARRIVAL_ZOOM, ARRIVAL_PAD } from '../js/zoom-controls.js'
 import {
   createBlockAt, createConnected, insertOnArrow, nearestFreeSpot, placeNewBlocks, occupiedRects,
 } from '../js/create.js'
@@ -589,7 +590,7 @@ describe('braindump: a dump lands in step columns, never on a card', () => {
     reset()
     block('old', 'goal', 0, 0)
     const ids = createBlocksFromText('Risk: Provider outage\nRisk: Email mismatch\nReq: Sessions survive\nBuild: OIDC client')
-    // What the canvas menu's movePastedTo does: the arrangement's corner to a point.
+    // A caller that moves the arrangement's corner to a point after the dump.
     const minX = Math.min(...ids.map(id => state.blocks[id].x)), minY = Math.min(...ids.map(id => state.blocks[id].y))
     ids.forEach(id => { state.blocks[id].x += -60 - minX; state.blocks[id].y += 0 - minY })
     await Promise.resolve()
@@ -630,9 +631,9 @@ describe('braindump: a dump arrives readable', () => {
   it('a laptop view: the columns wrap into bands, and the whole dump arrives readable', () => withViewport(1100, 760, () => {
     reset()
     const ids = createBlocksFromText(PREFIXED)
-    const r = arriveAtBlocks(ids)
-    assert.ok(view.zoom >= READABLE_ZOOM, `${view.zoom}`)
-    assert.ok(r.all, 'all fifteen in view')
+    const r = arriveAt(ids, { stay: true })
+    assert.ok(view.zoom >= ARRIVAL_ZOOM, `${view.zoom}`)
+    assert.ok(r.whole, 'all fifteen in view')
     const ys = new Set(ids.map(id => state.blocks[id].y))
     const goal = ids.find(id => state.blocks[id].type === 'goal'), risk = ids.find(id => state.blocks[id].type === 'risk')
     assert.gt(state.blocks[risk].y, state.blocks[goal].y, 'Doubt sits in a band under Why')
@@ -641,15 +642,16 @@ describe('braindump: a dump arrives readable', () => {
     reset()
   }))
 
-  it('too big for the view at a readable zoom: READABLE_ZOOM on the start, Why first', () => withViewport(900, 600, () => {
+  it('too big for the view at a readable zoom: ARRIVAL_ZOOM on the start, Why first', () => withViewport(900, 600, () => {
     reset()
     const ids = createBlocksFromText(PREFIXED + '\n' + PREFIXED)
-    const r = arriveAtBlocks(ids)
+    const r = arriveAt(ids, { stay: true })
     assert.ok(r.moved)
-    assert.eq(r.all, false)
-    assert.eq(view.zoom, READABLE_ZOOM)
+    assert.eq(r.whole, false)
+    assert.eq(view.zoom, ARRIVAL_ZOOM)
     const minY = Math.min(...ids.map(id => state.blocks[id].y))
-    assert.ok(Math.abs(minY * view.zoom + view.panY - 48) <= 1, 'the top row starts at the top edge')
+    // The arrival's margin is in world pixels, so it is ARRIVAL_PAD at this zoom.
+    assert.ok(Math.abs(minY * view.zoom + view.panY - ARRIVAL_PAD * view.zoom) <= 1, 'the top row starts at the top edge')
     const goal = ids.find(id => state.blocks[id].type === 'goal')
     const gx = state.blocks[goal].x * view.zoom + view.panX
     assert.ok(gx >= 0 && gx < 900, 'the Why column is in view')
@@ -659,13 +661,13 @@ describe('braindump: a dump arrives readable', () => {
   it('a phone view: step rows, as many cards across as read', () => withViewport(390, 640, () => {
     reset()
     const ids = createBlocksFromText('Goal: one\nWho: two\nMetric: three\nReq: four\nBuild: five\nRisk: six\nRisk: seven')
-    arriveAtBlocks(ids)
+    arriveAt(ids, { stay: true })
     const goal = state.blocks[ids[0]], who = state.blocks[ids[1]], risks = ids.slice(5).map(id => state.blocks[id])
     assert.gt(who.y, goal.y, 'Who is a row under Why')
     assert.eq(goal.x, who.x, 'rows start at one edge')
     assert.eq(who.y - goal.y, H + STEP_LAYOUT.columnGap, 'a step gap between rows')
     assert.eq(risks[1].y - risks[0].y, H + CARD_GAP, 'one card across: a step wraps onto a second row, CARD_GAP under')
-    assert.eq(view.zoom, READABLE_ZOOM)
+    assert.eq(view.zoom, ARRIVAL_ZOOM)
     const shown = ids.filter(id => {
       const b = state.blocks[id], top = b.y * view.zoom + view.panY
       return top >= 0 && top + H * view.zoom <= 640
@@ -678,11 +680,11 @@ describe('braindump: a dump arrives readable', () => {
     reset()
     view.zoom = 0.3
     const ids = createBlocksFromText('Goal: one\nRisk: two')
-    const r = arriveAtBlocks(ids)
-    assert.ok(r.moved && r.all)
+    const r = arriveAt(ids, { stay: true })
+    assert.ok(r.moved && r.whole)
     assert.eq(view.zoom, 1)
-    const again = arriveAtBlocks(ids)
-    assert.deepEq(again, { moved: false, all: true })
+    const again = arriveAt(ids, { stay: true })
+    assert.deepEq(again, { whole: true, moved: false })
     reset()
   }))
 
@@ -700,7 +702,7 @@ describe('braindump: a dump arrives readable', () => {
   it('does nothing without a laid-out viewport', () => {
     reset()
     block('a', 'goal', 9000, 9000)
-    assert.deepEq(arriveAtBlocks(['a']), { moved: false, all: true })
+    assert.eq(arriveAt(['a'], { stay: true }), null)
     assert.deepEq([view.panX, view.panY, view.zoom], [0, 0, 1])
     reset()
   })
@@ -730,18 +732,18 @@ describe('braindump: layoutDump() fits the arrangement to the view', () => {
     assert.eq(new Set(SIX.map(n => wide.positions.get(n.id).y)).size, 1)
     const square = layoutDump(SIX, 900, 800)
     assert.gt(new Set(SIX.map(n => square.positions.get(n.id).y)).size, 1, 'more than one band')
-    const zoom = l => Math.min(1, (900 - 96) / l.width, (800 - 96) / l.height)
+    const zoom = l => Math.min(1, 900 / (l.width + ARRIVAL_PAD * 2), 800 / (l.height + ARRIVAL_PAD * 2))
     assert.ok(zoom(square) > zoom(layoutByStep(SIX)), 'and it shows larger than one band would')
     const order = SIX.map(n => square.positions.get(n.id)).map(p => p.y * 10000 + p.x)
     assert.deepEq(order, [...order].sort((a, b) => a - b), 'still Why, Who, Proof, What, How, Doubt in reading order')
   })
 
-  it('a tall view: step rows with as many cards across as read at READABLE_ZOOM', () => {
+  it('a tall view: step rows with as many cards across as read at ARRIVAL_ZOOM', () => {
     const many = ns(Array(5).fill('requirement'))
     const l = layoutDump(many, 390, 800)
-    const across = Math.floor(((390 - 96) / READABLE_ZOOM + CARD_GAP) / (W + CARD_GAP))
+    const across = Math.floor((390 / ARRIVAL_ZOOM - ARRIVAL_PAD * 2 + CARD_GAP) / (W + CARD_GAP))
     assert.eq(l.lanes[0].ids.length, Math.max(1, across))
-    assert.ok(l.width * READABLE_ZOOM <= 390 - 96 || across === 1, 'a row fits across the phone')
+    assert.ok((l.width + ARRIVAL_PAD * 2) * ARRIVAL_ZOOM <= 390 || across === 1, 'a row fits across the phone')
   })
 })
 

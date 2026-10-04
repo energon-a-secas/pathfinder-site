@@ -10,7 +10,8 @@
 // ============================================================
 
 import { describe, it, assert, cssRgba } from './test-utils.js'
-import { state, ui, canvasMeta, serializeCanvas, applyPromptOpts, getUndoHistory, getRedoFuture } from '../js/state.js'
+import { state, ui, view, canvasMeta, serializeCanvas, applyPromptOpts, getUndoHistory, getRedoFuture } from '../js/state.js'
+import * as zoom from '../js/zoom-controls.js'
 import { TYPES } from '../js/utils.js'
 import { categorizeLine } from '../js/classify.js'
 import { TEMPLATES } from '../js/templates.js'
@@ -246,16 +247,14 @@ describe('frontdoor: the prefix helper says only what the classifier does', () =
     assert.includes(codes, '?')
   })
 
-  it('reads the shapes a prefix table may take, and ignores what it cannot use', () => {
-    const a = prefixTable([{ type: 'goal', prefixes: ['goal:', 'objective'] }, { type: 'risk', prefix: 'risk' }, { type: 'nope', prefixes: ['x'] }])
+  it('reads the shown words of a prefix table, and ignores what it cannot use', () => {
+    const a = prefixTable([{ type: 'goal', show: ['goal:', 'objective'] }, { type: 'risk', show: ['risk'] }, { type: 'nope', show: ['x'] }])
     assert.deepEq([...a.entries()], [['goal', ['goal', 'objective']], ['risk', ['risk']]])
-    const b = prefixTable({ metric: ['kpi', 'metric'], 'who': 'stakeholder' })
-    assert.deepEq(b.get('metric'), ['kpi', 'metric'])
-    assert.deepEq(b.get('stakeholder'), ['who'])
+    assert.eq(prefixTable([{ type: 'goal', keys: ['goal'] }]), null, 'a row with no shown words promises nothing')
     assert.eq(prefixTable([{ re: /^goal:/, type: 'goal' }]), null, 'regex rows carry no words to show')
     assert.eq(prefixTable(null), null)
     // The panel's own word wins when the table has it, else the table's first.
-    const w = prefixWords([{ type: 'metric', prefixes: ['kpi', 'metric'] }, { type: 'goal', prefixes: ['objective'] }])
+    const w = prefixWords([{ type: 'metric', show: ['kpi', 'metric'] }, { type: 'goal', show: ['objective'] }])
     assert.eq(w.metric, 'Metric')
     assert.eq(w.goal, 'Objective')
     assert.eq(w.risk, undefined, 'a type the table leaves out is not promised')
@@ -354,22 +353,29 @@ describe('frontdoor: the sample map opens as a map of its own', () => {
     const calls = []
     const zoomApi = { arriveAfterLoad: (ids, opts) => { calls.push(['after', ids, opts]); return Promise.resolve({ whole: false }) },
       arriveAt: (ids, opts) => calls.push(['at', ids, opts]) }
-    assert.eq(announceArrival(SAMPLE_ARRIVAL, zoomApi), 'arriveAfterLoad')
+    announceArrival(SAMPLE_ARRIVAL, zoomApi)
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
     assert.eq(calls.length, 1, 'one arrival, not a second camera move')
     assert.eq(calls[0][0], 'after')
     assert.eq(calls[0][2].lead, SAMPLE_ARRIVAL, 'the toast text goes in `lead`, the option arriveAt reads')
     assert.ok(!('name' in calls[0][2]))
-    // An arriveAt without arriveAfterLoad still gets the lead, after the load's frame.
-    const only = []
-    assert.eq(announceArrival('X opened.', { arriveAt: (ids, opts) => only.push(opts) }), 'arriveAt')
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))))
-    assert.deepEq(only, [{ lead: 'X opened.' }])
-    // Without the camera module's arrival, the toast alone says it.
-    try {
-      assert.eq(announceArrival('Y opened.', {}), 'toast')
-      assert.includes(document.querySelector('.toast-notification')?.textContent || '', 'Y opened.')
-    } finally { document.querySelectorAll('.toast-notification').forEach(t => t.remove()) }
+    // The real camera: the sample lands at a readable zoom, not a whole-map fit.
+    const camera = { ...view }
+    const vp = document.getElementById('canvasViewport'), vpStyle = vp?.getAttribute('style')
+    await sandbox(async () => {
+      state.blocks = {}; state.arrows = []; state.groups = {}
+      // A laid-out canvas, as on a laptop: the test page's own is not.
+      vp?.setAttribute('style', 'display:block;position:fixed;left:0;top:0;flex:none;width:1100px;height:700px;overflow:hidden;opacity:0')
+      try {
+        assert.ok(openSampleMap(), 'it opened')
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))))
+        assert.ok(view.zoom >= zoom.ARRIVAL_ZOOM - 1e-9, `lands at ${view.zoom}, readable`)
+      } finally {
+        document.querySelectorAll('.toast-notification').forEach(t => t.remove())
+        Object.assign(view, camera)
+        if (vpStyle == null) vp?.removeAttribute('style'); else vp?.setAttribute('style', vpStyle)
+      }
+    })
   })
 
   it('never opens on a view-only link or an embed', () => sandbox(async () => {

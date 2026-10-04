@@ -14,7 +14,7 @@ import { state, selection, ui, view, GRID, snapshotOnce, snapTo } from './state.
 import { $, TYPES, STATUS_DEFS, getBlockEl } from './utils.js'
 import { applyTransform, renderArrows } from './canvas.js'
 import { renderBlock, selectBlock, addArrow, mutateBlocks } from './render.js'
-import { createBlockAt, createConnected, suggestedNextTypes, defaultConnectDirection, blockSize } from './create.js'
+import { createBlockAt, createConnected, suggestedNextTypes, defaultConnectDirection, blockSize, placeFree } from './create.js'
 import { startInlineEdit } from './inline-edit.js'
 import { openCanvasAddMenu } from './context-menu.js'
 import { releaseTidyPins } from './layout.js'
@@ -342,6 +342,9 @@ export function createFromDrop(fromId, fromPort, type, wx, wy) {
   else if (side === 'top')   { b.x = wx - w / 2; b.y = wy }
   else                       { b.x = wx - w / 2; b.y = wy - h }
   b.x = Math.round(b.x); b.y = Math.round(b.y)
+  // The side snap can land it on a card the drop point sat beside: take the
+  // nearest free slot from there, like every other creation path.
+  placeFree(id)
   renderBlock(id)
   // Which way it points follows the implied verb, like every other quick
   // create; the ends pin only when the "pin ports" preference is on.

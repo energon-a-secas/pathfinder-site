@@ -288,7 +288,8 @@ export function setupZoomControls() {
 // still showing all of it.
 
 export const ARRIVAL_ZOOM = 0.75
-const ARRIVAL_PAD = 80
+/** The margin an arrival keeps around what it frames, in screen pixels. */
+export const ARRIVAL_PAD = 80
 
 function boxOf(ids) {
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity
@@ -362,13 +363,32 @@ export const ARRIVAL_HINT = 'Shift+1 shows all of it.'
 // hint names the button instead: Fit is in the status bar on every size.
 export const ARRIVAL_HINT_TOUCH = 'Fit shows all of it.'
 
-/** The hint for this device: the key where there is a fine pointer and room, the button otherwise. */
-export function arrivalHint() {
+/**
+ * How this device shows the whole map: 'Shift+1' where there is a fine
+ * pointer and room, 'Fit' (the status bar's button) otherwise. Every toast
+ * that says how to see all of it reads this one (arrivalHint, the dump's).
+ */
+export function fitKeyName() {
   try {
     const touchOnly = !window.matchMedia('(any-pointer: fine)').matches
     const phone = window.matchMedia('(max-width: 700px)').matches
-    return touchOnly || phone ? ARRIVAL_HINT_TOUCH : ARRIVAL_HINT
-  } catch (_) { return ARRIVAL_HINT }
+    return touchOnly || phone ? 'Fit' : 'Shift+1'
+  } catch (_) { return 'Shift+1' }
+}
+
+/** The hint for this device: the key where there is a fine pointer and room, the button otherwise. */
+export function arrivalHint() {
+  return fitKeyName() === 'Fit' ? ARRIVAL_HINT_TOUCH : ARRIVAL_HINT
+}
+
+/** True when every one of `ids` is on screen at ARRIVAL_ZOOM or closer. */
+export function readableInView(ids, size = null) {
+  const { w: W, h: H } = size || viewportSize()
+  const live = (ids || []).filter(id => state.blocks[id])
+  if (!live.length || !(W > 0) || !(H > 0) || view.zoom < ARRIVAL_ZOOM) return false
+  const b = boxOf(live), z = view.zoom
+  return b.x1 * z + view.panX >= 0 && b.y1 * z + view.panY >= 0 &&
+    b.x2 * z + view.panX <= W && b.y2 * z + view.panY <= H
 }
 
 /** "Checkout 500s added." for a template, the sample or an example. */
@@ -382,15 +402,21 @@ export function arrivalLead(name, verb = 'added') {
  * figure on someone else's page, so it keeps the whole-map fit. With
  * `lead` it says "<lead> Shift+1 shows all of it." (the lead alone when
  * all of it is in view; on a touch-only device or a phone the hint names
- * the Fit button instead, arrivalHint). `animate` eases there in 200ms (Tidy). Returns
- * { whole }, or null when there was nothing to land on.
+ * the Fit button instead, arrivalHint). `animate` eases there in 200ms (Tidy).
+ * `stay` leaves the camera alone when every one of `ids` is already on
+ * screen at a readable zoom (a dump pasted where you are looking). Returns
+ * { whole, moved }, or null when there was nothing to land on.
  */
-export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, animate = false } = {}) {
+export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, animate = false, stay = false } = {}) {
   const list = ids ? [...ids] : Object.keys(state.blocks)
   if (ui.embed) {
     if (!list.some(id => state.blocks[id])) return null
     fitView()
-    return { whole: true }
+    return { whole: true, moved: true }
+  }
+  if (stay && readableInView(list)) {
+    if (lead) showToast(lead, type, ms)
+    return { whole: true, moved: false }
   }
   const v = arrivalView(list)
   if (!v) return null
@@ -398,7 +424,7 @@ export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, a
   if (animate) animateView(v.panX, v.panY, v.zoom, TIDY_MS)
   else { animToken++; Object.assign(view, { panX: v.panX, panY: v.panY, zoom: v.zoom }); applyTransform() }
   if (lead) showToast(v.whole ? lead : `${lead} ${arrivalHint()}`, type, ms)
-  return { whole: v.whole }
+  return { whole: v.whole, moved: true }
 }
 
 /**

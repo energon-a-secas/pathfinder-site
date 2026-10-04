@@ -11,7 +11,7 @@ Wire a block to an external doc, preview it inline, and turn its questions into 
 
 **`docRef` = `{ href, label, anchor }`**: editable in the inspector's **Documentation** section. `href` may be a full URL or a root-relative path; `anchor` is a fragment (stored without `#`). A block with a docRef shows a 🔗 badge in its header (click → doc preview popup).
 
-**Inline doc preview** (`openDocPopup`): a floating popup fetches and renders the referenced doc read-only. **Fetch is gated for security**, `resolveDocRef()` only marks a doc *fetchable* when it's same-origin **or** under the user-configured **docs base URL** (Prompt → Dev Options, localStorage `pathfinder-docs-base`). Anything else degrades to an "Open in new tab ↗" link, no request made. Fetched Markdown is HTML-escaped before a tiny inline renderer (`renderMarkdown`) promotes it, doc content can never inject markup. HTML pages degrade to a link. **CSP note:** an external docs base must also be added to `connect-src` in `index.html`'s CSP meta (same-origin works out of the box).
+**Inline doc preview** (`openDocPopup`): a floating popup fetches and renders the referenced doc read-only. **Fetch is gated for security**, `resolveDocRef()` only marks a doc *fetchable* when it's same-origin **or** under the user-configured **docs base URL** (Brief → Framing → Prompt options, localStorage `pathfinder-docs-base`). Anything else degrades to an "Open in new tab ↗" link, no request made. Fetched Markdown is HTML-escaped before a tiny inline renderer (`renderMarkdown`) promotes it, doc content can never inject markup. HTML pages degrade to a link. **CSP note:** an external docs base must also be added to `connect-src` in `index.html`'s CSP meta (same-origin works out of the box).
 
 **"See: X" promotion** (`detectSeeReference`): a trailing `See: <target>` line in a description is detected; the inspector offers a one-click button to promote it into a real `docRef` (URL/`/path` → `href`, otherwise → `label`). Existing canvases upgrade cleanly with no auto-mutation.
 
@@ -55,7 +55,7 @@ Two constraints the layout has to live with: **block heights are never stored** 
 
 `generatePrompt()` builds a structured markdown prompt from canvas state.
 
-**Prompt H1 is the canvas title** (`canvasMeta.title`), and an optional **`## Engagement Context`** section (`canvasMeta.contextBrief`, edited at the top of the Prompt pane) opens the body. Both round-trip through save/import/share.
+**Prompt H1 is the canvas title** (`canvasMeta.title`), and an optional **`## Context`** section (`canvasMeta.contextBrief`, edited under Framing in the Brief tab) opens the body. Both round-trip through save/import/share. The Brief tab (`js/brief.js`) renders the generated text as Markdown (`js/brief-md.js`); `generateScopedPrompt()` writes the brief for a selection plus its direct neighbours, with a `## Scope` section.
 
 **Section order is per-mode** (`ORDERS` in `prompt.js`). The four modes now produce genuinely different bodies:
 - **Plan**: Context → Goals → Problems → Requirements → Assumptions → Risks → Questions → Decisions → Resources → Outputs → Custom
@@ -67,18 +67,18 @@ An **Assumptions** section ("validate before building") carries a standing direc
 
 **Canvas utility bar:** `.canvas-workspace` wraps the pan/zoom viewport and a
 separate `#canvasStatusbar` containing zoom, local save status, and a neutral
-Copy prompt button. `setupQuickCopy()` uses `markExported()` and gives inline
-confirmation; `refreshQuickCopy()` handles empty/read-only states. Readiness
-stays in the Prompt pane. Save failures reveal retry and live backup controls.
+Copy brief button. `js/brief.js` wires its click through `copyBrief()` (the same
+confirmation as the Brief tab's Copy); `refreshQuickCopy()` handles
+empty/read-only states. Readiness stays in the Brief tab. Save failures reveal retry and live backup controls.
 Panel toggles share one icon style; native section buttons use plus/minus and
-`inert` content. Panel tabs use arrow-key navigation. The timer sits below panel
-content and remains compact until opened or started.
+`inert` content. Panel tabs use arrow-key navigation. The session timer's row is
+hidden until View → Facilitation shows it.
 
-**Brain Dump empty state:** when the canvas is empty (and not read-only/embed), a Brain Dump card replaces the text hint. `createBlocksFromText()` (shared by paste + Brain Dump) runs a sentence-level scoring classifier (`categorizeLine` in `classify.js`) that strips a leading first-person/article prefix and scores against weighted keyword sets, so natural prose lands on a real type. A low-confidence block is marked `typeCheck`: its card's type label becomes a button (and `T` opens it) with the shared type menu, "Looks right" first (`openTypeChipMenu`, `type-menu.js`). The floating correction chips this replaced are gone.
+**Start panel empty state:** when the canvas is empty (and not read-only/embed), the start panel (`js/start-panel.js`) replaces the text hint. `createBlocksFromText()` (shared by paste, the canvas menu's Paste as blocks and the panel's notes) reads a line prefix or a heading as certain (`PREFIXES` in `classify.js`) and otherwise runs a sentence-level scoring classifier (`categorizeLine`) that strips a leading first-person/article prefix and scores against weighted keyword sets, so natural prose lands on a real type. Every guessed block is marked `typeCheck`: its card's type label becomes a button (and `T` opens it) with the shared type menu, "Looks right" first (`openTypeChipMenu`, `type-menu.js`). The floating correction chips this replaced are gone.
 
-**Dev options** (right panel "Prompt" tab):
+**Prompt options** (Brief tab, under Framing):
 - Tone: Auto / Formal / Casual / Technical
-- Detail: Brief / Standard / Detailed
+- Detail: Short / Standard / Detailed
 - Pre-prompt modules: tasks + acceptance criteria, edge cases, error handling, docs, security, TypeScript types
 
 Prompt is cached; `promptDirty` flag triggers re-generation only when canvas changes.
@@ -95,7 +95,11 @@ and flushing pending changes before navigation. Shared/embed views never write.
 `relations.js` defines explicit connection meaning and `dependencyEdges()`.
 Only dependency edges influence task order and cycle checks; drawing/layout
 continues to follow the visible arrows. Missing relation values infer known
-legacy labels, falling back to arrow direction. `connectionLabel()` keeps
+labels, then the endpoint types: an unlabelled arrow touching a goal,
+stakeholder, metric, risk, resource or context sets no order (`related` at a
+risk, `informs` otherwise); flow types, tasks and decisions keep the drawn
+direction. `mitigationPairs()` reads what mitigates each risk, marking pairs
+only an unlabelled arrow implies. `connectionLabel()` keeps
 explicit meaning visible alongside custom labels in prompts and exports.
 
 Patch operations carry `selected`, `requires`, `read(graph)` and `apply(graph)`.

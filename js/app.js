@@ -35,10 +35,10 @@ import { setupBrief } from './brief.js'
 import { checkSrcUrl } from './ui-panels.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
-  setupPanelTabs, setupDevOptions, setupCopyPrompt, setupTimer,
+  setupPanelTabs, setupDevOptions, setupTimer,
   setupExportDropdown, setupShareDropdown, setupImportHandler,
   setupHeaderButtons, setupPaletteSections, setupTemplates, checkShareUrl, applyTheme,
-  setupContextBrief, setupQuickCopy, refreshQuickCopy, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation, setupGapBreakdown
+  setupContextBrief, setupQuickCopy, refreshQuickCopy, setupPanelCollapse, setupTidy, setupCardStyles, setupSituation
 } from './ui-panels.js'
 
 // ── Init ─────────────────────────────────────────────────────
@@ -105,7 +105,6 @@ function init() {
   setupShortcutOverlay()
   setupPanelTabs()
   setupDevOptions()
-  setupCopyPrompt()
   setupTimer()
   setupExportDropdown()
   setupShareDropdown()
@@ -115,7 +114,6 @@ function init() {
   setupTemplates()
   setupContextBrief()
   setupQuickCopy()
-  setupGapBreakdown()
   setupPanelCollapse()
   setupTidy()
   setupCardStyles()

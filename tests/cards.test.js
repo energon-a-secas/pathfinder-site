@@ -13,7 +13,8 @@ import { renderBlock, undo, deselectAll, selectBlock } from '../js/render.js'
 import { setupCanvasPointerEvents } from '../js/events.js'
 import { runGapDetection, gapIconFor, GAP_META } from '../js/gaps.js'
 import { setupTypeChips, showTypeChips, resolveTypeCheck, openTypeChipMenu } from '../js/classify.js'
-import { renderPaletteTypes, renderStepStarter, setupPalette } from '../js/palette.js'
+import { renderPaletteTypes, setupPalette, addTypeAtCenter } from '../js/palette.js'
+import { firstBlockPillsHtml, FIRST_BLOCK_TYPES } from '../js/start-panel.js'
 import { lightAccentFor, highlightTabLabel, paintColorFor, colorDistance, ATTENTION_HEX } from '../js/cards.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
 import { isInlineEditing, commitInlineEdit } from '../js/inline-edit.js'
@@ -662,9 +663,7 @@ describe('cards -- palette grouped by step', () => {
     pal = document.createElement('aside')
     pal.id = 'palette'; pal.className = 'palette'; pal.style.display = 'none'
     pal.innerHTML = '<div id="blocksList"></div>'
-    const steps = document.createElement('div')
-    steps.id = 'mapSteps'; steps.style.display = 'none'
-    document.body.append(pal, steps)
+    document.body.append(pal)
     setupPalette()
     setupPalette()   // a second setup must not wire anything twice
     return pal
@@ -786,33 +785,33 @@ describe('cards -- palette grouped by step', () => {
 
       for (const theme of ['light-mode', '']) {
         s.page.className = ('pf-body ' + theme).trim()
-        s.page.innerHTML = '<div class="brain-dump-card"><div class="map-steps-row" id="ms"></div></div>'
-        renderStepStarter(s.page.querySelector('#ms'))
+        // The start panel's first-block pills, on the panel's own surface.
+        s.page.innerHTML = `<div class="brain-dump-card"><div class="start-pills">${firstBlockPillsHtml()}</div></div>`
         const page = over(rgb(getComputedStyle(s.page).backgroundColor), [255, 255, 255])
         const card = over(rgb(getComputedStyle(s.page.firstChild).backgroundColor), page)
-        const btn = s.page.querySelector('.map-step')
-        const fill = over(rgb(getComputedStyle(btn).backgroundColor), card)
-        for (const sel of ['.map-step-num', '.map-step-type']) {
-          const ratio = contrast(over(rgb(getComputedStyle(btn.querySelector(sel)).color), fill), fill)
-          assert.ok(ratio >= 4.5, `${theme || 'dark'} ${sel}: ${ratio.toFixed(2)}:1`)
+        for (const btn of s.page.querySelectorAll('.start-pill')) {
+          const fill = over(rgb(getComputedStyle(btn).backgroundColor), card)
+          const ratio = contrast(over(rgb(getComputedStyle(btn).color), fill), fill)
+          assert.ok(ratio >= 4.5, `${theme || 'dark'} ${btn.dataset.type} pill: ${ratio.toFixed(2)}:1`)
         }
       }
     } finally { s.done() }
   })
 
-  it('the six-step starter has one button per step and each adds that step\'s first type', () => {
+  it('the first-block pills name their type as their whole name, and each adds that type', () => {
     const row = document.createElement('div')
-    renderStepStarter(row)
-    const btns = [...row.querySelectorAll('button.map-step')]
-    assert.deepEq(btns.map(b => b.dataset.step), ['why', 'who', 'proof', 'what', 'how', 'doubt'])
-    assert.deepEq(btns.map(b => b.dataset.type), ['goal', 'stakeholder', 'metric', 'requirement', 'implementation', 'assumption'])
-    btns.forEach(b => assert.ok(b.getAttribute('aria-label').length > 0))
-    assert.includes(btns[4].getAttribute('aria-label'), 'add an Implementation')
+    row.innerHTML = firstBlockPillsHtml()
+    const btns = [...row.querySelectorAll('button.start-pill')]
+    assert.deepEq(btns.map(b => b.dataset.type), FIRST_BLOCK_TYPES)
+    btns.forEach(b => {
+      assert.ok(!b.hasAttribute('aria-label'), 'the visible words are the accessible name (WCAG 2.5.3)')
+      assert.eq(b.textContent, TYPES[b.dataset.type].label)
+    })
 
     palette()
-    for (const type of ['goal', 'metric', 'implementation']) {
+    for (const type of ['goal', 'metric', 'question']) {
       reset()
-      document.querySelector(`#mapSteps .map-step[data-type="${type}"]`).click()
+      addTypeAtCenter(row.querySelector(`.start-pill[data-type="${type}"]`).dataset.type)
       const ids = Object.keys(state.blocks)
       assert.eq(ids.length, 1, `${type}: one block`)
       assert.eq(state.blocks[ids[0]].type, type)

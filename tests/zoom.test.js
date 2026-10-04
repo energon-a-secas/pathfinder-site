@@ -625,10 +625,14 @@ describe('zoom: where a map lands', () => {
     await withApp(async () => {
       for (let i = 0; i < 10; i++) block('m' + i, { x: i * 340 })
       const r = arriveAt(null, { lead: 'Big map added.' })
-      assert.deepEq(r, { whole: false })
+      assert.deepEq(r, { whole: false, moved: true })
       assert.eq(view.zoom, ARRIVAL_ZOOM)
       assert.eq(currentLod(), 'full', 'arrival lands in the full band, whatever came before')
       assert.eq(document.querySelector('.toast-notification')?.textContent, `Big map added. ${ARRIVAL_HINT}`)
+      // `stay`: what is already on screen at a readable zoom keeps the camera.
+      const cam = { ...view }
+      assert.deepEq(arriveAt(entryBlocks(Object.keys(state.blocks)), { stay: true }), { whole: true, moved: false })
+      assert.deepEq({ ...view }, cam)
       reset()
       block('s', { x: 0 })
       arriveAt(['s'], { lead: 'Small map added.' })
@@ -639,6 +643,25 @@ describe('zoom: where a map lands', () => {
     })
   })
 
+  it('an example opened from the examples page arrives untangled: a large template\'s own positions put no card on another', async () => {
+    reset()
+    await withApp(async () => {
+      view.zoom = 1; view.panX = 0; view.panY = 0; applyTransform()
+      for (const tpl of TEMPLATES.filter(t => t.large)) {
+        reset()
+        tpl.blocks.forEach((bd, i) => block('t' + i, { type: bd.type, title: bd.title, description: bd.description || '',
+          priority: bd.priority || null, actions: bd.actions ? [...bd.actions] : [], x: bd.dx, y: bd.dy }))
+        const rects = tpl.blocks.map((_, i) => ({ i, ...getBlockDims('t' + i), x: state.blocks['t' + i].x, y: state.blocks['t' + i].y }))
+        for (const a of rects) for (const b of rects) {
+          if (a.i >= b.i) continue
+          const apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y
+          assert.ok(apart, `${tpl.name}: "${tpl.blocks[a.i].title}" sits on "${tpl.blocks[b.i].title}"`)
+        }
+      }
+      reset()
+    }, { w: 1200, h: 800 })
+  })
+
   it('an embed keeps the whole-map fit: it is a figure on someone else\'s page', async () => {
     reset()
     await withApp(async () => {
@@ -646,7 +669,7 @@ describe('zoom: where a map lands', () => {
       ui.embed = true
       try {
         const r = arriveAt()
-        assert.deepEq(r, { whole: true })
+        assert.deepEq(r, { whole: true, moved: true })
         assert.ok(view.zoom < ARRIVAL_ZOOM, 'fitted, not landed')
       } finally { ui.embed = false }
     })
@@ -756,6 +779,22 @@ describe('zoom: Tidy moves on a transform, and only with motion on', () => {
       assert.eq(getUndoHistory().length, 1)
       const fit = fitTarget()
       assert.ok(Math.abs(view.zoom - fit.zoom) < 1e-6, 'whole-map fit, as before')
+    })
+  })
+
+  it('runTidy lands a map with no connections at a readable zoom, its summary as the toast', async () => {
+    reset()
+    await withApp(async () => {
+      document.body.classList.remove('motion-on')
+      for (let i = 0; i < 9; i++) block('s' + i, { type: ['goal', 'requirement', 'risk'][i % 3], x: i * 37, y: (i % 4) * 300 })
+      view.zoom = 0.3; applyTransform()
+      document.querySelectorAll('.toast-notification').forEach(t => t.remove())
+      runTidy()
+      assert.eq(getUndoHistory().length, 1)
+      assert.ok(view.zoom >= ARRIVAL_ZOOM - 1e-9, `lands at ${view.zoom}, not a whole-map fit`)
+      const toasts = [...document.querySelectorAll('.toast-notification')].map(t => t.textContent)
+      assert.eq(toasts.filter(t => /step columns|step rows/.test(t)).length, 1, `one toast says what Tidy did: ${toasts.join(' | ')}`)
+      document.querySelectorAll('.toast-notification').forEach(t => t.remove())
     })
   })
 

@@ -23,4 +23,14 @@ describe('Needs attention queue', () => {
     b.questions = [{ text: 'Where exactly?' }, { text: '  ' }]
     assert.eq(attentionItems({ q: b }).length, 1)
   })
+  it('an Open Question card with its own answer is settled, whatever its status says', () => {
+    const b = { id: 'q', type: 'question', title: 'Do service accounts use the provider?', status: 'in-progress' }
+    const [open] = attentionItems({ q: b })
+    assert.eq(open.kind, 'question')
+    assert.ok(open.card, 'points at the card\'s own Answer field')
+    b.answer = '   '
+    assert.eq(attentionItems({ q: b }).length, 1, 'blank is not an answer')
+    b.answer = 'No: they keep API keys.'
+    assert.eq(attentionItems({ q: b }).length, 0)
+  })
 })

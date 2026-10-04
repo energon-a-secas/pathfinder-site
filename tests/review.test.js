@@ -12,7 +12,7 @@ describe('buildReviewReply()', () => {
       { block: 'b1', title: 'A', text: 'tighten this' },
       { block: 'b2', title: 'B', text: 'wrong owner?' },
     ])
-    assert.includes(reply, 'Paste a reply or a review')
+    assert.includes(reply, 'Bring the reply back, Paste a reply')
     const { patch, error } = extractPatch(reply)
     assert.eq(error, undefined)
     assert.eq(patch.format, 'pathfinder-patch')

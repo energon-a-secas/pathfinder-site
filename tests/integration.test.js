@@ -110,6 +110,14 @@ describe('Integration: one type picker, one retype rule', () => {
     assert.eq(typeMenu.retypeBlock({ type: 'goal' }, 'goal'), null, 'the same type changes nothing')
     assert.ok(typeMenu.retypeChanges({ type: 'goal', typeCheck: true }, 'goal'), 'but confirming a guess counts')
   })
+
+  it('criteria a new type cannot show move into the description, never hidden', () => {
+    const req = { type: 'requirement', description: 'Support team', criteria: ['Tier 1 handles the cutover', ' ', 'Escalation goes to on-call'] }
+    assert.deepEq(typeMenu.retypeBlock(req, 'stakeholder'), {
+      type: 'stakeholder', description: 'Support team\n- Tier 1 handles the cutover\n- Escalation goes to on-call', criteria: [] })
+    assert.deepEq(typeMenu.retypeBlock({ type: 'requirement', criteria: ['Proven'] }, 'risk'), { type: 'risk', description: '- Proven', criteria: [] })
+    assert.deepEq(typeMenu.retypeBlock({ type: 'requirement', criteria: ['Proven'] }, 'metric'), { type: 'metric' }, 'a metric keeps them as Targets')
+  })
 })
 
 // ── One quick-add picker ────────────────────────────────────
@@ -140,6 +148,12 @@ describe('Integration: the shortcut sheet lists keys bound outside events.js', (
     assert.ok(has('Enter / F2', 'connection'), 'Enter/F2 on a connection (arrow-edit.js)')
     assert.ok(has('Double-click line', 'label'), 'double-click a line (events.js, arrow-edit.js)')
     assert.ok(has('Alt + H') && has('H') && has('Z'), 'the View toggles')
+  })
+
+  it('names the start panel\'s keys, the minimap and the brief\'s copy', () => {
+    assert.ok(has('1 / 2 / 3', 'sample map'), '1, 2, 3 (start-panel.js)')
+    assert.ok(has('M', 'minimap'), 'M (minimap.js)')
+    assert.ok(has('⌘/Ctrl + Shift + C', 'brief'), 'Cmd/Ctrl+Shift+C (brief.js)')
   })
 })
 

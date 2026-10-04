@@ -15,7 +15,8 @@ import { runGapDetection } from '../js/gaps.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
 import { getPref, applyPrefs } from '../js/prefs.js'
 import { isVotingMode, setVotingMode } from '../js/voting.js'
-import { clearCanvas, getLayoutDir, setLayoutDir, undoKeyLabel, setupTemplates } from '../js/ui-panels.js'
+import { clearCanvas, getLayoutDir, setLayoutDir, setupTemplates } from '../js/ui-panels.js'
+import { undoKeyLabel } from '../js/utils.js'
 import { TEMPLATES } from '../js/templates.js'
 import { showToast, placeToast } from '../js/utils.js'
 import { updateCanvasTitle } from '../js/render.js'
@@ -1133,6 +1134,35 @@ describe('chrome -- QA round', () => {
     const lone = document.createElement('div')
     assert.eq(placeToast(lone), false)
     assert.eq(lone.style.left, '')
+  })
+
+  it('a toast keeps clear of the minimap, centred in the room to its left', () => {
+    const bar = document.createElement('div')
+    bar.className = 'canvas-statusbar'
+    bar.style.cssText = 'position:fixed;left:300px;top:700px;width:800px;height:44px'
+    const theirs = document.getElementById('minimap')
+    const map = document.createElement('div')
+    map.id = 'minimap'
+    map.style.cssText = 'position:fixed;left:928px;top:588px;width:160px;height:100px'
+    if (theirs) theirs.id = 'minimap-parked'
+    document.body.append(bar, map)
+    try {
+      showToast('Investigate a bug added. Shift+1 shows all of it.', 'success', 50)
+      const t = document.querySelector('.toast-notification')
+      const tr = t.getBoundingClientRect(), mr = map.getBoundingClientRect()
+      assert.ok(tr.right <= mr.left - 8, `left of the minimap (${Math.round(tr.right)} vs ${Math.round(mr.left)})`)
+      assert.ok(tr.left >= 300, 'still over the canvas')
+      assert.ok(Math.abs((tr.left + tr.right) / 2 - (300 + mr.left - 12) / 2) <= 1, 'centred in the room left of it')
+      t.remove()
+      map.hidden = true
+      showToast('Hidden minimap', 'info', 50)
+      const u = document.querySelector('.toast-notification').getBoundingClientRect()
+      assert.ok(Math.abs((u.left + u.right) / 2 - 700) <= 1, 'a hidden minimap leaves the toast centred on the canvas')
+      document.querySelector('.toast-notification').remove()
+    } finally {
+      bar.remove(); map.remove()
+      if (theirs) theirs.id = 'minimap'
+    }
   })
 
   it('a long map title ellipsizes instead of growing the header, and keeps its full text as a tooltip', async () => {

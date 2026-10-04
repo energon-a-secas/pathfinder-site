@@ -9,8 +9,6 @@ import { ui, toWorld } from './state.js'
 import { $, TYPES, typesByStep, escHtml } from './utils.js'
 import { createBlockAt } from './create.js'
 
-const article = word => (/^[aeiou]/i.test(word) ? 'an' : 'a')
-
 // ── Rendering ────────────────────────────────────────────────
 function itemHtml(t) {
   const cfg = TYPES[t]
@@ -35,24 +33,6 @@ export function renderPaletteTypes(list = document.getElementById('blocksList'))
       `<div class="palette-step-head" title="${name}" aria-hidden="true">${escHtml(g.label)}</div>` +
       g.types.map(itemHtml).join('') +
       `</div>`
-  }).join('')
-}
-
-/**
- * The empty state's "Map it in six steps" row: one button per step (Other
- * is support, not a step), each adding that step's first type.
- */
-export function renderStepStarter(row = document.getElementById('mapSteps')) {
-  if (!row) return
-  const steps = typesByStep().filter(g => g.step !== 'other' && g.types.length)
-  row.innerHTML = steps.map((g, i) => {
-    const t = g.types[0], label = TYPES[t].label
-    return `<button type="button" class="map-step" data-type="${t}" data-step="${g.step}"` +
-      ` aria-label="${escHtml(`${i + 1}. ${g.label}: add ${article(label)} ${label}`)}"` +
-      ` title="${escHtml(`${g.label}: ${g.hint}`)}">` +
-      `<span class="map-step-head"><span class="map-step-num" aria-hidden="true">${i + 1}</span>${escHtml(g.label)}</span>` +
-      `<span class="map-step-type"><span class="palette-dot" data-shape="${TYPES[t].shape || 'dot'}" style="background:var(--c-${t})" aria-hidden="true"></span>${escHtml(label)}</span>` +
-      `</button>`
   }).join('')
 }
 
@@ -115,20 +95,8 @@ function showTip(item) {
 
 // ── Palette ──────────────────────────────────────────────────
 let paletteWired = false
-const wiredStarters = new WeakSet()
 export function setupPalette() {
   renderPaletteTypes()
-  renderStepStarter()
-
-  // The six-step starter sits in the Brain Dump card, inside the canvas.
-  // Setup can run again (tests, a re-render), so each row is wired once.
-  const steps = document.getElementById('mapSteps')
-  if (steps && !wiredStarters.has(steps)) {
-    wiredStarters.add(steps)
-    steps.addEventListener('click', e => {
-      const b = e.target.closest('.map-step'); if (b) addTypeAtCenter(b.dataset.type)
-    })
-  }
 
   const palette = document.getElementById('palette')
   if (!palette || paletteWired) return

@@ -6,12 +6,12 @@
 import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
 import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
-         clamp, escHtml, showToast, getBlockDims, copyText, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+         clamp, escHtml, showToast, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock } from './render.js'
 import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
          listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from './templates.js'
-import { refreshPrompt, markExported, generatePrompt, situationSection } from './prompt.js'
+import { refreshPrompt } from './prompt.js'
 import { exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportSpecBundle } from './spec-export.js'
 import { detectFormat, fromJsonCanvas, parseMermaid, downloadJsonCanvas, toMermaid } from './interop.js'
@@ -23,11 +23,10 @@ import { tidyCanvas, tidySummary } from './layout.js'
 import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
 import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } from './state.js'
-// ZOOM: where a template or a link lands, and Tidy's move.
-import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint,
+// Where a template or a link lands, and Tidy's move.
+import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint, animateView,
          positionsNow, animateTidy, fitTarget, TIDY_MS } from './zoom-controls.js'
 import { openIncoming, incomingMessage } from './sharing.js'
-import { animateView } from './zoom-controls.js'
 import { setupFilter, filterValue, setFilterValue } from './filter-menu.js'
 import { typeDot } from './type-menu.js'
 
@@ -214,6 +213,7 @@ export const SHORTCUTS = [
     ['⌘/Ctrl + Enter',    'Add a connected block to the right'],
     ['Click a port ●',    'Add a connected block on that side'],
     ['Drag a port ●',     'Draw a connection; drop it on empty canvas to add a connected block there'],
+    ['1 / 2 / 3',              'On an empty map: paste your notes, start from a template, or open the sample map'],
   ] },
   { group: 'Editing', keys: [
     ['Enter / F2',             'Edit the selected card’s title, or the selected connection’s label', { top: 3, short: 'Edit the title' }],
@@ -254,6 +254,7 @@ export const SHORTCUTS = [
     ['H',                      'Hide the header and footer'],
     ['Z',                      'Zen: hide every panel too'],
     ['M',                      'Show or hide the minimap'],
+    ['⌘/Ctrl + Shift + C',     'Copy the brief for the whole map (on a view-only link too)'],
     ['Alt + H',                'High-contrast mode'],
     ['?',                      'Show this help', { top: 12, short: 'This sheet' }],
   ] },
@@ -822,8 +823,6 @@ export function syncPromptOptControls() {
 // confirmation, the status bar's copy button and Cmd/Ctrl+Shift+C. It is
 // imported by app.js alone: brief.js reads the Attention tab's model, and
 // importing it from here put attention.js inside gaps.js's own evaluation.
-// Kept so app.js's start-up call stays valid.
-export function setupCopyPrompt() {}
 
 // copyText now lives in utils.js; re-exported so existing importers keep working.
 export { copyText }
@@ -837,24 +836,12 @@ export function refreshQuickCopy() {
 }
 
 /**
- * The per-rule gap list that sat in the Prompt tab is gone: the Attention tab
- * lists every open item, and the Brief tab's readiness line counts them the
- * same way and links there. Kept so app.js's start-up call stays valid.
- */
-export function setupGapBreakdown() {}
-
-/**
  * The status bar's copy button: its name and whether it can act. Its click
  * is wired by js/brief.js (setupBrief): always the whole map, with the same
  * confirmation as the Brief tab's Copy.
  */
 export function setupQuickCopy() {
-  const button = document.getElementById('copyPromptPill')
-  if (!button) return
-  const label = document.getElementById('copyPillLabel')
-  if (label) label.textContent = 'Copy brief'
-  button.setAttribute('aria-label', 'Copy brief')
-  button.title = 'Copy the brief for the whole map'
+  if (!document.getElementById('copyPromptPill')) return
   window.addEventListener('pf:canvas-changed', refreshQuickCopy)
   window.addEventListener('pf:save-status', refreshQuickCopy)
   refreshQuickCopy()
@@ -1091,7 +1078,9 @@ export function setLayoutDir(dir) {
 // `snapshot: false` is for a caller that already took this action's undo
 // step. Listeners pass an Event here, which has no `snapshot`: the default.
 // `arrive` (blocks and an arriveAt lead) lands the camera on them instead of
-// the whole-map fit: a template arranges itself on arrival.
+// the whole-map fit: a template arranges itself on arrival. A map with no
+// connections comes back in step columns, which spread wide, so it lands at
+// a readable zoom too, with the summary as the arrival's toast.
 export function runTidy({ snapshot: takeSnapshot = true, arrive = null } = {}) {
   if (ui.readOnly) return
   const count = Object.keys(state.blocks).length
@@ -1106,7 +1095,9 @@ export function runTidy({ snapshot: takeSnapshot = true, arrive = null } = {}) {
   ui.promptDirty = true
   runGapDetection()
   // The summary also counts lines left under a card (layout.js).
-  showToast(tidySummary(tidied, count, layoutDir), 'success', 2600)
+  const summary = tidySummary(tidied, count, layoutDir, undoKeyLabel())
+  if (!arrive && tidied.mode === 'steps' && tidied.moved) arrive = { ids: null, lead: summary }
+  else showToast(summary, 'success', 2600)
 
   const settle = () => {
     renderArrows({ cheap: false })
@@ -1131,10 +1122,6 @@ export function setupTidy() {
   // js/view-menu.js (setupViewMenu).
 }
 
-/** The undo shortcut as this platform spells it, for copy that names it. */
-export function undoKeyLabel(platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '') {
-  return /mac|iphone|ipad|ipod/i.test(platform) ? 'Cmd+Z' : 'Ctrl+Z'
-}
 
 /**
  * Clear the active map: every block, connection and group, as one undo step.

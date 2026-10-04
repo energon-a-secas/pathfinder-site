@@ -5,7 +5,7 @@ import { dependencyEdges, connectionLabel, impliedVerb, relationOf } from './rel
 
 import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, typeInfo, askedQuestions } from './utils.js'
-import { runGapDetection, GAP_META, FINDING_ACKS, nextEmptyStep } from './gaps.js'
+import { runGapDetection, GAP_META, FINDING_ACKS } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 import { taskChecklist, mitigationIndex, cardAnswer, IMPLIED_MITIGATION } from './task-plan.js'
 
@@ -370,7 +370,7 @@ export function generatePrompt() {
   const title = (canvasMeta.title || '').trim() || 'Project Canvas'
   prompt += `---\n\n# ${title}\n\n`
   const brief = (canvasMeta.contextBrief || '').trim()
-  if (brief) prompt += `## Engagement Context\n${brief}\n\n`
+  if (brief) prompt += `## Context\n${brief}\n\n`
   prompt += content
 
   // 5. Connections (typed; an unlabelled arrow prints the verb its endpoint
@@ -474,7 +474,7 @@ export function buildQuestionPrompt(block, question) {
 
   let p = '## Task\n'
   p += 'Answer the specific question below using the surrounding context. If the context is insufficient, say what is missing rather than guessing.\n\n'
-  if (brief) p += `## Engagement Context\n${brief}\n\n`
+  if (brief) p += `## Context\n${brief}\n\n`
   p += `## Question\n${q.text.trim() || '(no question text)'}\n\n`
   p += `## This relates to\n${describe(block)}\n`
 

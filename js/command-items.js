@@ -28,6 +28,7 @@ import { TEMPLATES, listUserTemplates } from './templates.js'
 import { openSearch, runTidy, TYPE_KEYS } from './ui-panels.js'
 import { zoomIn, zoomOut, zoomTo, zoomToBlocks, zoomToSelection, hasSelectionTarget } from './zoom-controls.js'
 import { readingOrder, describeBlock, announce, withCameraHeld } from './navigation.js'
+import { openSampleMap, SAMPLE_TITLE } from './start-panel.js'
 
 export const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '')
 export const MOD = IS_MAC ? '⌘' : 'Ctrl+'
@@ -143,6 +144,7 @@ export const ICONS = {
   map:      svg('<path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2z"/><path d="M9 4v14M15 6v14"/>'),
   template: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/>'),
   palette:  svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10l3 2-3 2M12 14h5"/>'),
+  copy:     svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>'),
 }
 
 // ── Rows from menu.js items ──────────────────────────────────
@@ -309,8 +311,18 @@ function actionRows(mapActions) {
     { id: 'cmd:zoom-out', label: 'Zoom out', icon: ICONS.zoomOut, shortcut: '-', meta: 'Zoom', run: () => zoomOut() },
   )
   rows.push(...menuRows(fileMenuItems(), { idPrefix: 'file:', meta: 'File' }))
+  // The Brief tab owns Copy (js/brief.js, loaded by app.js alone): ask it.
+  if (!ui.embed && [...selection.ids].some(id => state.blocks[id])) {
+    rows.push({ id: 'cmd:copy-brief-selection', label: 'Copy brief for the selection', icon: ICONS.copy, meta: 'Brief',
+      hint: 'The selected blocks and the blocks connected to them', noRecent: true,
+      run: () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: { scope: 'selection' } })) })
+  }
   if (!ro) rows.push(...menuRows(shareMenuItems(), { idPrefix: 'share:', meta: 'Share' }))
   rows.push(...mapActions)
+  if (!ro && !ui.embed) {
+    rows.push({ id: 'cmd:sample', label: 'Open the sample map', hint: `${SAMPLE_TITLE}, as a map of its own`, icon: ICONS.map,
+      meta: 'Maps', noRecent: true, run: () => openSampleMap() })
+  }
   rows.push(...menuRows(viewMenuItems(), { idPrefix: 'view:', meta: 'View' }))
   // The Help menu's own row for the palette is the one place it is not.
   rows.push(...menuRows(helpMenuItems(), { idPrefix: 'help:', meta: 'Help' }).filter(r => r.id !== 'help:' + PALETTE_ROW_ID))

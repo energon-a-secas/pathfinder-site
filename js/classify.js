@@ -2,14 +2,15 @@
 //  classify.js: text to typed blocks. The brain dump's syntax
 //  (PREFIXES, headings, "- " criteria), the line classifier, the
 //  outline parser, the dump itself (step columns, a free space,
-//  a readable arrival), the paste handler, the Brain Dump card and
-//  the type check that follows a guess (a button on the card's type
-//  label). Only a prefix, a heading or a trailing "?" is certain.
+//  a readable arrival), the paste handler and the type check that
+//  follows a guess (a button on the card's type label); the start
+//  panel's notes field is wired in start-panel.js. Only a prefix, a
+//  heading or a trailing "?" is certain.
 // ════════════════════════════════════════════════════════════
 
-import { state, ui, view, selection, snapshot, debouncedSave, toWorld } from './state.js'
-import { $, genId, getBlockEl, showToast, clamp, TYPES, DEFAULT_WIDTH, MIN_ZOOM, MAX_ZOOM } from './utils.js'
-import { renderArrows, updateHint, applyTransform } from './canvas.js'
+import { state, ui, selection, snapshot, debouncedSave, toWorld } from './state.js'
+import { $, genId, getBlockEl, showToast, TYPES, DEFAULT_WIDTH } from './utils.js'
+import { renderArrows, updateHint } from './canvas.js'
 import { renderAllBlocks, mutateBlocks, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { openDropdown, isMenuOpen } from './menu.js'
@@ -17,6 +18,7 @@ import { modalDialogOpen } from './navigation.js'
 import { typeMenuItems, retypeBlocks } from './type-menu.js'
 import { layoutByStep, STEP_LAYOUT } from './layout.js'
 import { blockSize, nearestFreeSpot, occupiedRects } from './create.js'
+import { arriveAt, fitKeyName, ARRIVAL_ZOOM, ARRIVAL_PAD } from './zoom-controls.js'
 
 // ── Prefixes: the brain dump's own syntax ────────────────────
 //
@@ -566,22 +568,19 @@ export function splitTitle(text) {
   return { title: (at > TITLE_MAX / 2 ? cut.slice(0, at) : cut).replace(/[\s,;:]+$/, '') + '…', overflow: s }
 }
 
-/** The zoom a dump arrives at, at least: the band where a card's text reads. */
-export const READABLE_ZOOM = 0.75
-
 /**
  * Turn freeform text into typed blocks in step columns (Why, Who, Proof,
  * What, How, Doubt, then Other), in the nearest free space to the middle of
  * the view, or to `at` (a world point: the arrangement's top-left sits half
- * a card left of it) when given. Shared by the paste handler and the Brain
- * Dump card. One undo step. Returns the array of created block ids. When
+ * a card left of it) when given. Shared by the paste handler, the canvas
+ * menu's Paste as blocks and the start panel's notes. One undo step. Returns the array of created block ids. When
  * `nest` is true (default), indented/bulleted lines fold into the block
  * above them.
  *
- * The camera then shows the result at a readable zoom (arriveAtBlocks), as a
- * microtask, so a caller that moves the new blocks right after (the canvas
- * menu's Paste as blocks) has moved them first; if that put them on a card,
- * they move clear of it first (settleDump).
+ * The camera then shows the result at a readable zoom (zoom-controls.js
+ * arriveAt), as a microtask, so a caller that moves the new blocks right
+ * after has moved them first; if that put them on a card, they move clear
+ * of it first (settleDump).
  */
 export function createBlocksFromText(text, nest = true, { at = null } = {}) {
   if (ui.readOnly) return []
@@ -623,15 +622,12 @@ export function createBlocksFromText(text, nest = true, { at = null } = {}) {
     const live = ids.filter(id => state.blocks[id])
     if (!live.length) return
     settleDump(live)
-    const { all } = arriveAtBlocks(live)
+    // The camera's own arrival (zoom-controls.js): left alone when the dump
+    // is already on screen at a readable zoom, else 75% on its start.
+    const all = arriveAt(live, { stay: true })?.whole !== false
     showToast(dumpSummary(live.length, guessed, all), 'info', guessed || !all ? 4200 : 2600)
   })
   return ids
-}
-
-// A phone has no Shift+1; the status bar's Fit button does the same.
-const fitHint = () => {
-  try { return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(pointer: fine)').matches ? 'Fit' : 'Shift+1' } catch (_) { return 'Shift+1' }
 }
 
 /**
@@ -639,7 +635,7 @@ const fitHint = () => {
  * them all. `fit` names the way to see everything ('Shift+1', or 'Fit' on
  * a touch screen).
  */
-export function dumpSummary(count, guessed = 0, allInView = true, fit = fitHint()) {
+export function dumpSummary(count, guessed = 0, allInView = true, fit = fitKeyName()) {
   let msg = `Added ${count} block${count === 1 ? '' : 's'}`
   if (guessed) {
     msg += guessed === count && count > 1
@@ -650,28 +646,27 @@ export function dumpSummary(count, guessed = 0, allInView = true, fit = fitHint(
   return msg
 }
 
-// The margin arriveAtBlocks keeps around what it frames, in screen pixels.
-const ARRIVAL_PAD = 48
-
 /**
  * The step arrangement that fits the view a dump arrives in, a viewport of
  * `W` by `H` screen pixels. A wide view gets columns, wrapped into bands
  * where that lets the whole dump show larger: of every place the columns
  * could break into a new band below, the one whose arrangement fits the
  * view at the highest zoom (one band when that is no worse). A tall view
- * (a phone) gets step rows, as many cards across as read at READABLE_ZOOM.
+ * (a phone) gets step rows, as many cards across as read at ARRIVAL_ZOOM.
  * With no laid-out viewport, plain columns. Pure: sizes in, layoutByStep's
  * result out.
  */
 export function layoutDump(nodes, W = 0, H = 0) {
   if (!(W > 0 && H > 0)) return layoutByStep(nodes)
-  const availW = Math.max(1, W - ARRIVAL_PAD * 2), availH = Math.max(1, H - ARRIVAL_PAD * 2)
+  // The arrival's margin is in world pixels (zoom-controls.js arrivalView),
+  // so the zoom an arrangement arrives at is the one arrivalView computes.
+  const pad = ARRIVAL_PAD * 2
   if (H > W) {
     const cardW = Math.max(DEFAULT_WIDTH, ...nodes.map(n => n.w || 0)), gap = STEP_LAYOUT.rowGap
-    const across = Math.max(1, Math.floor((availW / READABLE_ZOOM + gap) / (cardW + gap)))
+    const across = Math.max(1, Math.floor((W / ARRIVAL_ZOOM - pad + gap) / (cardW + gap)))
     return layoutByStep(nodes, { direction: 'TB', grow: false, maxPerColumn: across })
   }
-  const zoomOf = l => Math.min(1, availW / Math.max(1, l.width), availH / Math.max(1, l.height))
+  const zoomOf = l => Math.min(1, W / (Math.max(1, l.width) + pad), H / (Math.max(1, l.height) + pad))
   const one = layoutByStep(nodes)
   const width = new Map(nodes.map(n => [n.id, n.w || DEFAULT_WIDTH]))
   let best = one, bestZoom = zoomOf(one)
@@ -734,40 +729,6 @@ export function settleDump(ids) {
   runGapDetection()
   debouncedSave()
   return true
-}
-
-/**
- * Show blocks that just arrived, at a zoom where they read. Nothing moves
- * when they are already in view at READABLE_ZOOM or closer. Otherwise they
- * fit when that zoom allows (never past 100%); when they cannot, the camera
- * goes to READABLE_ZOOM on their start (the Why column, top first), and the
- * result says not all of them are in view. Returns { moved, all }.
- */
-export function arriveAtBlocks(ids) {
-  const vp = $.canvasViewport()
-  const W = vp?.clientWidth || 0, H = vp?.clientHeight || 0
-  const live = (ids || []).filter(id => state.blocks[id])
-  if (!W || !H || !live.length) return { moved: false, all: true }
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  live.forEach(id => {
-    const b = state.blocks[id], { w, h } = blockSize(id)
-    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
-    maxX = Math.max(maxX, b.x + w); maxY = Math.max(maxY, b.y + h)
-  })
-  const z0 = view.zoom
-  const inView = minX * z0 + view.panX >= 0 && minY * z0 + view.panY >= 0 &&
-    maxX * z0 + view.panX <= W && maxY * z0 + view.panY <= H
-  if (inView && z0 >= READABLE_ZOOM) return { moved: false, all: true }
-  const pad = ARRIVAL_PAD
-  const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY)
-  const fit = Math.min((W - pad * 2) / bw, (H - pad * 2) / bh)
-  const z = clamp(fit >= READABLE_ZOOM ? Math.min(fit, 1) : READABLE_ZOOM, MIN_ZOOM, MAX_ZOOM)
-  const fitsX = bw * z <= W - pad * 2 + 0.5, fitsY = bh * z <= H - pad * 2 + 0.5
-  view.zoom = z
-  view.panX = Math.round(fitsX ? (W - bw * z) / 2 - minX * z : pad - minX * z)
-  view.panY = Math.round(fitsY ? (H - bh * z) / 2 - minY * z : pad - minY * z)
-  applyTransform()
-  return { moved: true, all: fitsX && fitsY }
 }
 
 let pasteWired = false
@@ -860,7 +821,7 @@ let typeChecksWired = false
 export function setupTypeChips() {
   if (typeChecksWired) return
   typeChecksWired = true
-  // Importers (Brain Dump lives here, interop does not) report their
+  // Importers (the dump lives here, interop does not) report their
   // low-confidence blocks via an event, so no module has to import this one.
   window.addEventListener('pf:show-type-chips', e => showTypeChips(Array.isArray(e.detail) ? e.detail : []))
   // The button carries data-canvas-ui, so a press on it neither selects nor

@@ -16,10 +16,10 @@
 //   openBlockMenu / openMultiMenu / openArrowMenu / openCanvasMenu
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, ui, view, pointer, snapshot, toWorld, debouncedSave } from './state.js'
+import { state, selection, ui, view, pointer, snapshot, toWorld } from './state.js'
 import { $, TYPES, typesByStep, STATUS_DEFS, PRIORITY_DEFS, HIGHLIGHTS,
-         SWATCH_COLORS, SWATCH_NAMES, DEFAULT_WIDTH, genId, getBlockEl, showToast } from './utils.js'
-import { applyTransform, renderArrows, renderFrames, fitView, updateHint,
+         SWATCH_COLORS, SWATCH_NAMES, genId, getBlockEl, showToast } from './utils.js'
+import { applyTransform, fitView, updateHint,
          arrowRoute, arrowPattern, ARROW_ROUTES } from './canvas.js'
 import { selectBlock, setSelection, selectArrow, renderInspector,
          mutateBlock, mutateBlocks, mutateArrow, deleteBlock, deleteBlocksBatch,
@@ -655,7 +655,7 @@ function arrowMenuItems(aid, pt) {
   return tidyItems([
     { ctx: 'edit-label', label: 'Edit label', icon: I.label, shortcut: 'Enter', action: () => startArrowLabelEdit(aid, pt) },
     { ctx: 'meaning', label: 'Meaning', icon: I.meaning, submenu: () => [
-      { label: 'Auto (from the label and card types)', hint: `Reads as: ${RELATIONS[relationOf({ ...a, relation: null }, state.blocks)].toLowerCase()}`,
+      { label: 'Auto (label or types)', hint: `Reads as: ${RELATIONS[relationOf({ ...a, relation: null }, state.blocks)].toLowerCase()}`,
         radio: true, checked: !a.relation, action: () => applyArrow(aid, { relation: null }) },
       DIV,
       ...Object.entries(RELATIONS).map(([k, label]) => ({
@@ -718,32 +718,6 @@ export function openArrowMenu(aid, clientX, clientY) {
 }
 
 // ── Canvas menus ─────────────────────────────────────────────
-/**
- * Move freshly pasted blocks so their column starts at world point `w`
- * instead of the viewport centre. Part of the paste's own undo step: the
- * snapshot was taken before the blocks existed.
- */
-export function movePastedTo(ids, w) {
-  const live = ids.filter(id => state.blocks[id])
-  if (!live.length || !w) return
-  const minX = Math.min(...live.map(id => state.blocks[id].x))
-  const minY = Math.min(...live.map(id => state.blocks[id].y))
-  const dx = Math.round(w.x - DEFAULT_WIDTH / 2) - minX, dy = Math.round(w.y) - minY
-  if (!dx && !dy) return
-  live.forEach(id => {
-    const b = state.blocks[id]
-    // Whole pixels, like every other placement: half pixels blur edges.
-    b.x = Math.round(b.x + dx); b.y = Math.round(b.y + dy)
-    // Only the position changes. Re-rendering would drop the gap and
-    // low-confidence classes the paste just painted.
-    const el = getBlockEl(id)
-    if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px' }
-  })
-  renderArrows({ cheap: false })
-  renderFrames()
-  debouncedSave()
-}
-
 async function pasteAsBlocks(w) {
   const hint = () => showToast(`Clipboard access is blocked here. Click the canvas and press ${MOD}V instead`, 'info', 3200)
   if (!navigator.clipboard?.readText) { hint(); return }
@@ -751,7 +725,8 @@ async function pasteAsBlocks(w) {
   try { text = await navigator.clipboard.readText() } catch (_) { hint(); return }
   if (!text || !text.trim()) { showToast('The clipboard has no text to turn into blocks', 'info', 2200); return }
   if (ui.readOnly) return
-  movePastedTo(createBlocksFromText(text), w)
+  // The dump starts at the pointer, or the nearest free space from it.
+  createBlocksFromText(text, true, { at: w })
 }
 
 function canvasMenuItems(clientX, clientY) {

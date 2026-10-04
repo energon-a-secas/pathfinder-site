@@ -11,8 +11,8 @@
   <meta name="neo-mark" content="on">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://esm.sh cdn.jsdelivr.net cdnjs.cloudflare.com https://challenges.cloudflare.com https://gc.zgo.at https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.neorgon.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.convex.cloud https://img.clerk.com https://cdn.neorgon.org https://i.ytimg.com https://yt3.ggpht.com https://neorgon.goatcounter.com; connect-src 'self' https://raw.githubusercontent.com https://gist.githubusercontent.com https://objects.githubusercontent.com https://*.convex.cloud https://clerk.neorgon.com https://accounts.neorgon.com https://clerk-telemetry.com https://api.clerk.com https://challenges.cloudflare.com https://*.workers.dev https://neorgon.goatcounter.com https://cloudflareinsights.com; frame-src 'self' https://challenges.cloudflare.com https://clerk.neorgon.com https://accounts.neorgon.com https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Pathfinder | Strategy Canvas</title>
-  <meta name="description" content="Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt">
+  <title>Pathfinder | Plan work for AI coding agents</title>
+  <meta name="description" content="Map goals, work, risks and open questions as typed blocks, see what the plan is missing, and export a brief for Claude Code, Cursor or any assistant.">
   <meta property="og:title" content="Pathfinder: plan the work before an agent builds it">
   <meta property="og:description" content="Map goals, work, risks and open questions as typed blocks, see what the plan is missing, and export a brief for Claude Code, Cursor or any assistant.">
   <meta property="og:type" content="website">
@@ -36,7 +36,7 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Pathfinder",
-    "description": "Map goals, risks, and decisions on a visual canvas, then export a structured AI prompt",
+    "description": "Map goals, work, risks and open questions as typed blocks, see what the plan is missing, and export a brief for Claude Code, Cursor or any assistant.",
     "url": "https://pathfinder.neorgon.com/",
     "applicationCategory": "ProductivityApplication",
     "operatingSystem": "Any",
@@ -96,7 +96,7 @@
         <button class="header-btn" id="exportBtn" aria-haspopup="menu" aria-expanded="false" title="Import, export and download"><span>File</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
         <div class="file-actions" id="fileActions" hidden>
           <button type="button" id="importJSON" data-file-group="import"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.25V2.75"/><path d="M5.25 5.5L8 2.75l2.75 2.75"/><path d="M2.75 9.75v2.5c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1v-2.5"/></svg> Import JSON / Canvas / Mermaid…</button>
-          <button type="button" id="exportCopyPrompt" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg> Copy prompt</button>
+          <button type="button" id="exportCopyPrompt" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg> Copy brief</button>
           <button type="button" id="copyDiagramInstructions" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 2.75h8.5c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1H7.5l-3 2.5v-2.5h-.75c-.55 0-1-.45-1-1v-5.5c0-.55.45-1 1-1z"/><path d="M5.75 5.5h4.5M5.75 7.5h2.5"/></svg> Copy AI diagram-builder prompt</button>
           <button type="button" id="exportJSON" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.75h-.5C4.67 2.75 4 3.42 4 4.25v2C4 7.22 3.5 8 2.75 8 3.5 8 4 8.78 4 9.75v2c0 .83.67 1.5 1.5 1.5H6"/><path d="M10 2.75h.5c.83 0 1.5.67 1.5 1.5v2c0 .97.5 1.75 1.25 1.75-.75 0-1.25.78-1.25 1.75v2c0 .83-.67 1.5-1.5 1.5H10"/></svg> Download JSON</button>
           <button type="button" id="exportMarkdown" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="3.75" width="12.5" height="8.5" rx="1.5"/><path d="M4.25 10V6l1.75 2 1.75-2v4"/><path d="M11 6v4M9.5 8.5L11 10l1.5-1.5"/></svg> Download Markdown</button>
@@ -197,7 +197,7 @@
   <section class="canvas-workspace" aria-label="Planning canvas">
   <div class="canvas-viewport" id="canvasViewport"
        role="application"
-       aria-label="Strategy canvas. Tab and Shift+Tab move between blocks in reading order. Enter or F2 edits the selected block. Arrow keys nudge it, or pan when nothing is selected. Ctrl or Command with an arrow selects the nearest block, Alt with an arrow adds a connected block. Escape deselects. Question mark lists every shortcut."
+       aria-label="Map canvas. Tab and Shift+Tab move between blocks in reading order. Enter or F2 edits the selected block. Arrow keys nudge it, or pan when nothing is selected. Ctrl or Command with an arrow selects the nearest block, Alt with an arrow adds a connected block. Escape deselects. Question mark lists every shortcut."
        tabindex="0">
 
     <!-- Empty state hint -->
@@ -356,9 +356,9 @@
 
   <div class="canvas-statusbar" id="canvasStatusbar" data-canvas-ui>
     <div class="zoom-controls" id="zoomControls" data-canvas-ui role="group" aria-label="Zoom">
-      <button type="button" class="zoom-btn zoom-step" id="zoomOutBtn" title="Zoom out (-)" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
-      <button type="button" class="zoom-btn zoom-level-btn" id="zoomMenuBtn" title="Zoom options" aria-haspopup="menu" aria-expanded="false"><span class="sr-only">Zoom </span><span class="zoom-indicator" id="zoomIndicator">100%</span><svg class="zoom-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
-      <button type="button" class="zoom-btn zoom-step" id="zoomInBtn" title="Zoom in (=)" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
+      <button type="button" class="zoom-btn zoom-step" id="zoomOutBtn" title="Zoom out (-)" aria-label="Zoom out"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/></svg></button>
+      <button type="button" class="zoom-btn zoom-level-btn" id="zoomMenuBtn" title="Zoom options" aria-haspopup="menu" aria-expanded="false"><span class="sr-only">Zoom </span><span class="zoom-indicator" id="zoomIndicator">100%</span><svg class="zoom-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
+      <button type="button" class="zoom-btn zoom-step" id="zoomInBtn" title="Zoom in (=)" aria-label="Zoom in"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8M8 4v8"/></svg></button>
       <button type="button" class="zoom-fit-btn" id="fitViewBtn" title="Fit all blocks in view (Shift+1)" aria-label="Fit all blocks in view">Fit</button>
     </div>
     <span class="backup-status" id="backupStatus" hidden></span>
@@ -368,9 +368,9 @@
       <button id="saveBackup" hidden>Download backup</button>
       <span id="saveStatusDetail" hidden></span>
     </div>
-    <button class="btn btn-secondary btn-sm quick-copy" id="copyPromptPill" aria-label="Copy prompt" title="Copy this map as a planning prompt">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
-      <span id="copyPillLabel">Copy prompt</span>
+    <button class="btn btn-secondary btn-sm quick-copy" id="copyPromptPill" aria-label="Copy brief" title="Copy the brief for the whole map">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg>
+      <span id="copyPillLabel">Copy brief</span>
     </button>
   </div>
   </section>
@@ -440,7 +440,7 @@
              opens its tab, and each sentence reads with any label. -->
         <div class="inspector-empty" id="inspectorEmpty">
           <p class="insp-empty-lead"><span class="insp-empty-edit">Select a block to edit it here.</span><span class="insp-empty-view">Select a block to read it here.</span></p>
-          <p class="insp-empty-tabs"><button type="button" class="insp-empty-tab" data-goto-tab="prompt">Prompt</button> is what you hand to an agent. <button type="button" class="insp-empty-tab" data-goto-tab="attention">Attention</button> lists what the plan is missing.</p>
+          <p class="insp-empty-tabs"><button type="button" class="insp-empty-tab" data-goto-tab="prompt">Brief</button> is what you hand to an agent. <button type="button" class="insp-empty-tab" data-goto-tab="attention">Attention</button> lists what the plan is missing.</p>
         </div>
 
         <!-- One block. Everything that changes what the block says sits above
@@ -643,7 +643,7 @@
           <div class="insp-section">
             <label class="insp-label" for="arrowRelation">Meaning</label>
             <select class="insp-input insp-select" id="arrowRelation" aria-describedby="arrowRelationHint">
-              <option value="">Auto (from the label and card types)</option>
+              <option value="">Auto (label or types)</option>
               <option value="precedes">Comes before</option>
               <option value="depends-on">Depends on</option>
               <option value="blocks">Blocks</option>

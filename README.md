@@ -28,7 +28,7 @@ Plan the work before an agent builds it.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
-  <img src="docs/screenshot-dark.png" width="1440" alt="Pathfinder with a bug investigation open: typed cards for the report, the problem, open questions and assumptions, connected in order, with the brief's settings open in the right panel.">
+  <img src="docs/screenshot-dark.png" width="1440" alt="Pathfinder with a bug investigation open: typed cards for the report, the problem, open questions and assumptions, connected in order, with the Brief tab open in the right panel.">
 </picture>
 
 1. **Map** the work as typed blocks: goals, stakeholders, metrics, requirements, work, risks, assumptions and open questions, connected by what each one means for the next.
@@ -53,7 +53,18 @@ The pictures here, the share card and the example maps are drawn by the app itse
 
 ### Phase 1: Build the map
 
-Add blocks from the palette on the left, or double-click empty canvas to add one where you clicked. Each block type carries a specific meaning (see the table below). Draw connections by dragging from the small port circles that appear on block edges when you hover; drop one on empty canvas, or just click a port, to add the next block there already connected.
+An empty map opens on the start panel, with three ways in (keys `1`, `2`, `3`):
+
+- **Paste your notes.** One line becomes one block. A line prefix sets the type for
+  certain: `goal:`, `who:`, `metric:`, `req:`, `build:`, `risk:`, `assume:`,
+  `decision:`, `output:`, `step:`, `trigger:`, `context:`, `question:`, or end the line
+  with `?`. A heading such as `Risks:` types the list under it, and `- ` lines under a
+  prefixed requirement or metric become its criteria. Any other line gets a guessed
+  type, flagged on the card for you to confirm. The notes land in step columns, in free
+  space, at a zoom where they read.
+- **Start from a template**, or **open the sample map** as a map of its own.
+
+After that, add blocks from the palette on the left, or double-click empty canvas to add one where you clicked. Each block type carries a specific meaning (see the table below). Draw connections by dragging from the small port circles that appear on block edges when you hover; drop one on empty canvas, or just click a port, to add the next block there already connected.
 
 The gap detection layer runs automatically and flags structural problems:
 
@@ -69,23 +80,23 @@ The gap detection layer runs automatically and flags structural problems:
 
 Each block reports one gap at a time, as a ring and a small line icon on the
 card. A gap you mean to keep can be accepted (the inspector's Suggestions, or
-the Attention tab): it stops being raised and the prompt lists it under
+the Attention tab): it stops being raised and the brief lists it under
 "Accepted gaps" instead. Whole-canvas checks (no Goal or Problem, untyped
 blocks, likely duplicates, a question hidden in a description) sit in the
 Attention tab.
 - Canvas-wide: circular dependency orders and named groups with no members
 
 Each flagged block gets plain-language suggestions in the inspector, several with
-a one-click fix, and the Prompt tab lists every firing rule with a jump to the
-first offender.
+a one-click fix. The Brief tab's readiness line counts what is still open, the
+same count as the Attention tab, and links there.
 
 The gap icons are not mandatory warnings. They are conversation starters: the canvas asking you to articulate things you might otherwise assume.
 
-### Phase 2: Generate the brief
+### Phase 2: Hand over the brief
 
-Switch to the **Prompt** tab in the right panel. The generated prompt assembles all blocks in a structured hierarchy, appends the connection graph, flags any remaining gaps, and applies any dev options you set (tone, detail level, acceptance criteria, security, TypeScript, etc.).
+Switch to the **Brief** tab in the right panel. The brief assembles all blocks in a structured hierarchy, appends the connection graph, flags any remaining gaps, and applies any prompt options you set (tone, detail level, acceptance criteria, security, TypeScript, etc.). It reads as a document, with a section outline and an estimate of its size.
 
-Paste the prompt as the first message to any AI. You get focused output because the assistant doesn't have to guess at your constraints.
+**Copy brief** (or `Cmd/Ctrl + Shift + C`) and paste it as the first message to any AI. You get focused output because the assistant doesn't have to guess at your constraints. With blocks selected, **Selection** hands over just them and the blocks connected to them, marked as partial.
 
 ---
 
@@ -141,13 +152,13 @@ one block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
 
 **Action badges** (set in the Inspector) attach intent to any block:
 
-| Badge | Icon | Meaning |
-|---|---|---|
-| `resolve` | wrench | You are actively working to fix this |
-| `prepare` | shield | You need to set something up before proceeding |
-| `recollect` | clock | You need to retrieve or recall information |
-| `reinforce` | double chevron | You are strengthening or validating this point |
-| `validate` | magnifier | You need to test this before relying on it |
+| Badge | Tag in the brief | Icon | Meaning |
+|---|---|---|---|
+| Resolve | `resolve` | wrench | You are actively working to fix this |
+| Prepare | `prepare` | shield | You need to set something up before proceeding |
+| Look back | `recollect` | clock | You need to retrieve or recall information |
+| Strengthen | `reinforce` | double chevron | You are strengthening or validating this point |
+| Validate | `validate` | magnifier | You need to test this before relying on it |
 
 Badges are neutral chips: the icon and the word tell them apart, never a colour (colour on a card means its type, a gap or the selection).
 
@@ -161,13 +172,15 @@ Badges are neutral chips: the icon and the word tell them apart, never a colour 
 | Add a connected block | Click a port, drop a port's line on empty canvas and pick a type, or `Alt + Arrow` |
 | Move block | Drag the block body |
 | Select block | Click once |
+| Run anything by name | `Cmd + K` (`Ctrl + K` off the Mac): every menu action, the selection's actions, blocks, maps and templates. `/` opens it at Create |
+| Add a block of one type | `N`, then the type's letter (listed in the `?` sheet); it lands at the pointer in title edit |
 | Find a block | **Find blocks** on the canvas, or `Cmd/Ctrl + F`. Search content, then narrow by type or status |
 | Add a block where you are | Double-click empty canvas and pick a type |
 | Edit title | Double-click the card, or select it and press `Enter` (or `F2`). `Shift + Enter` edits the description |
 | Draw arrow | Drag from a port circle on a block edge |
 | Label a connection | Double-click it |
 | Change where an arrow attaches | Select it, then pick a side under **Connection points**, or drag either endpoint handle |
-| Auto-arrange everything | **Tidy** in the header, or `L`. One `Cmd/Ctrl+Z` undoes the whole arrangement |
+| Auto-arrange everything | **Tidy** in the header, or `L`. Blocks no line touches go into step columns. One `Cmd/Ctrl+Z` undoes the whole arrangement |
 | Change layout direction | Tidy's menu: arrange left to right, or top to bottom |
 | Align a selection | Select two or more blocks, then use Align / Distribute in the inspector |
 | Highlight for a presentation | Select blocks, pick a colour in the inspector. Spotlight fades the rest |
@@ -178,7 +191,9 @@ Badges are neutral chips: the icon and the word tell them apart, never a colour 
 | Duplicate block | `Cmd/Ctrl + D`, or Duplicate in the inspector's ⋯ menu |
 | Pan canvas | Drag on empty canvas area, or scroll |
 | Zoom | `Ctrl/Cmd` + scroll, or pinch. Scroll alone pans |
-| Fit all blocks | `Shift + 1`, or **Fit** in the bar under the canvas |
+| Fit all blocks | `Shift + 1`, or **Fit** in the bar under the canvas. Zoomed out, cards keep a readable title and then become pills and dots |
+| Minimap | `M`, or **View ▾ → Minimap**: drag its frame to pan, click to jump |
+| Rename the map | Click its name in the header, next to **Maps** |
 | Deselect | Click empty canvas, or `Escape` |
 | Every shortcut | `?` |
 
@@ -195,8 +210,9 @@ Selecting a block opens its properties in the right panel:
 
 - **Type**, **Status** and **⋯** (Duplicate, Delete) in one row at the top; the type is a dropdown grouped by the six steps
 - **Title** and **Description**: also editable on the card itself
-- **Actions**: the toggles that fit the type: Resolve on a problem, Prepare on a risk, Validate on an assumption (Recollect and Reinforce sit under Planning)
+- **Actions**: the toggles that fit the type: Resolve on a problem, Prepare on a risk, Validate on an assumption (Look back and Strengthen sit under Planning)
 - **Acceptance criteria**, or **Targets** on a metric: the block's definition of done
+- **Answer**, on an Open Question card: writing one marks the question done, and the brief hands it over as an answer
 - **Suggestions**: the block's gap, a fix for it, and **Accept** for a gap you mean to keep
 - Closed until you open them: **Questions**, **Notes**, **Links and docs**, **Planning** (priority), and **Appearance** (colour, card style, border, highlight)
 
@@ -226,8 +242,8 @@ of the exported prompt on purpose.
 
 ## Situation
 
-Before the goals, the prompt says where the tool is standing. Four choices in the
-Prompt tab, and the panel shows you the exact lines they produce:
+Before the goals, the brief says where the tool is standing. Four choices under
+**Framing** in the Brief tab, and the brief below shows you the exact lines they produce:
 
 | Field | Options | Why it matters |
 |---|---|---|
@@ -239,16 +255,16 @@ Prompt tab, and the panel shows you the exact lines they produce:
 This is the difference between a plan an assistant guesses at and one it acts on
 correctly. It travels with the canvas through save, share, and export.
 
-## Prompt builder
+## The brief
 
-The **Prompt** tab generates a structured brief from the canvas state. It updates in real time as you edit blocks and connections.
+The **Brief** tab generates a structured brief from the canvas state. It updates in real time as you edit blocks and connections.
 
-**Dev Options** (collapsible):
+**Prompt options** (under Framing):
 
 | Option | Values |
 |---|---|
 | Tone | Auto, Formal, Casual, Technical |
-| Detail level | Brief, Standard, Detailed |
+| Detail level | Short, Standard, Detailed |
 | Pre-prompt flags | Tasks + acceptance criteria, Edge case handling, Error handling, Document key functions, Security implications, TypeScript types |
 
 The generated prompt follows this structure (the section order depends on the
@@ -256,12 +272,13 @@ mode; every mode carries every block type):
 
 ```
 ## Situation
+## Scope                        (a brief for the selection only)
 ## Task
-[selected dev options: tone, detail level, pre-prompt flags]
+[selected prompt options: tone, detail level, pre-prompt flags]
 ## Block Type Legend            (one line per type used, in step order)
 ---
 # <canvas title>
-## Engagement Context
+## Context
 ## Context / Background
 ## Stakeholders (who this is for)
 ## Project Goals
@@ -272,6 +289,7 @@ mode; every mode carries every block type):
 ## Assumptions (validate before building)
 ## Risks
 ## Open Questions (Review Before Assuming)
+## Answered Questions
 ## Decisions
 ## Resources Available
 ## Expected Outputs
@@ -287,8 +305,9 @@ mode; every mode carries every block type):
 An unlabelled connection between two types that imply a verb prints it as
 `[implied: ...]` (an Implementation satisfies a Requirement, a Metric measures
 a Goal, an Output is delivered to a Stakeholder), marked so the reader knows
-the tool inferred it. Gaps the author accepted are listed apart from the open
-ones, so the assistant does not raise them again.
+the tool inferred it. A risk prints what mitigates it, and says so when only an
+unlabelled arrow implies it. Gaps the author accepted are listed apart from the
+open ones, so the assistant does not raise them again.
 
 **Build mode** combines requirements, outputs and implementation work into one
 dependency-ordered checklist, including connections through other block types. Priority chooses
@@ -299,8 +318,10 @@ questions and answers, criteria, and documentation reference. The spec bundle's
 it as `satisfies:` with that requirement's acceptance criteria, instead of
 asking for criteria of its own. Circular connections are flagged for review.
 
-**Paste a reply or a review.** Paste an assistant's reply (or a reviewer's notes) into the Prompt tab to
-preview its `pathfinder-patch`. Expand full before/after details and choose each
+**Bring the reply back.** At the end of the Brief tab, **Paste a reply** takes an assistant's reply (or a reviewer's notes) and
+previews its `pathfinder-patch`. Answers land in their questions, an Open Question
+card takes its answer and is marked done, and a refuted assumption becomes a
+decision titled with what is true, never with the claim it disproved. Expand full before/after details and choose each
 operation independently. Accepting a connection includes its new endpoint blocks;
 excluding a new block excludes its connections. Apply the selection as one undo step.
 Duplicate new block IDs and ambiguous references are rejected; repeated arrows
@@ -315,13 +336,13 @@ since the last copy.
 
 | Action | How |
 |---|---|
-| Copy prompt | Prompt tab → **Copy Prompt**, **Copy prompt** under the canvas, or File → Copy Prompt |
+| Copy brief | **Copy brief** at the top of the Brief tab or under the canvas, File → **Copy brief**, or `Cmd/Ctrl + Shift + C` |
 | Download JSON | File → **Download JSON**: full canvas state including block positions |
 | Download Markdown | File → **Download Markdown**: one section per type, labelled connections, and a Mermaid graph that keeps every block and its type |
 | Copy Mermaid | File → **Copy Mermaid**: the same graph on its own, for a README or an issue; it imports back with every type |
 | Download JSON Canvas | File → **Download JSON Canvas**: a `.canvas` file for Obsidian, each node in its type's colour |
-| Download Spec bundle | File → **Download Spec bundle**: spec.md (stakeholders, goals, metrics, requirements), plan.md, tasks.md (work items included), EARS requirements |
-| Meeting summary | File → **Export Meeting Summary**: decisions, votes, actions, open questions, then every other type on the canvas |
+| Download spec bundle | File → **Download spec bundle (zip)**: spec.md (stakeholders, goals, metrics, requirements), plan.md, tasks.md (work items included), EARS requirements |
+| Meeting summary | File → **Export meeting summary**: decisions, votes, actions, open questions, then every other type on the canvas |
 | Import | File → **Import JSON / Canvas / Mermaid**: opens as a new map by default, or replaces or merges into the current one |
 
 The JSON export preserves everything: block positions, connections, actions, questions, notes. Use it to save snapshots, share canvases with a team, or resume planning sessions.
@@ -341,15 +362,18 @@ and missing acceptance criteria. Filter by issue and open a block to resolve it.
 Select a connection and set its **Meaning**: comes before, depends on, blocks,
 informs, or related. Task checklists and cycle detection use this meaning.
 “Depends on” orders the target first; informational links do not impose an order.
-Older labeled connections infer their meaning; other older arrows retain their
-drawn order. An explicit meaning takes precedence over a custom label.
+Left on **Auto (label or types)**, a known label decides it, and
+otherwise the card types do: an arrow touching a goal, stakeholder, metric, risk,
+resource or context sets no order (related at a risk, informs elsewhere), while
+flow steps, tasks and decisions keep the order they are drawn in. An explicit
+meaning takes precedence over a custom label.
 
 **Maps → Snapshots → Compare** highlights added and changed blocks and draws
 removed blocks as dashed outlines. The Changes list includes full before/after
 content, connections, groups, and map settings. Comparison does not edit the map.
 Restoring first saves a backup snapshot of the current work.
 
-Zoom, save status, and **Copy prompt** share a compact bar below the canvas.
+Zoom, save status, and **Copy brief** share a compact bar below the canvas.
 The copy action uses a standard copy icon and copies immediately. If browser
 storage fails, the current
 work stays open with **Retry save** and **Download backup** controls. Switching
@@ -357,8 +381,8 @@ maps waits for a successful save; the backup downloads the live content. The
 backup control appears when saving fails; JSON export remains in File.
 
 Both sidebars use matching panel controls. Sections use plus/minus buttons
-with keyboard support. The optional session timer lives at the bottom of the
-details panel, and its countdown appears after you start it.
+with keyboard support. The optional session timer and dot voting live under
+**View ▾ → Facilitation**; the timer's row appears once you ask for it.
 
 ---
 
@@ -373,13 +397,18 @@ pathfinder-site/
 │   └── style.css           # All styles, variables, animations
 ├── js/
 │   ├── app.js              # Entry point
+│   ├── start-panel.js      # The empty map's start panel
+│   ├── classify.js         # Pasted notes to typed blocks (prefixes, step columns)
 │   ├── state.js            # State, localStorage, block mutations
 │   ├── canvas.js           # Pan/zoom, ports, Bézier arrows
 │   ├── render.js           # Block + inspector DOM rendering
 │   ├── events.js           # Canvas pointer, keyboard shortcuts
 │   ├── gaps.js             # Automatic gap detection
-│   ├── prompt.js           # AI prompt builder
-│   ├── ui-panels.js        # Export, search, dev options
+│   ├── prompt.js           # The brief's sections
+│   ├── brief.js            # The Brief tab
+│   ├── command-palette.js  # Cmd/Ctrl + K
+│   ├── zoom-controls.js    # The camera, arrival, the minimap (minimap.js)
+│   ├── ui-panels.js        # Export, search, prompt options
 │   └── utils.js            # Helpers
 ├── favicon.ico
 └── CNAME                   # pathfinder.neorgon.com
@@ -387,9 +416,10 @@ pathfinder-site/
 
 State autosaves to `localStorage` key `pathfinder-v1` on every change (debounced 300 ms), with a copy in the active map's library slot. Each map's pan and zoom are saved separately and restored on reload or when switching maps. Shared links fit to their own content.
 
-To run the browser test suite, start the local server and open
-`/tests/run-tests.html`. The runner restores the browser's existing Pathfinder
-storage after the tests finish.
+To run the browser test suite, `make test` drives it in headless Chrome; or start
+the local server and open `/tests/run-tests.html`. The runner restores the
+browser's existing Pathfinder storage after the tests finish. CLAUDE.md has the
+full module map.
 
 ---
 

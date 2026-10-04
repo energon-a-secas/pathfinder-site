@@ -81,7 +81,18 @@ export function retypeBlock(b, t = null) {
   delete b.typeCheck
   delete b.typeHint
   if (!t || t === b.type || !Object.hasOwn(TYPES, t)) return null
-  return isTypeColour(b.color, b.type) ? { type: t, color: null } : { type: t }
+  const patch = isTypeColour(b.color, b.type) ? { type: t, color: null } : { type: t }
+  // A type with no done-list cannot show criteria, and the brief would still
+  // print them as acceptance criteria: they move into the description, as
+  // "- " lines, where they stay visible and editable.
+  const items = (Array.isArray(b.criteria) ? b.criteria : []).map(c => String(c ?? '').trim()).filter(Boolean)
+  if (items.length && !TYPES[t].criteria) {
+    const list = items.map(c => '- ' + c).join('\n')
+    const desc = String(b.description || '').trimEnd()
+    patch.description = desc ? `${desc}\n${list}` : list
+    patch.criteria = []
+  }
+  return patch
 }
 
 /**

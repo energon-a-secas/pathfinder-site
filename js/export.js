@@ -45,7 +45,7 @@ export function applyImport(data, mode, opts = {}) {
     canvasMeta.situation = { ...SITUATION_DEFAULT, ...(clean.meta.situation || {}) }
     // The prompt options are part of how a canvas is meant to be read, so a
     // replace carries them. A merge leaves the existing framing alone, same
-    // rule as the situation. The event lets the Prompt tab controls resync.
+    // rule as the situation. The event lets the Brief tab controls resync.
     applyPromptOpts(clean.meta.prompt)
     window.dispatchEvent(new CustomEvent('pf:prompt-opts-changed'))
   }
@@ -163,7 +163,7 @@ export function buildMarkdown() {
   // gets acted on wrongly, whichever file format it arrived in.
   md += situationSection()
   const brief = (canvasMeta.contextBrief || '').trim()
-  if (brief) md += `## Engagement Context\n${brief}\n\n`
+  if (brief) md += `## Context\n${brief}\n\n`
   order.forEach(t => {
     const items = byType[t]; if (!items?.length) return
     md += `## ${typeInfo(t).section}\n\n`

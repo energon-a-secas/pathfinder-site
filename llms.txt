@@ -7,7 +7,7 @@
 - Live: https://pathfinder.neorgon.com/
 - Format spec: this file
 - Walkthrough: https://pathfinder.neorgon.com/tutorial.html
-- Examples (four loadable worked maps): https://pathfinder.neorgon.com/examples.html
+- Examples (five loadable worked maps): https://pathfinder.neorgon.com/examples.html
 - Part of the Neorgon tool suite (free, no signup, runs in your browser): https://neorgon.com/
 - Keywords: strategy, canvas, ai-prompt, gap-detection, planning, investigation
 
@@ -215,9 +215,9 @@ arrow has no label (it is never stored):
   `metric` they are its Targets). They feed the prompt, tasks.md and the EARS
   export. An `implementation` wired to a `requirement` inherits that
   requirement's criteria, so its own are optional
-- `blocks[].typeCheck`: `true` when the type was guessed with low confidence
-  (a Brain Dump line, an imported node) and nobody has confirmed it yet. Omit
-  it on blocks you typed deliberately
+- `blocks[].typeCheck`: `true` when the type was guessed (a pasted line of
+  notes with no prefix, or an imported node the importer was unsure of) and
+  nobody has confirmed it yet. Omit it on blocks you typed deliberately
 - `blocks[].gapAck`: gap ids the author accepted for this block, for example
   `["gap-no-criteria"]`. The prompt lists them under "Accepted gaps" instead of
   as findings
@@ -306,7 +306,7 @@ old `dashed` style, describe a lossless reading and do not fail the check.
 ## Writing results back: the patch
 
 Every exported prompt ends by asking for a fenced ```pathfinder-patch``` block.
-The app finds it inside a pasted reply (Prompt tab, "Paste a reply or a review"),
+The app finds it inside a pasted reply (Brief tab, "Bring the reply back"),
 previews every operation, and applies them as one undo step. Address blocks by
 the ids the prompt lists (titles work too; exact matches are trusted, a unique
 fuzzy match is labeled, ambiguity is refused).
@@ -352,8 +352,9 @@ Semantics:
   view-only link's review bar emits these; the author applies them with the
   same preview as any patch.
 - `blocks` / `arrows`: the canvas JSON shapes above; new blocks may reference
-  each other and existing ids. Omitted positions are placed beside the canvas;
-  Tidy arranges them. Each new block must have a unique id within the patch.
+  each other and existing ids. A block without a position lands beside what it
+  connects to (right of a block that points at it, left of one it points at),
+  in the nearest free space, never on a card; Tidy arranges them. Each new block must have a unique id within the patch.
   Duplicate ids and arrows to rejected new blocks are refused. Repeated
   connections are deduplicated.
 
@@ -387,8 +388,8 @@ There is no CLI and no API. The exchange is a file or a link:
    that to a session directly; it is the whole canvas, situation included.
 2. File ▾ → **Download Markdown** gives a readable version with one section
    per block type, labelled connections, and a Mermaid graph of the topology.
-3. **Copy prompt** (in the bar under the canvas) copies the assembled prompt,
-   Situation first.
+3. **Copy brief** (in the bar under the canvas, at the top of the Brief tab,
+   or Cmd/Ctrl + Shift + C) copies the assembled brief, Situation first.
 4. **Share** → Copy link encodes the entire canvas in the URL hash. Nothing is
    uploaded; the link is the data.
 

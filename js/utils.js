@@ -722,6 +722,14 @@ function getOrCreateUserId() {
   }
 }
 
+/** The undo shortcut as this platform spells it, for copy that names it. */
+export function undoKeyLabel(platform) {
+  try {
+    const p = platform ?? (navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '')
+    return /mac|iphone|ipad|ipod/i.test(p) ? 'Cmd+Z' : 'Ctrl+Z'
+  } catch (_) { return 'Ctrl+Z' }
+}
+
 // Toasts land over the canvas, centred just above its status bar. In the
 // page corner they covered the inspector's tabs and Type row, and an open
 // header menu hid them. Without a canvas on screen (the other pages, or a
@@ -734,11 +742,20 @@ export function placeToast(toast) {
   const r = ref.getBoundingClientRect()
   if (r.width < 240 || r.height <= 0) return false
   const floor = ref === bar ? r.top : r.bottom
+  // The minimap (zoom-controls.js, M) sits in the canvas's bottom-right
+  // corner on the toast's row: centre the toast in the room to its left.
+  let left = r.left, right = r.right
+  const map = document.getElementById('minimap')
+  if (map && !map.hidden && map.getClientRects().length) {
+    const m = map.getBoundingClientRect()
+    if (m.left > left + 240 && m.left < right) right = m.left - 12
+  }
+  const room = right - left
   toast.classList.add('toast-in-canvas')
   Object.assign(toast.style, { position: 'fixed', top: 'auto', right: 'auto',
-    maxWidth: Math.min(420, r.width - 32) + 'px' })
+    maxWidth: Math.min(420, room - 32) + 'px' })
   const w = toast.getBoundingClientRect().width
-  toast.style.left = Math.round(r.left + (r.width - w) / 2) + 'px'
+  toast.style.left = Math.round(left + (room - w) / 2) + 'px'
   toast.style.bottom = Math.round(window.innerHeight - floor + 12) + 'px'
   return true
 }

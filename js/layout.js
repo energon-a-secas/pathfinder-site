@@ -17,7 +17,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, snapshot } from './state.js'
-import { getBlockDims, TYPES, TYPE_STEPS } from './utils.js'
+import { getBlockDims, TYPES, TYPE_STEPS, undoKeyLabel } from './utils.js'
 import { resolveRoutes, linesUnderCards } from './canvas.js'
 
 export const LAYOUT_DEFAULTS = {
@@ -555,16 +555,11 @@ function tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY }) {
   return { moved, crossings: 0, underCards, mode: 'steps' }
 }
 
-/** The undo shortcut as this platform spells it (ui-panels.js undoKeyLabel reads the same). */
-const undoKey = () => {
-  try { return /mac|iphone|ipad|ipod/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '') ? 'Cmd+Z' : 'Ctrl+Z' } catch (_) { return 'Ctrl+Z' }
-}
-
 /**
  * The toast Tidy shows: what moved, what is still in the way, and where the
  * blocks no line touches went. `undo` names the undo shortcut.
  */
-export function tidySummary({ moved, crossings, underCards = 0, mode = 'flow', loose = 0 }, count, direction = 'LR', undo = undoKey()) {
+export function tidySummary({ moved, crossings, underCards = 0, mode = 'flow', loose = 0 }, count, direction = 'LR', undo = undoKeyLabel()) {
   const under = underCards ? `${underCards} line${underCards === 1 ? '' : 's'} under a card` : ''
   // Nothing moved is exactly when a line left under a card most needs
   // saying: Tidy will not fix it by running again.

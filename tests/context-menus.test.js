@@ -8,8 +8,7 @@ import { describe, it, assert, cleanupMockEls } from './test-utils.js'
 import { state, ui, selection, view, pointer, getUndoHistory, getRedoFuture, resetSnapshotToken } from '../js/state.js'
 import { $, TYPES, DEFAULT_WIDTH, typesByStep } from '../js/utils.js'
 import { renderBlock, undo, deselectAll, setSelection, selectBlock, selectArrow } from '../js/render.js'
-import { setupContextMenu, openCanvasAddMenu, openMultiMenu, typeNoun, selectionTally,
-         movePastedTo } from '../js/context-menu.js'
+import { setupContextMenu, openCanvasAddMenu, openMultiMenu, typeNoun, selectionTally } from '../js/context-menu.js'
 import { setupCanvasPointerEvents } from '../js/events.js'
 import { createBlocksFromText } from '../js/classify.js'
 import { runGapDetection } from '../js/gaps.js'
@@ -215,7 +214,7 @@ describe('Context menus: connections', () => {
     reset(); block('a'); block('b', { x: 400 }); arrow('ab', 'a', 'b')
     rclick(arrowHit('ab'))
     let sub = openSub('Meaning')
-    assert.eq(rowByLabel(sub, 'Auto (from the label and card types)').getAttribute('aria-checked'), 'true')
+    assert.eq(rowByLabel(sub, 'Auto (label or types)').getAttribute('aria-checked'), 'true')
     click('Blocks', sub)
     assert.eq(state.arrows[0].relation, 'blocks')
     rclick(arrowHit('ab'))
@@ -788,22 +787,28 @@ describe('Context menus: paste as blocks', () => {
     assert.eq(history(), 0)
   })
 
-  it('movePastedTo moves a pasted column and any chips riding on it', () => {
+  it('a paste beside a card lands clear of it, gap marks painted, in one undo step', async () => {
     reset()
-    const ids = createBlocksFromText('Goal: one\nRisk: two')
-    movePastedTo(ids, { x: 610, y: 420 })
-    const bs = ids.map(id => state.blocks[id])
-    assert.eq(Math.min(...bs.map(b => b.x)), 610 - DEFAULT_WIDTH / 2)
-    assert.eq(Math.min(...bs.map(b => b.y)), 420)
-    bs.forEach(b => {
-      const el = document.getElementById('b-' + b.id)
-      assert.eq(el.style.left, b.x + 'px')
-      assert.eq(el.style.top, b.y + 'px')
-      assert.ok([...el.classList].some(c => c.startsWith('gap-')), 'the gap marks survive the move')
-      const chip = document.querySelector(`.type-chip[data-bid="${b.id}"]`)
-      if (chip) assert.eq(chip.style.left, b.x + 'px')
+    block('old', { x: 0, y: 0 })
+    await withClipboard(async () => 'Risk: provider outage\nReq: sessions survive\nBuild: login client', async () => {
+      // On the card's left edge: the dump wants to start right on top of it.
+      const r = document.getElementById('b-old').getBoundingClientRect()
+      const c = $.canvasRoot().getBoundingClientRect()
+      rclick($.canvasRoot(), r.left - c.left - 20, r.top - c.top + 10)
+      click('Paste as blocks')
+      await tick()
     })
-    assert.eq(history(), 1, 'the move is part of the paste')
+    const made = Object.values(state.blocks).filter(b => b.id !== 'old')
+    assert.eq(made.length, 3)
+    const old = state.blocks.old, ow = document.getElementById('b-old').offsetWidth, oh = document.getElementById('b-old').offsetHeight
+    made.forEach(b => {
+      const el = document.getElementById('b-' + b.id)
+      const apart = b.x >= old.x + ow || b.x + el.offsetWidth <= old.x || b.y >= old.y + oh || b.y + el.offsetHeight <= old.y
+      assert.ok(apart, `${b.title} overlaps the card that was there`)
+      assert.eq(el.style.left, b.x + 'px')
+      assert.ok([...el.classList].some(c => c.startsWith('gap-')), 'the gap marks are painted')
+    })
+    assert.eq(history(), 1, 'the paste is one undo step')
   })
 })
 

@@ -272,7 +272,7 @@ describe('consistency: one stroked icon set and sentence case in the menus', () 
       assert.ok(labels.length, `${menu} has rows`)
       labels.forEach(l => assert.ok(sentenceCase(l), `${menu}: "${l}" is in sentence case`))
     }
-    assert.includes(lists.File, 'Copy prompt')
+    assert.includes(lists.File, 'Copy brief')
     assert.includes(lists.File, 'Export meeting summary')
     assert.includes(lists.File, 'Download spec bundle (zip)')
   })
@@ -298,11 +298,11 @@ describe('consistency: one stroked icon set and sentence case in the menus', () 
     } finally { document.getElementById('b-cx')?.remove(); state.blocks = {} }
   })
 
-  it('the connection meaning reads Auto (from the label and card types) in the inspector and the context menu', async () => {
+  it('the connection meaning reads Auto (label or types) in the inspector and the context menu', async () => {
     const doc = await page()
-    assert.eq(doc.querySelector('#arrowRelation option[value=""]').textContent, 'Auto (from the label and card types)')
+    assert.eq(doc.querySelector('#arrowRelation option[value=""]').textContent, 'Auto (label or types)')
     const src = await (await fetch('../js/context-menu.js')).text()
-    assert.includes(src, "label: 'Auto (from the label and card types)'")
+    assert.includes(src, "label: 'Auto (label or types)'")
     assert.notIncludes(src, 'From label or direction')
   })
 

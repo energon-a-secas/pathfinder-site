@@ -45,7 +45,11 @@ export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
     if (block.status === 'blocked') add('blocked', 'Review the blocker and update the status when work can continue.')
     const questions = block.questions || []
     questions.forEach((q, i) => { if (q.text?.trim() && !q.answer?.trim()) add('question', q.text, i) })
-    if (block.type === 'question' && !questions.length && block.status !== 'done') add('question', block.description || 'Record the answer and mark this question done.')
+    // An Open Question card holds its own answer (inspector, or a reply's
+    // patch): one with an answer is settled, whatever its status says.
+    if (block.type === 'question' && !questions.length && block.status !== 'done' && !String(block.answer || '').trim()) {
+      add('question', block.description || 'Write its answer in the inspector; that marks it done.', null, { card: true })
+    }
     const gap = gapOf.get(block.id)
     if (block.type === 'assumption' && gap !== 'gap-assumption') add('assumption', 'Verify or refute with evidence, then turn this into a decision.')
     if (gap) {
@@ -263,6 +267,7 @@ export function setupAttention() {
     if (!ui.readOnly) {
       if (item.kind === 'criteria') target = document.getElementById('inspCriteria')
       else if (item.question !== null) target = document.querySelector(`textarea[data-qi="${item.question}"]`)
+      else if (item.card) target = document.getElementById('inspAnswer') || target
       else if (item.kind === 'blocked') target = document.querySelector('#statusPicker button') || target
       else if (item.kind === 'assumption') target = document.getElementById('inspNotes') || target
       else if (item.kind === 'gap') target = document.querySelector('#gapFixes .gap-fix-btn') || target

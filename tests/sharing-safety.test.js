@@ -1266,7 +1266,7 @@ describe('Sharing: QA round', () => {
     assert.eq(user.rptdemoxb.type, 'context')
   })
 
-  it('at 800px the status bar paints nothing under Copy prompt, and drops the backup status', async () => {
+  it('at 800px the status bar paints nothing under Copy brief, and drops the backup status', async () => {
     const html = await (await fetch('../index.html', { cache: 'no-store' })).text()
     const bar = new DOMParser().parseFromString(html, 'text/html').getElementById('canvasStatusbar')
     bar.querySelector('#backupStatus').removeAttribute('hidden')

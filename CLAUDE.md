@@ -1,6 +1,6 @@
 # CLAUDE.md: Pathfinder
 
-Visual strategy canvas for planning, gap detection, and AI prompt export.
+Plan the work before an agent builds it: a canvas of typed blocks, gap detection, and a brief to hand an AI agent.
 
 **Live:** pathfinder.neorgon.com
 **Run:** `make dev` (caching off, use this while editing) or `make serve` from `pathfinder-site/`.
@@ -17,55 +17,79 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 | File | Lines | Role |
 |------|-------|------|
-| `index.html` | ~820 | HTML shell + OG meta; `#fileActions` / `#shareActions` are hidden rows the header menus render |
-| `css/style.css` | ~4020 | All CSS. Ends with one marked section per area (`[menu]`, `[inspector]`, `[menus]`, `[lines]`, `[chrome]`, `[navigation]`, `[types]`, `[cards]`, `[insights]`, `[sharing]`) |
+| `index.html` | ~930 | HTML shell + OG meta; `#fileActions` / `#shareActions` are hidden rows the header menus render |
+| `css/style.css` | ~5245 | All CSS. Ends with one marked section per area (`[menu]`, `[inspector]`, `[menus]`, `[lines]`, `[chrome]`, `[navigation]`, `[types]`, `[cards]`, `[insights]`, `[sharing]`, then the design round's `[frontdoor]`, `[zoom]`, `[command]`, `[brief]`, `[braindump]`, `[consistency]`). Tokens only between `tokens:start` / `tokens:end` |
 | `js/app.js` | ~150 | Entry point: imports all modules, calls `init()` |
-| `js/state.js` | ~405 | State shape, `loadState()`/`saveState()`, undo entries (`undoEntry`, `snapshot`, `snapshotOnce`), camera persistence, share-link encoding (`#s=`, `#z=`) |
-| `js/utils.js` | ~700 | `TYPES` registry (16 types, `TYPE_STEPS`, `typesByStep()`), `CARD_STYLES`, `DEFAULT_ARROW_WEIGHT`, `askedQuestions()`, `$` element getters, helpers |
-| `js/normalize.js` | ~285 | The one choke point for load, import and share: coerces legacy shapes, keeps unknown types as `custom` + `typeHint` |
-| `js/render.js` | ~450 | `renderBlock()`, the mutation layer (`mutateBlock(s)`, `mutateArrow`), `addArrow`, undo/redo, `blockDecorators` |
-| `js/cards.js` | ~40 | Card painting helpers `renderBlock` uses (light-theme accent twin, highlight tab word) |
-| `js/create.js` | ~205 | `createBlockAt`, `createConnected`, `insertOnArrow`, `suggestedNextTypes`, `applyGapFix` |
-| `js/inline-edit.js` | ~170 | Title and description editing on the card |
-| `js/type-menu.js` | ~155 | The one type picker (`typeMenuItems`) and the one retype rule (`retypeBlock`) every menu shares |
-| `js/menu.js` | ~525 | The one menu component (`openMenu`, `openDropdown`): context menus, header menus and inspector pickers |
-| `js/context-menu.js` | ~950 | Right-click menus for a block, a selection, a connection and the canvas, plus the quick-add picker `openCanvasAddMenu`; Connect to ranks by `connectRank`; `selectionMenuItems()` hands the selection's rows to the palette |
-| `js/command-palette.js` / `command-items.js` / `command-rows.js` | ~480 / 360 / 75 | The command palette (Cmd/Ctrl+K): the dialog and its keys; the rows (from the menus' own builders) and `matchScore`; one row's markup |
+| `js/state.js` | ~460 | State shape, `loadState()`/`saveState()`, undo entries (`undoEntry`, `snapshot`, `snapshotOnce`), camera persistence, share-link encoding (`#s=`, `#z=`) |
+| `js/utils.js` | ~805 | `TYPES` registry (16 types, `TYPE_STEPS`, `typesByStep()`), `CARD_STYLES`, `DEFAULT_ARROW_WEIGHT`, `askedQuestions()`, `$` element getters, helpers |
+| `js/normalize.js` | ~320 | The one choke point for load, import and share: coerces legacy shapes, keeps unknown types as `custom` + `typeHint` |
+| `js/render.js` | ~515 | `renderBlock()`, the mutation layer (`mutateBlock(s)`, `mutateArrow`), `addArrow`, undo/redo, `blockDecorators` |
+| `js/cards.js` | ~140 | Card painting helpers `renderBlock` uses (light-theme accent twin, highlight tab word) |
+| `js/create.js` | ~345 | `createBlockAt`, `createConnected`, `insertOnArrow`, `suggestedNextTypes`, `applyGapFix`; `nearestFreeSpot` / `placeFree` / `placeNewBlocks`: every creation path takes the nearest free slot, `CARD_GAP` (40px) clear of every card |
+| `js/inline-edit.js` | ~205 | Title and description editing on the card |
+| `js/type-menu.js` | ~200 | The one type picker (`typeMenuItems`) and the one retype rule (`retypeBlock`) every menu shares; a retype to a type with no criteria moves them into the description |
+| `js/menu.js` | ~580 | The one menu component (`openMenu`, `openDropdown`): context menus, header menus and inspector pickers |
+| `js/context-menu.js` | ~925 | Right-click menus for a block, a selection, a connection and the canvas, plus the quick-add picker `openCanvasAddMenu`; Connect to ranks by `connectRank`; `selectionMenuItems()` hands the selection's rows to the palette |
+| `js/command-palette.js` / `command-items.js` / `command-rows.js` | ~540 / 390 / 75 | The command palette (Cmd/Ctrl+K): the dialog and its keys; the rows (from the menus' own builders) and `matchScore`; one row's markup |
 | `js/type-keys.js` | ~160 | N, then a letter (`TYPE_KEYS` in `ui-panels.js`): a block of that type at the pointer or centre |
-| `js/inspector.js` | ~1255 | The right panel: one block, a selection, or a connection; `focusQuestion` |
-| `js/palette.js` | ~240 | Palette grouped by step, the six-step starter |
-| `js/classify.js` | ~330 | Line classifier, outline parser, paste and Brain Dump, the card's type check |
-| `js/events.js` | ~1010 | Canvas pointer and wheel handlers, keyboard shortcuts, Tab traversal |
-| `js/navigation.js` | ~370 | Reading order, nearest block by direction, nudge, announcements, quick create from a port |
-| `js/zoom-controls.js` | ~470 | The camera: zoom cluster, zoom steps, `zoomToBlocks`/`zoomToSelection`, wheel clamp, Back to content; `arriveAt` (where a template, the sample, an example or a share link lands) and `animateTidy`; sets up and re-exports `lod.js` |
-| `js/lod.js` | ~175 | Level of detail: the `lod-*` band on `#canvasRoot` (an `applyTransform` hook), the card's small-zoom face (`paintLodFace`, a `blockDecorators` painter), the hover fade's pointer kind |
+| `js/inspector.js` | ~1865 | The right panel: one block, a selection, or a connection; `focusQuestion` |
+| `js/palette.js` | ~210 | Palette grouped by step; `addTypeAtCenter` (the start panel's pills use it too) |
+| `js/start-panel.js` | ~375 | The empty map's start panel: paste your notes (the prefix helper is written from `PREFIXES`), a template, the sample map as its own map (`openSampleMap`), the first-block pills; keys 1, 2, 3; the right panel's empty-state names |
+| `js/classify.js` | ~850 | `PREFIXES` (authoritative prefixes as data), headings, `readDump`, the step-column dump (`layoutDump`, `settleDump`), the line classifier, outline parser, paste handler and the card's type check. Only a prefix, a heading or a trailing `?` is certain; every other type is `typeCheck` |
+| `js/events.js` | ~1165 | Canvas pointer and wheel handlers, keyboard shortcuts, Tab traversal |
+| `js/navigation.js` | ~380 | Reading order, nearest block by direction, nudge, announcements, quick create from a port |
+| `js/zoom-controls.js` | ~510 | The camera: zoom cluster, zoom steps, `zoomToBlocks`/`zoomToSelection`, wheel clamp, Back to content; `arriveAt` (where a template, the sample, an example or a share link lands) and `animateTidy`; sets up and re-exports `lod.js` |
+| `js/lod.js` | ~220 | Level of detail: the `lod-*` band on `#canvasRoot` (an `applyTransform` hook), the card's small-zoom face (`paintLodFace`, a `blockDecorators` painter), the hover fade's pointer kind |
 | `js/minimap.js` | ~250 | The minimap (`M`): type-coloured rects, a draggable frame, click to jump; `aria-hidden`, never on phones or in embeds |
-| `js/canvas.js` | ~435 | `renderArrows()`, `resolveRoutes()`, `pathFor()`, `fitView()`; re-exports the `arrow-*.js` modules |
-| `js/arrow-geometry.js` / `arrow-routes.js` / `arrow-labels.js` / `arrow-hover.js` | ~210 / 330 / 170 / 115 | Heads, weights and dashes; lanes and route separation; label placement; hover rings |
+| `js/canvas.js` | ~470 | `renderArrows()`, `resolveRoutes()`, `pathFor()`, `fitView()`; re-exports the `arrow-*.js` modules |
+| `js/arrow-geometry.js` / `arrow-routes.js` / `arrow-labels.js` / `arrow-hover.js` | ~210 / 570 / 245 / 115 | Heads, weights and dashes; lanes and route separation; label placement; hover rings |
 | `js/arrow-edit.js` | ~270 | The inline connection label editor |
-| `js/route.js` | ~655 | Orthogonal router: A* over a lattice of block edges. Pure, no DOM |
-| `js/layout.js` | ~425 | Layered auto-layout (`tidyCanvas`), `releaseTidyPins` |
+| `js/route.js` | ~1175 | Orthogonal router: A* over a lattice of block edges. Pure, no DOM |
+| `js/layout.js` | ~595 | Layered auto-layout (`tidyCanvas`), `releaseTidyPins`; `layoutByStep` (step columns), and Tidy lays blocks no line touches out by step below the flow (all of a map with no connections) |
 | `js/align.js` | ~195 | Drag guides; `arrangeSelection` (align and distribute) for the inspector and the context menu |
-| `js/gaps.js` | ~555 | Pure `detectGaps()`, the DOM writer `runGapDetection()`, `GAP_META`, `gapIconFor`, `acceptGap` |
-| `js/attention.js` | ~240 | The Attention tab |
-| `js/relations.js` | ~85 | Connection meanings, `relationOf`, `impliedVerb` |
-| `js/prompt.js` | ~650 | `generatePrompt()`, `refreshPrompt()`, `computeHealthScore()` |
-| `js/export.js` | ~445 | JSON / Markdown export, `applyImport`, meeting summary, Presentation Sage |
-| `js/interop.js` | ~570 | JSON Canvas in and out, Mermaid in and out (`toMermaid`, which the Markdown export uses too) |
-| `js/image-export.js` | ~315 | Diagram export: native SVG + 2x PNG, drawn to the card and line specs |
-| `js/view-menu.js` | ~520 | Header menus: Maps (with Rename this map), File, Share, Tidy direction, View (Facilitation: the Session timer, dot voting), Help (GitHub when the bar's icon is hidden); in place inside the phone overflow panel |
-| `js/filter-menu.js` | ~65 | The one filter control: Attention's category and Find blocks' type, status and scope are chips that open a menu.js list (`setupFilter`, `filterValue`) |
-| `js/ui-panels.js` | ~1390 | Search, shortcut sheet (`SHORTCUTS`), panel tabs, dev options, File and Share actions, Tidy, share-link arrival |
-| `js/library.js` | ~545 | Maps library: per-map slots, write-through autosave, snapshots + diff, the Maps menu items |
-| `js/sharing.js` | ~400 | Incoming links and files (open as a new map by default), other-tab warning, backup status |
-| `js/chrome.js` | ~90 | `H` / `Z` expanded view |
-| `js/voting.js` | ~70 | Dot voting as an explicit mode (View ▾ → Facilitation → Dot voting): `setVotingMode`, the banner; a plain click never votes |
-| `js/doc-panel.js` | ~217 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
+| `js/gaps.js` | ~590 | Pure `detectGaps()`, the DOM writer `runGapDetection()`, `GAP_META`, `gapIconFor`, `acceptGap` |
+| `js/attention.js` | ~285 | The Attention tab |
+| `js/relations.js` | ~175 | Connection meanings, `relationOf` (a label, else the endpoint types), `impliedVerb`, `mitigationPairs` |
+| `js/patch.js` | ~525 | The `pathfinder-patch` round trip: parse, preview, apply as one undo step; new blocks placed beside what they connect to |
+| `js/task-plan.js` | ~170 | The dependency-ordered task checklist (Build mode, `tasks.md`); `cardAnswer` |
+| `js/prompt.js` | ~850 | `generatePrompt()`, `refreshPrompt()` (delegates to the Brief tab's renderer), `generateScopedPrompt()`, `estimateTokens()`, `briefOutline()`, `computeHealthScore()` (no longer drawn) |
+| `js/brief.js` / `js/brief-md.js` | ~535 / 170 | The Brief tab: the readiness line (`readiness`, from `attentionModel`), scope, Copy and Cmd/Ctrl+Shift+C; `brief-md.js` is its pure Markdown renderer (`briefHtml`). `brief.js` is imported by `app.js` only |
+| `js/export.js` | ~465 | JSON / Markdown export, `applyImport`, meeting summary, Presentation Sage |
+| `js/interop.js` | ~630 | JSON Canvas in and out, Mermaid in and out (`toMermaid`, which the Markdown export uses too) |
+| `js/image-export.js` | ~330 | Diagram export: native SVG + 2x PNG, drawn to the card and line specs |
+| `js/view-menu.js` | ~540 | Header menus: Maps (with Rename this map), File, Share, Tidy direction, View (Facilitation: the Session timer, dot voting), Help (GitHub when the bar's icon is hidden); in place inside the phone overflow panel |
+| `js/filter-menu.js` | ~68 | The one filter control: Attention's category and Find blocks' type, status and scope are chips that open a menu.js list (`setupFilter`, `filterValue`) |
+| `js/ui-panels.js` | ~1675 | Search, shortcut sheet (`SHORTCUTS`, `TYPE_KEYS`), panel tabs, prompt options and Framing (`setupSituation`, `PRESETS`), File and Share actions, templates, Tidy (`runTidy`), share-link arrival (`landIncoming`) |
+| `js/library.js` | ~1055 | Maps library: per-map slots, write-through autosave, snapshots + diff, the Maps menu items |
+| `js/sharing.js` | ~550 | Incoming links and files (open as a new map by default), other-tab warning, backup status |
+| `js/chrome.js` | ~88 | `H` / `Z` expanded view |
+| `js/voting.js` | ~67 | Dot voting as an explicit mode (View ▾ → Facilitation → Dot voting): `setVotingMode`, the banner; a plain click never votes |
+| `js/doc-panel.js` | ~215 | Living documentation: docRef resolution, doc-preview popup, `See:` detection, grounded question prompts |
 | `tutorial.html` + `js/tutorial-example.js` | none | Worked walkthrough; the example loads via the share hash |
+| `tools/render-assets.mjs` + `tools/cdp.mjs` | ~260 / 215 | `make assets`: the app draws its own pictures in headless Chrome (examples/*.svg, the brief excerpts in examples.html and tutorial.html, og-preview.jpg, docs/screenshot-*.png). `make test-tools` checks the port, the served root and Chrome's cleanup. Excluded from the site by `_config.yml` |
+
+**Key interactions added 2026-10-03 (design round: the front door and pasted notes):**
+- **The start panel** (`start-panel.js`, `#brainDump` markup, CSS `[frontdoor]`) is the empty, editable map: "Plan the work before an agent builds it", then three keyed options (`1` paste your notes, `2` a template through the palette's own `[data-tpl]` button, `3` the sample map opened as its own map, "Sample: Checkout 500s", through `openAsNewMap` and `arriveAfterLoad`), the first-block pills and the storage line. It goes once a block exists (`updateHint`). Read-only and embed never show it, and the keys stand down while typing, in a menu or a dialog.
+- **Pasted notes** (`classify.js`): a line prefix or a heading is certain (`PREFIXES`, each entry's `show` words are what the panel teaches, `sure` the spellings read as certain, `keys` every accepted word); any other word or a scored guess is `typeCheck`, so the card asks for a check. `- ` lines under a prefixed requirement or metric become its criteria (`CRITERIA_FROM_BULLETS`), under anything else its description. A dump lands in step columns that wrap to fit the view (`layoutDump`; step rows on a tall view), in the nearest free space, and the camera arrives through `arriveAt(ids, { stay: true })`. The canvas menu's Paste as blocks passes `{ at }` to `createBlocksFromText`; `settleDump` moves a dump clear of a card a caller moved it onto.
+- **No creation lands on a card**: `createBlockAt` (palette, pills, quick-add, N then a letter, the palette's Create rows), `createConnected`, `insertOnArrow`, a port's line dropped on empty canvas (`createFromDrop` calls `placeFree`), the dump and a patch's new blocks (`placeNewBlocks`, beside what they connect to) all keep `CARD_GAP` from every card.
+- **Assets the app draws itself** (`make assets`, `tools/`): `examples/*.svg` (dark and light, at 0.8 scale so titles read, plus the walkthrough strip), the brief excerpts between `<!-- brief:* -->` markers in examples.html and tutorial.html, `og-preview.jpg` and `docs/screenshot-*.png`. Rerun it after a change to the canvas, the exporter, the brief or the examples; it is idempotent.
+
+**Key interactions added 2026-10-03 (design round: the Brief tab):**
+- **The Prompt tab is the Brief tab** (`js/brief.js`; the tab's internal id is still `prompt`, so `ui.activeTab === 'prompt'` and `#promptPane` callers keep working). Top to bottom: the mode as a segmented control, the primary Copy brief (`Cmd/Ctrl+Shift+C`, confirms "Copied: about N tokens, M sections") beside a Whole map / Selection control, one readiness line, a Framing row that folds the Situation, context, presets and Prompt options into one line (it always opens closed), the brief rendered as Markdown under a sticky bar (current section, the outline menu, the size), and "Bring the reply back" last, a single row until it is used.
+- **Readiness is the Attention count, in words**: `readiness(attentionModel(...))`, so the Brief and the Attention badge always agree. The health score is no longer drawn (`computeHealthScore` stays as an API).
+- **Size is an estimate, said as one**: `estimateTokens` divides by 2.99 characters per token (Markdown, measured on Claude in `tokenizer.json`; half of estimates land within 21%). Past 25k tokens one line suggests briefing a part.
+- **Brief for the selection**: `generateScopedPrompt` briefs the selected blocks plus their direct neighbours: it swaps `state.blocks`/`state.arrows` to the part for one `generatePrompt()` call and restores them, adds a `## Scope` section naming the selection as the subject and the neighbours as context only, keeps only the selection's tasks in the Build checklist, lists only those block ids for the patch, and takes the gap sections from the whole map (`scopedGapText`), so a risk mitigated outside the part is never called unmitigated. The status bar's copy button and File ▾ → Copy brief are always the whole map. Other modules copy through the `pf:copy-brief` window event (`{ scope: 'map' | 'selection' }`) rather than importing `brief.js` (the palette's "Copy brief for the selection" does).
+- **The renderer is registered, not imported**: `prompt.js` `refreshPrompt()` calls whatever `setBriefRenderer()` registered (`renderBrief`); `brief.js` is imported by `app.js` alone, because it reads `attention.js`, which must not load inside `gaps.js`'s own evaluation (a TDZ on `CRITERIA_GAPS` otherwise).
+- **A preset sets Running in too**: "Build in Claude Code" picks Claude Code under Running in, so the two controls can never disagree; a preset shows as pressed only while every option matches it (`presetMatches`). On a view-only link the framing reads as values; the mode still switches, since it is a way of reading the map.
+
+**Key interactions added 2026-10-03 (design round: the hand-off never writes falsehoods):**
+- **Open Question cards hold their answer** (`block.answer`): the inspector's Answer field (writing one, then leaving the field by any route, marks the card done in the same undo step) or a patch `answers` entry addressed to the card. Every exporter carries it (`cardAnswer` in `task-plan.js`): the brief's "## Answered Questions", the spec bundle, Markdown, the meeting summary, JSON Canvas (`pathfinderAnswer`) and Find blocks. Attention drops an answered card and points an open one at `#inspAnswer`.
+- **A refuted assumption never titles a decision**: the card becomes a decision titled with the patch's `decision` text, else "Not true: <claim>", the evidence and the old claim in `rationale` (no length cap); a verified one keeps its claim.
+- **Unlabelled arrows take their meaning from the endpoint types** (`relationOf(arrow, blocks)`): one touching a goal, stakeholder, metric, risk, resource or context sets no order (`related` at a risk, `informs` otherwise); flow types, tasks and decisions keep the drawn order. The connection menus call this "Auto (label or types)". Risks print what mitigates them; a pair only an unlabelled arrow implies says "(implied by an unlabelled arrow)". Tasks nothing orders sit last, under "Not ordered by the map". Refusals name cards by title.
 
 **Key interactions added 2026-10-03 (legibility at any zoom):**
 - **Level of detail** (`lod.js`, CSS `[zoom]`): below 75% a card's own content goes `visibility: hidden` (never `display`: `getBlockDims` reads `offsetHeight`, and the lines are routed to it) and its face shows the type and title at screen size. The face is laid out in screen pixels (`width: calc(100% / var(--lodk))` plus `scale(var(--lodk))`) and is a size container, so its container queries measure the card on screen. Each new `--lodk` re-lays out every face (most of a frame at 300 cards), so a zooming gesture takes quarter-octave steps and settles on the 1/16-octave step once it rests (`LOD_GESTURE_STEPS`, `LOD_SETTLE_MS`). Face titles break between words only, a word too long for its line ending in an ellipsis. A card being edited keeps its content (`:has([contenteditable="true"])`). The image export draws from the state, so no band reaches it. The minimap redraws on every save (a `saveHooks` entry), since a drag ends with a save and no `pf:canvas-changed`.
-- **Arrival** (`arriveAt`, `arriveAfterLoad` in `zoom-controls.js`): templates (`setupTemplates`, through `runTidy({ arrive })` for the large ones) and anything arriving by link (`landIncoming` in `ui-panels.js`: share links, examples, the tutorial, `?src=`) land at 75% on the entry layer instead of a whole-map fit; Shift+1 still fits everything. A path that loads through `applyImport` calls `arriveAfterLoad`, which runs after the import's own fit frame.
+- **Arrival** (`arriveAt`, `arriveAfterLoad` in `zoom-controls.js`, the one arrival): templates (`setupTemplates`, through `runTidy({ arrive })` for the large ones), anything arriving by link (`landIncoming` in `ui-panels.js`: share links, examples, the tutorial, `?src=`), the sample map, a dump of pasted notes (`{ stay: true }` keeps the camera when it is all on screen already) and a Tidy that fell back to step columns land at 75% on the entry layer instead of a whole-map fit; Shift+1 still fits everything. The margin (`ARRIVAL_PAD`) is in world pixels, and `layoutDump` sizes a dump with the same numbers. A path that loads through `applyImport` calls `arriveAfterLoad`, which runs after the import's own fit frame. The hint names `Shift+1`, or the Fit button on a touch-only device or a phone (`fitKeyName`); a toast centres in the room left of the minimap while it shows (`placeToast`).
 - **Tidy** no longer animates `left`/`top`: `animateTidy` slides cards on `translate` (motion on only) while lines and frames step aside. **Focus handed back does not pan**: a card that gets focus back from a menu, the shortcut sheet, Find or a dialog, with the camera where it was when focus left it, is a return, not an arrival, so the focus-pan handler in `events.js` (`returning`) leaves the camera alone; a Tab still pans.
 
 **Key interactions added 2026-09-28 (UI overhaul):**
@@ -88,7 +112,7 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **One icon set**: stroked, a 16px grid, a 1.5px stroke, in menus (`menu.js` check and chevron), the header and the inspector.
 
 **Key interactions added 2026-08-24 (async review):**
-- **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into Paste a reply or a review; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
+- **Review on the view-only link** (`js/review.js`, `#reviewBar`, readonly only, never embed): select a block, leave a note, repeat; "Copy review patch" emits a standard `pathfinder-patch` with the new `notes` op. The author pastes it into the Brief tab's Bring the reply back; notes land appended to `block.notes` prefixed `Review:`, previewed and one-undo like every patch. No server, deliberately: this is the alternative to realtime multiplayer, not a step toward it.
 
 **Key interactions added 2026-08-24 (user templates):**
 - **Save canvas as template** (foot of the Templates palette section): captures the live canvas into `pathfinder-templates` (max 12) in the exact shape built-ins use, positions normalised, arrows re-indexed, criteria/questions/situation/mode riding along; `applyTemplate` now carries `criteria`, `rationale`, `status` and `questions` for any template that has them. User templates render after the built-ins with a delete ×. Templates travel between browsers as canvases (export the canvas, import, save as template).
@@ -99,10 +123,10 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **The test suite no longer clobbers the live canvas**: `run-tests.html` snapshots every `pathfinder-*` localStorage key before importing test modules and restores them after the run (and on pagehide).
 
 **Key interactions added 2026-08-24 (interop):**
-- **JSON Canvas in and out, Mermaid in** (`js/interop.js`). The Import picker detects the format; a node with no type signal goes through the Brain Dump classifier, and a low-confidence call is marked `typeCheck` for the card's type check (the `pf:show-type-chips` event still carries them; `applyImport` returns `idMap` so they survive a merge remap). Mermaid positions come from `layoutGraph`, not a guess.
+- **JSON Canvas in and out, Mermaid in** (`js/interop.js`). The Import picker detects the format; a node with no type signal goes through the line classifier, and a low-confidence call is marked `typeCheck` for the card's type check (the `pf:show-type-chips` event still carries them; `applyImport` returns `idMap` so they survive a merge remap). Mermaid positions come from `layoutGraph`, not a guess.
 
 **Key interactions added 2026-08-24 (the round trip):**
-- **`pathfinder-patch`** (`js/patch.js`, spec in `llms.txt`): every prompt now ends with `## When you reply` plus a block-id map, asking the assistant to close with a fenced patch: answers into questions, assumptions verified/refuted **into decisions in place** (same id, arrows survive, evidence lands in `rationale`), status, criteria, new wired blocks. Prompt tab → "Paste a reply or a review" takes the whole reply, previews every operation (fuzzy title matches labeled, ambiguity refused), applies as **one undo step**.
+- **`pathfinder-patch`** (`js/patch.js`, spec in `llms.txt`): every prompt now ends with `## When you reply` plus a block-id map, asking the assistant to close with a fenced patch: answers into questions, assumptions verified/refuted **into decisions in place** (same id, arrows survive, evidence lands in `rationale`), status, criteria, new wired blocks. Brief tab → "Bring the reply back" (Paste a reply) takes the whole reply, previews every operation (fuzzy title matches labeled, ambiguity refused), applies as **one undo step**.
 
 **Key interactions added 2026-08-24 (agent channel):**
 - **`validate.mjs`**: Node CLI over the app's own `normalize.js` (fetched from the live site when run standalone), naming every dropped or coerced item. Exit 0 clean / 1 items dropped or coerced / 2 unreadable. The write-back contract's proof step; documented in `llms.txt`.
@@ -112,11 +136,11 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 
 **Key interactions added 2026-08-24 (tidy pins, pill, maps):**
 - **Tidy port pins carry provenance** (`portsBy: 'tidy'`). Tidy never overwrites a hand-pinned side; a same-layer edge gets perpendicular geometry ports (not bottom→bottom); a backward edge keeps the under-detour only when `routed`, other styles go back to auto; dragging a block releases tidy pins on its arrows (`releaseTidyPins` in `layout.js`, called from the drag pointerup). Pins matching the pre-provenance scheme are adopted and healed on the next Tidy.
-- **Copy prompt** lives in the bottom canvas utility bar alongside zoom and save status. It uses a standard copy icon with inline confirmation. Zen (`Z`) hides the bar. The older floating pill and its `pathfinder-pill` setting have been retired.
+- **Copy brief** lives in the bottom canvas utility bar alongside zoom and save status. It uses a standard copy icon with inline confirmation. Zen (`Z`) hides the bar. The older floating pill and its `pathfinder-pill` setting have been retired.
 - **Maps** (the header breadcrumb `Maps ▾ / <title>`, `library.js`): several canvases per browser. Active map stays in `pathfinder-v1`; switching flushes, loads through `applyImport('replace')` and clears the undo stack. New / duplicate / delete / export-all / import-all. Hidden in readonly and embed.
 - `portPos` returns whole pixels, killing half-pixel jogs in routed paths.
 - **Acceptance criteria + decision rationale + Spec bundle**: `block.criteria[]` (requirement/goal/output) and `block.rationale` (decision) edit in the inspector, feed the prompt (Build's `[NEEDS INPUT]` placeholder only appears when criteria are missing), the Markdown export, and **File ▾ → Download Spec bundle (zip)**: spec/plan/tasks/EARS-requirements built by `spec-export.js`, zipped by `zip.js`.
-- **Prompt options travel with the canvas** (`meta.prompt`). `serializeCanvas()` in `state.js` is the single serializer (autosave, share, Maps, JSON export); `applyPromptOpts()` applies a load back into `devOpts`; the `pf:prompt-opts-changed` event resyncs the Prompt tab (`syncPromptOptControls`). Preset chips (Claude Code, Cursor + TS, PM clarify) set the bundle in one click. The tutorial example carries `mode: investigate`. `flowSection()` orders workflow steps by whole-graph layering and numbers only process steps.
+- **Prompt options travel with the canvas** (`meta.prompt`). `serializeCanvas()` in `state.js` is the single serializer (autosave, share, Maps, JSON export); `applyPromptOpts()` applies a load back into `devOpts`; the `pf:prompt-opts-changed` event resyncs the Brief tab (`syncPromptOptControls`). Presets (Build in Claude Code, Build in Cursor, TypeScript, Clarify in a chat) set the bundle in one click, Running in included (`PRESETS`, `applyPreset` in `ui-panels.js`). The tutorial example carries `mode: investigate`. `flowSection()` orders workflow steps by whole-graph layering and numbers only process steps.
 
 **Key interactions added 2026-08-14 (presentation highlights):**
 - **`block.highlight`** (`alert` / `focus` / `go` / `hold` / `festive`) draws a ring *outside* the card, so it never disturbs the card border or the layout. `festive` is a candy-cane border built with the two-layer mask recipe, since a plain border cannot carry a repeating gradient and `border-image` cannot be animated; it marches only with Animate highlights on. Alert, Focus, Go and Hold carry their word on a tab (`highlightTabLabel` in `cards.js`), so the ring never relies on colour alone. Registry: `HIGHLIGHTS` in `utils.js`.
@@ -151,8 +175,8 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - Arrows carry an optional `note` (richer than `label`), hidden until hover/selection, or always shown via **View ▾ → Always show connection notes** (`ui.showArrowText`, persisted `pathfinder-arrowtext`, body class `show-arrow-text`).
 - Right panel collapses via a chevron (persisted `pathfinder-panel-collapsed`).
 - File ▾ → **Download image (PNG 2×)** / **Download vector (SVG)** redraws the canvas as a self-contained SVG (`image-export.js`) to the card and line specs. No DOM screenshot.
-- Brain Dump folds indented/bulleted lines into the parent block's description (toggle in the card); `parseOutline()` in `classify.js`.
-- Prompt pane shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
+- Pasted notes fold indented/bulleted lines into the parent block's description (the notes field's toggle), or its criteria under a prefixed requirement or metric; `parseOutline()` in `classify.js`.
+- The Brief tab shows a one-line description of the selected mode (`refreshModeDesc` in `ui-panels.js`).
 - **Dark theme is the default** (no OS-preference opt-in); light mode only when explicitly saved.
 
 ## Traces: the second document type (added 2026-08-25)
@@ -215,9 +239,9 @@ break embedding.
 
 **Required assets:** `index.html` · `css/style.css` · `js/*.js` · `favicon.ico` · `energon-classic-logo.png` · `og-preview.jpg` · `CNAME`
 
-**Pages:** `index.html` (the app) · `tutorial.html` (walkthrough; example loads via `js/tutorial-example.js`) · `examples.html` (gallery: the checkout example plus the four large templates, converted by `js/examples-page.js` `templateToPayload()` and loaded through the share hash, so gallery content can never drift from the app's own).
+**Pages:** `index.html` (the app) · `tutorial.html` (walkthrough; example loads via `js/tutorial-example.js`; a notes, map, brief strip drawn by `make assets`) · `examples.html` (one column by job: the checkout example, Inherit a Codebase, Migrate a System and Recurring Reporting Flow, with the blank Investigate a Bug template as a link; each with its picture and brief excerpt from `make assets`, converted by `js/examples-page.js` (`EXAMPLES`, `payloadFor`, `templateToPayload()`) and loaded through the share hash, so gallery content can never drift from the app's own) · `404.html` (on tokens, three ways on).
 
-**📖 Read `docs/references/internals.md` before changing code in** `doc-panel.js` (Living Documentation, docRef, fetch gating/CSP, "See:" promotion, live questions), `canvas.js` (pan/zoom, ports, Bézier routing), or `prompt.js` (per-mode prompt generation, Brain Dump classifier, dev options). It also holds the full **Key Functions Reference** (per-module function lookup).
+**📖 Read `docs/references/internals.md` before changing code in** `doc-panel.js` (Living Documentation, docRef, fetch gating/CSP, "See:" promotion, live questions), `canvas.js` (pan/zoom, ports, Bézier routing), or `prompt.js` (per-mode prompt generation, the pasted-notes classifier, prompt options). It also holds the full **Key Functions Reference** (per-module function lookup).
 
 ---
 
@@ -229,6 +253,14 @@ break embedding.
 and `'pathfinder-view:<id>'` (per-map camera); `saveState()` write-through hooks
 (`saveHooks` in `state.js`, registered by `library.js`) mirror every autosave into
 the active map's slot. The legacy `'pathfinder-pill'` setting is no longer used.
+
+Per-browser view settings: `'pathfinder-minimap'` (the minimap on or off),
+`'pathfinder-palette-recent'` (the command palette's Recent, never a danger,
+template or search-only row), `'pathfinder-palette-collapsed'` (absent means
+automatic: the palette folds to its rail once a map has content until the person
+picks), and `'pathfinder-prefs'` (`motion`, `sessionTimer` for View ▾ →
+Facilitation, among others). The Brief tab's Framing is never persisted: it always
+opens closed.
 
 **Storage migration gotcha:** a pre-library browser (canvas under `'pathfinder-v1'`,
 no `'pathfinder-map-current'`) is adopted on first load: `ensureLibrary()` in
@@ -246,15 +278,16 @@ state = {
     [id]: {
       id, type, title, description, notes,
       x, y,                          // pixel position in canvas world
-      actions: [],                   // 'resolve' | 'prepare' | 'recollect' | 'reinforce' | 'validate'
+      actions: [],                   // 'resolve' | 'prepare' | 'recollect' | 'reinforce' | 'validate' (the UI says Look back and Strengthen for the middle two: ACTION_LABELS)
       questions: [],                 // [{ text, answer?, askedAt? }]: see Living Documentation
       docRef: null,                  // { href, label, anchor } | null: see Living Documentation
       cardStyle: null,               // preset key | null = follow canvasMeta.cardStyle
       criteria: [],                  // acceptance criteria (requirement/goal/output); feeds prompt, tasks.md, EARS
-      rationale: '',                 // why a decision was made (decision blocks)
+      rationale: '',                 // why a decision was made (decision blocks); no length cap
+      answer,                        // an Open Question card's own answer (written only with text); marks it done
       borderWidth: null,             // 1 | 1.5 | 2 | 3 | null = preset default
       highlight: null,               // presentation emphasis | null. Never semantics
-      typeCheck,                     // true: typed automatically with low confidence, not confirmed yet
+      typeCheck,                     // true: a guessed type (pasted notes without a prefix, a low-confidence import), not confirmed yet
       gapAck,                        // gap ids the author accepted: ['gap-no-criteria', ...]
       typeHint                       // the original type when this build did not know it (kept as custom)
     }
@@ -264,7 +297,7 @@ state = {
     style,                           // route: 'routed' (default) | 'curved' | 'straight' | 'elbow'
     pattern,                         // 'solid' (default) | 'dashed' | 'dotted'
     weight,                          // new: DEFAULT_ARROW_WEIGHT (1.5); missing = 2 (older maps)
-    relation,                        // 'precedes' | 'depends-on' | 'blocks' | 'informs' | 'related' | null
+    relation,                        // 'precedes' | 'depends-on' | 'blocks' | 'informs' | 'related' | null = Auto (a known label, else the endpoint types)
     fromPort, toPort,                // 'left'|'right'|'top'|'bottom' | null = auto
     portsBy                          // 'tidy' (auto-layout) | 'import' (an imported file); released when a block moves; absent = user/auto
   }]
@@ -334,7 +367,7 @@ The confusable pairs (`TYPE_DISAMBIGUATION`): every time a flow runs is a Proces
 | `gap-no-target` | Metric without a target | Metric with empty `criteria` |
 | `gap-unserved` | Stakeholder nothing serves | Stakeholder nothing is delivered to or asked of |
 
-`GAP_META` is the single label source for the prompt, the card tooltip, the Attention tab and the Prompt tab's breakdown (`#gapBreakdown`). `getGapFixes(b)` offers the fixes (each carries the `gap` it answers; `create: { type, dir }` fixes go through `applyGapFix`). **Accepting a gap** (`acceptGap`, the inspector's Suggestions or the Attention tab) adds it to `block.gapAck`: it stops being reported, and the prompt lists it under "Accepted gaps" while its rule still holds.
+`GAP_META` is the single label source for the prompt, the card tooltip and the Attention tab (the Brief tab's readiness line counts the Attention tab's own items). `getGapFixes(b)` offers the fixes (each carries the `gap` it answers; `create: { type, dir }` fixes go through `applyGapFix`). **Accepting a gap** (`acceptGap`, the inspector's Suggestions or the Attention tab) adds it to `block.gapAck`: it stops being reported, and the prompt lists it under "Accepted gaps" while its rule still holds.
 
 Canvas findings (`findings`, per canvas rather than per block, in the Attention tab and the prompt): dependency cycles, empty groups, untyped blocks, no Goal or Problem, goals with no metric, metrics no work moves, likely duplicates, a question hidden in a description, types awaiting a check. The last four named can be accepted per block (`acceptFinding`).
 
@@ -349,12 +382,12 @@ From **File ▾** in the header (the rows are hidden buttons in `#fileActions`; 
 | Action | Output |
 |--------|--------|
 | Import JSON / Canvas / Mermaid | One picker, format-detected (`detectFormat`): pathfinder JSON, JSON Canvas, or a Mermaid flowchart. Opens as a new map by default; Replace (after a named snapshot) and Merge are the dialog's other choices (`sharing.js`) |
-| Copy prompt | Clipboard: markdown AI prompt |
+| Copy brief | Clipboard: the whole map's brief, through the Brief tab's own Copy (`pf:copy-brief`), with its "Copied: about N tokens, M sections" confirmation; `Cmd/Ctrl+Shift+C` |
 | Copy AI diagram-builder prompt | Clipboard: `DIAGRAM_BUILDER_PROMPT`, generated from the registry |
 | Download JSON | `pathfinder.json`: full canvas (blocks + arrows + meta + timestamp) |
 | Download Markdown | `pathfinder.md`: a section per block type (**every** type: leaving one out of the order silently drops those blocks), labelled connections, and the Mermaid graph |
 | Copy Mermaid | Clipboard: `toMermaid()`, the same graph: every block declared, a shape and a `class` line per type, groups as subgraphs |
-| Download JSON Canvas | `<title>.canvas` (jsoncanvas.org): each node in its type's exact hex plus `pathfinderType`, criteria as checklists, groups as group nodes, edge sides from pinned ports |
+| Download JSON Canvas | `<title>.canvas` (jsoncanvas.org): each node in its type's exact hex plus `pathfinderType` (and `pathfinderAnswer` for an answered question card), criteria as checklists, groups as group nodes, edge sides from pinned ports |
 | Download spec bundle (zip) | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
 | Download image / vector | PNG 2x / SVG from `image-export.js` |
 | Export meeting summary / Open in Presentation Sage | Hand-offs; both write an action by its word (Look back, Strengthen), the prompt by its id |
@@ -368,9 +401,9 @@ Import reads a type before it guesses: `pathfinderType`, an exact type hex, a Me
 
 ## Keyboard Shortcuts
 
-`SHORTCUTS` in `ui-panels.js` is the canonical list (the `?` sheet renders it, grouped Creating, Editing, Navigation, View). It is a hand-kept array, not derived from the handlers, so a binding added anywhere (`events.js`, `inline-edit.js`, `arrow-edit.js`, `context-menu.js`, `classify.js`, `command-palette.js`, `type-keys.js`) has to be added there too; `tests/integration.test.js` checks the ones bound outside `events.js`. A row's optional third element `{ top, short, key? }` puts it in the sheet's "Most used" dozen (`topShortcuts()`; `key` is a shorter key text where the full one would wrap there); the sheet opens on those and the type letters, the rest behind "All shortcuts". `TYPE_KEYS` (same file) is the letter after N for each type: one per type, none shared, and every new type needs one (`tests/command.test.js`).
+`SHORTCUTS` in `ui-panels.js` is the canonical list (the `?` sheet renders it, grouped Creating, Editing, Navigation, View). It is a hand-kept array, not derived from the handlers, so a binding added anywhere (`events.js`, `inline-edit.js`, `arrow-edit.js`, `context-menu.js`, `classify.js`, `command-palette.js`, `type-keys.js`, `start-panel.js` (1, 2, 3), `minimap.js` (M), `brief.js` (Cmd/Ctrl+Shift+C)) has to be added there too; `tests/integration.test.js` checks the ones bound outside `events.js`. A row's optional third element `{ top, short, key? }` puts it in the sheet's "Most used" dozen (`topShortcuts()`; `key` is a shorter key text where the full one would wrap there); the sheet opens on those and the type letters, the rest behind "All shortcuts". `TYPE_KEYS` (same file) is the letter after N for each type: one per type, none shared, and every new type needs one (`tests/command.test.js`).
 
-**Command palette** (`command-palette.js`, rows from `command-items.js`, one row's markup in `command-rows.js`): `Cmd/Ctrl+K` anywhere (while typing too, never over another modal dialog), `/` on the canvas opens it at Create, and `/ > # @` typed first narrow it to Create, Actions, Blocks or Maps. Every row comes from a builder the menus already use (`fileMenuItems`, `viewMenuItems`, `helpMenuItems`, `mapsMenuItems`, `selectionMenuItems` in `context-menu.js`, the templates list), so a new menu row is in the palette with no extra work; a submenu becomes a row you drill into. It matches labels only, never hints; equal matches keep their built order. Recent never stores a danger row, a template (`noRecent`) or a search-only row, and the Selected group sits above it, so Enter on a fresh palette never deletes or re-applies. The chord is Cmd+K on a Mac and Ctrl+K elsewhere (Ctrl+K on a Mac is a text field's delete to end of line). Help ▾ → Command palette is the way in without a keyboard. It is a modal `<dialog>`, so `events.js` bails while it is open, and its field stops every key it handles from reaching the canvas: the Escape that closes it must not also deselect. **N, then a letter** (`type-keys.js`) adds that type at the pointer or the centre; the key after N is N's (a capture listener wired before the palette's), so after N, T is not the type check, L is not Tidy and neither / nor Cmd/Ctrl+K opens the palette; a held N's auto-repeat keeps it armed. In Connect to, the menu search is titles only (`matchHints: false`) and Enter with nothing typed picks nothing (`pickOnEmpty: false`); menu.js marks the row Enter will pick (`.pf-menu-match`).
+**Command palette** (`command-palette.js`, rows from `command-items.js`, one row's markup in `command-rows.js`): `Cmd/Ctrl+K` anywhere (while typing too, never over another modal dialog), `/` on the canvas opens it at Create, and `/ > # @` typed first narrow it to Create, Actions, Blocks or Maps. Every row comes from a builder the menus already use (`fileMenuItems`, `viewMenuItems`, `helpMenuItems`, `mapsMenuItems`, `selectionMenuItems` in `context-menu.js`, the templates list), so a new menu row is in the palette with no extra work; a submenu becomes a row you drill into. Its own rows add Find, Undo, Tidy, the zoom keys, "Copy brief for the selection" (with a selection) and "Open the sample map". It matches labels only, never hints; equal matches keep their built order. Recent never stores a danger row, a template (`noRecent`) or a search-only row, and the Selected group sits above it, so Enter on a fresh palette never deletes or re-applies. The chord is Cmd+K on a Mac and Ctrl+K elsewhere (Ctrl+K on a Mac is a text field's delete to end of line). Help ▾ → Command palette is the way in without a keyboard. It is a modal `<dialog>`, so `events.js` bails while it is open, and its field stops every key it handles from reaching the canvas: the Escape that closes it must not also deselect. **N, then a letter** (`type-keys.js`) adds that type at the pointer or the centre; the key after N is N's (a capture listener wired before the palette's), so after N, T is not the type check, L is not Tidy and neither / nor Cmd/Ctrl+K opens the palette; a held N's auto-repeat keeps it armed. In Connect to, the menu search is titles only (`matchHints: false`) and Enter with nothing typed picks nothing (`pickOnEmpty: false`); menu.js marks the row Enter will pick (`.pf-menu-match`).
 
 How the handler is layered (`setupKeyboardShortcuts` in `events.js`): a modal dialog bails everything; `Cmd/Ctrl+F` works anywhere; nothing below fires while typing; `?`, `Alt+H` and the View keys (`H`, `Z`, zoom, `Shift+1/2/0`) work in read-only and embed; single-letter keys act only while the canvas (or nothing) has focus, and `Cmd/Ctrl + = - 0` zoom the canvas only then, leaving page zoom alone elsewhere; editing keys stop at the read-only bail.
 
@@ -392,7 +425,8 @@ How the handler is layered (`setupKeyboardShortcuts` in `events.js`): a modal di
 - `body[data-chrome=off]` · `body[data-zen=on]`: expanded view
 - `.pf-menu` (+ `.pf-submenu`, `.pf-header-menu`, `.ctx-*-menu`, `.insp-type-menu`, `.type-check-menu`): menu.js menus; `.type-menu-notes` / `.type-menu-note` the type lists' foot
 - `.panel-tab.active` · `.tab-pane.active` · `.action-toggle.active`
-- Each stream's rules sit in its marked section at the end of `style.css`
+- `.brain-dump` / `.start-*` (the start panel, `.start-pill` its first-block pills) · `.brief-*` (the Brief tab) · `.cmdk-*` (the command palette) · `.minimap` · `.map-crumb*` (the header's `Maps / <title>`) · `.toast-in-canvas` (a toast placed over the canvas)
+- Each stream's rules sit in its marked section at the end of `style.css`; a later section overrides an earlier base rule on the same selector, and no two stream sections style the same selector
 
 ---
 

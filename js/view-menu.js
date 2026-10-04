@@ -260,6 +260,11 @@ export function viewMenuItems() {
  * Picking an entry clicks its row, so the listeners in ui-panels.js
  * (setupExportDropdown, setupShareDropdown) stay the one place each runs.
  */
+// Rows whose action also has a key, by the row's id.
+const ROW_SHORTCUTS = {
+  exportCopyPrompt: () => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '') ? '⇧⌘C' : 'Ctrl+Shift+C',
+}
+
 function rowMenuItems(source, readOnly) {
   if (!source) return []
   const items = []
@@ -274,6 +279,7 @@ function rowMenuItems(source, readOnly) {
       icon: el.querySelector('svg')?.outerHTML,
       danger: g === 'danger',
       rowId: el.id,
+      shortcut: ROW_SHORTCUTS[el.id]?.(),
       action: () => el.click(),
     })
   }

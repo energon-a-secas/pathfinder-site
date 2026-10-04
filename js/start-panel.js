@@ -72,27 +72,15 @@ export const SAMPLE_ARRIVAL = `${SAMPLE_TITLE} opened. Your own map is under Map
 
 /**
  * Land on the map that just loaded and say `lead`. The camera belongs to
- * zoom-controls.js (the ZOOM stream): arriveAfterLoad runs arriveAt after
- * the frame the load scheduled its fit in, so the view lands once, and
- * arriveAt's toast is `lead` plus "Shift+1 shows all of it." when part of
- * the map is off screen. Opening as a new map is not one of ZOOM's own
- * arrival paths, so this is the only arrival it gets. Without ZOOM the
- * load's own fit stands and the toast says what happened. `api` is the
- * zoom module (a test passes its own). Returns which path it took.
+ * zoom-controls.js: arriveAfterLoad runs arriveAt after the frame the load
+ * scheduled its fit in, so the view lands once, at a readable zoom on the
+ * entry layer, and the toast is `lead` plus "Shift+1 shows all of it." when
+ * part of the map is off screen. Opening as a new map is not one of the
+ * camera's own arrival paths, so this is the only arrival it gets. `api` is
+ * the zoom module (a test passes its own).
  */
 export function announceArrival(lead, api = zoom) {
-  if (typeof api.arriveAfterLoad === 'function') {
-    Promise.resolve(api.arriveAfterLoad(null, { lead })).catch(err => console.error(err))
-    return 'arriveAfterLoad'
-  }
-  if (typeof api.arriveAt === 'function') {
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      try { api.arriveAt(null, { lead }) } catch (err) { console.error(err) }
-    }))
-    return 'arriveAt'
-  }
-  showToast(lead, 'success', 3600)
-  return 'toast'
+  Promise.resolve(api.arriveAfterLoad(null, { lead })).catch(err => console.error(err))
 }
 
 // ── Templates ────────────────────────────────────────────────
@@ -137,14 +125,12 @@ export function templateMenuItems(onPick = applyTemplateFromPalette) {
 
 // ── The prefix helper ────────────────────────────────────────
 //
-// classify.js decides what a prefix means; this only says so. When it
-// exports its prefix table (PREFIXES) the helper is written from it, so the
-// words on the panel are the words the classifier reads. Accepted shapes:
-// [{ type, show: [...] }] (or sure / prefixes / words / aliases / keys /
-// prefix / word), or an object { type: [...] }. Otherwise the words below,
-// each of which the test suite runs through categorizeLine. When it exports
-// CRITERIA_FROM_BULLETS (the types whose "- " lines become criteria), the
-// indent sentence says so too.
+// classify.js decides what a prefix means; this only says so. The helper is
+// written from its prefix table (PREFIXES, each entry's `show` words), so
+// the words on the panel are the words the classifier reads, and from
+// CRITERIA_FROM_BULLETS (the types whose "- " lines become criteria) for the
+// indent sentence. The test suite runs every shown word through
+// categorizeLine.
 
 /** The word shown for each type, first in this order. */
 export const PREFIX_WORDS = {
@@ -158,26 +144,14 @@ export const PRIMARY_PREFIX_TYPES = ['goal', 'problem', 'stakeholder', 'metric',
 
 const cleanWord = w => String(w || '').replace(/[:.\s]+$/, '').trim()
 
-/** Normalise an exported prefix table to Map(type -> [words]), or null. */
+/** classify.js's prefix table as Map(type -> [the words it shows]), or null. */
 export function prefixTable(raw) {
   const table = new Map()
-  const add = (type, words) => {
-    if (!Object.hasOwn(TYPES, type)) return
-    const list = (Array.isArray(words) ? words : [words]).map(cleanWord).filter(w => /^[a-z][a-z ]*$/i.test(w))
-    if (!list.length) return
-    table.set(type, [...(table.get(type) || []), ...list])
-  }
-  if (Array.isArray(raw)) {
-    raw.forEach(e => {
-      if (!e || typeof e !== 'object') return
-      add(e.type, e.show || e.sure || e.prefixes || e.words || e.aliases || e.keys || e.prefix || e.word)
-    })
-  } else if (raw && typeof raw === 'object') {
-    Object.entries(raw).forEach(([k, v]) => {
-      if (Object.hasOwn(TYPES, k)) add(k, v)
-      else if (typeof v === 'string' && Object.hasOwn(TYPES, v)) add(v, k)
-    })
-  }
+  ;(Array.isArray(raw) ? raw : []).forEach(e => {
+    if (!e || !Object.hasOwn(TYPES, e.type) || !Array.isArray(e.show)) return
+    const list = e.show.map(cleanWord).filter(w => /^[a-z][a-z ]*$/i.test(w))
+    if (list.length) table.set(e.type, [...(table.get(e.type) || []), ...list])
+  })
   return table.size ? table : null
 }
 

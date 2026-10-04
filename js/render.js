@@ -513,5 +513,6 @@ export function updateCanvasTitle() {
   }
   // A long title ellipsizes in the header; the tooltip carries all of it.
   el.title = t
-  document.title = canvasMeta.title ? canvasMeta.title + ' | Pathfinder' : 'Pathfinder | Strategy Canvas'
+  // The same words as index.html's <title>, so an untitled map reads as the page does.
+  document.title = canvasMeta.title ? canvasMeta.title + ' | Pathfinder' : 'Pathfinder | Plan work for AI coding agents'
 }
