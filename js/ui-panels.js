@@ -1599,7 +1599,7 @@ export function setupTemplates() {
     if (framed) { refreshSituation(); syncPromptOptControls(); debouncedSave() }
     // An empty map with no name takes the template's (it kept "Untitled map").
     if (wasEmpty && !(canvasMeta.title || '').trim()) {
-      canvasMeta.title = templateTitle(tpl.name)
+      canvasMeta.title = templateTitle(tpl)
       updateCanvasTitle()
     }
     renderAllBlocks()
@@ -1626,9 +1626,15 @@ export function setupTemplates() {
   })
 }
 
-/** A template's name as a map's title, in sentence case ("Investigate a bug"). */
-export function templateTitle(name) {
-  const words = String(name || '').trim().split(/\s+/)
+/**
+ * A template's name as a map's title. A built-in name goes to sentence case
+ * ("Investigate a bug"); a saved template keeps its author's spelling, proper
+ * nouns and all. Takes the template, or a bare built-in name.
+ */
+export function templateTitle(tpl) {
+  const name = String((typeof tpl === 'object' ? tpl?.name : tpl) || '').trim()
+  if (typeof tpl === 'object' && tpl?.user) return name
+  const words = name.split(/\s+/)
   return words.map((w, i) => i && /^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w).join(' ')
 }
 

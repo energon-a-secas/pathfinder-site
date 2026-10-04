@@ -21,7 +21,7 @@ import { DEFAULT_ARROW_WEIGHT } from '../js/utils.js'
 import { clampIntoView } from '../js/type-keys.js'
 import { placeLabels, wrapNote, NOTE_LINE, NOTE_GAP, LABEL_H } from '../js/arrow-labels.js'
 import { setupKeyboardShortcuts, setupTabNavigation } from '../js/events.js'
-import { setupPanelTabs, showPanelTab, PANEL_TABS, SHORTCUTS, canEditACopy, editCopyUrl, sayViewOnly } from '../js/ui-panels.js'
+import { setupPanelTabs, showPanelTab, PANEL_TABS, SHORTCUTS, canEditACopy, editCopyUrl, sayViewOnly, templateTitle } from '../js/ui-panels.js'
 import { commandGroups, jumpToBlock, matchScore, rowMatch } from '../js/command-items.js'
 
 function reset() {
@@ -427,5 +427,16 @@ describe('qa3: a free slot for a new card prefers one in view', () => {
     assert.ok(inView.y + 100 <= 60 || inView.x + 220 <= within.x2, 'inside the rect')
     assert.ok(inView.y + 100 <= within.y2, `the slot is in view (${inView.x}, ${inView.y})`)
     assert.ok(free.y + 100 > within.y2 || free.x !== inView.x || free.y !== inView.y, 'unconstrained it may pick another')
+  })
+})
+
+// ── A template names an empty map ───────────────────────────
+describe('qa3: a template names an empty map', () => {
+  it('a built-in name goes to sentence case; a saved template keeps its author spelling', () => {
+    assert.eq(templateTitle('Investigate a Bug'), 'Investigate a bug')
+    assert.eq(templateTitle({ name: 'Migrate a System' }), 'Migrate a system')
+    assert.eq(templateTitle({ name: 'Migrate Billing to Postgres', user: true }), 'Migrate Billing to Postgres',
+      'proper nouns in a saved name survive')
+    assert.eq(templateTitle({ name: '  Weekly Review  ', user: true }), 'Weekly Review')
   })
 })

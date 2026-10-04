@@ -148,7 +148,7 @@ loads as its type.
 
 **Card style.** The accent colour renders as a full border by default. Pick a
 different look for the whole canvas from **View ▾ → Card style**, or override
-one block from its inspector: Outline, Accent bar, Header, Tinted, or Plain.
+one block from its inspector: Outline, Header, Tinted, or Plain.
 
 **Action badges** (set in the Inspector) attach intent to any block:
 

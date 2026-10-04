@@ -398,7 +398,7 @@ From **File ▾** in the header (the rows are hidden buttons in `#fileActions`; 
 | Download spec bundle (zip) | `pathfinder-spec.zip` (`js/spec-export.js` + the zero-dependency STORE zip writer `js/zip.js`): README, spec.md, plan.md, tasks.md (dependency-ordered), requirements.md (EARS). Missing inputs emit `[NEEDS INPUT]`, never guesses |
 | Download image / vector | PNG 2x / SVG from `image-export.js` |
 | Export meeting summary / Open in Presentation Sage | Hand-offs; both write an action by its word (Look back, Strengthen), the prompt by its id |
-| Clear this map… | Danger; one undo step |
+| Clear this map | Danger; one undo step, with Undo on the toast |
 
 Import reads a type before it guesses: `pathfinderType`, an exact type hex, a Mermaid `class` line, then the shape, and only then the classifier (`categorizeLine`), whose low-confidence calls are marked `typeCheck`.
 
