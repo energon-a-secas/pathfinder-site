@@ -4584,6 +4584,232 @@ body.light-mode .minimap-b.has-color { fill: var(--bc-custom-light, var(--bc-cus
 
 
 
+/* The command palette (js/command-palette.js): a modal dialog in the upper
+   third, 560px wide, a 44px field over 36px rows. One flat raised surface
+   with the dialog shadow; the accent appears only as the keyboard ring on
+   the active row. Nothing animates: it is there, then it is gone. */
+.cmdk {
+  position: fixed; inset: 12vh 0 auto; margin: 0 auto;
+  width: min(560px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(520px, calc(100dvh - 12vh - 16px));
+  padding: 0;
+  display: none; flex-direction: column;
+  overflow: hidden;
+  color: var(--text-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font); font-size: var(--fs-13); line-height: var(--lh-ui);
+}
+.cmdk[open] { display: flex; }
+.cmdk::backdrop { background: var(--scrim); }
+
+.cmdk-field {
+  flex: none; display: flex; align-items: center; gap: var(--space-2);
+  height: 44px; padding-block: 0; padding-inline: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.cmdk-search-icon { flex: none; display: inline-flex; width: 16px; height: 16px; color: var(--text-3); }
+.cmdk-search-icon svg { width: 16px; height: 16px; }
+.cmdk-chip {
+  flex: none; max-width: 45%; height: 22px; padding: 0 var(--space-2);
+  display: inline-flex; align-items: center;
+  border-radius: var(--radius-sm); background: var(--surface-raised-hover); color: var(--text-1);
+  font-size: var(--fs-12); font-weight: var(--fw-medium);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmdk-chip[hidden] { display: none; }
+.cmdk-input {
+  flex: 1; min-width: 0; height: 100%; padding: 0;
+  border: 0; outline: none; background: transparent;
+  color: var(--text-1); font: inherit; font-size: var(--fs-14);
+}
+.cmdk-input::placeholder { color: var(--text-3); opacity: 1; }
+
+.cmdk-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 var(--space-1) var(--space-2);
+  /* Clear of a sticky heading (32.8px) when a row scrolls in under it. */
+  scroll-padding: calc(var(--space-7) + var(--space-1)) 0 var(--space-2);
+}
+/* A heading stays at the top while its rows scroll under it, so a list that
+   opens scrolled (a drilled Change type on its current value) never shows a
+   heading cut in half by the field. scroll-padding above keeps the keyboard's
+   row clear of it. */
+.cmdk-heading {
+  position: sticky; top: 0; z-index: 1;
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  background: var(--surface-raised);
+  font-size: var(--fs-12); font-weight: var(--fw-medium); color: var(--text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmdk-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  height: 36px; padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  color: var(--text-2); cursor: pointer;
+}
+.cmdk-row.is-active { background: var(--surface-raised-hover); color: var(--text-1); }
+.cmdk-row.is-active.is-key { outline: var(--focus-outline); outline-offset: -2px; }
+.cmdk-row[aria-disabled="true"] { opacity: .5; cursor: default; }
+.cmdk-lead {
+  flex: none; width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-3);
+}
+.cmdk-row.is-active .cmdk-lead { color: var(--text-2); }
+.cmdk-lead svg { width: 16px; height: 16px; }
+.cmdk-lead .cmdk-dot { margin: 0; }
+.cmdk-swatch {
+  width: 12px; height: 12px; border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text-1) 18%, transparent);
+}
+.cmdk-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--space-2); overflow: hidden; }
+.cmdk-label { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-hit { font-weight: var(--fw-semibold); color: var(--text-1); }
+.cmdk-hint {
+  flex: 1 1 0; min-width: 0;
+  font-size: var(--fs-12); color: var(--text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmdk-state { flex: none; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; color: var(--text-1); }
+.cmdk-state svg { width: 14px; height: 14px; }
+.cmdk-meta { flex: none; font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; }
+/* One key cap everywhere a key is shown: the palette, the N hint and the
+   shortcut sheet. Mono (DESIGN.md: shortcut keys are mono), 11px/500,
+   --text-2 on the --tint wash, 1px --border, --radius-sm. Only the box
+   differs: a single key is a 20px square, a sheet key a phrase that may wrap. */
+.cmdk-kbd, .typekeys-key, .shortcut-key {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--tint); color: var(--text-2);
+  font-family: var(--font-mono); font-size: var(--fs-11); font-weight: var(--fw-medium);
+}
+.cmdk-keys { flex: none; display: inline-flex; gap: 2px; }
+.cmdk-kbd, .typekeys-key {
+  min-width: 20px; height: 20px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.cmdk-caret { flex: none; display: inline-flex; width: 14px; height: 14px; color: var(--text-3); }
+.cmdk-caret svg { width: 14px; height: 14px; }
+.cmdk-danger .cmdk-label { color: var(--danger); }
+/* A destructive row reads as one in every letter, the typed ones too. */
+.cmdk-danger .cmdk-hit { color: inherit; }
+.cmdk-danger.is-active { background: var(--danger-subtle); }
+.cmdk-more {
+  padding-block: var(--space-1) var(--space-2);
+  padding-inline: calc(var(--space-3) * 2 + 16px) var(--space-3);
+  font-size: var(--fs-12); color: var(--text-3);
+}
+.cmdk-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-3); }
+.cmdk-foot {
+  flex: none; display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-12); color: var(--text-3);
+}
+.cmdk-foot .cmdk-kbd { min-width: 18px; height: 18px; padding: 0 4px; }
+.cmdk-foot-keys { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.cmdk-foot-scopes { white-space: nowrap; }
+@media (max-width: 560px) {
+  .cmdk { inset: 16px 0 auto; max-height: calc(100dvh - 32px); }
+  .cmdk-hint, .cmdk-meta, .cmdk-foot-scopes { display: none; }
+}
+@media (forced-colors: active) {
+  .cmdk-row.is-active { outline: 2px solid Highlight; outline-offset: -2px; }
+  .cmdk-swatch { forced-color-adjust: none; }
+}
+
+/* N, then a letter (js/type-keys.js): which letter makes which type, over
+   the bottom of the canvas while N waits for its letter. */
+.typekeys-hint {
+  position: absolute; left: 50%; bottom: 16px; z-index: 45;
+  transform: translateX(-50%);
+  width: max-content; max-width: calc(100% - 32px);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised); color: var(--text-2);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  font-size: var(--fs-12); line-height: var(--lh-ui);
+  pointer-events: none;
+}
+.typekeys-hint[hidden] { display: none; }
+.typekeys-head { display: flex; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-2); }
+.typekeys-title { font-size: var(--fs-13); font-weight: var(--fw-semibold); color: var(--text-1); }
+.typekeys-sub { color: var(--text-3); }
+.typekeys-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, auto)); gap: var(--space-1) var(--space-5);
+}
+.typekeys-list li { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+.typekeys-list .pf-menu-dot { margin: 0; }
+@media (max-width: 700px) {
+  .typekeys-list { grid-template-columns: repeat(2, minmax(0, auto)); }
+}
+
+/* A search box in a menu (js/menu.js) marks the row Enter will pick, while
+   the box has focus: Enter never runs a row nobody could see it pick. */
+.pf-menu:has(> .pf-menu-search .pf-menu-search-input:focus) > .pf-menu-match {
+  background: var(--surface-raised-hover); color: var(--text-primary);
+}
+
+/* Templates are buttons (js/ui-panels.js renderTemplatesList): a Tab stop
+   each, a saved template's delete a 24px sibling button. */
+button.template-item {
+  width: 100%; margin: 0;
+  background: none; border: 0; border-bottom: 1px solid var(--border);
+  color: inherit; font: inherit; text-align: left;
+}
+button.template-item:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
+.template-text { display: block; min-width: 0; }
+.template-text > .template-label, .template-text > .template-desc { display: block; }
+.template-row { position: relative; }
+.template-row > .template-item { padding-inline-end: 40px; }
+.template-row > .utpl-del {
+  top: 6px; inset-inline-end: 8px; width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius); font-size: var(--fs-14);
+}
+.template-row > .utpl-del:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
+.palette.collapsed .template-item > .template-text,
+.palette.collapsed .template-row > .utpl-del { display: none; }
+@media (max-width: 1024px) {
+  .palette .template-item > .template-text,
+  .palette .template-row > .utpl-del { display: none; }
+  .palette .template-row > .template-item { padding-inline-end: 4px; }
+}
+
+/* The shortcut sheet opens on the dozen keys people use most and the letters
+   that follow N; everything else waits behind "All shortcuts". Group names
+   are sentence case: uppercase belongs to a card's type label alone. */
+.shortcut-grid .shortcut-group {
+  text-transform: none; letter-spacing: 0;
+  font-size: var(--fs-13); font-weight: var(--fw-semibold); color: var(--text-1);
+}
+.shortcut-top-list { column-width: 420px; column-count: 2; column-gap: 32px; }
+.shortcut-top-list .shortcut-row { grid-template-columns: minmax(0, 168px) minmax(0, 1fr); }
+.shortcut-typekeys { margin-top: var(--space-4); }
+.shortcut-typekey-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: var(--space-1) var(--space-4);
+}
+.shortcut-typekey { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-size: var(--fs-12); color: var(--text-2); }
+.shortcut-typekey .shortcut-key { flex: none; min-width: 24px; text-align: center; padding: 1px 6px; }
+.shortcut-typekey .pf-menu-dot { margin: 0; }
+.shortcut-typekey-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shortcut-all { margin-top: var(--space-5); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.shortcut-all-toggle {
+  width: fit-content; padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: var(--fs-13); font-weight: var(--fw-medium); color: var(--text-1);
+}
+.shortcut-all-toggle:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+.shortcut-all[open] > .shortcut-columns { margin-top: var(--space-3); }
+
+
+
 /* ════ [brief] ════ */
 
 

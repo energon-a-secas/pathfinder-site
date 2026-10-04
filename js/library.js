@@ -979,8 +979,10 @@ export function mapsMenuItems() {
   const meta = e => `${plural(e.blocks, 'block')} · ${plural(e.arrows, 'arrow')} · ${fmtWhen(e.updated)}`
   const snaps = listSnapshots()
   const items = [{ type: 'heading', label: 'Your maps' }]
+  // rowId: the command palette keys a map by it (every new map is named
+  // "Untitled map").
   index.forEach(e => items.push({
-    label: name(e), hint: meta(e), radio: true, checked: e.id === cur,
+    label: name(e), hint: meta(e), radio: true, checked: e.id === cur, rowId: e.id,
     action: () => { if (e.id !== currentId()) switchTo(e.id) },
   }))
   items.push({ type: 'divider' },

@@ -330,9 +330,10 @@ describe('chrome -- Tidy direction', () => {
 // ── Help menu ────────────────────────────────────────────────
 
 describe('chrome -- Help menu', () => {
-  it('has the shortcuts, the walkthrough, the examples and Trace', () => {
+  // The command palette row: the way in where there is no key to press.
+  it('has the command palette, the shortcuts, the walkthrough, the examples and Trace', () => {
     assert.deepEq(labels(helpMenuItems()),
-      ['Keyboard shortcuts', 'Walkthrough', 'Examples', 'Trace: diagrams as text'])
+      ['Command palette', 'Keyboard shortcuts', 'Walkthrough', 'Examples', 'Trace: diagrams as text'])
   })
 })
 

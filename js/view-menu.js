@@ -20,6 +20,7 @@ import { state, ui, canvasMeta, snapshot, saveState, debouncedSave, snapTo } fro
 import { $, CARD_STYLES, escHtml, showToast } from './utils.js'
 import { renderAllBlocks, renderInspector } from './render.js'
 import { renderArrows, renderFrames } from './canvas.js'
+import { commandPaletteMenuItem } from './command-palette.js'
 import { openDropdown, closeMenus } from './menu.js'
 import { getPref, setPref } from './prefs.js'
 import { isVotingMode, setVotingMode } from './voting.js'
@@ -245,6 +246,7 @@ function openPage(href) { window.open(href, '_blank', 'noopener') }
 
 export function helpMenuItems() {
   return [
+    commandPaletteMenuItem(),
     { label: 'Keyboard shortcuts', shortcut: '?', action: openShortcuts },
     { type: 'divider' },
     { label: 'Walkthrough', hint: 'A worked example, step by step', action: () => openPage('tutorial.html') },

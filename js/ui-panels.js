@@ -192,71 +192,119 @@ export function setupSearchEvents() {
 // ── Shortcuts overlay ────────────────────────────────────────
 // Every binding the canvas has, by what it is for. The handlers live in
 // events.js (and inline-edit.js, arrow-edit.js, context-menu.js,
-// classify.js); a key added there has to be added here too, or nobody
-// learns it exists. tests/integration.test.js checks the ones outside
-// events.js are listed.
+// classify.js, command-palette.js, type-keys.js); a key added there has to
+// be added here too, or nobody learns it exists. tests/integration.test.js
+// checks the ones outside events.js are listed.
+//
+// A row is [key, what it does], plus { top, short, key? } on the dozen
+// people reach for most: the row's place in the sheet's "Most used" list,
+// the short line it shows there and, where the full key would wrap in that
+// narrower column, a shorter one. The sheet opens on that list and the type
+// letters; the rest wait behind "All shortcuts".
 export const SHORTCUTS = [
+  { group: 'Creating', keys: [
+    ['N, then a letter',       'Add a block of that type at the pointer, or at the centre of the canvas (the letters are listed above)', { top: 2, short: 'New block of that type' }],
+    ['/',                      'Open the command palette at Create'],
+    ['Double-click canvas',    'Add a block where you click (right-click the canvas works too)'],
+    ['Alt + Arrow',            'Add a connected block in that direction', { top: 4, short: 'Add a connected block' }],
+    ['⌘/Ctrl + Enter',    'Add a connected block to the right'],
+    ['Click a port ●',    'Add a connected block on that side'],
+    ['Drag a port ●',     'Draw a connection; drop it on empty canvas to add a connected block there'],
+  ] },
   { group: 'Editing', keys: [
-    ['Enter / F2',             'Edit the selected card\u2019s title, or the selected connection\u2019s label'],
-    ['Shift + Enter',          'Edit the selected card\u2019s description'],
+    ['Enter / F2',             'Edit the selected card’s title, or the selected connection’s label', { top: 3, short: 'Edit the title' }],
+    ['Shift + Enter',          'Edit the selected card’s description'],
     ['Double-click card',      'Edit the title, or the description where you click'],
-    ['Double-click line',      'Edit the connection\u2019s label'],
-    ['Tab (in a title)',       'Keep the title and edit the description'],
-    ['Shift + Tab (in a description)', 'Keep the description and go back to the title'],
-    ['Enter or Escape',        'Finish editing a title (Escape keeps what you typed)'],
-    ['\u2318/Ctrl + Enter or Escape', 'Finish editing a description'],
-    ['Arrow keys',             'Nudge the selected blocks 1px (a grid step when snapping)'],
-    ['Shift + Arrow',          'Nudge the selected blocks 10px'],
-    ['\u2318/Ctrl + D',        'Duplicate the selected block'],
+    ['Double-click line',      'Edit the connection’s label'],
+    ['Tab / Shift + Tab (editing)', 'Keep what you typed and move between the title and the description'],
+    ['Enter or Escape',        'Finish a title (Escape keeps what you typed); a description finishes with ⌘/Ctrl + Enter or Escape'],
+    ['Arrow keys',             'Nudge the selected blocks 1px, a grid step when snapping (Shift nudges 10px)'],
+    ['⌘/Ctrl + D',        'Duplicate the selected block'],
     ['Delete / Backspace',     'Delete the selected blocks or connection'],
-    ['\u2318/Ctrl + Z',        'Undo'],
-    ['\u2318/Ctrl + Shift + Z','Redo'],
+    ['⌘/Ctrl + Z',        'Undo (add Shift to redo)', { top: 8, short: 'Undo (add Shift to redo)' }],
+    ['Shift + F10 / Menu key', 'Quick actions for the selected card, the selection or the connection', { top: 7, short: 'Actions for the selection', key: 'Shift + F10' }],
     ['Right-click',            'Quick actions for a card, a connection or the canvas'],
-    ['Shift + F10 / Menu key', 'Quick actions for the selected card'],
     ['T',                      'Confirm or change the type of a card marked for a type check'],
-    ['L',                      'Tidy: auto-arrange the canvas'],
+    ['L',                      'Tidy: auto-arrange the canvas', { top: 10, short: 'Tidy the map' }],
   ] },
   { group: 'Navigation', keys: [
-    ['Tab / Shift + Tab',      'Select the next or previous block in reading order; past the last one, leave the canvas'],
-    ['\u2318/Ctrl + Arrow',    'Select the nearest block in that direction, connected ones first'],
+    ['⌘/Ctrl + K',        'Open the command palette: run any action, or jump to a block, map or template by name', { top: 1, short: 'Command palette: anything by name' }],
+    ['Tab / Shift + Tab',      'Select the next or previous block in reading order; past the last one, leave the canvas', { top: 5, short: 'Next or previous block' }],
+    ['⌘/Ctrl + Arrow',    'Select the nearest block in that direction, connected ones first', { top: 6, short: 'Nearest block that way' }],
     ['Enter / Space',          'Select the focused block'],
     ['Escape',                 'Deselect; press again to leave the canvas. Also closes overlays and ends dot voting'],
     ['Shift + click',          'Add a block to the selection'],
     ['Shift + drag',           'Select blocks inside a box'],
-    ['\u2318/Ctrl + A',        'Select every block'],
-    ['\u2318/Ctrl + F',        'Find blocks'],
+    ['⌘/Ctrl + A',        'Select every block'],
+    ['⌘/Ctrl + F',        'Find blocks', { top: 9, short: 'Find blocks' }],
     ['Arrow keys',             'Pan the canvas when nothing is selected (Shift pans further)'],
-    ['Drag empty canvas',      'Pan the canvas'],
-    ['Space + drag',           'Pan the canvas, even over cards'],
-    ['Middle-button drag',     'Pan the canvas'],
-    ['Scroll / two fingers',   'Pan the canvas (Shift + wheel pans sideways)'],
-  ] },
-  { group: 'Creating', keys: [
-    ['Double-click canvas',    'Add a block where you click'],
-    ['Right-click canvas',     'Add a block where you click'],
-    ['Drag a port \u25CF',     'Draw a connection; drop it on empty canvas to add a connected block there'],
-    ['Click a port \u25CF',    'Add a connected block on that side'],
-    ['Alt + Arrow',            'Add a connected block in that direction'],
-    ['\u2318/Ctrl + Enter',    'Add a connected block to the right'],
+    ['Space + drag',           'Pan the canvas, even over cards. Dragging empty canvas, the middle button and scrolling pan it too'],
   ] },
   { group: 'View', keys: [
-    ['Shift + 1',              'Fit all blocks in view'],
+    ['Shift + 1',              'Fit all blocks in view', { top: 11, short: 'Fit all blocks' }],
     ['Shift + 2',              'Zoom to the selection'],
     ['Shift + 0',              'Zoom to 100%'],
     ['= / -',                  'Zoom in / out'],
-    ['\u2318/Ctrl + = / - / 0','Zoom in / out / to 100% while the canvas has focus (elsewhere they zoom the page)'],
-    ['Pinch / \u2318/Ctrl + scroll', 'Zoom at the pointer'],
+    ['⌘/Ctrl + = / - / 0','Zoom in / out / to 100% while the canvas has focus (elsewhere they zoom the page)'],
+    ['Pinch / ⌘/Ctrl + scroll', 'Zoom at the pointer'],
     ['H',                      'Hide the header and footer'],
     ['Z',                      'Zen: hide every panel too'],
     ['M',                      'Show or hide the minimap'],
     ['Alt + H',                'High-contrast mode'],
-    ['?',                      'Show this help'],
+    ['?',                      'Show this help', { top: 12, short: 'This sheet' }],
   ] },
 ]
+
+/**
+ * The letter that follows N for each block type (js/type-keys.js), in
+ * registry order. One letter per type and none shared: the type's initial
+ * where it is free, else a letter from its name, so Risk is K (R is
+ * Requirement), Process is W (a workflow step), Resource / System is Y and
+ * Other is X. After N every key belongs to this map: T is Trigger / End,
+ * not the type check, and L, which no type uses, adds nothing instead of
+ * running Tidy.
+ */
+export const TYPE_KEYS = {
+  goal: 'g', problem: 'p', stakeholder: 's', metric: 'm', requirement: 'r', output: 'o',
+  implementation: 'i', process: 'w', terminator: 't', decision: 'd', resource: 'y',
+  assumption: 'a', risk: 'k', question: 'q', context: 'c', custom: 'x',
+}
 
 // A view-only link cannot edit or create, so its sheet lists only the keys
 // that work there instead of promising ones that do nothing.
 const READ_ONLY_GROUPS = ['Navigation', 'View']
+
+const sheetGroups = (readOnly = ui.readOnly) =>
+  readOnly ? SHORTCUTS.filter(g => READ_ONLY_GROUPS.includes(g.group)) : SHORTCUTS
+
+/** The sheet's "Most used" rows in order: { key, desc, top, group }. */
+export function topShortcuts({ readOnly = ui.readOnly } = {}) {
+  return sheetGroups(readOnly)
+    .flatMap(g => g.keys.filter(k => k[2]?.top).map(k => ({ key: k[2].key || k[0], desc: k[2].short || k[1], top: k[2].top, group: g.group })))
+    .sort((a, b) => a.top - b.top)
+}
+
+function shortcutRow(key, desc) {
+  const row = document.createElement('div'); row.className = 'shortcut-row'
+  const k = document.createElement('dt'); k.className = 'shortcut-key'; k.textContent = key
+  const d = document.createElement('dd'); d.className = 'shortcut-desc'; d.textContent = desc
+  row.append(k, d)
+  return row
+}
+
+function shortcutSection(title, className = '') {
+  const section = document.createElement('section')
+  section.className = 'shortcut-section' + (className ? ' ' + className : '')
+  const h = document.createElement('h3')
+  h.className = 'shortcut-group'
+  h.textContent = title
+  section.appendChild(h)
+  return section
+}
+
+// Whether "All shortcuts" is open, for this page view: the sheet reopens the
+// way it was left.
+let allShortcutsOpen = false
 
 export function buildShortcutGrid() {
   const grid = $.shortcutGrid(); if (!grid) return
@@ -266,31 +314,58 @@ export function buildShortcutGrid() {
   note.textContent = 'Single keys (letters, digits, =, -, arrows, Space) work while the canvas has focus: click it or press Tab to reach it.' +
     (ui.readOnly ? ' This is a view-only link, so editing keys are off.' : '')
   grid.appendChild(note)
-  const groups = ui.readOnly ? SHORTCUTS.filter(g => READ_ONLY_GROUPS.includes(g.group)) : SHORTCUTS
-  // Newspaper columns (CSS), so all four groups fit one screen on a laptop
-  // instead of the View keys waiting below the fold. Each key and its
-  // description share a row wrapper that never splits across columns.
+
+  // The dozen keys people reach for every day come first.
+  const top = shortcutSection('Most used', 'shortcut-top')
+  const topList = document.createElement('dl')
+  topList.className = 'shortcut-list shortcut-top-list'
+  topShortcuts().forEach(r => topList.appendChild(shortcutRow(r.key, r.desc)))
+  top.appendChild(topList)
+  grid.appendChild(top)
+
+  // The letters that follow N, each beside its type's dot in its shape.
+  if (!ui.readOnly) {
+    const keys = shortcutSection('After N: one letter per block type', 'shortcut-typekeys')
+    const list = document.createElement('ul')
+    list.className = 'shortcut-typekey-list'
+    Object.keys(TYPES).filter(t => TYPE_KEYS[t]).forEach(t => {
+      const li = document.createElement('li')
+      li.className = 'shortcut-typekey'
+      const k = document.createElement('kbd'); k.className = 'shortcut-key'; k.textContent = TYPE_KEYS[t].toUpperCase()
+      const dot = document.createElement('span'); dot.className = 'pf-menu-dot'; dot.setAttribute('aria-hidden', 'true')
+      if (TYPES[t].shape) dot.dataset.shape = TYPES[t].shape
+      dot.style.background = ui.lightMode ? TYPES[t].light : TYPES[t].color
+      const label = document.createElement('span'); label.className = 'shortcut-typekey-label'; label.textContent = TYPES[t].label
+      li.append(k, dot, label)
+      list.appendChild(li)
+    })
+    keys.appendChild(list)
+    grid.appendChild(keys)
+  }
+
+  // Everything, by what it is for, behind one disclosure. Newspaper columns
+  // (CSS) balance the groups; each key and its description share a row
+  // wrapper that never splits across columns.
+  const groups = sheetGroups()
+  const all = document.createElement('details')
+  all.className = 'shortcut-all'
+  all.open = allShortcutsOpen
+  all.addEventListener('toggle', () => { allShortcutsOpen = all.open })
+  const summary = document.createElement('summary')
+  summary.className = 'shortcut-all-toggle'
+  summary.textContent = `All shortcuts (${groups.reduce((n, g) => n + g.keys.length, 0)})`
   const columns = document.createElement('div')
   columns.className = 'shortcut-columns'
   groups.forEach(({ group, keys }) => {
-    const section = document.createElement('section')
-    section.className = 'shortcut-section'
-    const h = document.createElement('h3')
-    h.className = 'shortcut-group'
-    h.textContent = group
+    const section = shortcutSection(group)
     const list = document.createElement('dl')
     list.className = 'shortcut-list'
-    keys.forEach(([key, desc]) => {
-      const row = document.createElement('div'); row.className = 'shortcut-row'
-      const k = document.createElement('dt'); k.className = 'shortcut-key'; k.textContent = key
-      const d = document.createElement('dd'); d.className = 'shortcut-desc'; d.textContent = desc
-      row.appendChild(k); row.appendChild(d)
-      list.appendChild(row)
-    })
-    section.appendChild(h); section.appendChild(list)
+    keys.forEach(([key, desc]) => list.appendChild(shortcutRow(key, desc)))
+    section.appendChild(list)
     columns.appendChild(section)
   })
-  grid.appendChild(columns)
+  all.append(summary, columns)
+  grid.appendChild(all)
 }
 
 // Where focus was before the sheet opened, so closing it puts you back.
@@ -1243,43 +1318,65 @@ export function setupTimer() {
 }
 
 // ── Templates ────────────────────────────────────────────────
-const SAVE_TPL_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>'
+// One stroked line icon, like the rest of the set.
+const SAVE_TPL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>'
+
+/** A template's accessible name: its name, and its size when it is a large one. */
+export function templateName(tpl) {
+  return tpl.large ? `${tpl.name}, ${tpl.blocks.length} blocks` : tpl.name
+}
+
+// Each template is a real button (Enter and Space, a name, a Tab stop); its
+// description is the button's description, not part of its name. A saved
+// template's delete is a sibling button, never nested inside the one that
+// applies it.
+function templateButton(tpl, { attr, descId, icon, extraClass = '' }) {
+  return `
+    <button type="button" class="template-item${extraClass}" ${attr} aria-label="${escHtml(templateName(tpl))}"${tpl.desc ? ` aria-describedby="${descId}"` : ''} title="${escHtml(tpl.name)}">
+      <span class="template-icon" aria-hidden="true">${icon}</span>
+      <span class="template-text">
+        <span class="template-label">${escHtml(tpl.name)}${tpl.large ? '<span class="template-size" aria-hidden="true">' + tpl.blocks.length + '</span>' : ''}</span>
+        ${tpl.desc ? `<span class="template-desc" id="${descId}">${escHtml(tpl.desc)}</span>` : ''}
+      </span>
+    </button>`
+}
 
 function renderTemplatesList() {
   const list = $.templatesList(); if (!list) return
   const users = listUserTemplates()
-  list.innerHTML = TEMPLATES.map((tpl, i) => `
-    <div class="template-item${tpl.large ? ' template-large' : ''}" data-tpl="${i}" title="${escHtml(tpl.name)}">
-      <div class="template-icon">${TICONS[tpl.icon] || ''}</div>
-      <div>
-        <div class="template-label">${escHtml(tpl.name)}${tpl.large ? '<span class="template-size">' + tpl.blocks.length + '</span>' : ''}</div>
-        <div class="template-desc">${escHtml(tpl.desc)}</div>
-      </div>
-    </div>`).join('')
-    + users.map(tpl => `
-    <div class="template-item template-user" data-utpl="${escHtml(tpl.id)}" title="${escHtml(tpl.name)}">
-      <div class="template-icon">${SAVE_TPL_ICON}</div>
-      <div>
-        <div class="template-label">${escHtml(tpl.name)}</div>
-        <div class="template-desc">${escHtml(tpl.desc || '')}</div>
-      </div>
-      <button class="utpl-del" data-utpl-del="${escHtml(tpl.id)}" title="Delete this template" aria-label="Delete template">×</button>
+  list.innerHTML = TEMPLATES.map((tpl, i) => templateButton(tpl, {
+      attr: `data-tpl="${i}"`, descId: `tpl-desc-${i}`, icon: TICONS[tpl.icon] || '', extraClass: tpl.large ? ' template-large' : '',
+    })).join('')
+    + users.map((tpl, j) => `
+    <div class="template-row template-user">
+      ${templateButton(tpl, { attr: `data-utpl="${escHtml(tpl.id)}"`, descId: `utpl-desc-${j}`, icon: SAVE_TPL_ICON, extraClass: ' template-user' })}
+      <button type="button" class="utpl-del" data-utpl-del="${escHtml(tpl.id)}" title="Delete this template" aria-label="Delete template ${escHtml(tpl.name)}">×</button>
     </div>`).join('')
     + `
-    <button class="template-save" id="saveTemplateBtn" title="Keep the current canvas as a reusable starting point">
+    <button type="button" class="template-save" id="saveTemplateBtn" title="Keep the current canvas as a reusable starting point">
       ${SAVE_TPL_ICON}<span>Save canvas as template</span>
     </button>`
 }
 
+let templatesWired = false
 export function setupTemplates() {
   const list = $.templatesList(); if (!list) return
   renderTemplatesList()
+  // Wired once: a second listener would apply every template twice.
+  if (templatesWired) return
+  templatesWired = true
   list.addEventListener('click', e => {
     const del = e.target.closest('[data-utpl-del]')
     if (del) {
       e.stopPropagation()
+      // The row goes with it; keep the keyboard in the list rather than on
+      // the page: the next saved template, else Save canvas as template.
+      const rows = [...list.querySelectorAll('.utpl-del')]
+      const at = rows.indexOf(del)
       deleteUserTemplate(del.dataset.utplDel)
       renderTemplatesList()
+      const left = list.querySelectorAll('.template-row .template-item')
+      ;(left[Math.min(at, left.length - 1)] || document.getElementById('saveTemplateBtn'))?.focus()
       showToast('Template deleted', 'info', 1500)
       return
     }

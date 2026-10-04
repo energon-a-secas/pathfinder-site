@@ -270,7 +270,7 @@ function stops(menuEl) {
 
 function focusInitial(menuEl) {
   const search = menuEl.querySelector('.pf-menu-search-input')
-  if (search) { search.focus(); return }
+  if (search) { search.focus(); markMatch(search); return }
   const first = stops(menuEl)[0]
   ;(first || menuEl).focus()
 }
@@ -378,17 +378,26 @@ function onHover(e) {
 }
 
 // ── Search filter ───────────────────────────────────────────
+// A search item filters the rows after it. Options on the item:
+//   matchHints: false   match row labels only. Connect to filters on block
+//                       titles: a hint ("it should move this") matching the
+//                       query picked the wrong block
+//   pickOnEmpty: false  with nothing typed, Enter picks nothing (it moves to
+//                       the first row instead)
+// The row Enter will pick is always marked (.pf-menu-match), so the box never
+// picks a row nobody could see it was about to pick.
 function filterAfter(input) {
   const q = input.value.trim().toLowerCase()
   const menuEl = input.closest('.pf-menu')
   const wrap = input.closest('.pf-menu-search')
+  const hints = input._pfSearch?.matchHints !== false
   let after = false, visibleInGroup = 0
   const pending = []
   for (const child of menuEl.children) {
     if (child === wrap) { after = true; continue }
     if (!after) continue
     if (child.classList.contains('pf-menu-item')) {
-      const text = (child._pfItem?.label || '') + ' ' + (child._pfItem?.hint || '')
+      const text = (child._pfItem?.label || '') + (hints ? ' ' + (child._pfItem?.hint || '') : '')
       const show = !q || text.toLowerCase().includes(q)
       child.hidden = !show
       if (show) visibleInGroup++
@@ -408,6 +417,7 @@ function filterAfter(input) {
     }
     empty.textContent = 'No matches'
   } else empty?.remove()
+  markMatch(input)
 }
 
 // The search filters the rows after it, so Enter picks from those only: a row
@@ -417,6 +427,28 @@ function firstVisibleAfter(input) {
   const wrap = input.closest('.pf-menu-search')
   return stops(menuEl).find(s => !s.closest('.pf-menu-search') &&
     (wrap.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING))
+}
+
+// What Enter in the box would pick: the first row whose label has a word
+// starting with what was typed ("re" picks "Report received" over "before
+// the fix"), else the first row the filter shows; with nothing typed, only
+// when the box allows it (pickOnEmpty). Marked, so it is never a surprise.
+function matchFor(input) {
+  const q = input.value.trim().toLowerCase()
+  if (!q && input._pfSearch?.pickOnEmpty === false) return null
+  const first = firstVisibleAfter(input) || null
+  if (!q || !first) return first
+  const wrap = input.closest('.pf-menu-search')
+  const startsWord = row => (row._pfItem?.label || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).some(w => w.startsWith(q))
+  return stops(input.closest('.pf-menu')).find(s => s.classList.contains('pf-menu-item') &&
+    (wrap.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) && startsWord(s)) || first
+}
+
+function markMatch(input) {
+  const menuEl = input.closest('.pf-menu'); if (!menuEl) return
+  const match = matchFor(input)
+  menuEl.querySelectorAll(':scope > .pf-menu-match').forEach(r => { if (r !== match) r.classList.remove('pf-menu-match') })
+  if (match?.classList.contains('pf-menu-item')) match.classList.add('pf-menu-match')
 }
 
 // A field someone rendered into a { type: 'custom' } item owns its keys.
@@ -497,9 +529,11 @@ function onKeydown(e) {
       if (inSearch && e.key === ' ') return
       e.preventDefault()
       if (inSearch) {
-        const first = firstVisibleAfter(active)
+        const first = matchFor(active)
         if (first?.classList.contains('pf-menu-item')) activateItem(first, { viaKeyboard: true })
         else if (first?.classList.contains('pf-menu-swatch')) pickSwatch(first)
+        // Nothing typed and nothing to pick on empty: step into the list.
+        else if (!active.value.trim()) firstVisibleAfter(active)?.focus()
         return
       }
       if (active?.classList.contains('pf-menu-swatch')) { pickSwatch(active); return }

@@ -386,25 +386,70 @@ function addConnectedItems(id) {
   ])
 }
 
+/**
+ * How likely a block of `other`'s type is the thing `id` connects to, lower
+ * first: the source type's suggested next types in their order (a Metric's
+ * Goal first), then any type the pair gives a meaning to either way, then
+ * the rest. Alphabetical sorting put "Add the OIDC client" ahead of the goal
+ * a metric measures.
+ */
+export function connectRank(id, other) {
+  const s = state.blocks[id]?.type, t = state.blocks[other]?.type
+  const suggested = suggestedNextTypes(s)
+  const i = suggested.indexOf(t)
+  if (i >= 0) return i
+  return impliedVerb(s, t) || impliedVerb(t, s) ? suggested.length : suggested.length + 1
+}
+const byTitle = (x, y) => titleOf(x).localeCompare(titleOf(y), undefined, { numeric: true, sensitivity: 'base' })
+
 function connectTargets(id) {
   return Object.values(state.blocks)
     .filter(o => o.id !== id && !linked(id, o.id))
-    .sort((x, y) => titleOf(x).localeCompare(titleOf(y), undefined, { numeric: true, sensitivity: 'base' }))
+    .sort((x, y) => connectRank(id, x.id) - connectRank(id, y.id) || byTitle(x, y))
 }
 
-function connectToItems(id) {
+// The filter matches block titles only, never the hint beside them, and
+// Enter picks only a row the filter matched (menu.js marks it): with nothing
+// typed it moves into the list instead of connecting to whatever sorts first.
+export function connectToItems(id) {
   const targets = connectTargets(id)
-  return [
-    { type: 'search', placeholder: 'Find a block', label: 'Find a block to connect to' },
-    ...targets.map(o => ({
-      label: titleOf(o), hint: connectHint(id, o.id), dot: typeDot(o.type), dotShape: typeShape(o.type),
-      action: () => {
-        const plan = connectPlan(id, o.id)
-        const aid = addArrow(plan.from, plan.to)
-        if (aid) showToast(`Connected to "${titleOf(o)}"`, 'success', 1600)
-      },
-    })),
-  ]
+  // Suggested types and types the pair gives a meaning to rank below this.
+  const rest = suggestedNextTypes(state.blocks[id]?.type).length + 1
+  const likely = targets.filter(o => connectRank(id, o.id) < rest)
+  const row = o => ({
+    label: titleOf(o), hint: connectHint(id, o.id), dot: typeDot(o.type), dotShape: typeShape(o.type),
+    action: () => {
+      const plan = connectPlan(id, o.id)
+      const aid = addArrow(plan.from, plan.to)
+      if (aid) showToast(`Connected to "${titleOf(o)}"`, 'success', 1600)
+    },
+  })
+  const split = likely.length && likely.length < targets.length
+  return tidyItems([
+    { type: 'search', placeholder: 'Find a block by title', label: 'Find a block to connect to', matchHints: false, pickOnEmpty: false },
+    split && { type: 'heading', label: 'Suggested' },
+    ...likely.map(row),
+    split && { type: 'heading', label: 'Other blocks' },
+    ...targets.slice(likely.length).map(row),
+  ])
+}
+
+/**
+ * The current selection's context-menu rows, for the command palette: the
+ * same builders the right-click menus use, so a palette row and its menu
+ * twin cannot drift. { kind, title, items }, or null when nothing is
+ * selected. `kind` is 'blocks', 'block' or 'connection'.
+ */
+export function selectionMenuItems() {
+  const ids = [...selection.ids].filter(id => state.blocks[id])
+  if (ids.length > 1) return { kind: 'blocks', title: selectionTally(ids), items: multiMenuItems(ids) }
+  const id = ids.length === 1 ? ids[0] : (selection.blockId && state.blocks[selection.blockId] ? selection.blockId : null)
+  if (id) return { kind: 'block', title: titleOf(state.blocks[id]), items: blockMenuItems(id) }
+  if (selection.arrowId && arrowById(selection.arrowId)) {
+    const p = arrowPoint(selection.arrowId)
+    return { kind: 'connection', title: 'Connection', items: arrowMenuItems(selection.arrowId, { clientX: p.x, clientY: p.y }) }
+  }
+  return null
 }
 
 // This card's connections, one row each, so a connection can be selected

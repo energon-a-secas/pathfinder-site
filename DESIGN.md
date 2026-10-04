@@ -432,6 +432,17 @@ One treatment everywhere: `--focus-outline` (2px solid accent) at `--focus-offse
 
 ### Menus
 - `js/menu.js` builds every menu (context menus, header menus, pickers): `--surface-raised`, 1px `--border`, `--radius-lg`, `--shadow-1`, 4px padding, 30px rows, 13px text, a right-aligned shortcut in `--text-3`. The hovered row is `--surface-raised-hover`; a danger row is `--danger` text with the `--danger-subtle` wash. Native `<select>` elements are being replaced by this component.
+- A search box in a menu marks the row Enter will pick with the hovered fill while the box has focus, preferring a word that starts with what was typed. Enter never picks a row nobody could see it pick.
+
+### Command palette
+- `Cmd/Ctrl+K`: a modal dialog in the upper third, 560px wide (16px gutters on a phone), `--surface-raised`, `--radius-xl`, `--shadow-2`, the `--scrim` backdrop. A 44px field (14px text, a 16px search icon, a `--radius-sm` chip naming the scope or the list drilled into, an Esc key cap) over 36px rows in groups headed 12px/500 `--text-3`, sentence case.
+- A row: a 16px lead (the type dot in its shape, a swatch, or a stroked line icon), the label with its matched letters in 600 `--text-1` (a danger row keeps `--danger` on them), a hint in 12px `--text-3`, where the action lives (File, View, Zoom) in 12px `--text-3`, and its shortcut as key caps. A chord shows as two caps (`N` `K`).
+- **Key caps** are one component wherever a key is shown (the palette, the N hint, the shortcut sheet): mono 11px/500, `--text-2` on `--tint`, 1px `--border`, `--radius-sm`; a single key is a 20px square.
+- With nothing typed the list is short: the selection's first eight actions, then Recent (never a destructive row or a template), then a few of each group with "N more: keep typing". Headings stick to the top of the list; a list of values opens on its current value under a whole heading.
+- The active row is the hovered fill; when the keyboard put it there, the one focus outline too (inset 2px accent). Disabled rows are 50% and never active; they show only when searched for. Nothing animates.
+
+### Type keys
+- N arms a floating panel at the bottom of the canvas (`--surface-raised`, `--radius-lg`, `--shadow-1`): "New block", then the sixteen letters as caps beside their type dots, four columns (two on a phone). Hidden from screen readers, which hear the same list announced.
 
 ### Cards (blocks)
 - **Corner:** 10px (`--radius-lg`); terminators are pills.

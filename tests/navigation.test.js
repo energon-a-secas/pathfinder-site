@@ -733,29 +733,40 @@ describe('Back to content', () => {
 
 // ── The shortcut sheet ──────────────────────────────────────
 describe('Shortcut sheet', () => {
-  it('lists every binding, grouped Editing, Navigation, Creating, View', () => {
-    assert.deepEq(SHORTCUTS.map(g => g.group), ['Editing', 'Navigation', 'Creating', 'View'])
+  // Regrouped by the COMMAND stream (design round): Creating first, the
+  // palette and N-then-a-letter added, and rows that said the same thing
+  // merged (the merged keys live on in the descriptions, checked below).
+  it('lists every binding, grouped Creating, Editing, Navigation, View', () => {
+    assert.deepEq(SHORTCUTS.map(g => g.group), ['Creating', 'Editing', 'Navigation', 'View'])
     const keys = SHORTCUTS.flatMap(g => g.keys.map(k => k[0]))
     for (const k of ['Enter / F2', 'Shift + Enter', 'Double-click line', 'Double-click canvas',
       'Shift + F10 / Menu key', 'Tab / Shift + Tab', '⌘/Ctrl + Arrow', 'Alt + Arrow',
-      '⌘/Ctrl + Enter', 'Click a port ●', 'Space + drag', 'Middle-button drag',
-      'Shift + 1', 'Shift + 2', 'Shift + 0', '= / -', 'Escape', 'L', 'H', 'Z', '?']) {
+      '⌘/Ctrl + Enter', 'Click a port ●', 'Space + drag',
+      'Shift + 1', 'Shift + 2', 'Shift + 0', '= / -', 'Escape', 'L', 'H', 'Z', '?',
+      '⌘/Ctrl + K', 'N, then a letter', '/']) {
       assert.includes(keys, k)
+    }
+    const all = JSON.stringify(SHORTCUTS).toLowerCase()
+    for (const merged of ['middle button', 'redo', 'shift nudges 10px', 'right-click the canvas']) {
+      assert.includes(all, merged, `"${merged}" is still described`)
     }
     const text = JSON.stringify(SHORTCUTS)
     assert.ok(!text.includes('\u2014'), 'no em dash')
   })
 
-  it('renders one section per group, and a view-only link lists only what works there', () => {
+  it('renders every group behind All shortcuts, and a view-only link lists only what works there', () => {
     buildShortcutGrid()
     const grid = $.shortcutGrid()
-    assert.eq(grid.querySelectorAll('.shortcut-section').length, 4)
-    assert.eq(grid.querySelectorAll('dt.shortcut-key').length, SHORTCUTS.reduce((n, g) => n + g.keys.length, 0))
+    const all = grid.querySelector('details.shortcut-all')
+    assert.ok(all, 'one disclosure holds the full list')
+    assert.eq(all.querySelectorAll('.shortcut-section').length, SHORTCUTS.length)
+    assert.eq(all.querySelectorAll('dt.shortcut-key').length, SHORTCUTS.reduce((n, g) => n + g.keys.length, 0))
     ui.readOnly = true
     try {
       buildShortcutGrid()
-      const groups = [...grid.querySelectorAll('.shortcut-group')].map(h => h.textContent)
+      const groups = [...grid.querySelectorAll('.shortcut-all .shortcut-group')].map(h => h.textContent)
       assert.deepEq(groups, ['Navigation', 'View'])
+      assert.ok(!grid.querySelector('.shortcut-typekeys'), 'no type letters where nothing can be added')
     } finally { ui.readOnly = false; buildShortcutGrid() }
   })
 
@@ -1095,16 +1106,21 @@ describe('Shortcut sheet layout', () => {
     const grid = $.shortcutGrid()
     const cols = grid.querySelector('.shortcut-columns')
     assert.ok(cols, 'one column container')
-    assert.eq(cols.querySelectorAll('.shortcut-section').length, 4)
-    const rows = [...grid.querySelectorAll('dl.shortcut-list > .shortcut-row')]
+    assert.eq(cols.querySelectorAll('.shortcut-section').length, SHORTCUTS.length)
+    const rows = [...cols.querySelectorAll('dl.shortcut-list > .shortcut-row')]
     assert.eq(rows.length, SHORTCUTS.reduce((n, g) => n + g.keys.length, 0))
+    const top = [...grid.querySelectorAll('.shortcut-top dl.shortcut-list > .shortcut-row')]
+    assert.eq(top.length, 12, 'the most used dozen, first')
+    rows.push(...top)
     rows.forEach(r => {
       assert.eq(r.children.length, 2)
       assert.eq(r.children[0].tagName, 'DT'); assert.eq(r.children[1].tagName, 'DD')
     })
   })
 
-  it('at 1440 by 900 every group of the sheet is on screen without scrolling', async () => {
+  // With "All shortcuts" folded (how it opens), the most used keys and the
+  // type letters fit; unfolded, the full list scrolls inside the sheet.
+  it('at 1440 by 900 the sheet as it opens is on screen without scrolling', async () => {
     // Width comes from the window (100vw); the height a 900px window allows
     // is set below, so the check does not depend on the runner's own height.
     if (window.innerWidth < 1400) { assert.ok(true, 'window too narrow to measure'); return }
@@ -1126,10 +1142,19 @@ describe('Shortcut sheet layout', () => {
       assert.ok(grid.scrollHeight <= grid.clientHeight + 1,
         `the sheet fits: content ${grid.scrollHeight}px in ${grid.clientHeight}px`)
       const box = grid.getBoundingClientRect()
-      shadow.querySelectorAll('.shortcut-group').forEach(h => {
+      const shown = [...shadow.querySelectorAll('.shortcut-group')].filter(h => !h.closest('details'))
+      assert.ok(shown.length >= 2, 'Most used and the type letters')
+      shown.forEach(h => {
         const r = h.getBoundingClientRect()
         assert.ok(r.top >= box.top && r.bottom <= box.bottom, `${h.textContent} heading is visible`)
       })
+      const toggle = shadow.querySelector('.shortcut-all-toggle')
+      const t = toggle.getBoundingClientRect()
+      assert.ok(t.top >= box.top && t.bottom <= box.bottom, 'All shortcuts is on screen too')
+      shadow.querySelector('details.shortcut-all').open = true
+      const modal = shadow.querySelector('.shortcut-modal')
+      assert.ok(modal.getBoundingClientRect().height <= 900 - 32 + 1, 'unfolded, the sheet still fits the window')
+      assert.eq(getComputedStyle(grid).overflowY, 'auto', 'and its list scrolls inside it, not the page')
     } finally { host.remove() }
   })
 })

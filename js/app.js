@@ -28,6 +28,7 @@ import { setupReview } from './review.js'
 import { setupPersistence } from './persistence-ui.js'
 import { setupAttention } from './attention.js'
 import { setupComparison } from './comparison-ui.js'
+import { setupCommandPalette } from './command-palette.js'
 import { checkSrcUrl } from './ui-panels.js'
 import {
   setupSearchEvents, buildShortcutGrid, setupShortcutOverlay,
@@ -127,6 +128,7 @@ function init() {
   setupViewMenu()
   setupZoomControls()
   setupSharingSafety()
+  setupCommandPalette()
 
   renderAllBlocks()
   updateHint()
