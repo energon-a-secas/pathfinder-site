@@ -11,6 +11,7 @@ function fieldsFor(block) {
     ['Description', block.description, 20],
     ['Notes', block.notes, 10],
     ['Rationale', block.rationale, 10],
+    ['Answer', block.answer, 10],
     ...((block.criteria || []).map(text => ['Criterion', text, 10])),
     ...((block.questions || []).flatMap(q => typeof q === 'string'
       ? [['Question', q, 10]]

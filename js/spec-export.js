@@ -16,7 +16,7 @@ import { state, canvasMeta } from './state.js'
 import { TYPES, PRIORITY_DEFS, showToast, typeInfo, askedQuestions } from './utils.js'
 import { situationSection } from './prompt.js'
 import { mermaidBlock } from './export.js'
-import { taskChecklist } from './task-plan.js'
+import { taskChecklist, cardAnswer } from './task-plan.js'
 import { dependencyEdges } from './relations.js'
 import { breakCycles, assignLayers } from './layout.js'
 
@@ -57,8 +57,8 @@ Files:
 
 - spec.md: what to build and for whom. Stakeholders, goals, success metrics
   with their targets, problems, requirements with acceptance criteria,
-  deliverables, open questions marked [NEEDS CLARIFICATION], assumptions
-  and risks.
+  deliverables, open questions marked [NEEDS CLARIFICATION], answered
+  questions with their answers, assumptions and risks.
 - plan.md: how, and under what constraints. The situation, decisions with
   their rationale, resources and systems, context, the workflow, and the
   dependency graph.
@@ -147,10 +147,21 @@ function specMd() {
     })
     md += '\n'
   }
-  if (t.question?.length) {
+  // An Open Question card with an answer recorded is not open: listing it
+  // as [NEEDS CLARIFICATION] would contradict tasks.md, which prints the
+  // answer where a task waits on it.
+  const open = (t.question || []).filter(b => !cardAnswer(b)), answered = (t.question || []).filter(b => cardAnswer(b))
+  if (open.length) {
     md += `## Open questions\n\n`
-    t.question.forEach(b => {
+    open.forEach(b => {
       md += `- [NEEDS CLARIFICATION] ${b.title || '(untitled)'}${b.description ? ` (${b.description})` : ''}\n`
+    })
+    md += '\n'
+  }
+  if (answered.length) {
+    md += `## Answered questions\n\n`
+    answered.forEach(b => {
+      md += `- **${b.title || '(untitled)'}**${b.description ? `: ${b.description}` : ''}\n  - Answered: ${cardAnswer(b).replace(/\n/g, ' ')}\n`
     })
     md += '\n'
   }

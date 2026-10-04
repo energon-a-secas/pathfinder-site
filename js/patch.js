@@ -7,20 +7,23 @@ import { connectionLabel } from './relations.js'
 //
 //  The failure it exists to prevent: an investigation whose
 //  answers die in the chat log. Answers land in their question
-//  blocks, a verified or refuted assumption becomes a decision
-//  in place (same id, so its arrows survive), statuses and
-//  criteria update, and new findings arrive as wired blocks.
+//  blocks (an Open Question card holds its own and is marked
+//  done), a verified or refuted assumption becomes a decision
+//  in place (same id, so its arrows survive; a refuted claim is
+//  never kept as the decision's title), statuses and criteria
+//  update, and new findings arrive as wired blocks.
 //
 //  Addressing: an op names a block by id (the prompt now prints
 //  an id map) or by title. Ids win; an exact title match is
 //  trusted; a unique fuzzy match is applied but labeled in the
 //  preview; anything ambiguous or unknown is refused, never
-//  guessed.
+//  guessed, and every refusal names cards by their titles.
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, snapshot, saveState, serializeCanvas } from './state.js'
-import { genId, escHtml, showToast, STATUS_DEFS } from './utils.js'
+import { genId, escHtml, showToast, STATUS_DEFS, TYPES } from './utils.js'
 import { normalizeBlock, normalizeArrow } from './normalize.js'
+import { retypeBlock } from './type-menu.js'
 import { renderAllBlocks, renderInspector } from './render.js'
 import { renderArrows, renderFrames, fitView } from './canvas.js'
 import { runGapDetection } from './gaps.js'
@@ -75,57 +78,156 @@ export function resolveRef(ref) {
   return null
 }
 
-// ── Plan: one entry per operation, applied only when ok ──────
-
 const short = (s, n = 70) => { const t = String(s || '').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t }
 const titleOf = id => state.blocks[id]?.title || '(untitled)'
+const named = id => `"${short(titleOf(id), 40)}"`
+// A patch is JSON somebody else wrote: only a string (or a number) is text.
+// An object would otherwise land on the card as "[object Object]".
+const asText = v => typeof v === 'string' ? v.trim() : typeof v === 'number' && Number.isFinite(v) ? String(v) : ''
+const oneLine = s => asText(s).replace(/\s+/g, ' ')
+
+/**
+ * Why a reference resolved to nothing, in card titles. The person reading
+ * the preview sees titles, not ids, and "matches 2 cards" only helps when it
+ * says which two.
+ */
+export function explainRef(ref) {
+  const key = String(ref ?? '').trim()
+  if (!key) return 'No card given'
+  const want = normTitle(key)
+  const all = Object.values(state.blocks)
+  const exact = all.filter(b => normTitle(b.title) === want)
+  const hits = exact.length > 1 ? exact : all.filter(b => normTitle(b.title).includes(want))
+  if (hits.length > 1) {
+    const names = hits.slice(0, 3).map(b => `"${short(b.title || '(untitled)', 30)}"`).join(', ')
+    return `"${short(key, 40)}" matches ${hits.length} cards (${names}${hits.length > 3 ? ', …' : ''}); use the card's id`
+  }
+  return `No card matches "${short(key, 40)}"`
+}
+
+/**
+ * Which question an `answers` entry fills on block `b`: an index into its
+ * questions[] ({ idx }), the Open Question card itself ({ card: true }), or
+ * a refusal worded around the card's title ({ error }). On a question card
+ * an omitted `question` means the card: the card is the question.
+ */
+function answerTarget(b, q) {
+  const qs = b.questions || []
+  const isCard = b.type === 'question'
+  const name = named(b.id)
+  if (typeof q === 'number') {
+    if (Number.isInteger(q) && q >= 0 && qs[q]) return { idx: q }
+    if (isCard && q === 0 && !qs.length) return { card: true }
+    return { error: `${name} has no question ${q}` }
+  }
+  if (q != null && typeof q !== 'string') return { error: `"question" on ${name} must be an index or the question's text` }
+  if (oneLine(q)) {
+    const want = normTitle(q)
+    const matches = qs.map((x, i) => normTitle(x?.text) === want ? i : -1).filter(i => i >= 0)
+    if (matches.length === 1) return { idx: matches[0] }
+    if (matches.length > 1) return { error: `${matches.length} questions on ${name} read "${short(q, 40)}"; give its index` }
+    if (isCard && want === normTitle(b.title)) return { card: true }
+    return { error: `No question on ${name} reads "${short(q, 40)}"` }
+  }
+  if (isCard) return { card: true }
+  if (qs.length === 1) return { idx: 0 }
+  if (b.type === 'assumption') return { error: `${name} is an assumption: send it under verify, with a verdict and evidence` }
+  return { error: qs.length
+    ? `${name} has ${qs.length} questions; name one by its index or its text`
+    : `${name} has no question to answer` }
+}
+
+const statusLabelOf = blk => STATUS_DEFS[blk?.status || 'not-started']?.label || 'Not Started'
+
+// ── Plan: one entry per operation, applied only when ok ──────
+
 const planBaseline = () => JSON.stringify({ map: currentId(), canvas: serializeCanvas() })
 
 export function buildPlan(patch) {
   const ops = []
   const add = (kind, ok, label, opts = {}) => ops.push({ id: ops.length, kind, ok, label, selected: ok, requires: [], ...opts })
   const miss = (kind, ref, why) => add(kind, false, `${why}: "${short(ref, 40)}"`)
+  // A refusal already worded in titles, and one for a reference that found
+  // no single card.
+  const refuse = (kind, text) => add(kind, false, text)
+  const unresolved = (kind, ref) => refuse(kind, explainRef(ref))
 
-  // answers → questions[i].answer
+  // answers → questions[i].answer, or an Open Question card's own answer
   ;(Array.isArray(patch.answers) ? patch.answers : []).forEach(a => {
     const t = resolveRef(a?.block)
-    if (!t) return miss('answer', a?.block, 'No unique block match')
+    if (!t) return unresolved('answer', a?.block)
     const b = state.blocks[t.id]
-    const qs = b.questions || []
-    let idx = -1
-    if (typeof a.question === 'number') idx = a.question
-    else if (a.question != null) {
-      const matches = qs.map((q, i) => normTitle(q.text) === normTitle(a.question) ? i : -1).filter(i => i >= 0)
-      if (matches.length === 1) idx = matches[0]
+    const target = answerTarget(b, a?.question)
+    if (target.error) return refuse('answer', target.error)
+    const text = asText(a?.answer)
+    if (!text) return refuse('answer', `Empty answer for ${named(t.id)}`)
+    if (target.card) {
+      // The card is the question: the answer is its own field, and an
+      // answered question is done, so Attention stops listing it.
+      const had = !!String(b.answer || '').trim()
+      add('answer', true, `${had ? 'Replace the answer on' : 'Answer'} "${short(titleOf(t.id), 44)}"${b.status === 'done' ? '' : ' and mark it done'}`, {
+        conf: t.how, detail: short(text),
+        read: graph => {
+          const blk = graph.blocks[t.id]
+          return `${String(blk.answer || '').trim() ? blk.answer : 'Not answered'}\nStatus: ${statusLabelOf(blk)}`
+        },
+        apply(graph) {
+          const blk = graph.blocks[t.id]
+          blk.answer = text
+          blk.status = 'done'
+        },
+      })
+      return
     }
-    else if (qs.length === 1) idx = 0
-    if (!Number.isInteger(idx) || idx < 0 || !qs[idx]) return miss('answer', a?.question ?? a?.block, 'No unique matching question')
-    if (!String(a.answer || '').trim()) return miss('answer', a?.block, 'Empty answer')
-    add('answer', true, `Answer "${short(qs[idx].text, 44)}" on "${short(titleOf(t.id), 30)}"`, {
-      conf: t.how, detail: short(a.answer),
+    const idx = target.idx
+    add('answer', true, `Answer "${short(b.questions[idx].text, 44)}" on "${short(titleOf(t.id), 30)}"`, {
+      conf: t.how, detail: short(text),
       read: graph => graph.blocks[t.id].questions[idx].answer || 'Not answered',
-      apply(graph) { graph.blocks[t.id].questions[idx].answer = String(a.answer).trim() },
+      apply(graph) { graph.blocks[t.id].questions[idx].answer = text },
     })
   })
 
-  // verify → assumption becomes a decision in place (same id: arrows survive)
+  // verify → assumption becomes a decision in place (same id: arrows survive).
+  // A refuted claim never stays on as the decision's title: the card would
+  // state the opposite of what was found, and so would every later prompt.
   ;(Array.isArray(patch.verify) ? patch.verify : []).forEach(v => {
     const t = resolveRef(v?.block)
-    if (!t) return miss('verify', v?.block, 'No unique block match')
+    if (!t) return unresolved('verify', v?.block)
     const b = state.blocks[t.id]
-    if (b.type !== 'assumption') return miss('verify', b.title, 'Not an assumption')
+    if (b.type !== 'assumption') {
+      return refuse('verify', `${named(t.id)} is not an assumption (it is ${TYPES[b.type] ? 'a ' + TYPES[b.type].label : 'untyped'})`)
+    }
     const verdict = v.verdict === 'refuted' ? 'refuted' : v.verdict === 'verified' ? 'verified' : null
-    if (!verdict) return miss('verify', v?.block, 'verdict must be "verified" or "refuted"')
-    const evidence = String(v.evidence || '').trim()
-    if (!evidence) return miss('verify', b.title, 'No evidence given')
-    add('verify', true, `${verdict === 'verified' ? 'Verified' : 'Refuted'}: "${short(b.title, 40)}" becomes a decision`, {
+    if (!verdict) return refuse('verify', `The verdict on ${named(t.id)} must be "verified" or "refuted"`)
+    const evidence = asText(v.evidence)
+    if (!evidence) return refuse('verify', `No evidence for ${named(t.id)}: a verdict without evidence is still a guess`)
+    const claim = oneLine(b.title) || '(untitled)'
+    const decided = oneLine(v.decision)
+    const title = verdict === 'refuted' ? (decided || `Not true: ${claim}`) : b.title
+    add('verify', true, verdict === 'verified'
+      ? `Verified: "${short(claim, 40)}" becomes a decision`
+      : `Refuted: "${short(claim, 34)}" becomes the decision "${short(title, 34)}"`, {
       conf: t.how, detail: short(evidence),
       read: graph => blockDetails(graph.blocks[t.id]),
       apply(graph) {
         const blk = graph.blocks[t.id]
-        blk.type = 'decision'
-        blk.rationale = (verdict === 'verified' ? 'Verified: ' : 'Refuted: ') + evidence
+        const was = oneLine(blk.title) || '(untitled)'
+        const description = String(blk.description || '').trim()
+        const prior = String(blk.rationale || '').trim()
+        // The one retype rule: the type check and a carried type hint go, and
+        // so does a colour that was only the assumption's colour.
+        Object.assign(blk, retypeBlock(blk, 'decision') || { type: 'decision' })
         blk.actions = (blk.actions || []).filter(x => x !== 'validate')
+        if (verdict === 'verified') {
+          blk.rationale = ['Verified: ' + evidence, decided && 'Decision: ' + decided, prior].filter(Boolean).join('\n')
+          return
+        }
+        // Refuted: the title says what is true now. The false claim, and the
+        // description that argued for it, stay as the record of what was
+        // believed, in the rationale, never as a statement on the card.
+        blk.title = title
+        blk.description = ''
+        blk.rationale = ['Refuted: ' + evidence, 'The assumption was: ' + was, description, prior].filter(Boolean).join('\n')
       },
     })
   })
@@ -133,8 +235,10 @@ export function buildPlan(patch) {
   // status
   ;(Array.isArray(patch.status) ? patch.status : []).forEach(sOp => {
     const t = resolveRef(sOp?.block)
-    if (!t) return miss('status', sOp?.block, 'No unique block match')
-    if (typeof sOp?.status !== 'string' || !Object.hasOwn(STATUS_DEFS, sOp.status)) return miss('status', sOp?.block, 'Unknown status')
+    if (!t) return unresolved('status', sOp?.block)
+    if (typeof sOp?.status !== 'string' || !Object.hasOwn(STATUS_DEFS, sOp.status)) {
+      return refuse('status', `Unknown status "${short(sOp?.status, 24)}" for ${named(t.id)}; use ${Object.keys(STATUS_DEFS).join(', ')}`)
+    }
     add('status', true, `Status of "${short(titleOf(t.id), 40)}" → ${sOp.status}`, {
       conf: t.how,
       read: graph => STATUS_DEFS[graph.blocks[t.id].status || 'not-started']?.label || 'Not Started',
@@ -145,16 +249,20 @@ export function buildPlan(patch) {
   // criteria → append, dedup, cap 30
   ;(Array.isArray(patch.criteria) ? patch.criteria : []).forEach(c => {
     const t = resolveRef(c?.block)
-    if (!t) return miss('criteria', c?.block, 'No unique block match')
+    if (!t) return unresolved('criteria', c?.block)
     const before = state.blocks[t.id].criteria || []
     const have = new Set(before.map(normTitle))
     const adds = []
     ;(Array.isArray(c.add) ? c.add : []).forEach(value => {
-      const text = String(value || '').trim().slice(0, 300)
+      const text = asText(value).slice(0, 300)
       if (!text || have.has(normTitle(text)) || before.length + adds.length >= 30) return
       have.add(normTitle(text)); adds.push(text)
     })
-    if (!adds.length) return miss('criteria', c?.block, before.length >= 30 ? 'Already at the 30-criterion limit' : 'No new criteria to add')
+    if (!adds.length) {
+      return refuse('criteria', before.length >= 30
+        ? `${named(t.id)} is already at the 30-criterion limit`
+        : `No new criteria for ${named(t.id)}`)
+    }
     add('criteria', true, `${adds.length} acceptance criteri${adds.length === 1 ? 'on' : 'a'} on "${short(titleOf(t.id), 36)}"`, {
       conf: t.how, detail: short(adds.join(' · ')),
       read: graph => (graph.blocks[t.id].criteria || []).join('\n') || 'No acceptance criteria',
@@ -162,7 +270,7 @@ export function buildPlan(patch) {
         const blk = graph.blocks[t.id], all = [...(blk.criteria || [])]
         const known = new Set(all.map(normTitle))
         ;(Array.isArray(c.add) ? c.add : []).forEach(value => {
-          const text = String(value || '').trim().slice(0, 300)
+          const text = asText(value).slice(0, 300)
           if (!text || known.has(normTitle(text)) || all.length >= 30) return
           known.add(normTitle(text)); all.push(text)
         })
@@ -176,9 +284,9 @@ export function buildPlan(patch) {
   // bar emits these; anything may.
   ;(Array.isArray(patch.notes) ? patch.notes : []).forEach(nOp => {
     const t = resolveRef(nOp?.block)
-    if (!t) return miss('note', nOp?.block, 'No unique block match')
-    const text = String(nOp?.note || '').trim()
-    if (!text) return miss('note', nOp?.block, 'Empty note')
+    if (!t) return unresolved('note', nOp?.block)
+    const text = asText(nOp?.note)
+    if (!text) return refuse('note', `Empty note for ${named(t.id)}`)
     add('note', true, `Note on "${short(titleOf(t.id), 40)}"`, {
       conf: t.how, detail: short(text),
       read: graph => graph.blocks[t.id].notes || 'No notes',
@@ -225,7 +333,13 @@ export function buildPlan(patch) {
   const connected = new Set(state.arrows.map(a => JSON.stringify([a.from, a.to])))
   ;(Array.isArray(patch.arrows) ? patch.arrows : []).forEach(ra => {
     const clean = normalizeArrow(ra)
-    if (!clean) return miss('arrow', `${ra?.from} → ${ra?.to}`, 'Unsalvageable arrow')
+    if (!clean) {
+      const from = String(ra?.from ?? '').trim(), to = String(ra?.to ?? '').trim()
+      const hit = from && resolveRef(from)
+      return refuse('arrow', from && from === to
+        ? `"${short(hit ? titleOf(hit.id) : from, 40)}" cannot connect to itself`
+        : 'A connection needs both ends, "from" and "to"')
+    }
     const end = ref => {
       if (idMap.has(ref)) return { id: idMap.get(ref), how: 'id' }
       // A rejected new block must not fall back to an existing block with
@@ -234,8 +348,14 @@ export function buildPlan(patch) {
     }
     const nameOf = id => pendingTitle.get(id) || titleOf(id)
     const f = end(clean.from), t = end(clean.to)
-    if (!f || !t) return miss('arrow', `${clean.from} → ${clean.to}`, 'No unique match for an endpoint')
-    if (f.id === t.id) return miss('arrow', clean.from, 'Arrow to itself')
+    if (!f || !t) {
+      // Say which end failed, and why, in titles where there are titles.
+      const side = (ref, hit) => hit ? `"${short(nameOf(hit.id), 26)}"` : `"${short(ref, 26)}"`
+      const why = (ref, hit) => hit ? '' : idCounts.has(ref) ? `the new card "${short(ref, 26)}" was refused` : explainRef(ref)
+      const reasons = [why(clean.from, f), why(clean.to, t)].filter(Boolean)
+      return refuse('arrow', `Cannot connect ${side(clean.from, f)} → ${side(clean.to, t)}: ${reasons.join('; ')}`)
+    }
+    if (f.id === t.id) return refuse('arrow', `"${short(nameOf(f.id), 40)}" cannot connect to itself`)
     const pair = JSON.stringify([f.id, t.id])
     if (connected.has(pair)) {
       return miss('arrow', `${nameOf(f.id)} → ${nameOf(t.id)}`, 'Already connected or included in this patch')

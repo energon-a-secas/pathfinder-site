@@ -7,7 +7,7 @@ import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, typeInfo, askedQuestions } from './utils.js'
 import { runGapDetection, GAP_META, nextEmptyStep } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
-import { taskChecklist } from './task-plan.js'
+import { taskChecklist, mitigationIndex, cardAnswer, IMPLIED_MITIGATION } from './task-plan.js'
 
 /**
  * The block types each prompt section prints. `tasks` is the Build checklist,
@@ -141,6 +141,11 @@ export function generatePrompt() {
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
 
+  // Who mitigates each risk, read from the drawing (relations.js), so a risk
+  // is never handed over without the work that answers it.
+  const { byRisk: mitigations } = mitigationIndex(state.blocks, state.arrows)
+  const nameOf = id => `${state.blocks[id].title || '(untitled)'} (${typeInfo(state.blocks[id].type).label})`
+
   const fmt = b => {
     const tags = []
     if (b.priority) tags.push(PRIORITY_DEFS[b.priority]?.label?.toUpperCase() || b.priority)
@@ -148,6 +153,18 @@ export function generatePrompt() {
     const tagStr = tags.length ? ` [${tags.join('] [')}]` : ''
     let s = `\u2022${tagStr} ${b.title || '(untitled)'}`
     if (b.description) s += `\n  ${b.description}`
+    // A block's own answer: an Open Question card's, or one kept from when a
+    // retyped block was a question.
+    const own = String(b.answer ?? '').trim()
+    if (own) s += `\n  Answer: ${own.replace(/\n/g, '\n  ')}`
+    if (b.type === 'risk' && mitigations.has(b.id)) {
+      // What the author wrote, then what only the endpoint types suggest,
+      // labelled as such: a risk is never handed over as covered on a guess.
+      const all = mitigations.get(b.id), names = list => list.map(m => nameOf(m.id)).join('; ')
+      const stated = all.filter(m => !m.implied), implied = all.filter(m => m.implied)
+      if (stated.length) s += `\n  Mitigated by: ${names(stated)}`
+      if (implied.length) s += `\n  Mitigated by (${IMPLIED_MITIGATION}): ${names(implied)}`
+    }
     if ((b.criteria || []).length) {
       s += `\n  ${typeInfo(b.type).criteria || 'Acceptance criteria'}:`
       b.criteria.forEach(c => { s += `\n    - ${c}` })
@@ -158,12 +175,19 @@ export function generatePrompt() {
       const anchor = b.docRef.anchor ? `#${b.docRef.anchor}` : ''
       s += `\n  Referenced doc: ${ref}${b.docRef.href && b.docRef.label ? ` (${b.docRef.href}${anchor})` : anchor}`
     }
+    // Questions raised on the block: the open ones, then the answered ones,
+    // each under a heading that says which they are.
     const asked = askedQuestions(b)
-    if (asked.length) {
+    const open = asked.filter(q => !q.answer?.trim()), answered = asked.filter(q => q.answer?.trim())
+    if (open.length) {
       s += '\n  Open questions:'
-      asked.forEach(q => {
+      open.forEach(q => { s += `\n    - ${q.text}` })
+    }
+    if (answered.length) {
+      s += '\n  Answered questions:'
+      answered.forEach(q => {
         s += `\n    - ${q.text}`
-        if (q.answer?.trim()) s += `\n      Answer: ${q.answer.trim().replace(/\n/g, '\n      ')}`
+        s += `\n      Answer: ${q.answer.trim().replace(/\n/g, '\n      ')}`
       })
     }
     if ((b.actions||[]).length) s += `\n  Actions: ${b.actions.join(', ')}`
@@ -180,6 +204,21 @@ export function generatePrompt() {
   const taskSection = () => {
     const checklist = taskChecklist(state.blocks, state.arrows)
     return checklist ? `## Implementation checklist\n${checklist}` : ''
+  }
+
+  // Open Question cards: the open ones under the registry's heading, the
+  // answered ones under their own, so an answer is never handed over as an
+  // unknown still waiting (and the reader does not ask it again).
+  const questionSection = () => {
+    const items = byType.question; if (!items?.length) return ''
+    const open = items.filter(b => !cardAnswer(b)), answered = items.filter(b => cardAnswer(b))
+    let out = ''
+    if (open.length) out += `## ${typeInfo('question').section}\n${open.map(fmt).join('\n')}\n`
+    if (answered.length) {
+      out += `${out ? '\n' : ''}## Answered Questions\nAnswers recorded on the map. Rely on them rather than asking again, and say so if you find one is wrong.\n`
+      out += `${answered.map(fmt).join('\n')}\n`
+    }
+    return out
   }
 
   // Workflow section: process + terminator nodes as an ordered sequence.
@@ -227,7 +266,7 @@ export function generatePrompt() {
     tasks:        () => taskSection(),
     assumptions:  () => sec('assumption'),
     risks:        () => sec('risk'),
-    questions:    () => sec('question'),
+    questions:    () => questionSection(),
     decisions:    () => sec('decision'),
     resources:    () => sec('resource'),
     outputs:      () => sec('output'),
@@ -397,7 +436,9 @@ export function generatePrompt() {
     'https://pathfinder.neorgon.com/llms.txt) carrying: answers to the open questions, each ' +
     'assumption marked verified or refuted with its evidence, status changes, new acceptance ' +
     'criteria, and any new blocks wired to existing ones. Address blocks by the ids below; ' +
-    'do not invent answers you do not have. For new arrows, set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n' +
+    'do not invent answers you do not have. To answer an Open Question card, give its id and leave out "question". ' +
+    'For a refuted assumption, add "decision": the statement that is true instead, which becomes the card\'s title. ' +
+    'For new arrows, set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n' +
     // The ids, not the labels: a label ("Trigger / End") is what a person
     // reads, the id is what the patch must carry.
     `A new block's type is one of: ${Object.keys(TYPES).join(', ')}.\n`
@@ -523,6 +564,7 @@ function promptSnapshot() {
     status: b.status || 'not-started', priority: b.priority || null,
     actions: b.actions || [], criteria: b.criteria || [], questions: b.questions || [],
     rationale: b.rationale || '', docRef: b.docRef || null, groupId: b.groupId || null,
+    answer: b.answer || '',
   }]))
   const arrows = Object.fromEntries(state.arrows.map(a => [JSON.stringify([a.from, a.to]), {
     relation: a.relation || null, label: a.label || '', note: a.note || '', bidirectional: !!a.bidirectional,

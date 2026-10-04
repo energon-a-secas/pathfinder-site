@@ -11,6 +11,7 @@ import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
 import { runGapDetection } from './gaps.js'
 import { generatePrompt, refreshPrompt, situationSection, connectionReading } from './prompt.js'
+import { cardAnswer } from './task-plan.js'
 
 // ── Import JSON ───────────────────────────────────────────────
 /**
@@ -169,6 +170,9 @@ export function buildMarkdown() {
       if (b.status && b.status !== 'not-started') tags.push(b.status)
       md += `### ${b.title}${tags.length ? ' [' + tags.join(', ') + ']' : ''}\n`
       if (b.description) md += `${b.description}\n\n`
+      // A block's own answer (an Open Question card's, or one kept from when
+      // a retyped block was a question), as the prompt prints it.
+      if (String(b.answer ?? '').trim()) md += `**Answer:** ${String(b.answer).trim()}\n\n`
       if (b.criteria?.length) {
         md += `**${typeInfo(b.type).criteria || 'Acceptance criteria'}:**\n`
         b.criteria.forEach(c => { md += `- [ ] ${c}\n` })
@@ -367,23 +371,34 @@ export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmit
   }
 
   // Open questions: question blocks, then unanswered questions raised on
-  // any other block, which a meeting is exactly the place to settle.
-  const questions = blocks.filter(b => b.type === 'question')
+  // any other block, which a meeting is exactly the place to settle. A
+  // question card with its answer recorded is settled, so it moves to its
+  // own list with the answer.
+  const cards = blocks.filter(b => b.type === 'question')
+  const questions = cards.filter(b => !cardAnswer(b)), answeredCards = cards.filter(b => cardAnswer(b))
   const raised = blocks.filter(b => b.type !== 'question')
     .flatMap(b => (b.questions || []).filter(q => q.text?.trim() && !q.answer?.trim()).map(q => ({ b, q })))
+  const cardLine = b => {
+    let line = `- ${titleOf(b)}${b.description ? `: ${oneLine(b.description)}` : ''}`
+    askedQuestions(b).forEach(q => {
+      line += `\n  - ${oneLine(q.text)}${q.answer?.trim() ? `: answered: ${oneLine(q.answer)}` : ''}`
+    })
+    return line
+  }
   md += '## Open questions\n\n'
   if (questions.length || raised.length) {
-    questions.forEach(b => {
-      md += `- ${titleOf(b)}${b.description ? `: ${oneLine(b.description)}` : ''}`
-      askedQuestions(b).forEach(q => {
-        md += `\n  - ${oneLine(q.text)}${q.answer?.trim() ? `: answered: ${oneLine(q.answer)}` : ''}`
-      })
-      md += '\n'
-    })
+    questions.forEach(b => { md += cardLine(b) + '\n' })
     raised.forEach(({ b, q }) => { md += `- ${oneLine(q.text)} (on "${titleOf(b)}")\n` })
     md += '\n'
+  } else if (answeredCards.length) {
+    md += '_None open: every question on the map has an answer recorded._\n\n'
   } else {
     md += `_No questions recorded. Add ${TYPES.question.label} blocks to track what needs answering._\n\n`
+  }
+  if (answeredCards.length) {
+    md += '## Answered questions\n\n'
+    answeredCards.forEach(b => { md += `${cardLine(b)}\n  - Answer: ${oneLine(cardAnswer(b))}\n` })
+    md += '\n'
   }
 
   // Every other type on the canvas, in registry order, under its plural.

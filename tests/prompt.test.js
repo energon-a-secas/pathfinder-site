@@ -594,3 +594,27 @@ describe('Changes since prompt export', () => {
     promptState.lastSnapshot = null
   })
 })
+
+describe('Risks, mitigations and answered cards in the prompt (design round)', () => {
+  it('prints a risk with what mitigates it, and a guess from an unlabelled arrow as implied', () => {
+    resetPromptState()
+    addBlock('k', 'risk', 'Provider outage')
+    addBlock('w', 'implementation', 'Feature flag')
+    addBlock('d', 'decision', 'Keep local login as a fallback')
+    addArrow('k', 'w')
+    addArrow('k', 'd')
+    state.arrows.find(a => a.to === 'd').label = 'mitigated by'
+    const p = generatePrompt()
+    assert.includes(p, '• Provider outage\n  Mitigated by: Keep local login as a fallback (Decision)\n' +
+      '  Mitigated by (implied by an unlabelled arrow): Feature flag (Implementation)')
+  })
+  it('prints an answered Open Question card as an answer', () => {
+    resetPromptState()
+    addBlock('q', 'question', 'Staging too?')
+    state.blocks.q.answer = 'Yes, both.'
+    const p = generatePrompt()
+    assert.includes(p, '## Answered Questions')
+    assert.includes(p, '• Staging too?\n  Answer: Yes, both.')
+    assert.notIncludes(p, '## Open Questions')
+  })
+})

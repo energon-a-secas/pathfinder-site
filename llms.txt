@@ -33,12 +33,24 @@ The blocks most worth your attention are the ones people skim:
   the repository open, several are probably settleable by reading it. Check
   those rather than asking, and label each result verified or still open.
 - **Open Questions** are genuine unknowns. Answering them from a guess is the
-  main way a plan like this goes wrong.
+  main way a plan like this goes wrong. **Answered Questions** carry the answer
+  somebody recorded on the map; use it rather than asking again.
 - **Connections** carry labels (`blocks`, `depends on`, `mitigates`). They are
   the dependency order. Use them to sequence work rather than inventing an
   order of your own. An unlabelled connection between two types that imply a
   verb prints it as `[implied: satisfies]`: the tool inferred it from the
-  endpoint types, the author did not write it.
+  endpoint types, the author did not write it. An unlabelled connection that
+  touches a goal, stakeholder, metric, risk, resource or context sets no order.
+- The **Implementation checklist** (Build mode) is in dependency order.
+  `after:` names what must come first; `mitigates:` names the risk a task
+  answers, which is not an order. Tasks under "Not ordered by the map" may be
+  connected, but no connection sets their order: decide where each belongs.
+- A mitigation marked **(implied by an unlabelled arrow)**, on a risk
+  ("Mitigated by (implied by an unlabelled arrow): ...") or on a task
+  ("mitigates (implied by an unlabelled arrow): ..."), is the tool's reading
+  of an arrow from a risk that nobody labelled. The author did not say the
+  risk is covered; check that the work really answers it before relying on
+  it.
 - **Accepted gaps** are gaps the author looked at and chose to leave. Do not
   raise them again as findings.
 - A **Gap summary** at the end lists blocks the tool itself flagged as
@@ -154,7 +166,7 @@ arrow has no label (it is never stored):
 | metric → goal | measures |
 | output → stakeholder | delivered to |
 | stakeholder → goal | owns |
-| risk → decision | mitigated by |
+| risk → decision, implementation, requirement or process | mitigated by |
 
 ### Other enums
 
@@ -165,7 +177,25 @@ arrow has no label (it is never stored):
   `depends-on` means the target must precede the source. `precedes` and `blocks`
   order the source first. `informs` and `related` provide context without task
   ordering. Explicit meaning overrides label text. When omitted, recognized
-  old labels infer their meaning; other arrows keep source-to-target ordering.
+  old labels infer their meaning. An unlabelled arrow (or one labelled with
+  the verb its pair implies, such as "measures") that touches a `goal`,
+  `stakeholder`, `metric`, `risk`, `resource` or `context` sets no order:
+  it reads as `related` at a risk and `informs` otherwise. Every other arrow
+  keeps source-to-target ordering, so flow steps, tasks, decisions and the
+  assumption or question a task waits on stay in sequence. Set a relation
+  when you mean an order the types do not imply.
+- Mitigations are read from the drawing: a `risk` pointing at a block
+  labelled `mitigated by`, `guarded by`, `prevented by`, `reduced by`,
+  `handled by`, `addressed by`, `covered by`, `contained by` or `caught by`,
+  or a block pointing at a risk labelled `mitigates`, `guards`,
+  `guards against`, `prevents`, `reduces`, `handles`, `addresses`, `covers`,
+  `contains` or `catches`. None of them sets an order. The prompt prints each
+  risk with its mitigations, and each task with the risks it mitigates. A
+  risk pointing at a decision, implementation, requirement or process with
+  no label and no relation is printed as a mitigation **implied by an
+  unlabelled arrow**, never as fact: the work that brings a risk is drawn the
+  same way. An arrow with a relation set (`informs`, `related`) is not read
+  as a mitigation. To state one, label the arrow `mitigated by`.
 - `arrows[].style`: the route only. `routed` (default, steers around
   blocks), `curved`, `straight`, `elbow`. The old values `dashed` and `dotted`
   still load, as `curved` plus that pattern
@@ -195,6 +225,10 @@ arrow has no label (it is never stored):
   type of a block whose type this build did not know, so a newer build can
   restore it
 - `blocks[].rationale`: why a decision was made (string, `decision` blocks)
+- `blocks[].answer`: the answer to an Open Question card (`question` blocks;
+  the card is the question, so it holds its own answer). The prompt prints an
+  answered card under "Answered Questions". Set `status` to `done` with it.
+  Questions raised on other blocks keep theirs in `questions[].answer`
 - `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
 - `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
 - `meta.situation.codebase`: `none`, `current`, `other`, `greenfield`
@@ -249,7 +283,9 @@ old `dashed` style, describe a lossless reading and do not fail the check.
 - **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): File ▾ →
   Download JSON Canvas writes the map as a `.canvas` file, each text node in
   its type's exact hex colour plus a `pathfinderType` field (and
-  `pathfinderColor` when the author recoloured it). File ▾ → Import reads one
+  `pathfinderColor` when the author recoloured it). An answered Open Question
+  card carries its answer in the text (`**Answer:** ...`) and, exactly, in
+  `pathfinderAnswer`, which import puts back in `answer`. File ▾ → Import reads one
   and types each node from, in order: `pathfinderType`, an exact type hex
   (dark or light palette, any case), then the classifier on its text, with a
   preset colour (`"1"` to `"6"`) only as a hint. An uncertain call is marked
@@ -280,8 +316,11 @@ fuzzy match is labeled, ambiguity is refused).
   "format": "pathfinder-patch",
   "version": 1,
   "note": "one line the human sees first",
-  "answers":  [{ "block": "b3", "question": 0, "answer": "Staging is clean; production only." }],
-  "verify":   [{ "block": "b5", "verdict": "verified", "evidence": "The cert rotated on Wed; log line attached." }],
+  "answers":  [{ "block": "b3", "question": 0, "answer": "Staging is clean; production only." },
+               { "block": "b6", "answer": "No: service accounts use API keys and never reach the login form." }],
+  "verify":   [{ "block": "b5", "verdict": "verified", "evidence": "The cert rotated on Wed; log line attached." },
+               { "block": "b7", "verdict": "refuted", "evidence": "Tokens are capped at 24h (config/oauth.yml).",
+                 "decision": "Renew sessions through refresh tokens" }],
   "status":   [{ "block": "b2", "status": "done" }],
   "criteria": [{ "block": "b4", "add": ["fails before the fix, passes after"] }],
   "notes":    [{ "block": "b2", "note": "check the cert dates too" }],
@@ -294,10 +333,18 @@ Semantics:
 
 - `answers`: fills a question's `answer` field. `question` is the zero-based
   index or unique question text; omit it when the block has exactly one
-  question. If two questions have the same text, use the index.
+  question. If two questions have the same text, use the index. **An Open
+  Question card** (`type: "question"`) is the question itself: give its id
+  and omit `question`, and the answer lands in the card's own `answer` and
+  marks the card done. An assumption is not answered; send it under `verify`.
 - `verify`: an `assumption` becomes a `decision` **in place** (same id, so its
   arrows survive); `verdict` is `verified` or `refuted`, and `evidence` is
-  required, because a verdict without evidence is still a guess.
+  required, because a verdict without evidence is still a guess. A verified
+  assumption keeps its claim as the decision's title, with the evidence in
+  `rationale`. A refuted one never does: the card is retitled with
+  `decision` (the statement that is true instead) when you give it, and
+  "Not true: <the claim>" when you do not; the evidence, the original claim
+  and its old description move into `rationale`.
 - `status`: `not-started`, `in-progress`, `done`, `blocked`.
 - `criteria`: appends acceptance criteria (case-insensitively deduplicated
   within and across operations, capped at 30, each at most 300 characters).
@@ -311,6 +358,8 @@ Semantics:
   connections are deduplicated.
 
 Do not put answers you do not have in a patch. An empty patch is a valid reply.
+A refused operation is listed in the preview with the reason, naming cards by
+their titles; the rest of the patch still applies.
 Only version 1 is supported (an omitted version is treated as version 1).
 If the map changes after preview, the user must review a refreshed preview
 before applying. A single preview cannot be applied twice.
@@ -357,8 +406,10 @@ none`, do not reason about files. If it says `runtime: chat`, do not claim to
 have read anything.
 
 **Return blocks, not prose.** An answered question becomes
-`questions[].answer`. A checked assumption becomes a `decision` with the
-evidence in its description, and the assumption is either deleted or marked.
+`questions[].answer`, or, on an Open Question card, the card's own `answer`
+with `status: "done"`. A checked assumption becomes a `decision` in place with
+the evidence in its `rationale`; a refuted one is retitled with what is true
+instead, never left stating the claim that turned out false.
 A newly discovered unknown becomes a `question` block wired to what it affects.
 That way the canvas accumulates what was learned instead of resetting each time.
 

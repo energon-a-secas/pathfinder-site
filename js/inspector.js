@@ -316,6 +316,7 @@ function renderBlockInspector(b) {
     if (b.type === 'decision') setField(el, b.rationale || '', isNew)
     viewOnly(el, ro, { empty: !(b.rationale || '').trim() })
   }
+  renderAnswer(b, isNew, ro)
 
   // The type's own actions, as real toggles. An action the block carries
   // from an earlier type stays visible so it can be switched off. The same
@@ -413,6 +414,89 @@ function renderBlockInspector(b) {
   }
   revealFieldsIn(root)
   ;[inspDesc, $.inspCriteria(), $.inspRationale(), inspNotes].forEach(autogrow)
+}
+
+// ── An Open Question's answer ────────────────────────────────
+// The card is the question, so its answer is a field of its own
+// (block.answer), not a questions[] entry. The section is built here, right
+// after the type's other fields, so it stays one unit. Writing an answer into
+// an empty field marks the question done when the field is left, inside the
+// same typing burst (one undo step), exactly as a patch answer does; the
+// label's hint says so before it happens. A block retyped from a question
+// keeps the field while it holds an answer, so what the prompt prints can
+// still be read and cleared.
+function answerSection() {
+  const anchor = byId('rationaleSection') || byId('criteriaSection')
+  if (!anchor) return null
+  if (anchor.nextElementSibling?.id === 'answerSection') return anchor.nextElementSibling
+  const section = document.createElement('div')
+  section.className = 'insp-section'
+  section.id = 'answerSection'
+  section.style.display = 'none'
+  section.innerHTML =
+    '<label class="insp-label" for="inspAnswer">Answer <span class="insp-label-hint" id="answerHint"></span></label>' +
+    '<textarea class="insp-textarea insp-autogrow" id="inspAnswer" rows="2" placeholder="What you found, and how you know it"></textarea>'
+  anchor.after(section)
+  wireAnswerField(section.querySelector('textarea'))
+  return section
+}
+
+function renderAnswer(b, isNew, ro) {
+  // Another block coming up ends the burst on the one before. A click on a
+  // card selects it on pointerdown, before the field blurs, and the field
+  // then shows the new block's answer, so no change event follows: the
+  // answer typed into the last question still settles its status here,
+  // inside its own undo entry.
+  if (answerBurst && answerBurst.id !== b.id) settleAnswer()
+  const section = answerSection()
+  if (!section) return
+  const has = !!String(b.answer || '').trim()
+  const show = b.type === 'question' || has
+  section.style.display = show ? '' : 'none'
+  const el = section.querySelector('textarea')
+  setField(el, show ? (b.answer || '') : '', isNew)
+  section.querySelector('.insp-label-hint').textContent = ro ? ''
+    : b.type !== 'question' ? 'kept from when this was an open question'
+    : b.status === 'done' ? '' : 'writing one marks the question done'
+  viewOnly(el, ro, { empty: !has })
+  autogrow(el)
+}
+
+let answerBurst = null // { id, wasEmpty }: the typing burst in progress
+
+// End the burst: an answer written into an empty field marks its question
+// done. Read from the model, never from the field, which may already show
+// another block. Still inside the burst's undo entry, so the answer and the
+// status it settles are one step. `refresh` redraws the inspector for the
+// status; a caller already drawing it passes false.
+function settleAnswer({ refresh = false } = {}) {
+  const burst = answerBurst
+  answerBurst = null
+  const b = burst && state.blocks[burst.id]
+  if (b && !ui.readOnly && b.type === 'question' && burst.wasEmpty &&
+      String(b.answer || '').trim() && b.status !== 'done') {
+    mutateBlock(burst.id, { status: 'done' })
+    if (refresh) renderInspector()
+  }
+  if (burst) resetSnapshotToken()
+}
+
+function wireAnswerField(el) {
+  if (!el || el._pfAnswer) return
+  el._pfAnswer = true
+  el.addEventListener('input', () => {
+    autogrow(el)
+    const id = selection.blockId
+    const b = id && state.blocks[id]
+    if (!b || ui.readOnly) return
+    if (answerBurst?.id !== id) answerBurst = { id, wasEmpty: !String(b.answer || '').trim() }
+    snapshotOnce('insp-answer:' + id)
+    mutateBlock(id, { answer: el.value.trim() ? el.value : undefined })
+  })
+  // Leaving the field ends the burst however focus goes: Tab, a click in the
+  // panel, a click on the canvas.
+  el.addEventListener('change', () => settleAnswer({ refresh: true }))
+  el.addEventListener('blur', () => settleAnswer({ refresh: true }))
 }
 
 // ── Header fit ───────────────────────────────────────────────

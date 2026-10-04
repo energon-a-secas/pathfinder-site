@@ -233,3 +233,30 @@ describe('buildPlan() + applyPlan()', () => {
     assert.eq(getUndoHistory().length, 0, 'nothing applied, nothing snapshotted')
   })
 })
+
+describe('Open Question cards and refutations (design round)', () => {
+  it('answers a question card by its id alone and marks it done', () => {
+    seedPatchState()
+    state.blocks.qc = { id: 'qc', type: 'question', title: 'Staging too?', description: '', notes: '',
+      x: 0, y: 200, actions: [], criteria: [], questions: [] }
+    const plan = buildPlan({ answers: [{ block: 'qc', answer: 'Yes, both.' }] })
+    assert.eq(plan.ops[0].ok, true)
+    applyPlan(plan)
+    assert.eq(state.blocks.qc.answer, 'Yes, both.')
+    assert.eq(state.blocks.qc.status, 'done')
+  })
+  it('a refuted assumption is retitled, never left stating the claim', () => {
+    seedPatchState()
+    applyPlan(buildPlan({ verify: [{ block: 'a1', verdict: 'refuted', evidence: 'The deploy was rolled back first.' }] }))
+    assert.eq(state.blocks.a1.type, 'decision')
+    assert.eq(state.blocks.a1.title, 'Not true: It started with the deploy')
+    assert.match(state.blocks.a1.rationale, /^Refuted: The deploy was rolled back first\./)
+  })
+  it('names the card, not its id, when it refuses', () => {
+    seedPatchState()
+    const plan = buildPlan({ answers: [{ block: 'r1', answer: 'x' }] })
+    assert.eq(plan.ops[0].ok, false)
+    assert.includes(plan.ops[0].label, '"A failing-first test"')
+    assert.notIncludes(plan.ops[0].label, 'r1')
+  })
+})

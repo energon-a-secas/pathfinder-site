@@ -177,6 +177,9 @@ export function resolveNodeType(node, title, { legacy = false } = {}) {
   return { type: candidates[0], title, confidence: 'low' }
 }
 
+// How a node's text carries an Open Question card's answer.
+const answerLine = answer => `**Answer:** ${answer}`
+
 // First non-empty line becomes the title, the rest the description.
 function splitText(md) {
   const lines = String(md || '').split(/\r?\n/)
@@ -228,7 +231,13 @@ export function fromJsonCanvas(data) {
     const title = split.title === '(untitled)' ? '' : split.title
     const description = split.description
     const r = resolveNodeType(n, title, { legacy })
-    const block = { ...base, type: r.type, color: colorFor(r.type), title: r.title ?? title, description }
+    // Our own export writes the answer into the text and, exactly, into
+    // `pathfinderAnswer`: back in its field, and out of the description.
+    const answer = typeof n.pathfinderAnswer === 'string' ? n.pathfinderAnswer.trim() : ''
+    const tail = answer ? answerLine(answer) : ''
+    const desc = tail && description.endsWith(tail) ? description.slice(0, -tail.length).trimEnd() : description
+    const block = { ...base, type: r.type, color: colorFor(r.type), title: r.title ?? title, description: desc }
+    if (answer) block.answer = answer
     if (r.confidence === 'low') { block.typeCheck = true; lowConfidence.push(id) }
     blocks.push(block)
   })
@@ -283,6 +292,10 @@ export function toJsonCanvas() {
     if (b.description) text += `\n\n${b.description}`
     if ((b.criteria || []).length) text += '\n\n' + b.criteria.map(c => `- [ ] ${c}`).join('\n')
     if (b.rationale?.trim()) text += `\n\n_Rationale: ${b.rationale.trim()}_`
+    // An Open Question card's answer, readable in any JSON Canvas tool, and
+    // exact in `pathfinderAnswer` so our own import puts it back in its field.
+    const answer = String(b.answer ?? '').trim()
+    if (answer) text += `\n\n${answerLine(answer)}`
     const type = TYPES[b.type] ? b.type : 'custom'
     const [override, exact] = exportColorFor(b.color, type)
     const node = {
@@ -299,6 +312,7 @@ export function toJsonCanvas() {
       pathfinderType: b.typeHint || type,
     }
     if (exact) node.pathfinderColor = exact
+    if (answer) node.pathfinderAnswer = answer
     nodes.push(node)
   })
 

@@ -42,3 +42,21 @@ describe('Connection meanings', () => {
     assert.deepEq(buildTaskPlan(state.blocks, state.arrows).tasks.map(b => b.id), ['b', 'a'])
   })
 })
+
+describe('Connection meanings from endpoint types (design round)', () => {
+  const typed = { g: { id: 'g', type: 'goal' }, k: { id: 'k', type: 'risk' }, i: { id: 'i', type: 'implementation' },
+    r: { id: 'r', type: 'requirement' }, c: { id: 'c', type: 'context' }, s: { id: 's', type: 'resource' } }
+  it('an unlabelled arrow at a goal, risk, context or resource sets no order', () => {
+    assert.eq(relationOf({ from: 'g', to: 'r' }, typed), 'informs')
+    assert.eq(relationOf({ from: 'i', to: 'g' }, typed), 'informs')
+    assert.eq(relationOf({ from: 'k', to: 'i' }, typed), 'related')
+    assert.eq(relationOf({ from: 'c', to: 'i' }, typed), 'informs')
+    assert.eq(relationOf({ from: 's', to: 'i' }, typed), 'informs')
+    assert.deepEq(dependencyEdges(typed, [{ from: 'k', to: 'i' }, { from: 'g', to: 'r' }, { from: 'i', to: 'r' }]), [{ from: 'i', to: 'r' }])
+  })
+  it('a set relation or a label keeps its meaning at those types', () => {
+    assert.eq(relationOf({ from: 'g', to: 'r', relation: 'precedes' }, typed), 'precedes')
+    assert.eq(relationOf({ from: 'g', to: 'r', label: 'requires' }, typed), 'depends-on')
+    assert.eq(relationOf({ from: 'k', to: 'i', label: 'feeds' }, typed), 'precedes')
+  })
+})

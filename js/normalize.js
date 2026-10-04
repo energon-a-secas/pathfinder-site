@@ -161,7 +161,11 @@ export function normalizeBlock(raw) {
     criteria: Array.isArray(raw.criteria)
       ? raw.criteria.map(c => toStr(c).trim()).filter(Boolean).slice(0, 30).map(c => c.slice(0, 300))
       : [],
-    rationale: toStr(raw.rationale).slice(0, 2000),
+    // Free text like the description and the notes, so no cap: one cut it
+    // to 2,000 characters on every load, which silently ate the end of a
+    // long rationale typed in the inspector, and of the evidence and the old
+    // description a refuted assumption keeps there (patch.js).
+    rationale: toStr(raw.rationale),
   }
   // Optional fields are written only when they say something, so a canvas
   // that never used them serializes exactly as it did before they existed.
@@ -170,6 +174,11 @@ export function normalizeBlock(raw) {
   if (raw.typeCheck === true) block.typeCheck = true
   // Gap ids the author looked at and accepted for this block.
   if (gapAck.length) block.gapAck = gapAck
+  // An Open Question card's own answer (the card is the question, so it has
+  // no questions[] entry to hold one). Kept on any type, so retyping an
+  // answered question never loses what was found.
+  const answer = toStr(raw.answer)
+  if (answer.trim()) block.answer = answer
   return block
 }
 
