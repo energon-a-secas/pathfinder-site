@@ -1723,7 +1723,9 @@ function landIncoming(r, msg) {
     // it is off screen once the camera has landed (mapInView).
     const hint = !!a && !mapInView()
     if (!msg && !hint) return
-    const lead = msg ? (/[.?]$/.test(msg) ? msg : msg + '.') : arrivalLead(canvasMeta.title || 'Shared map', 'opened')
+    // `msg` is a whole message, its full stop included (incomingMessage,
+    // importMessage, srcMessage): nothing is appended here.
+    const lead = msg || arrivalLead(canvasMeta.title || 'Shared map', 'opened')
     showToast(hint ? `${lead} ${arrivalHint()}` : lead, skipped ? 'warning' : 'success', 3600)
   })
 }
@@ -1799,9 +1801,19 @@ export async function checkSrcUrl() {
   const r = await openIncoming(parsed.data, { source: 'src', onApplied: () => forgetLinkInUrl({ src: true, via: true }) })
   if (!r) return
   flagLowConfidence(parsed.low, r.idMap)
-  const skipped = r.dropped.blocks + r.dropped.arrows + r.dropped.groups
-  const where = r.mode === 'new' ? (r.reused ? '' : ' as a new map. Yours is under Maps') : r.mode === 'merge' ? ' into your map' : ''
-  landIncoming(r, skipped
-    ? `Loaded ${r.imported} blocks from the link${where}, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`
-    : `Loaded ${r.imported} block${r.imported === 1 ? '' : 's'} from the link${where}`)
+  landIncoming(r, srcMessage(r))
+}
+
+/**
+ * What a ?src= load says once it lands, one statement ending in its own
+ * full stop: "Loaded 3 blocks from the link as a new map, skipped 1
+ * invalid item. Yours is under Maps."
+ */
+export function srcMessage(r) {
+  const skipped = r.dropped ? r.dropped.blocks + r.dropped.arrows + r.dropped.groups : 0
+  const n = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`
+  const asNew = r.mode === 'new' && !r.reused
+  const where = asNew ? ' as a new map' : r.mode === 'merge' ? ' into your map' : ''
+  const tail = skipped ? `, skipped ${n(skipped, 'invalid item')}` : ''
+  return `Loaded ${n(r.imported, 'block')} from the link${where}${tail}.${asNew ? ' Yours is under Maps.' : ''}`
 }

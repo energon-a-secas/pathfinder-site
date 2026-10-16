@@ -6010,3 +6010,21 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
 .brief-framing-toggle,
 .brief-framing-body { max-width: min(var(--brief-col), calc(100% - var(--brief-gutter, 0px))); }
 .brief-reply > * { max-width: min(calc(var(--brief-col) - 2 * var(--space-4)), calc(100% - var(--brief-gutter, 0px))); }
+
+
+
+/* ── [qa4c] ── the fourth QA round's third pass (2026-10-16) ────────────── */
+
+/* On a phone the open map's name sits at the canvas's top left
+   ([recognition] .canvas-map-name: 16px down, 40px tall, over the canvas),
+   where the canvas's focus chip ([canvas4]) also sits: the name covered the
+   chip's words. Wherever the name shows (a map with blocks; not an embed,
+   dot voting or zen), the chip sits under it, 8px clear and on its left
+   edge, so both read. zoom-controls.js arrivalObstacles reads the chip's
+   box from here. */
+@media (max-width: 432px) {
+  body:not(.embed-mode):not(.voting-mode):not([data-zen="on"]) .canvas-viewport:has(#canvasRoot .block):focus-visible:not([data-input="pointer"])::after {
+    top: 64px; left: 16px;
+    max-width: calc(100% - 32px);
+  }
+}

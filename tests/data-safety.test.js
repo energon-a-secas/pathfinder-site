@@ -883,7 +883,7 @@ describe('Data safety: a held offer survives what happens around it', () => {
     assert.eq(checkOlderVersionLoss(id, storedShape(JSON.parse(localStorage.getItem(slot(id)))), 'load'), null,
       'a reload offers nothing on the teammate map')
     assert.eq(incomingMessage(r, 'shared map'),
-      'Replaced your map with the shared map. Undo, or Maps, Snapshots, brings yours back, with the 3 blocks an older version dropped')
+      'Replaced your map with the shared map. Undo, or Maps, Snapshots, brings yours back, with the 3 blocks an older version dropped.')
     undo()
     assert.deepEq(ids(state.blocks), ['g1', 'i1', 'm1', 'r1', 's1'], 'one undo brings the map back whole')
     assert.eq(canvasMeta.title, 'Reporting cadence')

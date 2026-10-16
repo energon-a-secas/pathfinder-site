@@ -21,6 +21,13 @@
 //  its pictures from them, shows the map the palette shows. Re-measure
 //  them when a template gains or loses a block, or its text changes
 //  (tests/qa4b.test.js holds every template to CARD_GAP on an empty map).
+//
+//  One exception, so a small template arrives whole at 1280 by 800 (a
+//  canvas about 912 by 651 there, at 100%): no small one is wider than
+//  three columns (900px). Sprint planning and Risk review would be four
+//  in Tidy's arrangement, so the assumption that underpins the first
+//  column sits under it, CARD_GAP + 8 down, instead of a column to its
+//  left (tests/qa4b.test.js holds every small one whole at that size).
 // ════════════════════════════════════════════════════════════
 
 import { state, view } from './state.js'
@@ -71,7 +78,7 @@ export const TEMPLATES = [
         description: 'Non-negotiable for the goal to count as done.' },
       { type: 'requirement', title: 'Should have', dx: 340, dy: 87, priority: 'medium',
         description: 'Valuable but cuttable if time runs short.' },
-      { type: 'assumption',  title: 'Scope is stable for 2 weeks', dx: -340, dy: 0, actions: ['validate'],
+      { type: 'assumption',  title: 'Scope is stable for 2 weeks', dx: 0, dy: 173, actions: ['validate'],
         description: 'If stakeholders may change scope mid-sprint, flag it now.' },
       { type: 'risk',        title: 'Biggest delivery risk', dx: 680, dy: -75,
         description: 'What is most likely to slip the sprint, and the early warning sign.' },
@@ -121,7 +128,7 @@ export const TEMPLATES = [
     blocks: [
       { type: 'risk',        title: 'Top risk', dx: 0, dy: 0, priority: 'high',
         description: 'The failure mode that would hurt most, with its likely trigger.' },
-      { type: 'assumption',  title: 'Assumption that could be wrong', dx: -340, dy: -10, actions: ['validate'],
+      { type: 'assumption',  title: 'Assumption that could be wrong', dx: 0, dy: 173, actions: ['validate'],
         description: 'The belief whose failure would cause this risk to materialize.' },
       { type: 'decision',    title: 'Mitigation', dx: 340, dy: 11,
         description: 'The concrete action that reduces likelihood or blast radius.' },

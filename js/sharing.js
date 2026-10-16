@@ -259,18 +259,22 @@ export function openIncoming(data, { source = 'link', name = '', onApplied } = {
   })
 }
 
-/** The toast after an incoming canvas lands. */
+/**
+ * The toast after an incoming canvas lands, written whole: every message
+ * ends in its own full stop (nothing appends one at runtime), or null when
+ * a plain open has nothing to say.
+ */
 export function incomingMessage(r, what = 'map') {
   if (!r) return null
   const skipped = r.dropped ? r.dropped.blocks + r.dropped.arrows + r.dropped.groups : 0
   const tail = skipped ? `, skipped ${plural(skipped, 'invalid item')}` : ''
-  if (r.mode === 'new') return r.reused ? `Opened the ${what}${tail}` : `Opened the ${what} as a new map${tail}. Yours is under Maps`
-  if (r.mode === 'merge') return `Merged ${plural(r.imported, 'block')} into your map${tail}`
+  if (r.mode === 'new') return r.reused ? `Opened the ${what}${tail}.` : `Opened the ${what} as a new map${tail}. Yours is under Maps.`
+  if (r.mode === 'merge') return `Merged ${plural(r.imported, 'block')} into your map${tail}.`
   if (r.replacedContent && r.keptDropped) {
-    return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back, with the ${plural(r.keptDropped, 'block')} an older version dropped`
+    return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back, with the ${plural(r.keptDropped, 'block')} an older version dropped.`
   }
-  if (r.replacedContent) return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back`
-  return skipped ? `Loaded the ${what}${tail}` : null
+  if (r.replacedContent) return `Replaced your map with the ${what}${tail}. Undo, or Maps, Snapshots, brings yours back.`
+  return skipped ? `Loaded the ${what}${tail}.` : null
 }
 
 // ── Another tab changed this map ─────────────────────────────

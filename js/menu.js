@@ -117,6 +117,7 @@ function buildMenu(items, { className = '', label, level }) {
   el.dataset.level = String(level)
   const list = typeof items === 'function' ? items() : items
   ;(list || []).forEach(item => { const row = buildItem(item, level); if (row) el.appendChild(row) })
+  reserveCaretSlots(el)
   nameSections(el)
   el.addEventListener('keydown', onKeydown)
   el.addEventListener('mouseover', onHover)
@@ -208,6 +209,23 @@ function buildItem(item, level) {
   b._pfItem = item
   b._pfLevel = level
   return b
+}
+
+// ── One edge for every key cap ──────────────────────────────
+// In a menu with a submenu row, a row with a key and no chevron keeps the
+// chevron's slot (an empty one, sized and spaced by the caret's own rules),
+// so every key cap ends on the same edge: Connect to's C, which opens a
+// submenu, lines up with Enter, Cmd+D and Del around it.
+function reserveCaretSlots(menuEl) {
+  const rows = [...menuEl.children].filter(c => c.classList.contains('pf-menu-item'))
+  if (!rows.some(r => r.querySelector(':scope > .pf-menu-caret'))) return
+  rows.forEach(r => {
+    if (!r.querySelector(':scope > .pf-menu-shortcut') || r.querySelector(':scope > .pf-menu-caret')) return
+    const slot = document.createElement('span')
+    slot.className = 'pf-menu-caret pf-menu-caret-slot'
+    slot.setAttribute('aria-hidden', 'true')
+    r.appendChild(slot)
+  })
 }
 
 // ── Sections and named groups ───────────────────────────────

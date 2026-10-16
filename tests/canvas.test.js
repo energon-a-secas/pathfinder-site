@@ -503,14 +503,16 @@ describe('canvas4: a face title breaks between words, with an ellipsis only at i
     assert.deepEq(fitTitle('Internationalization rollout', 60, 1, mono), { lines: ['Internati' + ELLIPSIS], cut: true })
   })
 
-  it('a closing ellipsis may hang into the padding; a lone word that cannot take one gives way to the line before', () => {
+  it('a closing ellipsis may hang into the padding; a lone closing word that cannot take one gives it letters', () => {
     // 42px holds "Collect" (7 characters) but not "Collect..." (48px): with
     // 6px of hang the whole word takes the ellipsis; without, it gives a letter.
     assert.deepEq(fitTitle('Collect status notes', 42, 1, mono), { lines: ['Collec' + ELLIPSIS], cut: true })
     assert.deepEq(fitTitle('Collect status notes', 42, 1, mono, 6), { lines: ['Collect' + ELLIPSIS], cut: true })
-    // Line 2's only word fits bare but not with the ellipsis: line 1 ends
-    // the title, rather than a second line that reads as whole.
-    assert.deepEq(fitTitle('Two teams publishing conflicts', 60, 2, mono), { lines: ['Two teams' + ELLIPSIS], cut: true })
+    // Line 2's only word fits bare but not with the ellipsis: it gives
+    // letters to the ellipsis, rather than a second line that reads as
+    // whole, or line 1 ending the title over an empty line 2 (qa4c: "The…"
+    // at 33%, where "The / payme…" was there to show).
+    assert.deepEq(fitTitle('Two teams publishing conflicts', 60, 2, mono), { lines: ['Two teams', 'publishin' + ELLIPSIS], cut: true })
     // The hang is for the closing ellipsis only: "Draft release" (78px) does not share a 76px line.
     assert.deepEq(fitTitle('Draft release summary', 76, 2, mono, 6), { lines: ['Draft', 'release' + ELLIPSIS], cut: true })
   })

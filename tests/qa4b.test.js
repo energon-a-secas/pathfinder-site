@@ -12,13 +12,13 @@ import { applyTransform, settleDescCaption } from '../js/canvas.js'
 import { arrivalView, arriveAt, mapInView, ARRIVAL_HINT, ARRIVAL_HINT_TOUCH } from '../js/zoom-controls.js'
 import { TEMPLATES, applyTemplate } from '../js/templates.js'
 import { CARD_GAP, LAYOUT_DEFAULTS, tidySummary } from '../js/layout.js'
-import { setupTemplates, importMessage } from '../js/ui-panels.js'
+import { setupTemplates, importMessage, srcMessage } from '../js/ui-panels.js'
 import { detectGaps, findingLine, gapLine } from '../js/gaps.js'
 import { generatePrompt } from '../js/prompt.js'
 import { blockMenuItems, openBlockMenu } from '../js/context-menu.js'
-import { closeMenus } from '../js/menu.js'
+import { closeMenus, openMenu } from '../js/menu.js'
 import { arrangeSelection } from '../js/align.js'
-import { backupNagText, LINK_ERRORS } from '../js/sharing.js'
+import { backupNagText, LINK_ERRORS, incomingMessage } from '../js/sharing.js'
 import { dumpSummary } from '../js/classify.js'
 import { IMPORT_ERRORS } from '../js/interop.js'
 import { syncBriefGutter, readPref, resumeReading, setReading, pressRead, READ_PREF_KEY } from '../js/brief.js'
@@ -164,6 +164,33 @@ describe('qa4b: templates arrive arranged, CARD_GAP apart, and never suggest Tid
         assert.ok(!/\bTidy\b|\bL to\b/.test(toastText()), `${TEMPLATES[i].name}: ${toastText()}`)
       }
     }, { w: 1200, h: 800 })
+    reset()
+  })
+
+  // qa4c: Sprint planning and Risk review were four columns (1240px) in
+  // Tidy's arrangement, wider than the canvas at 1280 by 800, so two or
+  // three of their cards arrived off screen.
+  it('every small template arrives with every card on screen at 1280 by 800 (a 912 by 651 canvas)', async () => {
+    reset()
+    if (!document.querySelector('#templatesList .template-item')) setupTemplates()
+    const W = 912, H = 651
+    await withApp(async () => {
+      TEMPLATES.forEach((tpl, i) => {
+        if (tpl.large) return
+        reset()
+        $.templatesList().querySelector(`.template-item[data-tpl="${i}"]`).click()
+        const ids = Object.keys(state.blocks)
+        assert.eq(ids.length, tpl.blocks.length)
+        const off = ids.filter(id => {
+          const b = state.blocks[id], { w, h } = getBlockDims(id), z = view.zoom
+          const x1 = b.x * z + view.panX, y1 = b.y * z + view.panY
+          return x1 < -0.5 || y1 < -0.5 || x1 + w * z > W + 0.5 || y1 + h * z > H + 0.5
+        }).map(id => state.blocks[id].title)
+        assert.eq(view.zoom, 1, `${tpl.name} arrives at 100%`)
+        assert.deepEq(off, [], `${tpl.name}: off screen`)
+        assert.ok(!hinted(toastText()), `${tpl.name}: ${toastText()}`)
+      })
+    }, { w: W, h: H })
     reset()
   })
 
@@ -324,6 +351,36 @@ describe('qa4b: every canvas finding in the brief is one sentence, like a gap li
     assert.eq(findingLine('group "Ops" has a name and no members'), '• Group "Ops" has a name and no members.')
     assert.ok(gapLine('Goal', 'Ship it', 'gap-no-req').startsWith('• Goal'))
   })
+
+  // qa4c: "1 connection close a cycle" printed in the brief.
+  it('a count agrees with its verb, one or many', () => {
+    const line = blocks => {
+      const arrows = []
+      for (let i = 0; i < blocks.length; i += 2) arrows.push({ id: 'f' + i, from: blocks[i], to: blocks[i + 1] }, { id: 'b' + i, from: blocks[i + 1], to: blocks[i] })
+      const map = Object.fromEntries(blocks.map(id => [id, B(id, 'process', 'Step ' + id)]))
+      const f = detectGaps(map, arrows).findings.find(x => x.kind === 'cycle')
+      return f && findingLine(f.text)
+    }
+    assert.eq(line(['p1', 'p2']), '• 1 connection closes a cycle: the dependency order is circular somewhere.')
+    assert.eq(line(['p1', 'p2', 'p3', 'p4']), '• 2 connections close a cycle: the dependency order is circular somewhere.')
+    const one = { h1: B('h1', 'process', 'Run it', { description: 'Who owns this?' }), t1: B('t1', 'risk', 'Drift', { typeCheck: true }) }
+    const texts = detectGaps(one, []).findings.map(f => findingLine(f.text))
+    assert.ok(texts.some(t => t.startsWith('• 1 block keeps a question')), texts.join(' | '))
+    assert.ok(texts.some(t => t.startsWith('• 1 block was typed automatically and awaits a check')), texts.join(' | '))
+  })
+
+  // qa4c: findingLine was inserted between gapLine and gapLine's own doc
+  // comment, so two doc blocks sat back to back and gapLine had none.
+  it('every doc comment in js/ sits on the code it describes, never two back to back', async () => {
+    const files = [...await jsFiles('../js/'), ...await jsFiles('../js/trace/')]
+    for (const f of files) {
+      const src = await fetchText(f)
+      assert.ok(!/\*\/[ \t]*\r?\n[ \t]*\/\*\*/.test(src), `${f.replace('../', '')}: a doc comment with no code under it`)
+    }
+    const gaps = await fetchText('../js/gaps.js')
+    assert.match(gaps, /One line of the brief for a gap on a block[\s\S]{0,200}\*\/\s*export function gapLine/)
+    assert.match(gaps, /A canvas finding[\s\S]{0,250}\*\/\s*export function findingLine/)
+  })
 })
 
 // ── R7: Connect to shows its key ─────────────────────────────
@@ -341,7 +398,40 @@ describe('qa4b: the block menu\'s Connect to row shows its key, C', () => {
       void menu
     } finally { closeMenus(); reset() }
   })
+
+  // qa4c: C ended 30px left of Enter, Cmd+D and Del, before its chevron.
+  it('its key cap ends on the same edge as every other key in the menu', async () => {
+    reset()
+    await withApp(async () => {
+      block('a', { x: 0 }); block('b', { x: 300 })
+      try {
+        openBlockMenu('a', 100, 100)
+        const menu = document.querySelector('.pf-menu.ctx-block-menu')
+        const rows = [...menu.querySelectorAll(':scope > .pf-menu-item')]
+        const keyed = rows.filter(r => r.querySelector('.pf-menu-shortcut'))
+        assert.gt(keyed.length, 3, 'Enter, Shift+Enter, C, Cmd+D, Del')
+        assert.ok(keyed.some(r => r.getAttribute('aria-haspopup') === 'menu'), 'one of them opens a submenu (Connect to)')
+        const edges = keyed.map(r => Math.round(r.querySelector('.pf-menu-shortcut').getBoundingClientRect().right))
+        assert.eq(new Set(edges).size, 1, `key caps end at ${edges.join(', ')}`)
+        // The reserved slot is the chevron's own box, empty and hidden from assistive tech.
+        const slot = keyed.find(r => !r.getAttribute('aria-haspopup')).querySelector('.pf-menu-caret-slot')
+        assert.ok(slot && !slot.children.length && slot.getAttribute('aria-hidden') === 'true')
+        assert.eq(Math.round(slot.getBoundingClientRect().right), Math.round(rowWith(rows, 'Connect to').querySelector('.pf-menu-caret').getBoundingClientRect().right))
+      } finally { closeMenus() }
+    }, { w: 900, h: 600 })
+    reset()
+  })
+
+  it('a menu with no submenu keeps no slot (File-style lists stay as they were)', () => {
+    reset()
+    block('a', { x: 0 })
+    try {
+      openMenu([{ label: 'One', shortcut: 'A', action: () => {} }, { label: 'Two', action: () => {} }], { x: 10, y: 10 })
+      assert.eq(document.querySelectorAll('.pf-menu .pf-menu-caret-slot').length, 0)
+    } finally { closeMenus(); reset() }
+  })
 })
+const rowWith = (rows, text) => rows.find(r => r.textContent.includes(text))
 
 // ── R8: an arrival keeps every card on screen clear of Find blocks ─
 describe('qa4b: an arrival keeps the person\'s own cards clear of the floating controls too', () => {
@@ -481,6 +571,15 @@ describe('qa4b: every toast is a plain statement that ends in a full stop', () =
     assert.gt(seen, 90, `${seen} messages read`)
   })
 
+  it('no module appends a full stop at runtime to a message that lacks one (qa4c)', async () => {
+    const files = [...await jsFiles('../js/'), ...await jsFiles('../js/trace/')]
+    // A regex literal testing a string's last character for a stop, the
+    // way landIncoming did: /[.?]$/.test(msg) ? msg : msg + '.'
+    const append = /\/\[[.?!]+\]\$\/\.test\([^)]*\)\s*\?[^:]*:\s*[\w.]+\s*\+\s*['"`]\./
+    for (const f of files) assert.ok(!append.test(await fetchText(f)), `${f.replace('../', '')} appends a full stop at runtime`)
+    assert.ok(append.test("const lead = msg ? (/[.?]$/.test(msg) ? msg : msg + '.') : x"), 'the scan reads the pattern')
+  })
+
   it('and the messages built elsewhere', () => {
     reset()
     const all = [
@@ -493,6 +592,27 @@ describe('qa4b: every toast is a plain statement that ends in a full stop', () =
       ...Object.values(LINK_ERRORS).map(f => f(404)),
     ]
     all.forEach(t => assert.ok(endsSentence(t), t))
+    // qa4c: what a link, a file or ?src= says once it lands, every branch,
+    // each ending in its own full stop (landIncoming appends nothing).
+    const none = { blocks: 0, arrows: 0, groups: 0 }, two = { blocks: 1, arrows: 1, groups: 0 }
+    const landed = []
+    ;[none, two].forEach(dropped => {
+      ;[{ mode: 'new' }, { mode: 'new', reused: true }, { mode: 'merge', imported: 3 }, { mode: 'merge', imported: 1 },
+        { mode: 'replace', replacedContent: true }, { mode: 'replace', replacedContent: true, keptDropped: 2 },
+        { mode: 'replace' }].forEach(r => {
+        const m = incomingMessage({ ...r, dropped }, 'shared map')
+        if (m !== null) landed.push(m)
+        landed.push(srcMessage({ imported: 3, ...r, dropped }))
+      })
+    })
+    assert.gt(landed.length, 20)
+    landed.forEach(t => {
+      assert.ok(t.endsWith('.') && !t.endsWith('..'), t)
+      assert.ok(!/\. [a-z]/.test(t), `each sentence starts with a capital: ${t}`)
+    })
+    assert.eq(incomingMessage({ mode: 'new', dropped: none }, 'shared map'), 'Opened the shared map as a new map. Yours is under Maps.')
+    assert.eq(srcMessage({ mode: 'new', imported: 1, dropped: two }),
+      'Loaded 1 block from the link as a new map, skipped 2 invalid items. Yours is under Maps.')
     block('x', { x: 0 })
     arrangeSelection('align', ['x'], 'left')
     assert.eq(toastText(), 'Select two or more blocks to align.')

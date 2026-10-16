@@ -320,15 +320,6 @@ export const pickableCardStyles = () => Object.entries(CARD_STYLES).filter(([, v
 export const BORDER_WIDTHS = [1, 1.5, 2, 3]
 
 /**
- * Where the tool is standing when the canvas gets handed over.
- *
- * A canvas is a plan, and a plan read without its situation gets acted on
- * wrongly: an assistant with the repository open should go read it, one in a
- * chat window should not pretend it has. Each option owns the sentence it
- * contributes to the prompt, so the copy lives next to the choice rather than
- * being assembled somewhere else.
- */
-/**
  * Presentation highlights.
  *
  * Not semantics: a highlight says "look here", nothing more. The block types
@@ -350,6 +341,15 @@ export const HIGHLIGHTS = {
   festive: { label: 'Festive', color: '#fb9ef1', light: '#a43897', hint: 'A candy-cane border, impossible to ignore (moves on hover with Animate highlights on).' },
 }
 
+/**
+ * Where the tool is standing when the canvas gets handed over.
+ *
+ * A canvas is a plan, and a plan read without its situation gets acted on
+ * wrongly: an assistant with the repository open should go read it, one in a
+ * chat window should not pretend it has. Each option owns the sentence it
+ * contributes to the prompt, so the copy lives next to the choice rather than
+ * being assembled somewhere else.
+ */
 export const SITUATION_FIELDS = {
   codebase: {
     label: 'Codebase',

@@ -13,10 +13,12 @@
 // room, which cut "Every End of Sprint" to "Every End o..." and "Draft
 // release summary" to "Draft releas...". So the lines are measured here,
 // with the face's own font, and written one element per line; a cut title
-// always closes on an ellipsis (fitTitle). Only where a lone first word
-// cannot take one is the word itself cut, "Collec...": a bare "Collect"
-// read as a whole one-word title. A single word longer than a whole line
-// ends in the line's own ellipsis. Never hyphenated.
+// always closes on an ellipsis, on its last line (fitTitle). Only where
+// that line's lone word cannot take one is the word itself cut, "The /
+// payme...": a bare "payment" read as a title's whole last word, and
+// ending the first line on "The..." left the second one empty at 33%. A
+// single word longer than a whole line ends in the line's own ellipsis,
+// or takes the room of the face's dot (fitFaceTitle). Never hyphenated.
 //
 // A title in a script written without spaces (Chinese, Japanese, Thai)
 // breaks between its words as Intl.Segmenter finds them, or between
@@ -100,13 +102,14 @@ const joinPieces = ps => ps.map((p, i) => (i ? p.sep : '') + p.t).join('')
 
 /**
  * Break `text` into at most `maxLines` lines no wider than `width`, between
- * words. Returns { lines, cut }. When words were left over, the last line
- * ends on a whole word and an ellipsis, which may reach `hang` px past the
- * width; a line whose one word cannot take the ellipsis gives way, and the
- * line before it ends the title instead. When no line can, the last line's
- * word is cut to the letters that take one: a cut title always ends in an
- * ellipsis. A word wider than the whole line, with nothing after it, keeps
- * its letters for the line's own CSS ellipsis.
+ * words. Returns { lines, cut }. When words were left over, every line is
+ * used and the last one ends on a whole word and an ellipsis, which may
+ * reach `hang` px past the width; when that line's one word cannot take
+ * the ellipsis, the word is cut to the letters that take one, so no
+ * earlier line ends the title while a later one stands empty. Only when
+ * not one letter takes it does the line before end the title. A cut title
+ * always ends in an ellipsis. A word wider than the whole line, with
+ * nothing after it, keeps its letters for the line's own CSS ellipsis.
  * `measure` is the width of a string in the face's font. Pure, for the
  * tests.
  */
@@ -129,39 +132,54 @@ export function fitTitle(text, width, maxLines, measure, hang = 0, words = undef
   if (cur.length) lines.push(cur)
   if (i >= pieces.length) return { lines: lines.map(joinPieces), cut: false }
   const fitsEnd = s => measure(s) <= width + hang + 0.01
+  // The letters of a lone word that take the ellipsis (at least one).
+  const letters = piece => {
+    const chars = graphemes(piece.t)
+    let n = chars.length - 1
+    while (n > 1 && !fitsEnd(chars.slice(0, n).join('') + ELLIPSIS)) n--
+    return chars.slice(0, Math.max(1, n)).join('') + ELLIPSIS
+  }
   for (let li = lines.length - 1; li >= 0; li--) {
     const kept = lines[li].slice()
     while (kept.length > 1 && !fitsEnd(joinPieces(kept) + ELLIPSIS)) kept.pop()
     const end = joinPieces(kept)
-    if (fitsEnd(end + ELLIPSIS)) return { lines: [...lines.slice(0, li).map(joinPieces), end + ELLIPSIS], cut: true }
+    const before = lines.slice(0, li).map(joinPieces)
+    if (fitsEnd(end + ELLIPSIS)) return { lines: [...before, end + ELLIPSIS], cut: true }
+    // The line's one word cannot take the ellipsis: it gives letters to
+    // it, as long as one letter does (the line before ending the title
+    // left this one empty).
+    const short = letters(kept[0])
+    if (fitsEnd(short)) return { lines: [...before, short], cut: true }
   }
-  // No line can end on a whole word and an ellipsis (each holds one word
-  // that cannot take one): the last line's word gives letters to it.
+  // Not one letter takes an ellipsis on any line: the last line's word,
+  // cut to its first letter.
   const li = lines.length - 1
-  const chars = graphemes(lines[li][0].t)
-  let n = chars.length - 1
-  while (n > 1 && !fitsEnd(chars.slice(0, n).join('') + ELLIPSIS)) n--
-  return { lines: [...lines.slice(0, li).map(joinPieces), chars.slice(0, Math.max(1, n)).join('') + ELLIPSIS], cut: true }
+  return { lines: [...lines.slice(0, li).map(joinPieces), letters(lines[li][0])], cut: true }
 }
 
 /**
  * A face's title with the dot beside it (every layout but 'col'): when a
- * single word is wider than its whole line ("Reconciliation" on a 220px
- * card at 44%, cut to "Reconciliati…"), the face gives the title the room
- * its dot and the dot's gap take, and the closing hang, before any word is
- * cut. { lines, cut, dot, hangs }: `dot` false when the face goes without
- * its dot, `hangs[i]` true for a line that reaches into the hang. Pure.
+ * single word is wider than its line by more than the hang ("Reconciliation"
+ * on a 220px card at 44%, cut to "Reconciliati…"), the face gives the title
+ * the room its dot and the dot's gap take before any word is cut. A lone
+ * word over its line by no more than the hang takes the hang, like the
+ * closing ellipsis does: with none, "Checkout" fitted the numbers and drew
+ * as "Check…" at 33%. A closing word cut to take the ellipsis ("The /
+ * payme…") keeps the dot: the type is what the pill band shows first.
+ * { lines, cut, dot, hangs }: `dot` false when the face goes without its
+ * dot, `hangs[i]` true for a line that reaches into the hang. Pure.
  */
 export function fitFaceTitle(text, spec, m, measure, words = undefined) {
   const fit = fitTitle(text, spec.width, spec.lines, measure, m.hang, words)
   const within = (l, w) => measure(l) <= w + 0.01
-  const keep = { ...fit, dot: true, hangs: fit.lines.map((l, i) => fit.cut && i === fit.lines.length - 1) }
+  const hangsOf = (f, w) => f.lines.map((l, i) => !within(l, w) || (f.cut && i === f.lines.length - 1))
+  const keep = { ...fit, dot: true, hangs: hangsOf(fit, spec.width) }
   if (spec.layout === 'col' || !m.dot) return keep
-  if (fit.lines.every(l => within(l, spec.width + (fit.cut ? m.hang : 0)))) return keep
+  if (fit.lines.every(l => within(l, spec.width + m.hang))) return keep
   const wide = spec.width + m.dot + m.dotGap
   const alt = fitTitle(text, wide, spec.lines, measure, m.hang, words)
   if (!alt.lines.every(l => within(l, wide + m.hang))) return keep
-  return { ...alt, dot: false, hangs: alt.lines.map((l, i) => !within(l, wide) || (alt.cut && i === alt.lines.length - 1)) }
+  return { ...alt, dot: false, hangs: hangsOf(alt, wide) }
 }
 
 /**

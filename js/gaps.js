@@ -219,7 +219,7 @@ function canvasFindingsFor(blocks, arrows, groups, { inc, out }) {
     const { reversed } = breakCycles(ids, edges)
     if (reversed.size) {
       const cyc = [...new Set([...reversed].flatMap(i => [edges[i].from, edges[i].to]))]
-      add('cycle', `${reversed.size} connection${reversed.size === 1 ? '' : 's'} close a cycle: the dependency order is circular somewhere`, cyc)
+      add('cycle', `${plural(reversed.size, 'connection')} close${reversed.size === 1 ? 's' : ''} a cycle: the dependency order is circular somewhere`, cyc)
     }
   }
   Object.values(groups || {}).forEach(g => {
@@ -499,6 +499,11 @@ export const GAP_META = {
  * '• Goal "Ship it" has nothing under it: no requirement, metric or
  * implementation.' `label` is the block's type label.
  */
+export function gapLine(label, title, gap) {
+  const what = GAP_META[gap]?.prompt || `has an open check: ${gap}`
+  return `\u2022 ${label} "${title || '(untitled)'}" ${what}.`
+}
+
 /**
  * A canvas finding (a findings entry's text) as one line of the brief: one
  * sentence, like gapLine's, its first letter capitalised and a full stop at
@@ -507,11 +512,6 @@ export const GAP_META = {
 export function findingLine(text) {
   const t = String(text || '').trim()
   return `\u2022 ${t ? t[0].toUpperCase() + t.slice(1) : t}${/[.?]$/.test(t) ? '' : '.'}`
-}
-
-export function gapLine(label, title, gap) {
-  const what = GAP_META[gap]?.prompt || `has an open check: ${gap}`
-  return `\u2022 ${label} "${title || '(untitled)'}" ${what}.`
 }
 
 /**
