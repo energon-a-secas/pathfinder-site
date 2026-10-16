@@ -3867,10 +3867,11 @@ body.light-mode .canvas-hint svg { opacity: .2; }
 
 /* ── Start panel (js/start-panel.js): the first-run empty state ──
    One flat surface (the .brain-dump-card rules above), three keyed
-   options, the six-step starter, a line on storage. The top padding
-   keeps the panel clear of "Find blocks" (16px from the top, 40px tall)
-   when the canvas is too narrow for the two to sit side by side. */
-.brain-dump { padding: 64px var(--space-6) var(--space-6); }
+   options, the first-block pills, a line on storage. Find blocks no
+   longer shows on an empty map ([consistency]), so the panel needs no
+   64px clearance above it: it fits a 1280x800 laptop and a 390x844 phone
+   with the pills in view and no scroll inside the canvas. */
+.brain-dump { padding: var(--space-6); }
 .start-panel {
   width: min(560px, 100%);
   padding: var(--space-6) var(--space-6) var(--space-4);
@@ -3950,7 +3951,13 @@ body.light-mode .canvas-hint svg { opacity: .2; }
   text-decoration: underline; text-underline-offset: 2px;
 }
 .start-prefixes summary:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-offset); border-radius: var(--radius-sm); }
-.start-prefix-list { display: flex; flex-wrap: wrap; gap: 4px var(--space-3); margin-top: var(--space-1); }
+/* Every other prefix as a list to scan: two columns of "code, type". */
+.start-prefix-list {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px var(--space-4);
+  margin-top: var(--space-2);
+}
+.start-prefix-list > span { min-width: 0; }
+.start-panel .start-help .start-indent { margin-top: var(--space-2); }
 .start-panel .brain-dump-nest { margin-bottom: var(--space-3); }
 .start-submit-hint { font-size: var(--fs-12); color: var(--text-3); }
 /* A phone or tablet without a pointer that hovers has no Ctrl key to press. */
@@ -4007,8 +4014,8 @@ body.light-mode .canvas-hint svg { opacity: .2; }
 .start-template-menu { max-width: min(360px, calc(100vw - 16px)); }
 
 @media (max-width: 700px) {
-  .brain-dump { padding: 64px var(--space-3) var(--space-4); }
-  .start-panel { padding: var(--space-5) var(--space-4) var(--space-3); }
+  .brain-dump { padding: var(--space-3); }
+  .start-panel { padding: var(--space-4) var(--space-4) var(--space-3); }
   .start-opt { grid-template-columns: 16px minmax(0, 1fr); }
   .start-panel .start-key { display: none; }
 }
@@ -4118,8 +4125,10 @@ body.light-mode .ex-pic-light { display: block; }
   }
 }
 
-/* The 404 page: the site's tokens, a quiet number, three ways on. */
+/* The 404 page: the doc pages' header and footer, then a quiet number and
+   three ways on, in the middle of what is left. */
 .nf { width: 100%; max-width: 420px; text-align: center; }
+.nf-page .nf { box-sizing: border-box; margin: auto; padding: var(--space-8) var(--space-4); }
 .nf-code { margin: 0; font-size: var(--fs-20); font-weight: var(--fw-semibold); color: var(--text-3); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
 .nf h1 { margin: var(--space-2) 0 var(--space-2); font-size: var(--fs-20); font-weight: var(--fw-semibold); line-height: var(--lh-tight); color: var(--text-1); }
 .nf p:not(.nf-code) { margin: 0 auto var(--space-6); max-width: 36ch; font-size: var(--fs-14); line-height: var(--lh-body); color: var(--text-2); }
@@ -5600,3 +5609,238 @@ body:not(.readonly-mode) .canvas-viewport:focus-visible:not([data-input="pointer
 @media (forced-colors: active) {
   .minimap-b.is-sel { stroke: Highlight; }
 }
+
+
+
+/* ════ [recognition] ════ */
+/* Recognise, do not recall (wave 4): the palette rail names what it shows,
+   a phone keeps three quarters of its height for the map, and the reading
+   pages can be scanned. js/palette.js, the start panel, the doc pages. */
+
+/* ── The palette's keys: the letter that follows N ──
+   Beside every type, quietly: in the whole palette at the end of the row,
+   in the rail beside the dot ("G, P, S beside the dots"). Mono, like every
+   key the app shows; aria-hidden, since the row's description says it. */
+.palette-key {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font: var(--fw-medium) var(--fs-11)/1 var(--font-mono);
+  color: var(--text-3);
+}
+.palette-item:hover .palette-key,
+.palette-item:focus-visible .palette-key { color: var(--text-2); }
+
+/* The one tip, now with its keys: the name and the caps on the first line. */
+.palette-tip-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.palette-tip-keys { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+
+/* ── The rail's heads ──
+   In the rail each section shows one head in place of its toggle (a
+   labelled icon for Templates, the word for Blocks); each opens a flyout
+   that lists the names over the canvas. The whole palette keeps its
+   toggles and never shows the heads. */
+.palette-rail-head {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 100%; min-height: 32px;
+  padding: 6px 4px;
+  font: inherit; font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1.2;
+  color: var(--text-2);
+  background: none;
+  border: 0; border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.palette-rail-head svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.palette-rail-head:hover,
+.palette-rail-head[aria-expanded="true"] { color: var(--text-1); background: var(--surface-2); }
+.palette-rail-head:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
+
+/* The rail: collapsed on a wide window, or the 48px palette from 769px to
+   1024px. The two selectors carry the same rules. The rail has no section
+   toggles, so it always shows the dots: a Blocks section folded in the
+   whole palette stays folded there and not here (palette.js
+   syncRailSections lifts the folded body's inert to match). */
+#palette.collapsed .palette-rail-head { display: flex; }
+#palette.collapsed .palette-section-toggle { display: none; }
+#palette.collapsed #templatesSection > .palette-section-body { display: none; }
+#palette.collapsed #blocksSection.collapsed > .palette-section-body { max-height: none !important; }
+#palette.collapsed .palette-item { gap: 5px; }
+#palette.collapsed .palette-key { margin-left: 0; width: 8px; }
+@media (min-width: 769px) and (max-width: 1024px) {
+  #palette .palette-rail-head { display: flex; }
+  #palette .palette-section-toggle { display: none; }
+  #palette #templatesSection > .palette-section-body { display: none; }
+  #palette #blocksSection.collapsed > .palette-section-body { max-height: none !important; }
+  #palette .palette-item { gap: 5px; }
+  #palette .palette-key { margin-left: 0; width: 8px; }
+}
+
+/* The flyout is a menu.js menu: a key column wide enough for "N G". */
+.palette-flyout .pf-menu-shortcut { min-width: 3.2em; text-align: right; }
+
+/* ── A phone: the map gets the height ──
+   The palette strip (52px of sideways-scrolling names) folds into one Add
+   control in the status bar, and the bar is one 35px row of 28px controls
+   (WCAG 2.5.8 asks 24px): at 390x844 the canvas goes from 573px (68%) to
+   634 (75%), the footer kit's 63px and the sheet's 56px as they are. Save
+   status stays for screen readers and comes back on screen when a save
+   fails. */
+.palette-add-btn { display: none; }
+.palette-add-btn svg { width: 16px; height: 16px; flex: 0 0 16px; }
+@media (max-width: 768px) {
+  .app-body > #palette { display: none; }
+  body:not(.readonly-mode) .palette-add-btn { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; padding: 0 10px 0 8px; }
+  #canvasStatusbar { box-sizing: border-box; min-height: 35px; padding-block: 3px; gap: 8px; }
+  #canvasStatusbar .save-status-bar:not([data-phase="error"]) #saveStatusText {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+}
+
+/* The open map's name at the top of the canvas, where the header has no
+   room for it (it hides the title under 433px). Opposite Find blocks, the
+   same height, drawn as chrome (a raised surface with a hairline, like the
+   other things that float over the map), so a card passing under it reads
+   as passing under a label, not into a hole. A label, so a touch goes
+   through it to the canvas. It gives way to the dot-voting banner, whose
+   instructions sit in the same strip. */
+.canvas-map-name { display: none; }
+@media (max-width: 432px) {
+  .canvas-map-name {
+    display: block;
+    position: absolute; top: 16px; left: 16px; z-index: 100;
+    box-sizing: border-box;
+    max-width: calc(100% - 172px); height: 40px;
+    margin: 0; padding: 0 10px;
+    font-size: var(--fs-14); font-weight: var(--fw-semibold); line-height: 38px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-1);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    pointer-events: none;
+  }
+  .canvas-map-name.is-untitled { color: var(--text-3); font-weight: var(--fw-medium); }
+  #canvasViewport:not(:has(#canvasRoot .block)) > .canvas-map-name,
+  .embed-mode .canvas-map-name,
+  body.voting-mode .canvas-map-name,
+  body[data-zen="on"] .canvas-map-name { display: none; }
+}
+
+/* ── The reading pages ──
+   Body text is the document size on a phone too (DESIGN.md: --fs-16 on
+   the doc pages); it dropped to 14px under 640px. */
+@media (max-width: 640px) {
+  body.doc-page .doc { font-size: var(--fs-16); }
+}
+.doc h2[id] { scroll-margin-top: 88px; }
+
+/* The walkthrough's step index. In the column it is a compact list in two
+   columns (one on a phone); from 1280px it sits beside the steps in the
+   left margin and stays there as they scroll, with no box. The step on
+   screen is in the primary ink (js/doc-toc.js). */
+.doc-toc {
+  margin: 0 0 var(--space-7);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.doc .doc-toc-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-13); font-weight: var(--fw-semibold); line-height: var(--lh-ui);
+  color: var(--text-1);
+}
+.doc-toc-list, .doc-toc-more { list-style: none; margin: 0; padding: 0; }
+.doc-toc-list { columns: 2; column-gap: var(--space-6); }
+.doc .doc-toc li { margin: 0; max-width: none; break-inside: avoid; }
+.doc .doc-toc a {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  padding: 4px 0;
+  font-size: var(--fs-14); line-height: var(--lh-ui);
+  color: var(--text-2);
+  text-decoration: none;
+}
+.doc .doc-toc a:hover { color: var(--text-1); text-decoration: underline; text-underline-offset: 2px; }
+.doc .doc-toc a:focus-visible { outline: var(--focus-outline); outline-offset: 2px; border-radius: var(--radius-sm); }
+.doc .doc-toc a[aria-current] { color: var(--text-1); font-weight: var(--fw-semibold); }
+.doc-toc-num {
+  flex: 0 0 2ch;
+  font: var(--fw-medium) var(--fs-12)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-3);
+}
+.doc .doc-toc a[aria-current] .doc-toc-num { color: var(--text-1); }
+.doc-toc-more { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--border); }
+@media (max-width: 640px) {
+  .doc-toc-list { columns: 1; }
+}
+@media (min-width: 1280px) {
+  .doc-toc {
+    position: sticky; top: 92px;
+    width: 216px; height: 0;
+    margin: 0 0 0 -264px;
+    padding: 0;
+    background: none; border: 0; border-radius: 0;
+    overflow: visible;
+  }
+  .doc-toc-list { columns: 1; }
+  .doc-toc-more { display: block; }
+}
+
+/* The examples: each map whole, fitted to the column, with a frame on where
+   it starts (the minimap's recipe: a --text-2 hairline over a tint); under
+   it the same picture at reading size (PIC_SCALE, a card title at 11px or
+   more), cut to that frame on whole cards. Nothing scrolls sideways. The
+   figure's style carries the frame (tools/render-assets.mjs writeDetail):
+   --fx --fy --fw --fh as fractions of the picture, --ff the entry card
+   alone, --pw --ph the picture's drawn size. A phone's column shows the
+   entry card alone, which is where a map starts. */
+.ex-whole {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.ex-whole .ex-pic { width: 100%; max-width: 100%; height: auto; }
+/* The whole map is also the link to the picture at its own size. */
+.ex-whole .ex-pic-link { width: 100%; }
+.ex-whole:has(.ex-pic-link:focus-visible) { outline: var(--focus-outline); outline-offset: var(--focus-offset); }
+.ex-mark {
+  position: absolute;
+  left: calc(var(--dx) * 100%);
+  box-sizing: border-box;
+  border: 1px solid var(--text-2);
+  border-radius: var(--radius-sm);
+  background: var(--tint);
+  pointer-events: none;
+}
+.ex-figure { --dx: var(--fx, 0); --dw: var(--fw, 0); --dy: var(--fy, 0); --dh: var(--fh, 0); }
+.ex-detail {
+  box-sizing: content-box;
+  width: calc(var(--dw) * var(--pw, 0) * 1px);
+  max-width: calc(100% - 2px);
+  height: calc(var(--dh) * var(--ph, 0) * 1px);
+  margin-top: var(--space-3);
+  overflow: hidden; overflow: clip;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.ex-detail .ex-pic {
+  width: calc(var(--pw, 0) * 1px); max-width: none; height: auto;
+  margin-left: calc(var(--dx) * var(--pw, 0) * -1px);
+  margin-top: calc(var(--dy) * var(--ph, 0) * -1px);
+}
+.ex-mark { width: calc(var(--dw) * 100%); top: calc(var(--dy) * 100%); height: calc(var(--dh) * 100%); }
+/* Under the 672px column (a 720px window) the entry card alone, whose crop
+   is drawn for a 360px phone; the wide crop is cut for the full column. */
+@media (max-width: 719px) {
+  .ex-figure { --dx: var(--fx1, var(--fx, 0)); --dw: var(--ff, 0); --dy: var(--fy1, 0); --dh: var(--fh1, 0); }
+}
+
+/* The walkthrough's keys: the caps in one column, what they do beside. */
+.doc-keys-caps { flex: 0 0 9.5rem; display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); }
+.doc-keys .doc-keys-caps { font-size: var(--fs-13); }

@@ -12,9 +12,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://gc.zgo.at https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.neorgon.org; font-src 'self'; img-src 'self' data: https://cdn.neorgon.org https://neorgon.goatcounter.com; connect-src 'self' https://neorgon.goatcounter.com https://cloudflareinsights.com">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Pathfinder | Examples</title>
-  <meta name="description" content="Five finished Pathfinder maps you open in one click: a checkout bug, a blank bug template, an inherited codebase, a migration and a recurring report.">
+  <meta name="description" content="Four finished Pathfinder maps you open in one click (a checkout bug, an inherited codebase, a migration and a recurring report) and a blank bug template.">
   <meta property="og:title" content="Pathfinder: Examples">
-  <meta property="og:description" content="Five finished Pathfinder maps you open in one click: a checkout bug, a blank bug template, an inherited codebase, a migration and a recurring report.">
+  <meta property="og:description" content="Four finished Pathfinder maps you open in one click (a checkout bug, an inherited codebase, a migration and a recurring report) and a blank bug template.">
   <meta property="og:type" content="article">
   <meta property="og:url" content="https://pathfinder.neorgon.com/examples.html">
   <meta property="og:site_name" content="Neorgon">
@@ -80,13 +80,17 @@
      exporter or the brief change. Each map opens as a new map. -->
 <main class="doc" id="main">
 
-  <h1>Five finished maps to start from</h1>
+  <h1>Four finished maps to start from</h1>
   <p class="doc-lede">
     Each one opens as a new map, so the map you were working on stays as it was.
     They are the maps the app ships: real titles, connections that mean something,
     and a Situation already set, so the brief reads like a brief from the first copy.
   </p>
 
+  <!-- Each picture is the whole map, fitted to the column, with a frame on
+       where it starts; under it the same picture at reading size, cut to
+       that frame (whole cards). tools/render-assets.mjs writes the sizes and
+       the frame's place into each figure's style (make assets). -->
   <section class="ex" aria-labelledby="ex-checkout">
     <h2 id="ex-checkout">Investigate a bug</h2>
     <p>
@@ -96,12 +100,17 @@
       around it, with the reproduction as the first boundary. The
       <a href="tutorial.html">walkthrough</a> builds it from nothing.
     </p>
-    <figure class="ex-figure">
-      <div class="ex-pic-frame">
-        <a class="ex-pic-link ex-pic-dark" href="examples/checkout.svg"><img class="ex-pic" data-pic="checkout" src="examples/checkout.svg" width="1853" height="590" loading="lazy" alt="The checkout investigation map: the report leads to the problem, then to reproducing it, two open questions and two assumptions, and on to the root cause, a failing test and Fixed and proven. Opens the whole map."></a>
-        <a class="ex-pic-link ex-pic-light" href="examples/checkout-light.svg"><img class="ex-pic" data-pic="checkout" src="examples/checkout-light.svg" width="1853" height="590" loading="lazy" alt="The checkout investigation map: the report leads to the problem, then to reproducing it, two open questions and two assumptions, and on to the root cause, a failing test and Fixed and proven. Opens the whole map."></a>
+    <figure class="ex-figure" data-detail="checkout" style="--fx:0.0086;--fy:0.3388;--fw:0.2487;--fh:0.5854;--fx1:0.0086;--ff:0.1403;--fy1:0.3388;--fh1:0.2371;--pw:1853;--ph:590">
+      <div class="ex-whole">
+        <a class="ex-pic-link ex-pic-dark" href="examples/checkout.svg"><img class="ex-pic" data-pic="checkout" src="examples/checkout.svg" width="1853" height="590" loading="lazy" alt="The checkout investigation map: the report leads to the problem, then to reproducing it, two open questions and two assumptions, and on to the root cause, a failing test and Fixed and proven. Opens the picture at full size."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/checkout-light.svg"><img class="ex-pic" data-pic="checkout" src="examples/checkout-light.svg" width="1853" height="590" loading="lazy" alt="The checkout investigation map: the report leads to the problem, then to reproducing it, two open questions and two assumptions, and on to the root cause, a failing test and Fixed and proven. Opens the picture at full size."></a>
+        <span class="ex-mark" aria-hidden="true"></span>
       </div>
-      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <div class="ex-detail" aria-hidden="true">
+        <img class="ex-pic ex-pic-dark" src="examples/checkout.svg" alt="" loading="lazy">
+        <img class="ex-pic ex-pic-light" src="examples/checkout-light.svg" alt="" loading="lazy">
+      </div>
+      <p class="ex-pic-note">The whole map (it opens at full size), then where it starts, at reading size.</p>
       <figcaption class="ex-brief">
         <span class="ex-brief-label">From the brief it produces</span>
         <pre class="ex-brief-text"><code><!-- brief:checkout -->### Constraints and boundaries
@@ -111,7 +120,7 @@
       </figcaption>
     </figure>
     <div class="ex-actions">
-      <button class="btn btn-primary" type="button" data-example="checkout">Open as a new map</button>
+      <button class="btn btn-primary" type="button" data-example="checkout">Open this map</button>
       <span class="ex-meta">12 blocks, Investigate mode</span>
     </div>
     <p class="ex-also">
@@ -130,12 +139,17 @@
       first safe change: what is believed, what is actually verified, and the
       questions whose guessed answers cost the most.
     </p>
-    <figure class="ex-figure">
-      <div class="ex-pic-frame">
-        <a class="ex-pic-link ex-pic-dark" href="examples/inherit-a-codebase.svg"><img class="ex-pic" data-pic="inherit-a-codebase" src="examples/inherit-a-codebase.svg" width="1885" height="626" loading="lazy" alt="The Inherit a codebase map: from being handed the repository to a first change shipped, through running it, its tests and one traced request, two assumptions about the README and the tests, the risk of breaking something invisible, and a rollback you have tried. Opens the whole map."></a>
-        <a class="ex-pic-link ex-pic-light" href="examples/inherit-a-codebase-light.svg"><img class="ex-pic" data-pic="inherit-a-codebase" src="examples/inherit-a-codebase-light.svg" width="1885" height="626" loading="lazy" alt="The Inherit a codebase map: from being handed the repository to a first change shipped, through running it, its tests and one traced request, two assumptions about the README and the tests, the risk of breaking something invisible, and a rollback you have tried. Opens the whole map."></a>
+    <figure class="ex-figure" data-detail="inherit-a-codebase" style="--fx:0.0085;--fy:0.4662;--fw:0.2615;--fh:0.4904;--fx1:0.0085;--ff:0.1142;--fy1:0.6143;--fh1:0.2235;--pw:1885;--ph:626">
+      <div class="ex-whole">
+        <a class="ex-pic-link ex-pic-dark" href="examples/inherit-a-codebase.svg"><img class="ex-pic" data-pic="inherit-a-codebase" src="examples/inherit-a-codebase.svg" width="1885" height="626" loading="lazy" alt="The Inherit a codebase map: from being handed the repository to a first change shipped, through running it, its tests and one traced request, two assumptions about the README and the tests, the risk of breaking something invisible, and a rollback you have tried. Opens the picture at full size."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/inherit-a-codebase-light.svg"><img class="ex-pic" data-pic="inherit-a-codebase" src="examples/inherit-a-codebase-light.svg" width="1885" height="626" loading="lazy" alt="The Inherit a codebase map: from being handed the repository to a first change shipped, through running it, its tests and one traced request, two assumptions about the README and the tests, the risk of breaking something invisible, and a rollback you have tried. Opens the picture at full size."></a>
+        <span class="ex-mark" aria-hidden="true"></span>
       </div>
-      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <div class="ex-detail" aria-hidden="true">
+        <img class="ex-pic ex-pic-dark" src="examples/inherit-a-codebase.svg" alt="" loading="lazy">
+        <img class="ex-pic ex-pic-light" src="examples/inherit-a-codebase-light.svg" alt="" loading="lazy">
+      </div>
+      <p class="ex-pic-note">The whole map (it opens at full size), then where it starts, at reading size.</p>
       <figcaption class="ex-brief">
         <span class="ex-brief-label">From the brief it produces</span>
         <pre class="ex-brief-text"><code><!-- brief:inherit-a-codebase -->### Constraints and boundaries
@@ -145,7 +159,7 @@
       </figcaption>
     </figure>
     <div class="ex-actions">
-      <button class="btn btn-primary" type="button" data-example="Inherit a Codebase">Open as a new map</button>
+      <button class="btn btn-primary" type="button" data-example="Inherit a Codebase">Open this map</button>
       <span class="ex-meta">13 blocks, Investigate mode</span>
     </div>
   </section>
@@ -159,12 +173,17 @@
       that live at the cutover and an end that only fires when the old system is
       off, not merely unused.
     </p>
-    <figure class="ex-figure">
-      <div class="ex-pic-frame">
-        <a class="ex-pic-link ex-pic-dark" href="examples/migrate-a-system.svg"><img class="ex-pic" data-pic="migrate-a-system" src="examples/migrate-a-system.svg" width="1885" height="906" loading="lazy" alt="The Migrate a system map: requirements for no data loss and reversibility, the shadow-write, read and write phases in order, the reconciliation report that gates them, the cutover risks, and the old system switched off. Opens the whole map."></a>
-        <a class="ex-pic-link ex-pic-light" href="examples/migrate-a-system-light.svg"><img class="ex-pic" data-pic="migrate-a-system" src="examples/migrate-a-system-light.svg" width="1885" height="906" loading="lazy" alt="The Migrate a system map: requirements for no data loss and reversibility, the shadow-write, read and write phases in order, the reconciliation report that gates them, the cutover risks, and the old system switched off. Opens the whole map."></a>
+    <figure class="ex-figure" data-detail="migrate-a-system" style="--fx:0.0085;--fy:0.3154;--fw:0.2591;--fh:0.1917;--fx1:0.0085;--ff:0.115;--fy1:0.3339;--fh1:0.1546;--pw:1885;--ph:906">
+      <div class="ex-whole">
+        <a class="ex-pic-link ex-pic-dark" href="examples/migrate-a-system.svg"><img class="ex-pic" data-pic="migrate-a-system" src="examples/migrate-a-system.svg" width="1885" height="906" loading="lazy" alt="The Migrate a system map: requirements for no data loss and reversibility, the shadow-write, read and write phases in order, the reconciliation report that gates them, the cutover risks, and the old system switched off. Opens the picture at full size."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/migrate-a-system-light.svg"><img class="ex-pic" data-pic="migrate-a-system" src="examples/migrate-a-system-light.svg" width="1885" height="906" loading="lazy" alt="The Migrate a system map: requirements for no data loss and reversibility, the shadow-write, read and write phases in order, the reconciliation report that gates them, the cutover risks, and the old system switched off. Opens the picture at full size."></a>
+        <span class="ex-mark" aria-hidden="true"></span>
       </div>
-      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <div class="ex-detail" aria-hidden="true">
+        <img class="ex-pic ex-pic-dark" src="examples/migrate-a-system.svg" alt="" loading="lazy">
+        <img class="ex-pic ex-pic-light" src="examples/migrate-a-system-light.svg" alt="" loading="lazy">
+      </div>
+      <p class="ex-pic-note">The whole map (it opens at full size), then where it starts, at reading size.</p>
       <figcaption class="ex-brief">
         <span class="ex-brief-label">From the brief it produces</span>
         <pre class="ex-brief-text"><code><!-- brief:migrate-a-system -->### Constraints and boundaries
@@ -174,7 +193,7 @@
       </figcaption>
     </figure>
     <div class="ex-actions">
-      <button class="btn btn-primary" type="button" data-example="Migrate a System">Open as a new map</button>
+      <button class="btn btn-primary" type="button" data-example="Migrate a System">Open this map</button>
       <span class="ex-meta">15 blocks, Plan mode</span>
     </div>
   </section>
@@ -189,12 +208,17 @@
       a Trigger). One weekly report reaches nobody on the map, and the gap check says
       so: that is the question worth asking before automating it.
     </p>
-    <figure class="ex-figure">
-      <div class="ex-pic-frame">
-        <a class="ex-pic-link ex-pic-dark" href="examples/recurring-reporting-flow.svg"><img class="ex-pic" data-pic="recurring-reporting-flow" src="examples/recurring-reporting-flow.svg" width="2157" height="662" loading="lazy" alt="The Recurring reporting flow map: executives and delivery leads, the goal and the report lead time metric, the scheduler built once, the sprint-end and quarter-end runs, and a weekly status report nobody on the map receives. Opens the whole map."></a>
-        <a class="ex-pic-link ex-pic-light" href="examples/recurring-reporting-flow-light.svg"><img class="ex-pic" data-pic="recurring-reporting-flow" src="examples/recurring-reporting-flow-light.svg" width="2157" height="662" loading="lazy" alt="The Recurring reporting flow map: executives and delivery leads, the goal and the report lead time metric, the scheduler built once, the sprint-end and quarter-end runs, and a weekly status report nobody on the map receives. Opens the whole map."></a>
+    <figure class="ex-figure" data-detail="recurring-reporting-flow" style="--fx:0.1133;--fy:0.3225;--fw:0.2728;--fh:0.4203;--fx1:0.1122;--ff:0.1211;--fy1:0.3599;--fh1:0.3502;--pw:2157;--ph:662">
+      <div class="ex-whole">
+        <a class="ex-pic-link ex-pic-dark" href="examples/recurring-reporting-flow.svg"><img class="ex-pic" data-pic="recurring-reporting-flow" src="examples/recurring-reporting-flow.svg" width="2157" height="662" loading="lazy" alt="The Recurring reporting flow map: executives and delivery leads, the goal and the report lead time metric, the scheduler built once, the sprint-end and quarter-end runs, and a weekly status report nobody on the map receives. Opens the picture at full size."></a>
+        <a class="ex-pic-link ex-pic-light" href="examples/recurring-reporting-flow-light.svg"><img class="ex-pic" data-pic="recurring-reporting-flow" src="examples/recurring-reporting-flow-light.svg" width="2157" height="662" loading="lazy" alt="The Recurring reporting flow map: executives and delivery leads, the goal and the report lead time metric, the scheduler built once, the sprint-end and quarter-end runs, and a weekly status report nobody on the map receives. Opens the picture at full size."></a>
+        <span class="ex-mark" aria-hidden="true"></span>
       </div>
-      <p class="ex-pic-note">Scroll sideways for the rest, or open the picture for the whole map.</p>
+      <div class="ex-detail" aria-hidden="true">
+        <img class="ex-pic ex-pic-dark" src="examples/recurring-reporting-flow.svg" alt="" loading="lazy">
+        <img class="ex-pic ex-pic-light" src="examples/recurring-reporting-flow-light.svg" alt="" loading="lazy">
+      </div>
+      <p class="ex-pic-note">The whole map (it opens at full size), then where it starts, at reading size.</p>
       <figcaption class="ex-brief">
         <span class="ex-brief-label">From the brief it produces</span>
         <pre class="ex-brief-text"><code><!-- brief:recurring-reporting-flow -->### Constraints and boundaries
@@ -204,7 +228,7 @@
       </figcaption>
     </figure>
     <div class="ex-actions">
-      <button class="btn btn-primary" type="button" data-example="Recurring Reporting Flow">Open as a new map</button>
+      <button class="btn btn-primary" type="button" data-example="Recurring Reporting Flow">Open this map</button>
       <span class="ex-meta">16 blocks, Plan mode</span>
     </div>
   </section>

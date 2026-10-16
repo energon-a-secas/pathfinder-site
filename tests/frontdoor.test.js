@@ -162,8 +162,9 @@ describe('frontdoor: the start panel says what the tool is and offers three ways
     assert.ok(notes.hasAttribute('hidden'), 'folded until asked for')
     const ta = notes.querySelector('textarea#brainDumpInput')
     assert.ok(doc.querySelector('label[for="brainDumpInput"]'), 'a real label')
-    assert.eq(ta.getAttribute('aria-describedby'), 'startPrefixLine')
+    assert.eq(ta.getAttribute('aria-describedby'), 'startPrefixLine startIndentLine')
     assert.ok(doc.getElementById('startPrefixLine'), 'the line it points at exists')
+    assert.ok(doc.getElementById('startIndentLine'), 'and the indent sentence, before any script runs')
     assert.ok(notes.querySelector('#brainDumpBtn.btn.btn-primary'), 'Turn into blocks is the one primary')
     assert.ok(notes.querySelector('#brainDumpNest[type="checkbox"]'))
   })
@@ -276,7 +277,8 @@ describe('frontdoor: the prefix helper says only what the classifier does', () =
       assert.eq(items[i].querySelector('code').textContent, `${PREFIX_WORDS[t]}:`)
       // The type is named only where the word does not already say it.
       const named = items[i].textContent.slice(`${PREFIX_WORDS[t]}:`.length).trim()
-      const says = TYPES[t].label.toLowerCase().includes(PREFIX_WORDS[t].toLowerCase())
+      // A whole word of the type's name, not a piece of one: "Req" names Requirement.
+      const says = TYPES[t].label.toLowerCase().split(/[^a-z]+/).includes(PREFIX_WORDS[t].toLowerCase())
       assert.eq(named, says ? '' : TYPES[t].label, `${t}: "${items[i].textContent}"`)
     })
     assert.includes(more.textContent, 'Step: Process', 'a word that is not its type says the type')
@@ -300,7 +302,8 @@ describe('frontdoor: the prefix helper says only what the classifier does', () =
     assert.eq(withCriteria, 'Indented lines add detail to the line above; under a <code>Req:</code> or <code>Metric:</code> line, <code>-</code> lines become its criteria.')
     assert.eq(indentSentence(false, PREFIX_WORDS, new Set(['requirement'])), indentSentence(false, PREFIX_WORDS, null), 'folding off, no criteria either')
     const html = prefixHelpHtml(PREFIX_WORDS, { nest: false, criteria: null })
-    assert.includes(html, '<span id="startIndentLine">Every line becomes a block of its own')
+    assert.includes(html, '<span id="startIndentLine" hidden>Every line becomes a block of its own')
+    assert.includes(html, '<p class="start-indent">Every line becomes a block of its own', 'and the visible copy under More prefixes')
   })
 
   it('a phone or tablet does not offer Ctrl + Enter', async () => {
@@ -542,8 +545,13 @@ describe('frontdoor: 1, 2 and 3 on the start panel', () => {
       press('Escape', nest)
       assert.eq(document.getElementById('startNotesBtn').getAttribute('aria-expanded'), 'false')
       assert.eq(document.activeElement?.id, 'startNotesBtn')
-      // The field is still described by the line the sentence sits in.
-      assert.ok(document.getElementById('startPrefixLine').contains(document.getElementById('startIndentLine')))
+      // The field is still described by the sentence. Its copy under More
+      // prefixes sits in a closed <details>, which Chrome leaves out of a
+      // computed description, so the one the field names is outside it.
+      const by = document.getElementById('brainDumpInput').getAttribute('aria-describedby').split(/\s+/)
+      assert.ok(by.includes('startPrefixLine') && by.includes('startIndentLine'), by.join(' '))
+      assert.ok(!document.getElementById('startIndentLine').closest('details'), 'the described sentence is not inside the disclosure')
+      assert.eq(document.getElementById('startIndentLine').textContent, document.querySelector('.start-prefixes .start-indent').textContent, 'and says what the visible copy says')
     } finally { unmount() }
   })
 })
@@ -659,28 +667,45 @@ describe('frontdoor: the examples gallery', () => {
     assert.deepEq(keys, EXAMPLES.map(e => e.key))
     keys.forEach(k => assert.ok(payloadFor(k), `${k} has a payload`))
     assert.eq(payloadFor('nothing'), null)
-    assert.eq(doc.querySelector('main h1').textContent.trim(), 'Five finished maps to start from')
+    // The count is the sections shown: four maps, and the blank bug template as a link.
+    assert.eq(doc.querySelector('main h1').textContent.trim(), 'Four finished maps to start from')
+    assert.eq(doc.querySelectorAll('section.ex').length, 4)
     assert.ok(!doc.querySelector('.doc-kicker'), 'no eyebrow')
     const buttons = [...doc.querySelectorAll('.ex-actions [data-example]')]
-    buttons.forEach(b => assert.eq(b.textContent.trim(), 'Open as a new map'))
+    assert.eq(buttons.length, 4)
+    buttons.forEach(b => assert.eq(b.textContent.trim(), 'Open this map'))
   })
 
-  it('each pictured map has both pictures, drawn at reading size, and an excerpt of its brief', async () => {
+  it('each pictured map has both pictures, whole and as a detail, and an excerpt of its brief', async () => {
     const doc = parse(await fetchText('../examples.html'))
     const scale = await picScale()
     for (const ex of EXAMPLES.filter(e => e.picture)) {
       const imgs = [...doc.querySelectorAll(`img[data-pic="${ex.slug}"]`)]
       assert.deepEq(imgs.map(i => i.getAttribute('src')), [`examples/${ex.slug}.svg`, `examples/${ex.slug}-light.svg`])
       imgs.forEach(i => assert.ok(i.getAttribute('alt').length > 40, `${ex.slug}: a real alt`))
+      const fig = doc.querySelector(`figure.ex-figure[data-detail="${ex.slug}"]`)
+      assert.ok(fig, `${ex.slug}: a figure that knows its detail`)
       for (const img of imgs) {
         const [w, h] = svgSize(await fetchText('../' + img.getAttribute('src')))
         assert.eq(img.getAttribute('width'), String(Math.round(w * scale)), `${ex.slug}: width reserved at ${scale} (run make assets)`)
         assert.eq(img.getAttribute('height'), String(Math.round(h * scale)), `${ex.slug}: height reserved`)
-        // The picture is a link to the whole map, in the frame that scrolls.
-        const link = img.closest('a.ex-pic-link')
-        assert.eq(link?.getAttribute('href'), img.getAttribute('src'), `${ex.slug}: opens the whole map`)
-        assert.ok(link.closest('.ex-pic-frame'), `${ex.slug}: in a frame that scrolls sideways`)
+        // The whole map, fitted to the column: no frame that scrolls, no link to a raw file.
+        assert.ok(img.closest('.ex-whole'), `${ex.slug}: the whole map`)
+        // Open this map is the action; the picture also opens at its own
+        // size, the only place the whole map reads at full size.
+        assert.eq(img.closest('a.ex-pic-link')?.getAttribute('href'), img.getAttribute('src'), `${ex.slug}: the whole map links to its own picture`)
+        assert.ok(/full size/.test(img.getAttribute('alt')), `${ex.slug}: its alt says where the link goes`)
+        // The figure says where its detail is, at the size the picture is drawn.
+        assert.includes(fig.getAttribute('style'), `--pw:${img.getAttribute('width')}`, `${ex.slug}: --pw (run make assets)`)
+        assert.includes(fig.getAttribute('style'), `--ph:${img.getAttribute('height')}`)
       }
+      for (const v of ['--fx', '--fy', '--fw', '--fh', '--fx1', '--ff', '--fy1', '--fh1']) {
+        const m = fig.getAttribute('style').match(new RegExp(`${v}:([\\d.]+)`))
+        assert.ok(m && +m[1] >= 0 && +m[1] <= 1, `${ex.slug}: ${v} is a share of the picture (run make assets)`)
+      }
+      const detail = fig.querySelector('.ex-detail')
+      assert.eq(detail?.getAttribute('aria-hidden'), 'true', `${ex.slug}: the detail repeats the picture, so it is not read twice`)
+      assert.deepEq([...detail.querySelectorAll('img')].map(i => i.getAttribute('src')), imgs.map(i => i.getAttribute('src')))
       const html = await fetchText('../examples.html')
       const body = html.match(new RegExp(`<!-- brief:${ex.slug} -->([\\s\\S]*?)<!-- /brief -->`))
       assert.ok(body, `${ex.slug}: excerpt markers`)
@@ -711,12 +736,13 @@ describe('frontdoor: the examples gallery', () => {
   })
 
   for (const [file, width] of [['examples.html', 1440], ['examples.html', 390], ['tutorial.html', 1440], ['tutorial.html', 390]]) {
-    it(`${file} at ${width}px: every map picture reads (titles at 11px or more), and the page never scrolls sideways`, async () => {
+    it(`${file} at ${width}px: every map picture reads (titles at 11px or more, or the whole map with a detail that does), and the page never scrolls sideways`, async () => {
       for (const theme of ['', 'light-mode']) {
         const f = await pageFrame(file, width, 900, { images: true, bodyClass: ('doc-page ' + theme).trim() })
         try {
           const d = f.contentDocument
-          const shown = [...d.querySelectorAll('img.ex-pic')].filter(i => i.getClientRects().length)
+          // A whole map fitted to the column is the overview; its detail is the part that reads.
+          const shown = [...d.querySelectorAll('img.ex-pic')].filter(i => i.getClientRects().length && !i.closest('.ex-whole'))
           assert.ok(shown.length >= (file === 'examples.html' ? 4 : 1), `${file}: pictures shown`)
           for (const img of shown) {
             const [w] = svgSize(await fetchText(img.getAttribute('src')))
@@ -724,16 +750,25 @@ describe('frontdoor: the examples gallery', () => {
             assert.ok(title >= 11, `${theme || 'dark'} ${img.getAttribute('src')}: card titles at ${title.toFixed(1)}px`)
             assert.eq(/-light\.svg$/.test(img.getAttribute('src')), !!theme, `${theme || 'dark'}: the picture in its theme`)
           }
+          for (const whole of d.querySelectorAll('.ex-whole')) {
+            const img = [...whole.querySelectorAll('img')].find(i => i.getClientRects().length)
+            assert.ok(img.getBoundingClientRect().width <= whole.getBoundingClientRect().width + 0.5, 'the whole map fits its column')
+            assert.eq(/-light\.svg$/.test(img.getAttribute('src')), !!theme)
+          }
+          for (const box of d.querySelectorAll('.ex-detail')) {
+            assert.ok(box.getBoundingClientRect().right <= d.querySelector('main').getBoundingClientRect().right + 0.5, 'a detail stays in the column')
+            assert.ok(['hidden', 'clip'].includes(f.contentWindow.getComputedStyle(box).overflowX), 'and never scrolls sideways')
+          }
           assert.ok(d.documentElement.scrollWidth <= width, `${file} ${theme}: ${d.documentElement.scrollWidth}px wide`)
         } finally { f.remove() }
       }
     })
   }
 
-  it('the meta says five maps and describes the share card', async () => {
+  it('the meta says four maps, as the page shows, and describes the share card', async () => {
     const doc = parse(await fetchText('../examples.html'))
-    assert.match(doc.querySelector('meta[name="description"]').content, /^Five finished/)
-    assert.ok(!/Four|validating/.test(doc.querySelector('meta[property="og:description"]').content))
+    assert.match(doc.querySelector('meta[name="description"]').content, /^Four finished/)
+    assert.ok(!/Five|validating/.test(doc.querySelector('meta[property="og:description"]').content))
   })
 })
 
@@ -770,7 +805,7 @@ describe('frontdoor: the walkthrough', () => {
       'three more finished maps', 'Brain Dump', 'doc-kicker', 'Promote to Assumption']) {
       assert.ok(!html.includes(stale), `"${stale}" is gone`)
     }
-    for (const now of ['enables', 'The caret beside Tidy', 'its connections stay', 'five finished maps', 'Paste your notes']) {
+    for (const now of ['enables', 'The caret beside Tidy', 'its connections stay', 'four finished maps', 'Paste your notes']) {
       assert.includes(html, now)
     }
     assert.ok(!html.includes(EM_DASH))

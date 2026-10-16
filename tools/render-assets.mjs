@@ -3,15 +3,16 @@
 //  tools/render-assets.mjs: draw the site's pictures from the app
 //  itself, so none of them can show a UI that no longer exists.
 //
-//    make assets                      (or: node tools/render-assets.mjs [port])
+//    make assets                      (or: node tools/render-assets.mjs [port] [--pages])
 //
 //  Writes, in the repository:
 //    examples/<slug>.svg, examples/<slug>-light.svg
 //        each example map, drawn by the app's own SVG exporter
-//        (image-export.js buildSvg), in both themes. The pages show them
-//        at PIC_SCALE of their own size (the <img> width and height this
-//        writes), so a card title reads at 11px or more, in a frame that
-//        scrolls sideways, and link each to its whole map
+//        (image-export.js buildSvg), in both themes. The examples page
+//        shows each whole, fitted to its column, and again as a detail at
+//        PIC_SCALE of its own size (a card title at 11px or more): where
+//        the flow starts, whole cards only. This writes the <img> sizes
+//        and the detail's place (writeDetail) into the page
 //    examples/checkout-strip.svg, -strip-light.svg
 //        the walkthrough strip's picture: the checkout map's entry row,
 //        cut from the same SVG
@@ -21,6 +22,8 @@
 //        the share card: 1200x630, the checkout example and one line
 //    docs/screenshot-dark.png, docs/screenshot-light.png
 //        the README's picture of the app
+//  --pages writes the first three only (the pages' own pictures and
+//  excerpts), leaving the share card and the README's screenshots alone.
 //
 //  It serves the repository on 127.0.0.1:<port> (default 9850) and
 //  drives headless Chrome on <port + 1> (tools/cdp.mjs). Run it again
@@ -33,10 +36,16 @@ import { fileURLToPath } from 'node:url'
 import { serve, launch, sleep } from './cdp.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const PORT = +(process.argv[2] || process.env.ASSETS_PORT || 9850)
+const PORT = +(process.argv.slice(2).find(a => /^\d+$/.test(a)) || process.env.ASSETS_PORT || 9850)
+/** --pages: the example pictures and the excerpts only, not the share card or the README's screenshots. */
+const PAGES_ONLY = process.argv.includes('--pages')
 const OG_LINE = 'Plan the work before an agent builds it'
 /** The pages draw a map at this share of its own size: 14px titles at 11.2px. */
 const PIC_SCALE = 0.8
+/** The reading column's width (.doc: 720px less its 24px sides): the widest detail. */
+const DETAIL_COLUMN = 672
+/** A 360px phone's column (less the page's sides and the detail's border): the phone's detail. */
+const PHONE_COLUMN = 310
 
 const log = (...a) => console.log('  ' + a.join(' '))
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -66,6 +75,26 @@ function writeSize(file, slug, svg) {
   const html = readFileSync(path, 'utf8')
   const re = new RegExp(`<img\\b[^>]*\\bdata-pic="${slug}"[^>]*>`, 'g')
   writeFileSync(path, html.replace(re, tag => tag.replace(/\swidth="\d+"/, ` width="${w}"`).replace(/\sheight="\d+"/, ` height="${h}"`)))
+}
+
+/**
+ * Where an example's detail sits on its picture, as the custom properties
+ * the page's figure reads (css [recognition]): --fx, --fy, --fw and --fh
+ * (the entry row), --fx1, --ff, --fy1 and --fh1 (the entry card alone, for
+ * a phone) as fractions of the picture, --pw and --ph its drawn size. One
+ * file serves the whole map and the detail; nothing to keep in step by hand.
+ */
+function writeDetail(file, slug, svg, { wide, phone }) {
+  const path = join(ROOT, file)
+  const [W, H] = svgSize(svg, slug)
+  const f = n => String(Math.round(n * 10000) / 10000)
+  const style = `--fx:${f(wide.x1 / W)};--fy:${f(wide.y1 / H)};--fw:${f((wide.x2 - wide.x1) / W)};--fh:${f((wide.y2 - wide.y1) / H)};` +
+    `--fx1:${f(phone.x1 / W)};--ff:${f((phone.x2 - phone.x1) / W)};--fy1:${f(phone.y1 / H)};--fh1:${f((phone.y2 - phone.y1) / H)};` +
+    `--pw:${Math.round(W * PIC_SCALE)};--ph:${Math.round(H * PIC_SCALE)}`
+  const html = readFileSync(path, 'utf8')
+  const re = new RegExp(`(<figure\\b[^>]*\\bdata-detail="${slug}"[^>]*\\bstyle=")[^"]*(")`)
+  if (!re.test(html)) throw new Error(`${file} has no <figure data-detail="${slug}" style=""> to write into`)
+  writeFileSync(path, html.replace(re, `$1${style}$2`))
 }
 
 /**
@@ -121,6 +150,81 @@ try {
       const y1 = Math.min(...row.map(b => b.y1)) - pad, y2 = Math.max(...row.map(b => b.y2)) + pad
       return { y: y1 - minY + 48, h: y2 - y1 }
     }
+    // The examples page's detail: where the flow starts, at reading size.
+    // The entry card and the cards level with it to its right, as many as
+    // fit the reading column at PIC_SCALE (three at most), whole cards only;
+    // the phone's crop is the entry card alone. Both are in the exporter's
+    // coordinates, with the cards each must keep whole.
+    const detailBox = (column, scale) => {
+      const ids = Object.keys(state.blocks)
+      const into = new Set(state.arrows.map(a => a.to)), out = new Set(state.arrows.map(a => a.from))
+      const roots = ids.filter(id => out.has(id) && !into.has(id))
+      const entry = roots.find(id => state.blocks[id].type === 'terminator') || roots[0] || ids[0]
+      const minX = Math.min(...ids.map(id => state.blocks[id].x)), minY = Math.min(...ids.map(id => state.blocks[id].y))
+      const box = id => { const b = state.blocks[id], d = getBlockDims(id); const x = b.x - minX + 48, y = b.y - minY + 48; return { x1: x, x2: x + d.w, y1: y, y2: y + d.h } }
+      const e = box(entry)
+      const pad = 28
+      // The entry and what it leads to: its direct successors to its right,
+      // as many as fit the column and a crop no taller than maxH on screen
+      // (the farthest from the entry's middle go first).
+      const width = t => Math.max(...t.map(b => b.x2)) - e.x1 + pad * 2
+      const band = t => ({ y1: Math.min(...t.map(b => b.y1)) - pad, y2: Math.max(...t.map(b => b.y2)) + pad })
+      const mid = b => (b.y1 + b.y2) / 2
+      const next = [...new Set(state.arrows.filter(a => a.from === entry).map(a => a.to))].map(box)
+        .filter(b => b.x1 >= e.x2 && width([e, b]) * scale <= column)
+        .sort((a, b) => Math.abs(mid(a) - mid(e)) - Math.abs(mid(b) - mid(e)))
+      let take = [e, ...next]
+      const maxH = 360
+      while (take.length > 1 && (band(take).y2 - band(take).y1) * scale > maxH) take = take.slice(0, -1)
+      const crop = t => ({ x1: e.x1 - pad, x2: e.x1 - pad + width(t), ...band(t) })
+      return { take, crop }
+    }
+    // Every card, label and line of text the exporter drew, as boxes in its
+    // own coordinates: the picture laid out at its own size, off screen.
+    // Frames and the background are left out (a crop may cut a frame's edge).
+    const drawnBoxes = svg => {
+      const host = document.createElement('div')
+      host.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none'
+      host.innerHTML = svg
+      document.body.appendChild(host)
+      const root = host.querySelector('svg'), o = root.getBoundingClientRect()
+      const boxes = [...root.querySelectorAll('rect, text')].map(el => {
+        const r = el.getBoundingClientRect()
+        return { x1: r.left - o.left, y1: r.top - o.top, x2: r.right - o.left, y2: r.bottom - o.top }
+      }).filter(b => b.x2 - b.x1 > 0.5 && b.y2 - b.y1 > 0.5 && b.x2 - b.x1 < 600 && b.y2 - b.y1 < 600)
+      host.remove()
+      return { boxes, W: o.width, H: o.height }
+    }
+    // Move a crop's edges until nothing drawn is cut in two: a card or a
+    // label it touches is either taken whole or left out. Each edge goes to
+    // the nearest place that falls in no drawn thing (a gutter), never into
+    // the cards the crop is for and never past maxW x maxH (the column, the
+    // height a detail may take); the four settle together, a few rounds.
+    const settle = (c, keep, { boxes, W, H }, maxW, maxH, gap = 6) => {
+      const hull = { x1: Math.min(...keep.map(b => b.x1)), x2: Math.max(...keep.map(b => b.x2)), y1: Math.min(...keep.map(b => b.y1)), y2: Math.max(...keep.map(b => b.y2)) }
+      const place = (cur, lo, hi, spans) => {
+        const bad = v => spans.some(([a, b]) => v > a && v < b)
+        const ok = v => v >= lo && v <= hi && !bad(v)
+        if (ok(cur)) return cur
+        const cands = [lo, hi, ...spans.flat()].filter(ok).sort((p, q) => Math.abs(p - cur) - Math.abs(q - cur))
+        return cands.length ? cands[0] : cur
+      }
+      const across = (t, axis) => boxes
+        .filter(b => axis === 'x' ? b.y1 < t.y2 && b.y2 > t.y1 : b.x1 < t.x2 && b.x2 > t.x1)
+        .map(b => axis === 'x' ? [b.x1 - gap, b.x2 + gap] : [b.y1 - gap, b.y2 + gap])
+      c = { x1: c.x1, x2: c.x2, y1: c.y1, y2: c.y2 }
+      for (let round = 0; round < 8; round++) {
+        const was = JSON.stringify(c)
+        c.x2 = place(c.x2, hull.x2 + 8, Math.min(W, c.x1 + maxW), across(c, 'x'))
+        c.x1 = place(c.x1, Math.max(0, c.x2 - maxW), hull.x1 - 8, across(c, 'x'))
+        c.y2 = place(c.y2, hull.y2 + 8, Math.min(H, c.y1 + maxH), across(c, 'y'))
+        c.y1 = place(c.y1, Math.max(0, c.y2 - maxH), hull.y1 - 8, across(c, 'y'))
+        if (JSON.stringify(c) === was) break
+      }
+      const inside = b => b.x1 >= c.x1 - 0.5 && b.x2 <= c.x2 + 0.5 && b.y1 >= c.y1 - 0.5 && b.y2 <= c.y2 + 0.5
+      const touches = b => b.x1 < c.x2 && b.x2 > c.x1 && b.y1 < c.y2 && b.y2 > c.y1
+      return { ...c, clean: !boxes.some(b => touches(b) && !inside(b)) }
+    }
     const out = []
     for (const ex of EXAMPLES.filter(e => e.picture)) {
       ui.lightMode = false
@@ -130,7 +234,23 @@ try {
       ui.lightMode = true
       const light = buildSvg().svg
       ui.lightMode = false
-      out.push({ slug: ex.slug, dark, light, band: entryBand(), prompt: generatePrompt() })
+      const { take, crop } = detailBox(${DETAIL_COLUMN}, ${PIC_SCALE}), drawn = drawnBoxes(dark)
+      // The first crop that settles clean: the most cards first, then with
+      // tighter gutters, then one card fewer. Failing all, the widest one
+      // (and a warning below).
+      const clean = (cards, column) => {
+        let first = null
+        for (let k = cards.length; k >= 1; k--) {
+          for (const gap of [6, 3, 1.5]) {
+            const c = settle(crop(cards.slice(0, k)), cards.slice(0, k), drawn, column / ${PIC_SCALE}, 360 / ${PIC_SCALE}, gap)
+            first ??= c
+            if (c.clean) return { ...c, cards: k }
+          }
+        }
+        return first
+      }
+      const wide = clean(take, ${DETAIL_COLUMN}), phone = clean(take.slice(0, 1), ${PHONE_COLUMN})
+      out.push({ slug: ex.slug, dark, light, band: entryBand(), detail: { wide, phone }, prompt: generatePrompt() })
     }
     return out
   })()`)
@@ -171,6 +291,9 @@ try {
     const own = part(ex.prompt, 'Constraints') || { head: task.head, body: [sentence(task.body[0])] }
     writeExcerpt('examples.html', ex.slug, [own.head, own.body[0], open.head, open.body[0]])
     writeSize('examples.html', ex.slug, ex.dark)
+    writeDetail('examples.html', ex.slug, ex.dark, ex.detail)
+    // A crop that could not settle cuts a card or a label in two: say so.
+    for (const k of ['wide', 'phone']) if (!ex.detail[k].clean) log(`warning: ${ex.slug}'s ${k} detail cuts a card or a label`)
     log(`examples/${ex.slug}.svg, -light.svg, and its brief excerpt`)
     if (ex.slug === 'checkout') {
       // The walkthrough's picture: the entry row of the same drawing.
@@ -186,6 +309,17 @@ try {
     }
   }
 
+  if (!PAGES_ONLY) await shareCardAndReadme()
+  if (page.errors.length) { console.log('Page errors:\n' + page.errors.join('\n')); process.exitCode = 1 }
+} catch (e) {
+  console.log('render-assets: ' + e.message)
+  process.exitCode = 1
+} finally {
+  await page.close()
+  await srv.stop()
+}
+
+async function shareCardAndReadme() {
   // ── The share card ─────────────────────────────────────────
   const checkout = await page.evalJS(`(async () => {
     const { payloadFor } = await import('/js/examples-page.js')
@@ -251,12 +385,4 @@ try {
     writeFileSync(join(ROOT, 'docs', `screenshot-${theme}.png`), await page.shot())
     log(`docs/screenshot-${theme}.png`)
   }
-
-  if (page.errors.length) { console.log('Page errors:\n' + page.errors.join('\n')); process.exitCode = 1 }
-} catch (e) {
-  console.log('render-assets: ' + e.message)
-  process.exitCode = 1
-} finally {
-  await page.close()
-  await srv.stop()
 }

@@ -56,6 +56,12 @@ export function sampleSummary(payload = samplePayload()) {
 }
 
 /**
+ * The sample option's line: short enough for one line beside its title on a
+ * phone, and counted from the map like sampleSummary.
+ */
+export const sampleLine = (summary = sampleSummary()) => `A finished bug investigation: ${summary}`
+
+/**
  * Open the sample as a map of its own, so the person's own map stays as it
  * was (empty, on a first visit). Returns openAsNewMap's result, or false.
  */
@@ -139,8 +145,12 @@ export const PREFIX_WORDS = {
   decision: 'Decision', output: 'Output', process: 'Step', terminator: 'Trigger',
   resource: 'Resource', context: 'Context', question: 'Question',
 }
-/** The types the helper line names; the rest sit under "More prefixes". */
-export const PRIMARY_PREFIX_TYPES = ['goal', 'problem', 'stakeholder', 'metric', 'requirement', 'implementation', 'risk', 'assumption']
+/**
+ * The types the helper line names; the rest sit under "More prefixes". Four,
+ * so the line reads in one pass: eight codes in one sentence was a run-on a
+ * first visit skipped.
+ */
+export const PRIMARY_PREFIX_TYPES = ['goal', 'problem', 'risk', 'assumption']
 
 const cleanWord = w => String(w || '').replace(/[:.\s]+$/, '').trim()
 
@@ -187,26 +197,44 @@ export function indentSentence(nest = true, words = prefixWords(), criteria = cl
 }
 
 /**
+ * Whether a prefix word already says its type: it is a whole word of the
+ * type's name ("Decision", "Trigger" of Trigger / End), not a piece of one
+ * ("Req" is not a word of Requirement).
+ */
+export function prefixSaysType(type, word) {
+  const words = String(TYPES[type]?.label || '').toLowerCase().split(/[^a-z]+/).filter(Boolean)
+  return words.includes(String(word || '').toLowerCase())
+}
+
+/**
  * A prefix under "More prefixes", with its type named only when the word
- * does not already say it ("Step: Process", but never "Decision: Decision").
+ * does not already say it ("Step: Process", "Req: Requirement", but never
+ * "Decision: Decision").
  */
 function morePrefix(type, word) {
   const label = TYPES[type].label
-  const says = label.toLowerCase().includes(word.toLowerCase())
+  const says = prefixSaysType(type, word)
   return `<span>${code(word)}${says ? '' : ` ${escHtml(label)}`}</span>`
 }
 
-/** The helper's markup: the line, then every other prefix on demand. */
+/**
+ * The helper's markup: one short line (four prefixes and the question
+ * mark), then "More prefixes", which holds every other prefix as a two-column
+ * list and what indented lines do.
+ */
 export function prefixHelpHtml(words = prefixWords(), { nest = true, criteria = classify.CRITERIA_FROM_BULLETS } = {}) {
   const primary = PRIMARY_PREFIX_TYPES.filter(t => words[t]).map(t => code(words[t]))
   const rest = Object.keys(words).filter(t => !PRIMARY_PREFIX_TYPES.includes(t))
-  return `<p id="startPrefixLine">Start a line with ${list(primary)} to set its type, and end a question with <code>?</code>. ` +
-    `<span id="startIndentLine">${indentSentence(nest, words, criteria)}</span></p>` +
+  const indent = indentSentence(nest, words, criteria)
+  // The notes field is described by the prefix line and the indent sentence.
+  // A closed <details> hides its content from the description Chrome computes,
+  // so the field's copy of the sentence is its own hidden node, outside it.
+  return `<p id="startPrefixLine">Start a line with ${list(primary)} to set its type. End a question with <code>?</code>.</p>` +
     (rest.length
       ? `<details class="start-prefixes"><summary>More prefixes</summary><span class="start-prefix-list">` +
         rest.map(t => morePrefix(t, words[t])).join('') +
-        `</span></details>`
-      : '')
+        `</span><p class="start-indent">${indent}</p></details><span id="startIndentLine" hidden>${indent}</span>`
+      : `<p class="start-indent"><span id="startIndentLine">${indent}</span></p>`)
 }
 
 // ── First-block pills ────────────────────────────────────────
@@ -313,7 +341,7 @@ export function setupStartPanel() {
   const nest = $in('brainDumpNest')
   if (help) help.innerHTML = prefixHelpHtml(prefixWords(), { nest: nest ? nest.checked : true })
   const sampleDesc = $in('startSampleDesc')
-  if (sampleDesc) sampleDesc.textContent = `A finished bug investigation (${sampleSummary()}) and the brief it produces`
+  if (sampleDesc) sampleDesc.textContent = sampleLine()
   const submit = $in('startSubmitHint')
   if (submit && isApple()) submit.innerHTML = '<kbd>⌘</kbd> + <kbd>Enter</kbd>'
 

@@ -11,13 +11,14 @@
   <meta name="neo-mark" content="on">
   <title>Not found | Pathfinder</title>
   <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0e0e13">
   <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/styles/base.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* The site's tokens, buttons and the .nf rules come from /css/style.css
-       (root-absolute, so a 404 at any depth finds it). The page still reads
-       if that file is what went missing: this restates the few tokens the
-       layout needs. */
+    /* The site's tokens, buttons and the .nf rules come from /css/style.css,
+       and the header and footer from the kits, every path root-absolute so
+       a 404 at any depth finds them. The page still reads if style.css is
+       what went missing: this restates the few tokens the layout needs. */
     :root {
       --bg: oklch(0.165 0.012 285);
       --text-1: oklch(0.96 0.008 285);
@@ -26,18 +27,52 @@
     }
     body {
       margin: 0; height: auto; min-height: 100dvh; overflow: visible;
-      display: grid; place-items: center;
       background: var(--bg); color: var(--text-1);
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      padding: 2rem 1rem;
-      box-sizing: border-box;
     }
   </style>
+  <script>(function(){var m=location.search.match(/[?&]theme=([\w-]+)/)||document.cookie.match(/(?:^|;\s*)neo_theme=([\w-]+)/);if(m&&m[1]!=='default')document.documentElement.dataset.theme=decodeURIComponent(m[1]);})();</script>
+  <link rel="stylesheet" href="/css/neorgon-header.css">
+  <link rel="stylesheet" href="/css/neorgon-themes.css">
+  <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/header/season.css">
+  <script defer src="/js/neorgon-header.js"></script>
+  <link rel="stylesheet" href="/css/neorgon-footer.css">
+  <script defer src="/js/neorgon-footer.js"></script>
+  <meta name="neo-repo" content="energon-a-secas/pathfinder-site">
 </head>
-<body>
+<body class="doc-page nf-page">
 <!-- The app's saved theme (View, Light mode) reaches this page too. -->
 <script>try{if(localStorage.getItem('pathfinder-theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
-  <main class="nf">
+
+<!-- The doc pages' header: the same skin and brand mark, so a wrong link
+     still lands somewhere that is plainly Pathfinder. -->
+<header class="header-bar" data-header-mode="content" data-header-skin="custom">
+  <div class="header-logo">
+    <a href="/" class="header-title-link">
+        <img src="/energon-classic-logo.png" class="header-logo-img" alt="">
+        <div class="header-title-wrap">
+      <h1 role="none">Pathfinder</h1>
+      <div class="header-subtitle">Not found</div>
+
+        </div>
+      </a>
+  </div>
+  <div class="header-right">
+    <a class="header-home" href="https://neorgon.com/" title="neorgon.com" aria-label="Neorgon home">
+        <svg class="nh-hub-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M12 4.4 18.58 8.2 18.58 15.8 12 19.6 5.42 15.8 5.42 8.2Z" fill="currentColor" stroke="none"/>
+          <g class="nh-orbit">
+            <path d="M2.47 17.50 A11.0 11.0 0 0 1 14.85 1.37" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
+            <path d="M21.53 6.50 A11.0 11.0 0 0 1 9.15 22.63" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
+            <circle cx="21.71" cy="6.84" r="1.25" fill="currentColor"/>
+            <circle cx="2.29" cy="17.16" r="1.25" fill="currentColor"/>
+          </g>
+        </svg>
+      </a>
+  </div>
+</header>
+
+  <main class="nf" id="main">
     <p class="nf-code">404</p>
     <h1>That page is not here</h1>
     <p>The link may be old, or the address may have a typo in it. Your maps are safe: they live in this browser, not at an address.</p>
@@ -47,5 +82,9 @@
       <a class="btn btn-secondary" href="/examples.html">Examples</a>
     </nav>
   </main>
+
+<footer class="neo-footer" data-footer-mode="minimal">
+  <p>Pathfinder is part of <a href="https://neorgon.com/">Neorgon</a>. Free, no signup, runs in your browser.</p>
+</footer>
 </body>
 </html>

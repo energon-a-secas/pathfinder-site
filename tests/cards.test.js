@@ -13,7 +13,7 @@ import { renderBlock, undo, deselectAll, selectBlock } from '../js/render.js'
 import { setupCanvasPointerEvents } from '../js/events.js'
 import { runGapDetection, gapIconFor, GAP_META } from '../js/gaps.js'
 import { setupTypeChips, showTypeChips, resolveTypeCheck, openTypeChipMenu } from '../js/classify.js'
-import { renderPaletteTypes, setupPalette, addTypeAtCenter } from '../js/palette.js'
+import { renderPaletteTypes, setupPalette, addTypeAtCenter, typeKeysLine } from '../js/palette.js'
 import { firstBlockPillsHtml, FIRST_BLOCK_TYPES } from '../js/start-panel.js'
 import { lightAccentFor, highlightTabLabel, paintColorFor, colorDistance, ATTENTION_HEX } from '../js/cards.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
@@ -652,7 +652,9 @@ describe('cards -- palette grouped by step', () => {
     rows.forEach(r => {
       assert.eq(r.tagName, 'BUTTON')
       assert.eq(r.getAttribute('aria-label'), `Add ${TYPES[r.dataset.type].label} block`)
-      assert.eq(list.querySelector('#' + r.getAttribute('aria-describedby')).textContent, TYPES[r.dataset.type].short)
+      // What it is for, then its keys in words (recognition: the N letters).
+      assert.eq(list.querySelector('#' + r.getAttribute('aria-describedby')).textContent, typeKeysLine(r.dataset.type))
+      assert.ok(typeKeysLine(r.dataset.type).startsWith(TYPES[r.dataset.type].short))
     })
   })
 
@@ -899,22 +901,25 @@ describe('cards -- QA round', () => {
     reset()
   })
 
-  it('the palette rail captions its section toggles, so + and - do not read as zoom', async () => {
+  it('the palette rail heads its sections with a labelled icon and a word, never + or - or an abbreviation', async () => {
     const html = await (await fetch('../index.html')).text()
     const doc = new DOMParser().parseFromString(html, 'text/html')
-    const toggles = [...doc.querySelectorAll('.palette-section-toggle')]
-    assert.deepEq(toggles.map(t => t.dataset.rail), ['Tpl', 'Types'])
+    const sections = [...doc.querySelectorAll('#palette .palette-section')]
+    assert.ok(!doc.querySelector('[data-rail]'), 'no caption attribute is left ("Tpl")')
     const s = await styled()
     try {
-      s.page.innerHTML = '<aside class="palette collapsed">' + toggles.map(t => t.outerHTML).join('') + '</aside>'
-      s.page.querySelectorAll('.palette-section-toggle').forEach(t => {
-        const content = getComputedStyle(t, '::after').content
-        assert.ok(content && content !== 'none' && content !== 'normal', `the rail shows a caption (${content})`)
-      })
+      s.page.innerHTML = '<aside class="palette collapsed" id="palette">' + sections.map(t => t.outerHTML).join('') + '</aside>'
+      const shown = sel => [...s.page.querySelectorAll(sel)].filter(t => getComputedStyle(t).display !== 'none')
+      assert.eq(shown('.palette-section-toggle').length, 0, 'the toggles step aside in the rail')
+      const heads = shown('.palette-rail-head')
+      assert.eq(heads.length, 2)
+      assert.eq(heads[0].getAttribute('aria-label'), 'Templates', 'an icon with its name')
+      assert.eq(heads[1].textContent.trim(), 'Blocks', 'a word')
+      heads.forEach(h => assert.ok(!/^(Tpl|Types)$/.test(h.textContent.trim())))
       s.page.firstChild.classList.remove('collapsed')
       if (window.innerWidth > 1024) {
-        const content = getComputedStyle(s.page.querySelector('.palette-section-toggle'), '::after').content
-        assert.ok(content === 'none' || content === 'normal', 'the full palette keeps its words and no caption')
+        assert.eq(shown('.palette-rail-head').length, 0, 'the full palette keeps its toggles and no heads')
+        assert.eq(shown('.palette-section-toggle').length, 2)
       }
     } finally { s.done() }
   })

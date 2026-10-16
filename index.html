@@ -162,7 +162,7 @@
 <main class="app-body" id="main">
 
   <!-- Palette -->
-  <aside class="palette" id="palette">
+  <aside class="palette" id="palette" aria-label="Palette">
 
     <!-- Palette header. The collapse control lives here rather than stranded at
          the foot of the list, so every control that shrinks a panel is at its top. -->
@@ -174,8 +174,17 @@
     </div>
 
     <!-- Templates (collapsible; folds itself away once the canvas has content) -->
+    <!-- In the rail (the palette collapsed, or a window 1024px and under) each
+         section shows one head instead of its toggle: a labelled icon for
+         Templates, the word for Blocks. Each opens a flyout over the canvas
+         that lists the names (palette.js openRailFlyout), so the rail never
+         asks anyone to recall what a dot or an icon was. -->
     <div class="palette-section" id="templatesSection">
-      <button class="palette-section-toggle" id="templatesToggle" type="button" data-rail="Tpl" aria-label="Templates" title="Templates" aria-expanded="true" aria-controls="templatesList">
+      <span id="railTemplatesDesc" hidden>Worked maps and starters, by name; save this map as one</span>
+      <button class="palette-rail-head" id="railTemplatesBtn" type="button" data-flyout="templates" aria-haspopup="menu" aria-expanded="false" aria-label="Templates" aria-describedby="railTemplatesDesc" data-tip="Templates" data-tip-sub="Worked maps and starters, by name; save this map as one">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="9" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="2.25" y="9" width="4.75" height="4.75" rx="1"/><path d="M11.375 9v4.75M9 11.375h4.75"/></svg>
+      </button>
+      <button class="palette-section-toggle" id="templatesToggle" type="button" aria-label="Templates" title="Templates" aria-expanded="true" aria-controls="templatesList">
         <span>Templates</span>
         <svg class="section-indicator" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/><path class="section-plus" d="M8 4v8"/></svg>
       </button>
@@ -184,7 +193,9 @@
 
     <!-- Blocks -->
     <div class="palette-section" id="blocksSection">
-      <button class="palette-section-toggle" id="blocksToggle" type="button" data-rail="Types" aria-label="Blocks" title="Blocks" aria-expanded="true" aria-controls="blocksList">
+      <span id="railBlocksDesc" hidden>Every type by name, and the letter after N that adds it</span>
+      <button class="palette-rail-head palette-rail-word" id="railBlocksBtn" type="button" data-flyout="types" aria-haspopup="menu" aria-expanded="false" aria-describedby="railBlocksDesc" data-tip="Blocks" data-tip-sub="Every type by name, and the letter after N that adds it">Blocks</button>
+      <button class="palette-section-toggle" id="blocksToggle" type="button" aria-label="Blocks" title="Blocks" aria-expanded="true" aria-controls="blocksList">
         <span>Blocks</span>
         <svg class="section-indicator" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/><path class="section-plus" d="M8 4v8"/></svg>
       </button>
@@ -226,15 +237,15 @@
           <div class="start-option">
             <button type="button" class="start-opt" id="startNotesBtn" aria-expanded="false" aria-controls="startNotes" aria-keyshortcuts="1">
               <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>
-              <span class="start-opt-text"><span class="start-opt-title">Paste your notes</span><span class="start-opt-desc">One idea per line. Each becomes a typed block you can correct.</span></span>
+              <span class="start-opt-text"><span class="start-opt-title">Paste your notes</span><span class="start-opt-desc">Each line becomes a typed block you can check</span></span>
               <kbd class="start-key" aria-hidden="true">1</kbd>
             </button>
             <div class="start-notes" id="startNotes" hidden>
               <label class="sr-only" for="brainDumpInput">Your notes, one idea per line</label>
-              <textarea class="input" id="brainDumpInput" rows="6" spellcheck="false" aria-describedby="startPrefixLine"
+              <textarea class="input" id="brainDumpInput" rows="6" spellcheck="false" aria-describedby="startPrefixLine startIndentLine"
                 placeholder="Goal: Cut onboarding drop-off before the Q3 review&#10;Problem: New users stall at workspace setup&#10;Assume: Admins skip the invite step&#10;Metric: Activation within 7 days&#10;Risk: A setup checklist slows experienced admins&#10;What counts as activated?"></textarea>
               <!-- start-panel.js rewrites this from the classifier's prefix table. -->
-              <div class="start-help" id="startPrefixHelp"><p id="startPrefixLine">Start a line with <code>Goal:</code>, <code>Problem:</code>, <code>Who:</code>, <code>Metric:</code>, <code>Req:</code>, <code>Build:</code>, <code>Risk:</code> or <code>Assume:</code> to set its type, and end a question with <code>?</code>. Indented lines add detail to the line above.</p></div>
+              <div class="start-help" id="startPrefixHelp"><p id="startPrefixLine">Start a line with <code>Goal:</code>, <code>Problem:</code>, <code>Risk:</code> or <code>Assume:</code> to set its type. End a question with <code>?</code>.</p><details class="start-prefixes"><summary>More prefixes</summary><span class="start-prefix-list"><span><code>Who:</code> Stakeholder</span><span><code>Metric:</code></span><span><code>Req:</code> Requirement</span><span><code>Build:</code> Implementation</span><span><code>Decision:</code></span><span><code>Output:</code></span><span><code>Step:</code> Process</span><span><code>Trigger:</code></span><span><code>Resource:</code></span><span><code>Context:</code></span><span><code>Question:</code></span></span><p class="start-indent">Indented lines add detail to the line above; under a <code>Req:</code> or <code>Metric:</code> line, <code>-</code> lines become its criteria.</p></details><span id="startIndentLine" hidden>Indented lines add detail to the line above; under a <code>Req:</code> or <code>Metric:</code> line, <code>-</code> lines become its criteria.</span></div>
               <label class="brain-dump-nest" for="brainDumpNest">
                 <input type="checkbox" id="brainDumpNest" checked>
                 <span>Fold indented and bulleted lines into the line above</span>
@@ -247,12 +258,12 @@
           </div>
           <button type="button" class="start-opt" id="startTemplateBtn" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="2">
             <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.5"/><rect x="13.5" y="4" width="7" height="7" rx="1.5"/><rect x="3.5" y="14" width="7" height="7" rx="1.5"/><path d="M17 14v7M13.5 17.5h7"/></svg>
-            <span class="start-opt-text"><span class="start-opt-title">Start from a template</span><span class="start-opt-desc">A bug, an inherited codebase, a migration or a recurring report</span></span>
+            <span class="start-opt-text"><span class="start-opt-title">Start from a template</span><span class="start-opt-desc">A bug, a codebase, a migration or a report</span></span>
             <kbd class="start-key" aria-hidden="true">2</kbd>
           </button>
           <button type="button" class="start-opt" id="startSampleBtn" aria-keyshortcuts="3">
             <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.3 7.2l7.4 3.6M8.3 16.8l7.4-3.6"/></svg>
-            <span class="start-opt-text"><span class="start-opt-title">Open the sample map</span><span class="start-opt-desc" id="startSampleDesc">A finished bug investigation (12 blocks) and the brief it produces</span></span>
+            <span class="start-opt-text"><span class="start-opt-title">Open the sample map</span><span class="start-opt-desc" id="startSampleDesc">A finished bug investigation: 12 blocks</span></span>
             <kbd class="start-key" aria-hidden="true">3</kbd>
           </button>
         </div>
@@ -286,6 +297,10 @@
 
     <!-- Rubber-band select -->
     <div class="select-box" id="selectBox"></div>
+
+    <!-- The open map's name, on a phone where the header has no room for it
+         (palette.js keeps it in step with the header's title). -->
+    <p class="canvas-map-name" id="canvasMapName" data-canvas-ui></p>
 
     <!-- Search remains reachable on touch screens and in view-only links. -->
     <button class="canvas-search-toggle" id="searchBtn" data-canvas-ui aria-controls="searchOverlay" aria-expanded="false" title="Find blocks (Ctrl or Cmd + F)">
@@ -359,6 +374,13 @@
   </div>
 
   <div class="canvas-statusbar" id="canvasStatusbar" data-canvas-ui>
+    <!-- A phone's palette (768px and under): one control that lists the
+         types and the templates (palette.js openPhoneAdd), in place of a
+         strip that scrolled sideways and took 52px from the canvas. -->
+    <button type="button" class="btn btn-secondary btn-sm palette-add-btn" id="paletteAddBtn" aria-haspopup="menu" aria-expanded="false">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3.25v9.5M3.25 8h9.5"/></svg>
+      <span>Add</span>
+    </button>
     <div class="zoom-controls" id="zoomControls" data-canvas-ui role="group" aria-label="Zoom">
       <button type="button" class="zoom-btn zoom-step" id="zoomOutBtn" title="Zoom out (-)" aria-label="Zoom out"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 8h8"/></svg></button>
       <button type="button" class="zoom-btn zoom-level-btn" id="zoomMenuBtn" title="Zoom options" aria-haspopup="menu" aria-expanded="false"><span class="sr-only">Zoom </span><span class="zoom-indicator" id="zoomIndicator">100%</span><svg class="zoom-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>

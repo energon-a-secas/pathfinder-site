@@ -79,9 +79,9 @@
 
   <h1>From a vague bug report to a brief worth handing over</h1>
   <p class="doc-lede">
-    One worked example, start to finish. The case is deliberately ordinary: checkout
-    fails sometimes, nobody knows why, and you would like an assistant with the
-    repository open to help rather than guess. Roughly ten minutes.
+    One worked example, start to finish. Checkout fails for some people, nobody knows
+    why, and you want an assistant with the repository open to read the code rather
+    than invent a plausible theory. About ten minutes, in ten steps.
   </p>
 
   <!-- The map and the brief lines are drawn from the app by
@@ -124,21 +124,33 @@ Investigate. Establish what is actually true before anything is changed or propo
     <span class="doc-cta-note">It opens as a new map, so the one you were working on stays as it was.</span>
   </div>
 
-  <h2>The situation</h2>
-  <p>
-    Someone forwards you a message: <em>"checkout is broken for some people, can you look?"</em>
-    You have the repository. You want to hand this to a coding assistant, and you want it to
-    go and read the code rather than invent a plausible-sounding theory.
-  </p>
-  <p>
-    That last sentence is the part most planning tools drop, and it is the part this
-    walkthrough is really about.
-  </p>
+  <!-- The step index: a compact list here, and on a wide screen a list that
+       stays beside the steps as they scroll (css [recognition]); js/doc-toc.js
+       marks the step on screen. -->
+  <nav class="doc-toc" id="docToc" aria-labelledby="docTocTitle">
+    <p class="doc-toc-title" id="docTocTitle">The ten steps</p>
+    <ol class="doc-toc-list">
+      <li><a href="#step-1"><span class="doc-toc-num" aria-hidden="true">1</span>Set the situation</a></li>
+      <li><a href="#step-2"><span class="doc-toc-num" aria-hidden="true">2</span>Paste your notes</a></li>
+      <li><a href="#step-3"><span class="doc-toc-num" aria-hidden="true">3</span>Known or assumed</a></li>
+      <li><a href="#step-4"><span class="doc-toc-num" aria-hidden="true">4</span>Connect, and say why</a></li>
+      <li><a href="#step-5"><span class="doc-toc-num" aria-hidden="true">5</span>Tidy</a></li>
+      <li><a href="#step-6"><span class="doc-toc-num" aria-hidden="true">6</span>Read the gaps</a></li>
+      <li><a href="#step-7"><span class="doc-toc-num" aria-hidden="true">7</span>Pick a mode</a></li>
+      <li><a href="#step-8"><span class="doc-toc-num" aria-hidden="true">8</span>Copy the brief</a></li>
+      <li><a href="#step-9"><span class="doc-toc-num" aria-hidden="true">9</span>Before you present</a></li>
+      <li><a href="#step-10"><span class="doc-toc-num" aria-hidden="true">10</span>Bring the reply back</a></li>
+    </ol>
+    <ul class="doc-toc-more">
+      <li><a href="#formats">Other formats</a></li>
+      <li><a href="#keyboard">Keyboard</a></li>
+    </ul>
+  </nav>
 
-  <h2>Step 1. Say where you are standing, before you draw anything</h2>
+  <h2 id="step-1">Step 1. Say where you are standing, before you draw anything</h2>
   <p>
     Open the <strong>Brief</strong> tab in the right panel, open <strong>Framing</strong>
-    and set the <strong>Situation</strong> first. It is four choices and takes about fifteen seconds:
+    and set the <strong>Situation</strong> first. Four choices, about fifteen seconds:
   </p>
   <ul class="doc-list">
     <li><strong>Codebase: This repo.</strong> The code exists and the assistant can see it.</li>
@@ -146,28 +158,22 @@ Investigate. Establish what is actually true before anything is changed or propo
     <li><strong>Start by: Reading the code.</strong> Before any theory.</li>
     <li><strong>Boundaries.</strong> One per line. Here: <code>Reproduce before theorising</code>.</li>
   </ul>
-  <p>
-    These choices become the first lines of the brief, because the point is being able to
-    read what you are about to hand over:
-  </p>
+  <p>They become the first lines of the brief, so you can read what you are about to hand over (each line cut short here, at the dots):</p>
   <pre class="doc-pre"><code>## Situation
-- This is a planning canvas exported from Pathfinder. It is a plan, not a codebase,
-  and not a record of what exists. Everything below is what somebody mapped out;
-  none of it is verified unless this section says otherwise.
-- The relevant repository is open to you. Read it before trusting this canvas: the
-  canvas records what somebody believed, the repository is what is actually there.
-  Where the two disagree, the repository wins and the disagreement is worth reporting.
-- You are running in Claude Code with file and shell access. Prefer reading the
-  repository over asking about it, and cite file paths for any claim you make.
-- Start by reading the code. Reconcile it against this canvas and report what does
-  not match before proposing anything.</code></pre>
+- This is a planning canvas exported from Pathfinder. It is a plan, not a ...
+- The relevant repository is open to you. Read it before trusting this ...
+- You are running in Claude Code with file and shell access. Prefer ...
+- Start by reading the code. Reconcile it against this canvas and report ...
+
+### Constraints and boundaries
+- Reproduce before theorising</code></pre>
   <p class="doc-aside">
-    Change <strong>Codebase</strong> to <em>None yet</em> and the same canvas tells the
-    reader that nothing in it can be checked and every technical claim is unverified. Same
-    blocks, opposite instruction. That is the whole reason this section exists.
+    Change <strong>Codebase</strong> to <em>None yet</em> and the same map tells the
+    reader that nothing in it can be checked. Same blocks, opposite instruction: that
+    is why this section comes first.
   </p>
 
-  <h2>Step 2. Get the mess out of your head</h2>
+  <h2 id="step-2">Step 2. Get the mess out of your head</h2>
   <p>
     An empty map opens on a start panel. Choose <strong>Paste your notes</strong> (or
     press <kbd>1</kbd>) and write one idea per line, no formatting, no thinking about types:
@@ -179,10 +185,9 @@ we deployed on Tuesday
 does it happen on staging
 no test covers the retry path</code></pre>
   <p>
-    Press <strong>Turn into blocks</strong>. Each line becomes a typed block. Where the
-    classifier was unsure of a type, the card's label carries a <strong>▾</strong>: click
-    it, or press <kbd>T</kbd> on the card, to confirm the type or change it. Two minutes of
-    typing beats twenty minutes of dragging boxes.
+    Press <strong>Turn into blocks</strong>. Each line becomes a typed block. Where a type
+    was a guess, the card's type label carries a small caret: click it, or press
+    <kbd>T</kbd> on the card, to confirm the type or change it.
   </p>
   <p>
     When you already know what a line is, say so: start it with <code>Problem:</code>,
@@ -190,164 +195,147 @@ no test covers the retry path</code></pre>
     type is used as written. End a line with <code>?</code> to make it a question.
   </p>
   <p>
-    The shortcut for this exact case: the <strong>Investigate a bug</strong> template
-    (<strong>Start from a template</strong> on the start panel, or the palette). It lands
-    thirteen blocks, arranges them, and sets the Situation to match in one click. Use it as
-    scaffolding and delete what does not apply.
+    Later, add one block at a time: <kbd>N</kbd> then a letter adds that type where you
+    point (<kbd>N</kbd> <kbd>K</kbd> a risk, <kbd>N</kbd> <kbd>Q</kbd> an open question),
+    and the palette shows each type's letter beside its dot.
+    <kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd> finds any action or block by name.
+  </p>
+  <p>
+    The shortcut for this exact case is the <strong>Investigate a bug</strong> template
+    (<strong>Start from a template</strong> on the start panel, or the palette): thirteen
+    blocks, arranged, with the Situation set to match. Delete what does not apply.
   </p>
 
-  <h2>Step 3. Separate what you know from what you assume</h2>
+  <h2 id="step-3">Step 3. Separate what you know from what you assume</h2>
   <p>
-    This is the step that earns its keep. Look at the line <em>"probably the payment
-    service"</em>. That is not a problem, and it is not a question. It is a belief you are
-    about to act on without checking, which makes it an <strong>Assumption</strong>.
+    This is the step that earns its keep. <em>"Probably the payment service"</em> is not a
+    problem and not a question: it is a belief you are about to act on without checking,
+    which makes it an <strong>Assumption</strong>. The brief treats the three differently:
   </p>
-  <p>The distinction is not pedantry, because the brief treats the three differently:</p>
   <ul class="doc-list">
-    <li><strong>Problem</strong>: the observable symptom. <em>Checkout returns 500 on card payments.</em> Stated without a theory attached.</li>
-    <li><strong>Assumption</strong>: a belief nobody has checked. <em>It started with Tuesday's deploy.</em> The brief tells the reader to pressure-test it, and when the repository is reachable, to go and settle it rather than ask.</li>
-    <li><strong>Open Question</strong>: a genuine unknown. <em>Does it happen on staging?</em> The brief tells the reader that guessing here is how the plan goes wrong.</li>
+    <li><strong>Problem</strong>: the observable symptom, without a theory attached. <em>Checkout returns 500 on card payments.</em></li>
+    <li><strong>Assumption</strong>: a belief nobody has checked. <em>It started with Tuesday's deploy.</em> The brief asks the reader to pressure-test it, and to settle it from the code when the repository is open.</li>
+    <li><strong>Open question</strong>: a genuine unknown. <em>Does it happen on staging?</em> The brief tells the reader that guessing here is how the plan goes wrong.</li>
   </ul>
   <p>
-    Select the "probably the payment service" block and change its type to Assumption.
-    A question you have been treating as settled has its own button in the inspector,
-    <strong>Treating this as true? Make it an Assumption</strong>, for exactly this moment.
+    Select the block and change its type to Assumption in the inspector. A question you
+    have been treating as settled has its own button there,
+    <strong>Treating this as true? Make it an Assumption</strong>.
   </p>
 
-  <h2>Step 4. Connect them, and say why</h2>
+  <h2 id="step-4">Step 4. Connect them, and say why</h2>
   <p>
-    Drag from the dot on a block's edge to another block. Then select the line and give
-    it a label from the presets: <code>depends on</code>, <code>blocks</code>,
-    <code>enables</code>, <code>mitigates</code> and more. An unlabelled line says two
-    things are related; a labelled one says how, and the brief carries the label through
-    as the dependency order.
+    Drag from the dot on a block's edge to another block, then select the line and give
+    it a label: <code>depends on</code>, <code>blocks</code>, <code>enables</code>,
+    <code>mitigates</code> and more. An unlabelled line says two things are related; a
+    labelled one says how, and the brief carries it through as the dependency order.
   </p>
   <p>
-    If a line leaves from an awkward side, select it and pick a side under
-    <strong>Connection points</strong>, or drag its endpoint handle onto the side you
-    want. Connections route themselves around other blocks, so you should rarely need to.
+    Connections route themselves around other blocks. If one leaves from an awkward side,
+    drag its endpoint handle onto the side you want, or pick the sides in the inspector.
   </p>
 
-  <h2>Step 5. Press Tidy</h2>
+  <h2 id="step-5">Step 5. Press Tidy</h2>
   <p>
-    <kbd>L</kbd>, or the <strong>Tidy</strong> button. The canvas is rearranged into
-    layers along the flow, connections are re-pointed to match, and the toast tells you
-    how many crossings are left. The caret beside Tidy picks left to right or top to
-    bottom.
-  </p>
-  <p>
-    It is one undo step. If you hate the result, <kbd>Cmd/Ctrl</kbd>+<kbd>Z</kbd> puts
-    every block back exactly where it was.
+    <kbd>L</kbd>, or the <strong>Tidy</strong> button. The map is rearranged into layers
+    along the flow, connections are re-pointed to match, and the toast says how many
+    crossings are left. The caret beside Tidy picks left to right or top to bottom. It is
+    one undo step: <kbd>Cmd/Ctrl</kbd>+<kbd>Z</kbd> puts every block back.
   </p>
   <p class="doc-aside">
-    Tidy is also a diagnostic. If the result looks like a straight line with everything
-    dangling off one node, your canvas has one real idea in it and a lot of decoration.
+    Tidy is also a diagnostic. If the result is a straight line with everything dangling
+    off one node, the map has one real idea in it and a lot of decoration.
   </p>
 
-  <h2>Step 6. Read what the tool is telling you</h2>
+  <h2 id="step-6">Step 6. Read what the tool is telling you</h2>
   <p>
-    A block with a gap wears a dashed amber ring and a small badge on its corner; hover or
-    focus the card and the badge names the gap. A block connected to nothing usually does
-    not belong, or you have not finished the thought. An assumption not anchored to a goal
-    or requirement is one nobody has said why they care about.
+    A block with a gap wears a dashed amber ring and a badge on its corner; hover or focus
+    the card and the badge names the gap. A block connected to nothing usually does not
+    belong, or the thought is unfinished. An assumption not anchored to a goal or a
+    requirement is one nobody has said why they care about.
   </p>
   <p>
-    The Brief tab says how many items are still open before you copy anything, and it is
-    blunt on purpose: if the map is thin, the brief will be thin, and no amount of
-    mode-switching fixes that. The Attention tab lists every gap, and a gap you mean to
-    keep can be accepted there or in the inspector.
+    The <strong>Attention</strong> tab lists every gap, and a gap you mean to keep can be
+    accepted there or in the inspector. The Brief tab counts what is still open before
+    you copy anything: a thin map makes a thin brief. On a map bigger than the window,
+    <kbd>M</kbd> shows the minimap and <kbd>Shift</kbd>+<kbd>1</kbd> fits all of it.
   </p>
 
-  <h2>Step 7. Pick what you want back</h2>
-  <p>The mode reshapes the whole document, not just a header line:</p>
+  <h2 id="step-7">Step 7. Pick what you want back</h2>
+  <p>The mode at the top of the Brief tab reshapes the whole document, not a header line:</p>
   <ul class="doc-list">
-    <li><strong>Investigate</strong>: establish what is true. Every finding must carry its evidence, unknowns stay marked as unknown, and disagreements between canvas and reality get reported rather than smoothed over. The right mode here.</li>
-    <li><strong>Explore</strong>: pressure-test the canvas itself. Gaps and questions, no solutions.</li>
+    <li><strong>Investigate</strong>: establish what is true, with evidence for each finding; unknowns stay marked and disagreements with the map get reported. The right mode here.</li>
+    <li><strong>Explore</strong>: pressure-test the map itself. Gaps and questions, no solutions.</li>
     <li><strong>Plan</strong>: a phased plan with outputs per phase.</li>
     <li><strong>Build</strong>: requirements as a task checklist, once the plan is settled.</li>
     <li><strong>Clarify</strong>: questions only, ranked blocking first.</li>
   </ul>
 
-  <h2>Step 8. Hand it over</h2>
+  <h2 id="step-8">Step 8. Hand it over</h2>
   <p>
-    <strong>Copy brief</strong> at the top of the Brief tab, or in the bar under the canvas;
-    File ▾ has the same row. What lands in the paste buffer opens like
-    this:
+    <strong>Copy brief</strong> at the top of the Brief tab
+    (<kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>), or in the bar under the canvas.
+    After the Situation, the brief opens on its task:
   </p>
-  <pre class="doc-pre"><code>## Situation
-- ... (the four lines from step 1)
-
-## Task
+  <pre class="doc-pre"><code>## Task
 Investigate. Establish what is actually true before anything is changed or
-proposed. Work outward from the Problems and Open Questions below.
-
-For each finding, state the evidence you based it on. Where you could not
-establish something, say so plainly rather than filling the gap with a plausible
-guess. Where this canvas and reality disagree, report the disagreement.
-
-Treat each Assumption below as believed-true-until-disproven. Several of them are
-probably settleable from the repository you have open. Check those against the
-code and label each result verified or still open, rather than asking about
-something you could have read.</code></pre>
+proposed. Work outward from the Problems and Open Questions below.</code></pre>
   <p>
     Then the blocks, grouped by type, with the connections as a dependency list. The
-    assistant knows what kind of document it is holding, what it can reach, and what to
-    do first, before it has read a single one of your boxes.
+    assistant knows what it is holding, what it can reach and what to do first, before it
+    has read one of your boxes.
   </p>
 
-  <h2>Step 9. Before you present it</h2>
+  <h2 id="step-9">Step 9. Before you present it</h2>
   <p>
-    A canvas you are about to walk somebody through has a different job from one you
-    are working in. Select the blocks that carry your point and give them a
-    <strong>Highlight</strong>: Alert for the thing to look at first, Focus for what you
-    are discussing.
-  </p>
-  <p>
-    Right-click any block and choose <strong>Select all</strong> of its type to mark a
-    whole type at once. Then turn on <strong>Spotlight</strong>, which fades everything you
-    did not mark. The contrast does the work, not the colour.
+    A map you are about to walk somebody through has a different job. Select the blocks
+    that carry your point and give them a <strong>Highlight</strong>: Alert for the thing
+    to look at first, Focus for what you are discussing. Right-click a block and use
+    <strong>Select</strong> to take every block of its type at once. Then turn on
+    <strong>Spotlight</strong> in the View menu, which fades everything you did not mark.
   </p>
   <p class="doc-aside">
     Highlights say "look here" and nothing more. They travel with a share link and reach
-    the image export, but they stay out of the brief on purpose: the block type already
-    says what a block is, and colour that means two things at once means neither.
+    the image export, but stay out of the brief: the type already says what a block is.
   </p>
 
-  <h2>Step 10. Bring the answer back</h2>
+  <h2 id="step-10">Step 10. Bring the answer back</h2>
   <p>
-    An investigation that ends in a chat log is an investigation you will run again in
-    three weeks. Put what came back into the canvas. The quickest way is
+    An investigation that ends in a chat log is one you will run again in three weeks. Use
     <strong>Bring the reply back</strong> at the end of the Brief tab: choose
-    <strong>Paste a reply</strong>, paste the whole reply,
-    and the patch the brief asked for is previewed and applied as one undo step.
-    By hand, it looks like this:
+    <strong>Paste a reply</strong>, paste the whole reply, and the patch the brief asked
+    for is previewed and applied as one undo step. By hand:
   </p>
   <ul class="doc-list">
-    <li>An answered question gets its answer in the inspector. It travels with the canvas and shows up in the next brief.</li>
-    <li>A settled assumption becomes a <strong>Decision</strong>: change its type, and its connections stay. Put the evidence in <strong>Rationale</strong>, and if it turned out to be false, rewrite the title to say what is true.</li>
-    <li>Something new that was discovered becomes a block wired to whatever it affects.</li>
+    <li>An answered question gets its answer in the inspector. It travels with the map and shows up in the next brief.</li>
+    <li>A settled assumption becomes a <strong>Decision</strong>: change its type, and its connections stay. Put the evidence in <strong>Rationale</strong>; if it was false, rewrite the title to say what is true.</li>
+    <li>Something discovered becomes a block wired to whatever it affects.</li>
   </ul>
   <p>
-    Now the canvas is worth more than when you started, which is the only test of whether
-    a planning tool was worth using.
+    Now the map is worth more than when you started, which is the only test of whether a
+    planning tool was worth using.
   </p>
 
-  <h2>Other formats</h2>
+  <h2 id="formats">Other formats</h2>
   <ul class="doc-list">
-    <li><strong>Download Markdown</strong>: every block type as a section, connections with their labels, and a Mermaid graph of the topology for anything that renders it.</li>
-    <li><strong>Download JSON</strong>: the whole canvas including the Situation. This is the one to hand a terminal session directly.</li>
-    <li><strong>Share, Copy link</strong>: the entire canvas encoded in the URL. Nothing is uploaded; the link is the data.</li>
-    <li><strong>Copy AI diagram-builder prompt</strong>. The other direction. Paste it into any assistant, describe your problem, import the JSON it hands back.</li>
-    <li><a href="examples.html">Examples</a>: five finished maps, from this bug investigation to a recurring report.</li>
-    <li><a href="llms.txt">llms.txt</a>: the format spec, if you would rather generate canvases than draw them.</li>
+    <li><strong>Download Markdown</strong>: every block type as a section, connections with their labels, and a Mermaid graph.</li>
+    <li><strong>Download JSON</strong>: the whole map, Situation included. The one to hand a terminal session.</li>
+    <li><strong>Share, Copy link</strong>: the entire map encoded in the URL. Nothing is uploaded; the link is the data.</li>
+    <li>The other direction: File also copies a prompt that has any assistant build a map from your description; import the JSON it hands back.</li>
+    <li><a href="examples.html">Examples</a>: four finished maps, from this bug investigation to a recurring report.</li>
+    <li><a href="llms.txt">llms.txt</a>: the format spec, if you would rather generate maps than draw them.</li>
   </ul>
 
-  <h2>Keyboard</h2>
+  <h2 id="keyboard">Keyboard</h2>
   <div class="doc-keys">
-    <div><kbd>L</kbd><span>Tidy the canvas</span></div>
-    <div><kbd>H</kbd><span>Hide the header and footer</span></div>
-    <div><kbd>Z</kbd><span>Zen: hide every panel</span></div>
-    <div><kbd>?</kbd><span>Every other shortcut</span></div>
+    <div><span class="doc-keys-caps"><kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd></span><span>Find any action or block by name</span></div>
+    <div><span class="doc-keys-caps"><kbd>N</kbd> then a letter</span><span>Add a block of that type (the palette shows each letter)</span></div>
+    <div><span class="doc-keys-caps"><kbd>L</kbd></span><span>Tidy the map</span></div>
+    <div><span class="doc-keys-caps"><kbd>M</kbd></span><span>Show the minimap</span></div>
+    <div><span class="doc-keys-caps"><kbd>Shift</kbd>+<kbd>1</kbd></span><span>Fit the whole map</span></div>
+    <div><span class="doc-keys-caps"><kbd>H</kbd></span><span>Hide the header and footer</span></div>
+    <div><span class="doc-keys-caps"><kbd>Z</kbd></span><span>Zen: hide every panel</span></div>
+    <div><span class="doc-keys-caps"><kbd>?</kbd></span><span>Every other shortcut</span></div>
   </div>
 
   <div class="doc-cta doc-cta-end">
@@ -362,5 +350,6 @@ something you could have read.</code></pre>
 </footer>
 
 <script type="module" src="js/tutorial-example.js"></script>
+<script type="module" src="js/doc-toc.js"></script>
 </body>
 </html>

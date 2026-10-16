@@ -29,6 +29,7 @@ import { zoomIn, zoomOut, zoomTo, zoomToBlocks, zoomToSelection, hasSelectionTar
 import { readingOrder, describeBlock, announce, withCameraHeld } from './navigation.js'
 import { openSampleMap, SAMPLE_TITLE } from './start-panel.js'
 import { panelWidthItems, panelIsColumn } from './panel-resize.js'
+import { templateSaveItem } from './palette.js'
 
 export const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '')
 export const MOD = IS_MAC ? '⌘' : 'Ctrl+'
@@ -351,6 +352,15 @@ function templateRows() {
   listUserTemplates().forEach(tpl => rows.push({
     id: 'utpl:' + tpl.id, label: tpl.name, hint: tpl.desc, icon: ICONS.template, meta: 'Saved', noRecent: true,
     run: () => clickTemplate(`[data-utpl="${CSS.escape(tpl.id)}"]`),
+  }))
+  // The rail's Templates menu has these too (palette.js templateListItems):
+  // keep the open map as a template, and delete one this browser saved.
+  const saveRow = templateSaveItem()
+  rows.push({ id: 'tpl-save', label: saveRow.label, hint: saveRow.hint, icon: ICONS.template, meta: 'Templates', noRecent: true,
+    disabled: saveRow.disabled, run: saveRow.action })
+  listUserTemplates().forEach(tpl => rows.push({
+    id: 'utpl-del:' + tpl.id, label: `Delete saved template: ${tpl.name}`, icon: ICONS.template, meta: 'Saved', danger: true, noRecent: true,
+    run: () => $.templatesList()?.querySelector(`[data-utpl-del="${CSS.escape(String(tpl.id))}"]`)?.click(),
   }))
   return rows
 }
