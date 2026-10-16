@@ -154,8 +154,9 @@ describe('brief: one readiness line, counted the way Attention counts', () => {
     assert.eq(readiness({ items: [], accepted: [] }).text, 'No open items.')
     assert.eq(readiness({ items: [], accepted: [{ live: true }, { live: false }] }).text, 'No open items; 1 accepted gap.')
     const one = readiness({ items: [{ kind: 'question' }], accepted: [] })
-    assert.eq(one.text, '1 open item: 1 question.')
-    assert.eq(readiness({ items: [{ kind: 'gap' }, { kind: 'gap' }, { kind: 'blocked' }], accepted: [] }).text, '3 open items: 1 blocked, 2 gaps.')
+    assert.eq(one.text, '1 open item: 1 unanswered question.')
+    // The gaps lead, in the Attention tab's order (QA4: one formatter).
+    assert.eq(readiness({ items: [{ kind: 'gap' }, { kind: 'gap' }, { kind: 'blocked' }], accepted: [] }).text, '3 open items: 2 gaps, 1 blocked.')
   })
 
   it('says what is open, by type: "2 risks, 1 decision", not "3 gaps"', () => {
@@ -166,7 +167,7 @@ describe('brief: one readiness line, counted the way Attention counts', () => {
     // criteria are its targets.
     const r2 = readiness({ items: [gap('goal', 'gap-isolated'), gap('stakeholder', 'gap-isolated'), { kind: 'criteria', type: 'requirement', gap: 'gap-no-criteria' },
       { kind: 'criteria', type: 'metric', gap: 'gap-no-target' }, { kind: 'criteria', type: 'requirement', gap: 'gap-no-criteria' }, gap('implementation', 'gap-no-purpose')], accepted: [] })
-    assert.eq(r2.text, '6 open items: 1 metric without a target, 2 requirements without criteria, 1 work item, 2 unconnected blocks.')
+    assert.eq(r2.text, '6 open items: 1 metric without a target, 2 requirements without criteria, 1 work item, 2 blocks not connected yet.')
     assert.ok(!/\bgaps?\b/.test(r2.text), 'no bare "gaps" when the types are known')
   })
 
@@ -175,7 +176,7 @@ describe('brief: one readiness line, counted the way Attention counts', () => {
   it('a mostly unconnected map is one item that says how many blocks, never a canvas check', () => {
     const iso = { kind: 'canvas', finding: 'isolated', ids: Array.from({ length: 12 }, (_, i) => 'b' + i) }
     const r = readiness({ items: [{ kind: 'question' }, iso, { kind: 'canvas', finding: 'cycle' }], accepted: [] })
-    assert.eq(r.text, '3 open items: 1 question, 1 item for the 12 blocks not connected yet, 1 canvas check.')
+    assert.eq(r.text, '3 open items: 1 item for the 12 blocks not connected yet, 1 unanswered question, 1 canvas check.')
     assert.eq(r.parts.reduce((n, p) => n + parseInt(p, 10), 0), r.open, 'the parts still add up to the count')
     assert.eq(readiness({ items: [{ ...iso, ids: ['a'] }], accepted: [] }).text, '1 open item: 1 item for the block not connected yet.')
     assert.includes(attentionBreakdown([iso]), '1 item for the 12 blocks not connected yet')
@@ -589,8 +590,8 @@ describe('brief: a scoped brief\'s findings stay inside its scope', () => {
       // Scope r1: r1 and g, not r2.
       const text = scopedGapText(whole, new Set(['r1', 'g']), state.blocks)
       assert.ok(!text.includes('Canvas: possible duplicate'), 'not the whole-map sentence, which quotes r2')
-      assert.includes(text, '• Requirement: "Invoices export to CSV": possible duplicate: its title nearly repeats another block\'s')
-      assert.eq(text.split('possible duplicate').length - 1, 1, 'once, for r1 only')
+      assert.includes(text, '• Requirement "Invoices export to CSV" may be a duplicate: its title nearly repeats another block\'s.')
+      assert.eq(text.split('may be a duplicate').length - 1, 1, 'once, for r1 only')
       // A scope holding both keeps the map's own sentence.
       const both = scopedGapText(whole, new Set(['r1', 'r2', 'g']), state.blocks)
       assert.includes(both, '• Canvas: possible duplicate: "Invoices export to CSV" and "Invoices export to CSV"')

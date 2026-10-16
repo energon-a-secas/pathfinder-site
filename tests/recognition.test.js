@@ -898,10 +898,18 @@ describe('recognition: the examples show whole maps, and read', () => {
         const f = await docFrame('examples.html', W, 900, theme)
         try {
           const d = f.contentDocument, w = f.contentWindow
-          const col = d.querySelector('main section.ex p').getBoundingClientRect()
+          // The column the figures fill; the prose in it holds a narrower measure.
+          const col = d.querySelector('main section.ex').getBoundingClientRect()
           const figs = [...d.querySelectorAll('figure.ex-figure')]
           assert.eq(figs.length, 4)
           for (const fig of figs) {
+            // The detail is a lazy image: on screen, it loads (Firefox never
+            // loaded one whose box was 0px tall, and the title check below
+            // passed on naturalWidth 0).
+            fig.scrollIntoView({ block: 'center' })
+            const shown = [...fig.querySelectorAll('.ex-detail img')].find(i => i.getClientRects().length)
+            if (!shown.naturalWidth) await new Promise(res => { shown.addEventListener('load', res, { once: true }); shown.addEventListener('error', res, { once: true }); setTimeout(res, 4000) })
+            assert.ok(shown.naturalWidth > 0, `${fig.dataset.detail}: the detail picture loads`)
             const whole = [...fig.querySelectorAll('.ex-whole img')].find(i => i.getClientRects().length)
             const r = whole.getBoundingClientRect()
             assert.ok(r.width <= col.width + 0.5 && r.width >= col.width - 4, `${fig.dataset.detail}: the whole map is the column's width (${Math.round(r.width)} of ${Math.round(col.width)})`)
@@ -913,7 +921,7 @@ describe('recognition: the examples show whole maps, and read', () => {
             // The detail: the same picture at reading size, cut on its frame.
             const box = fig.querySelector('.ex-detail'), b = box.getBoundingClientRect()
             const img = [...box.querySelectorAll('img')].find(i => i.getClientRects().length)
-            const own = img.naturalWidth || 1
+            const own = img.naturalWidth
             const title = 14 * img.getBoundingClientRect().width / own
             assert.ok(title >= 11, `${fig.dataset.detail}: card titles at ${title.toFixed(1)}px`)
             assert.ok(b.right <= col.right + 0.5, `${fig.dataset.detail}: the detail stays in the column`)

@@ -11,8 +11,8 @@ import { $, escHtml, TYPES } from './utils.js'
 import { transformHooks } from './canvas.js'
 import { blockDecorators } from './render.js'
 import { typeShape } from './cards.js'
-import { ELLIPSIS, FACE_METRICS, fitTitle, faceLayout, faceMetrics } from './face-text.js'
-export { ELLIPSIS, FACE_METRICS, titlePieces, fitTitle, faceLayout, faceMetrics } from './face-text.js'
+import { ELLIPSIS, FACE_METRICS, fitTitle, fitFaceTitle, faceLayout, faceMetrics } from './face-text.js'
+export { ELLIPSIS, FACE_METRICS, titlePieces, fitTitle, fitFaceTitle, faceLayout, faceMetrics } from './face-text.js'
 
 // ── Level of detail ─────────────────────────────────────────
 // A card drawn at 30% is a texture: a 14px title is 4px on screen. So the
@@ -239,13 +239,14 @@ function primeSizes(root) {
  * text reads whole). The closing line of a cut title is `is-end`, which
  * lets its ellipsis hang into the padding (--lod-hang).
  */
-function writeLines(title, lines, cut = false) {
-  const want = lines.join('\n') + (cut ? '\n…' : '')
+function writeLines(title, lines, cut = false, hangs = null) {
+  const hang = i => hangs ? !!hangs[i] : cut && i === lines.length - 1
+  const want = lines.join('\n') + (cut ? '\n…' : '') + (hangs ? '\n' + hangs.map(h => h ? 1 : 0).join('') : '')
   if (title.dataset.lines === want) return
   title.dataset.lines = want
   title.replaceChildren(...lines.flatMap((l, i) => {
     const span = document.createElement('span')
-    span.className = cut && i === lines.length - 1 ? 'block-lod-line is-end' : 'block-lod-line'
+    span.className = hang(i) ? 'block-lod-line is-end' : 'block-lod-line'
     span.textContent = l
     return i ? [document.createTextNode(' '), span] : [span]
   }))
@@ -278,8 +279,10 @@ export function fitFaces(els = null) {
     const spec = faceLayout(band, j.w, j.h, { typeFits: width => measureType(type) <= width })
     if (j.face.dataset.layout !== spec.layout) j.face.dataset.layout = spec.layout
     const m = faceMetrics(band, spec.layout)
-    const fit = text ? fitTitle(text, spec.width, spec.lines, measure[m.font], m.hang) : { lines: ['Untitled'], cut: false }
-    writeLines(j.title, fit.lines, fit.cut)
+    const fit = text ? fitFaceTitle(text, spec, m, measure[m.font]) : { lines: ['Untitled'], cut: false, dot: true }
+    writeLines(j.title, fit.lines, fit.cut, fit.hangs)
+    // A word wider than its line took the dot's room (fitFaceTitle).
+    if ((j.face.dataset.nodot === '1') === fit.dot) { if (fit.dot) delete j.face.dataset.nodot; else j.face.dataset.nodot = '1' }
     // A cut title is read whole in the tip, in the title band too.
     const box = j.face.parentElement
     if ((box.dataset.cut === '1') !== fit.cut) { if (fit.cut) box.dataset.cut = '1'; else delete box.dataset.cut }

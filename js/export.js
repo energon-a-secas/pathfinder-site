@@ -424,8 +424,8 @@ export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmit
   if (arrows.length > 0 || isolatedCount > 0) {
     md += '## Connection summary\n\n'
     md += `- Total connections made: ${arrows.length}\n`
-    md += `- Isolated items (no connections): ${isolatedCount}\n`
-    md += `- Connected items: ${blocks.length - isolatedCount}\n\n`
+    md += `- Blocks not connected yet: ${isolatedCount}\n`
+    md += `- Connected blocks: ${blocks.length - isolatedCount}\n\n`
   }
 
   // Next steps

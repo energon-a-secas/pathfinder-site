@@ -375,7 +375,7 @@ export function createFromDrop(fromId, fromPort, type, wx, wy) {
   else addArrow(fromId, id, pinSrc, pinNew, { undo: false })
   renderArrows({ cheap: false })
   // The block is where the connection was dropped; keep it there on screen.
-  withCameraHeld(() => startInlineEdit(id, 'title', { selectAll: true }))
+  withCameraHeld(() => startInlineEdit(id, 'title', { selectAll: true, fresh: true }))
   return id
 }
 

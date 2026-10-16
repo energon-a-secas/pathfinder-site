@@ -766,7 +766,12 @@ function renderMultiInspector(ids) {
   const multiHl = byId('multiHighlightRow')
   if (multiHl) {
     const active = selectionHighlight(ids)
-    multiHl.innerHTML = highlightRowHtml(active === 'mixed' ? null : active)
+    // The swatches say their names: the row's current value beside them,
+    // and the name of the one under the pointer or the keyboard (the single
+    // block's picker names every choice; here they were six bare circles).
+    const current = active === 'mixed' ? 'Mixed' : active ? HIGHLIGHTS[active]?.label || active : 'None'
+    multiHl.innerHTML = highlightRowHtml(active === 'mixed' ? null : active) +
+      `<span class="hl-row-name" aria-hidden="true" data-current="${escHtml(current)}">${escHtml(current)}</span>`
     multiHl.dataset.mixed = active === 'mixed' ? '1' : ''
     multiHl.closest('.insp-section')?.toggleAttribute('hidden', ro)
   }
@@ -1221,6 +1226,15 @@ export function setupInspectorEvents() {
       k => bulkEdit({ priority: k || null }, n => `${plural(n)}: ${k ? PRIORITY_DEFS[k].label + ' priority' : 'no priority'}`))
   }, 'Priority for every selected block')
 
+  // The name beside the swatches follows the pointer and the keyboard.
+  const nameHl = sw => {
+    const label = byId('multiHighlightRow')?.querySelector('.hl-row-name'); if (!label) return
+    label.textContent = sw ? sw.getAttribute('aria-label') : label.dataset.current || ''
+  }
+  for (const [type, pick] of [['pointerover', e => e.target.closest('[data-hl]')], ['focusin', e => e.target.closest('[data-hl]')],
+    ['pointerout', () => null], ['focusout', () => null]]) {
+    on('multiHighlightRow', type, e => nameHl(pick(e)))
+  }
   // Highlights: presentation emphasis, applied to the whole selection.
   on('multiHighlightRow', 'click', e => {
     const sw = e.target.closest('[data-hl]'); if (!sw || ui.readOnly) return

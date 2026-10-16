@@ -71,7 +71,7 @@ export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
     items.push({
       id: iso.ids[0], ids: iso.ids, kind: 'canvas', finding: 'isolated', ack: null, question: null, type: null,
       title: ISOLATION_FINDING.short,
-      detail: `${isolatedWords(iso.ids.length)}. Draw a line from a dot on a card's edge to link it; its own checks start once it is linked.`,
+      detail: `${isolatedWords(iso.ids.length)}. Draw a line from a dot on a card's edge, or select a card and press C to connect it by title; its own checks start once it is linked.`,
     })
   }
   ;(result?.findings || []).forEach(f => items.push({
@@ -116,25 +116,41 @@ export function isolationItemWords(items = []) {
 }
 
 /**
- * What the open items are, in words: the gaps marked on the map first (the
- * cards with the amber ring), then what is open without a mark (questions,
- * assumptions, blocked work, canvas checks). The badge counts all of them,
- * and its name says so, so "Attention 4" beside one ringed card is explained.
+ * The open items in words, in the one order and with the one set of nouns
+ * that the Attention tab and the Brief's readiness line both use: the gaps
+ * on the map first (the cards with the amber ring), then a largely
+ * unconnected map's one item, unanswered questions, unverified assumptions,
+ * blocked work and the canvas checks. `gapWords(gapItems)` says the gaps
+ * and missing criteria: by default as marked on the map (the Attention tab,
+ * which explains "Attention 4" beside one ringed card); the Brief names
+ * them by type. The two said the same counts in two orders and two
+ * vocabularies.
  */
-export function attentionBreakdown(items) {
+export function openItemParts(items, { gapWords = null } = {}) {
   const n = (...kinds) => items.filter(i => kinds.includes(i.kind)).length
   const say = (count, one, many = one + 's') => count ? `${count} ${count === 1 ? one : many}` : ''
   // A mostly unconnected map is one item for many cards, each wearing the
   // quiet marker: said with its card count, so the words match the map.
   const iso = items.find(i => i.kind === 'canvas' && i.finding === 'isolated')
+  const gaps = gapWords
+    ? gapWords(items.filter(i => i.kind === 'gap' || i.kind === 'criteria'))
+    : [say(n('gap', 'criteria'), 'gap marked on the map', 'gaps marked on the map')]
   return [
-    say(n('gap', 'criteria'), 'gap marked on the map', 'gaps marked on the map'),
+    ...gaps,
     isolationItemWords(items),
     say(n('question'), 'unanswered question'),
     say(n('assumption'), 'unverified assumption'),
     n('blocked') ? `${n('blocked')} blocked` : '',
     say(n('canvas') - (iso ? 1 : 0), 'canvas check'),
-  ].filter(Boolean).join(', ')
+  ].filter(Boolean)
+}
+
+/**
+ * What the open items are, in words (openItemParts, the gaps as marked on
+ * the map). The badge counts all of them, and its name says so.
+ */
+export function attentionBreakdown(items) {
+  return openItemParts(items).join(', ')
 }
 
 /** One entry per open issue; answering a question never hides another open issue. */
@@ -219,16 +235,21 @@ function rowAction(item, i) {
  */
 export function attentionRowsHtml(rows) {
   return rows.map((item, i) => {
-    const where = item.kind === 'canvas'
+    // A largely unconnected map is one row for many cards, named for what
+    // it is (not a canvas check: the summary counts it apart).
+    const lone = item.kind === 'canvas' && item.finding === 'isolated'
+    const where = lone ? `${item.ids.length} ${item.ids.length === 1 ? 'block' : 'blocks'}, opens the first`
+      : item.kind === 'canvas'
       ? (item.id ? 'opens the first block' : 'whole canvas')
       : escHtml(TYPES[item.type]?.label || item.type || '')
+    const kindLabel = lone ? 'Connections' : ATTENTION_KINDS[item.kind]
     // A row whose card wears the gap ring on the map wears the amber ring
     // here: a missing-criteria row is a gap on the map too (QA3), so the
     // one ringed card was the one row without a marker.
     const kind = item.kind === 'criteria' && item.gap ? 'gap' : item.kind
     const cls = ['gap', 'canvas', 'accepted'].includes(kind) ? ` class="attention-${kind}"` : ''
     const tip = item.explain ? ` title="${escHtml(item.explain)}"` : ''
-    const body = `<span class="attention-kind">${escHtml(ATTENTION_KINDS[item.kind])}${where ? ` · ${where}` : ''}</span>
+    const body = `<span class="attention-kind">${escHtml(kindLabel)}${where ? ` · ${where}` : ''}</span>
       <strong>${escHtml(item.title)}</strong>
       <span class="attention-detail">${escHtml(item.detail)}</span>`
     const main = item.id

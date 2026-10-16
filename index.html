@@ -58,7 +58,7 @@
 </head>
 <body>
 
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#canvasViewport">Skip to the map</a>
 
 <!-- ── Header ──────────────────────────────────────────────── -->
 <header class="header-bar" data-header-mode="app" data-header-skin="custom" data-pf-bar="app">
@@ -84,7 +84,7 @@
   </div>
 
   <div class="header-right">
-    <div class="readonly-badge" id="readonlyBadge" style="display:none">View only</div>
+    <div class="readonly-badge" id="readonlyBadge" style="display:none"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.25" y="7.25" width="9.5" height="6.5" rx="1.5"/><path d="M5.25 7.25V5.5a2.75 2.75 0 0 1 5.5 0v1.75"/></svg>View only</div>
     <div class="header-actions">
 
       <!-- A view-only link's way out: the same map, editable, opened as a
@@ -811,6 +811,16 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
           </button>
           <div class="brief-framing-body" id="briefFraming" hidden>
+            <!-- A preset sets the fields below it, so it comes first (QA4). -->
+            <section class="brief-group brief-presets-group" id="presetsSection" aria-labelledby="presetsHeading">
+              <h3 class="brief-group-title" id="presetsHeading">Presets <span class="brief-hint">set the mode, where it runs and the options in one go</span></h3>
+              <div class="dev-check-group brief-presets" id="promptPresets">
+                <button type="button" class="preset-opt" data-preset="claude-code">Build in Claude Code</button>
+                <button type="button" class="preset-opt" data-preset="cursor-ts">Build in Cursor, TypeScript</button>
+                <button type="button" class="preset-opt" data-preset="pm-clarify">Clarify in a chat</button>
+              </div>
+            </section>
+
             <section class="brief-group situation-section" id="situationSection" aria-labelledby="situationHeading">
               <h3 class="brief-group-title" id="situationHeading">Situation <span class="brief-hint">where the assistant stands when it reads this</span></h3>
               <div id="situationFields"></div>
@@ -823,15 +833,6 @@
               <label class="brief-field-label" for="contextBrief">Context <span class="brief-hint">who it is for, the stack, the ask</span></label>
               <textarea class="insp-textarea" id="contextBrief" rows="2"
                 placeholder="Two lines the assistant reads first: who this is for, the stack, what you want back"></textarea>
-            </section>
-
-            <section class="brief-group brief-presets-group" id="presetsSection" aria-labelledby="presetsHeading">
-              <h3 class="brief-group-title" id="presetsHeading">Presets <span class="brief-hint">set the mode, where it runs and the options in one go</span></h3>
-              <div class="dev-check-group brief-presets" id="promptPresets">
-                <button type="button" class="preset-opt" data-preset="claude-code">Build in Claude Code</button>
-                <button type="button" class="preset-opt" data-preset="cursor-ts">Build in Cursor, TypeScript</button>
-                <button type="button" class="preset-opt" data-preset="pm-clarify">Clarify in a chat</button>
-              </div>
             </section>
 
             <div class="dev-options" id="devOptions">

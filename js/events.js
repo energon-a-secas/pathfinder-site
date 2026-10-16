@@ -22,7 +22,7 @@ import { openDocPopup } from './doc-panel.js'
 import { releaseTidyPins } from './layout.js'
 import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
-import { openCanvasAddMenu, openPortMenu, refocusPortMenu, closePortMenu } from './context-menu.js'
+import { openCanvasAddMenu, openPortMenu, refocusPortMenu, closePortMenu, openConnectToMenu } from './context-menu.js'
 import { setVotingMode, refreshVotingBanner } from './voting.js'
 // Navigation (keyboard, zoom, quick create). Its own lines, so the shared
 // imports above stay as other streams left them.
@@ -986,6 +986,13 @@ export function setupKeyboardShortcuts() {
     }
     if (onCanvas && noMods(e) && !e.shiftKey && e.key.toLowerCase() === 'l') {
       e.preventDefault(); runTidy(); return
+    }
+    // C: Connect to's search for the selected card, the keyboard's way to
+    // draw a line between two blocks that are already there (it took a
+    // menu, four arrows and Enter before the search could start).
+    if (onCanvas && noMods(e) && !e.shiftKey && e.key.toLowerCase() === 'c' &&
+        selection.ids.size === 1 && selection.blockId && state.blocks[selection.blockId]) {
+      e.preventDefault(); openConnectToMenu(selection.blockId); return
     }
     // Cmd/Ctrl+Enter adds a connected block to the right of the selected one.
     if (mod && !e.altKey && e.key === 'Enter' && onCanvas) {

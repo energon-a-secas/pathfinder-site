@@ -812,6 +812,18 @@ export function openAsNewMap(data) {
     showToast('Could not keep your current map, so nothing was opened. Free some storage and try again', 'warning', 4000)
     return false
   }
+  // A blank map (a first visit, or New map with nothing done yet) is not
+  // kept beside what opens: it takes the blank map's slot. Opening the
+  // sample on a first visit left an empty "Untitled map" in Maps.
+  const blank = !!currentId() && isBlankMap()
+  if (blank) {
+    const id = currentId()
+    try { localStorage.removeItem('pathfinder-view:' + id) } catch (_) {}
+    if (pendingLoss) setPendingLoss(null)
+    const result = loadPayload(data)
+    writeThrough()
+    return result && { ...result, reused: true }
+  }
   saveView()
   const id = genId()
   try { localStorage.setItem(slotKey(id), JSON.stringify(data)) } catch (_) {
@@ -827,6 +839,15 @@ export function openAsNewMap(data) {
   const result = loadPayload(data)
   writeThrough()
   return result
+}
+
+/** The open map has nothing in it: no block, connection or group, no name, no brief, no snapshot. */
+export function isBlankMap() {
+  if (Object.keys(state.blocks).length || state.arrows.length || Object.keys(state.groups || {}).length) return false
+  if ((canvasMeta.title || '').trim() || (canvasMeta.contextBrief || '').trim()) return false
+  if (pendingLoss) return false
+  try { if (JSON.parse(localStorage.getItem(snapKey(currentId())) || '[]').length) return false } catch (_) {}
+  return true
 }
 
 export function deleteMap(id) {

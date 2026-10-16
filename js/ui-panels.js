@@ -6,7 +6,7 @@
 import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
 import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
-         clamp, escHtml, showToast, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+         clamp, escHtml, showToast, showCopyFallback, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, undo, updateCanvasTitle } from './render.js'
 import { phraseCapsHtml } from './keycaps.js'
@@ -20,7 +20,8 @@ import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
 import { getDocsBase, setDocsBase } from './doc-panel.js'
-import { tidyCanvas, tidySummary } from './layout.js'
+import { tidyCanvas, tidySummary, CARD_GAP } from './layout.js'
+import { blockSize, occupiedRects, nearestFreeSpot } from './create.js'
 import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
 import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } from './state.js'
@@ -229,6 +230,7 @@ export const SHORTCUTS = [
     ['Del / Backspace',        'Delete the selected blocks or connection'],
     ['⌘/Ctrl + Z',        'Undo (add Shift to redo)', { top: 8, short: 'Undo (add Shift to redo)' }],
     ['Shift + F10 / Menu key', 'Quick actions for the selected card, the selection or the connection', { top: 7, short: 'Actions for the selection', key: 'Shift + F10' }],
+    ['C',                      'Connect the selected card to another block, found by title'],
     ['Right-click',            'Quick actions for a card, a connection or the canvas'],
     ['T',                      'Confirm or change the type of a card marked for a type check'],
     ['L',                      'Tidy: auto-arrange the canvas', { top: 10, short: 'Tidy the map' }],
@@ -901,9 +903,8 @@ export function setupExportDropdown() {
 
   on('copyDiagramInstructions', () => {
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {
-      showToast(ok
-        ? 'Copied a prompt that builds a map: paste it into an assistant with your topic, then import the JSON it returns'
-        : 'Copy failed: try again', ok ? 'success' : 'warning')
+      if (!ok) { showCopyFallback(DIAGRAM_BUILDER_PROMPT, 'the prompt'); return }
+      showToast('Copied a prompt that builds a map: paste it into an assistant with your topic, then import the JSON it returns', 'success')
     })
   })
 
@@ -916,9 +917,9 @@ export function setupExportDropdown() {
   on('exportMermaid', () => {
     const graph = toMermaid()
     if (!graph) { showToast('Add a block first', 'warning'); return }
-    copyText(graph).then(ok => showToast(ok
-      ? 'Mermaid copied: it renders on GitHub and imports back into Pathfinder'
-      : 'Copy failed: try again', ok ? 'success' : 'warning'))
+    copyText(graph).then(ok => ok
+      ? showToast('Mermaid copied: it renders on GitHub and imports back into Pathfinder', 'success')
+      : showCopyFallback(graph, 'the Mermaid graph'))
   })
 
   on('exportJsonCanvas', () => {
@@ -952,27 +953,32 @@ export function setupExportDropdown() {
 // The rows' actions. The Share button opens them through menu.js
 // (shareMenuItems in js/view-menu.js), which clicks the row you pick.
 export function setupShareDropdown() {
-  const shareCopy = (text, okMsg) => copyText(text).then(ok =>
-    showToast(ok ? okMsg : 'Copy failed: try again', ok ? 'success' : 'warning'))
+  const shareCopy = (text, okMsg, what = 'the link') => copyText(text).then(ok =>
+    ok ? showToast(okMsg, 'success') : showCopyFallback(text, what))
   document.getElementById('shareCopyLink')?.addEventListener('click', () => {
-    shareCopy(buildShareUrl(false), 'Link copied!')
+    shareCopy(buildShareUrl(false), 'Link copied.')
   })
   document.getElementById('shareCopyReadOnly')?.addEventListener('click', () => {
-    shareCopy(buildShareUrl(true), 'View-only link copied!')
+    shareCopy(buildShareUrl(true), 'View-only link copied.')
   })
   document.getElementById('shareCopyEmbed')?.addEventListener('click', () => {
     const src = buildEmbedUrl()
     const snippet = `<iframe src="${src}" width="800" height="500" style="border:none;border-radius:12px" allowfullscreen></iframe>`
-    shareCopy(snippet, 'Embed code copied!')
+    shareCopy(snippet, 'Embed code copied.', 'the code')
   })
 }
 
 // ── Import result toast ──────────────────────────────────────
-function reportImport(imported, dropped, mode = 'replace') {
+/**
+ * What an import says once it lands, one plain statement ending in a full
+ * stop ("Imported 3 blocks."), or null when there was nothing to import.
+ * `reused`: the import took a blank map's place, so no other map to point at.
+ */
+export function importMessage(imported, dropped, mode = 'replace', { reused = false } = {}) {
   const skipped = dropped.blocks + dropped.arrows + dropped.groups
-  if (!imported && !skipped) { showToast('Nothing to import', 'warning'); return }
+  if (!imported && !skipped) return null
   let msg = `Imported ${imported} block${imported === 1 ? '' : 's'}`
-  if (mode === 'new') msg += ' as a new map'
+  if (mode === 'new' && !reused) msg += ' as a new map'
   else if (mode === 'merge') msg += ' into your map'
   if (skipped) {
     const parts = []
@@ -981,8 +987,17 @@ function reportImport(imported, dropped, mode = 'replace') {
     if (dropped.groups) parts.push(`${dropped.groups} group${dropped.groups === 1 ? '' : 's'}`)
     msg += `, skipped ${parts.join(', ')}`
   }
-  if (mode === 'new') msg += '. Your previous map is under Maps'
-  showToast(msg, skipped ? 'warning' : 'success', mode === 'new' ? 3600 : 3000)
+  if (mode === 'new' && !reused) msg += '. Your previous map is under Maps'
+  return msg + '.'
+}
+
+// An import lands like a link does (landIncoming): at the 100% arrival on
+// where the map starts, not at a whole-map fit (a three-node Mermaid
+// flowchart arrived at 107%), and says what came in.
+function reportImport(r) {
+  const msg = importMessage(r.imported, r.dropped, r.mode, { reused: !!r.reused })
+  if (!msg) { showToast('Nothing to import.', 'warning'); return }
+  landIncoming(r, msg)
 }
 
 /**
@@ -1017,7 +1032,7 @@ export function setupImportHandler() {
       if (parsed.error) { showRefusal(parsed.error, 'error'); return }
       openIncoming(parsed.data, { source: 'file', name: file.name }).then(r => {
         if (!r) return
-        reportImport(r.imported, r.dropped, r.mode)
+        reportImport(r)
         flagLowConfidence(parsed.low, r.idMap)
       })
     }
@@ -1522,7 +1537,7 @@ function templateButton(tpl, { attr, descId, icon, extraClass = '' }) {
     <button type="button" class="template-item${extraClass}" ${attr} aria-label="${escHtml(templateName(tpl))}"${tpl.desc ? ` aria-describedby="${descId}"` : ''} title="${escHtml(tpl.name)}">
       <span class="template-icon" aria-hidden="true">${icon}</span>
       <span class="template-text">
-        <span class="template-label">${escHtml(tpl.name)}${tpl.large ? '<span class="template-size" aria-hidden="true">' + tpl.blocks.length + '</span>' : ''}</span>
+        <span class="template-label"><span class="template-name">${escHtml(tpl.name)}</span>${tpl.large ? '<span class="template-size" aria-hidden="true">' + tpl.blocks.length + '</span>' : ''}</span>
         ${tpl.desc ? `<span class="template-desc" id="${descId}">${escHtml(tpl.desc)}</span>` : ''}
       </span>
     </button>`
@@ -1594,6 +1609,12 @@ export function setupTemplates() {
       updateCanvasTitle()
     }
     renderAllBlocks()
+    // Into a map that has cards already, the template is one group: a large
+    // one is arranged on its own (never the person's layout), and the group
+    // goes to the nearest free space beside the map, CARD_GAP clear of every
+    // card. Dropped at the view's centre, a small one landed on cards and a
+    // large one's Tidy moved every block on the map.
+    if (!wasEmpty) settleMergedTemplate(added, { arrange: !!tpl.large })
     renderArrows({ cheap: false })
     renderFrames()
     runGapDetection()
@@ -1607,7 +1628,14 @@ export function setupTemplates() {
     // away rather than dropping a knot of boxes and hoping the button is found.
     // Either way it lands readable, on where its flow starts (zoom-controls.js
     // arriveAt), not at a whole-map fit too small to read.
-    if (tpl.large) {
+    if (!wasEmpty) {
+      // A merge says where it went and offers Undo, which also hands the
+      // camera back (Cmd+Z does too: returnFromArrival).
+      const lead = tpl.large ? `"${tpl.name}" added and arranged beside your map.` : `"${tpl.name}" added beside your map. Press Tidy or L to arrange it.`
+      const action = { label: 'Undo', run: () => undo() }
+      // No camera to move (a canvas not laid out): the toast still says it.
+      if (!arriveAt(added, { lead, ms: 5000, remember: true, action })) showToast(lead, 'success', 5000, { action })
+    } else if (tpl.large) {
       // The template click already took its undo step above: one click, one Cmd+Z.
       const lead = framed ? `"${tpl.name}" added and arranged, with its situation.` : `"${tpl.name}" added and arranged.`
       runTidy({ snapshot: false, arrive: { ids: added, lead } })
@@ -1615,6 +1643,26 @@ export function setupTemplates() {
       arriveAt(added, { lead: `${arrivalLead(`"${tpl.name}"`)} Press Tidy or L to arrange it.`, ms: 2600 })
     }
   })
+}
+
+/**
+ * A template merged into a map with cards: arrange the added blocks alone
+ * when `arrange` (layout.js tidyCanvas `only`), then move them together to
+ * the nearest place their bounding box keeps CARD_GAP clear of every other
+ * card. No undo step and no render of lines (the caller owns both).
+ */
+export function settleMergedTemplate(ids, { arrange = false } = {}) {
+  const live = ids.filter(id => state.blocks[id])
+  if (!live.length) return
+  if (arrange && live.length > 1) { tidyCanvas({ direction: layoutDir, snapshot: false, only: live }); renderAllBlocks() }
+  const rects = live.map(id => ({ x: state.blocks[id].x, y: state.blocks[id].y, ...blockSize(id) }))
+  const x1 = Math.min(...rects.map(r => r.x)), y1 = Math.min(...rects.map(r => r.y))
+  const x2 = Math.max(...rects.map(r => r.x + r.w)), y2 = Math.max(...rects.map(r => r.y + r.h))
+  const p = nearestFreeSpot(x1, y1, x2 - x1, y2 - y1, occupiedRects(live), { gap: CARD_GAP })
+  const dx = p.x - x1, dy = p.y - y1
+  if (!dx && !dy) return
+  live.forEach(id => { const b = state.blocks[id]; b.x = Math.round(b.x + dx); b.y = Math.round(b.y + dy) })
+  renderAllBlocks()
 }
 
 /**
@@ -1746,7 +1794,7 @@ export async function checkSrcUrl() {
   if (!r) return
   flagLowConfidence(parsed.low, r.idMap)
   const skipped = r.dropped.blocks + r.dropped.arrows + r.dropped.groups
-  const where = r.mode === 'new' ? ' as a new map. Yours is under Maps' : r.mode === 'merge' ? ' into your map' : ''
+  const where = r.mode === 'new' ? (r.reused ? '' : ' as a new map. Yours is under Maps') : r.mode === 'merge' ? ' into your map' : ''
   landIncoming(r, skipped
     ? `Loaded ${r.imported} blocks from the link${where}, skipped ${skipped} invalid item${skipped === 1 ? '' : 's'}`
     : `Loaded ${r.imported} block${r.imported === 1 ? '' : 's'} from the link${where}`)

@@ -15,7 +15,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state } from './state.js'
-import { $, escHtml, showToast, copyText } from './utils.js'
+import { $, escHtml, showToast, copyText, showCopyFallback } from './utils.js'
 import { buildQuestionPrompt } from './prompt.js'
 
 const DOCS_BASE_KEY = 'pathfinder-docs-base'
@@ -210,8 +210,7 @@ export function askQuestion(block, qIndex) {
   if (!q || !q.text.trim()) { showToast('Write the question first', 'warning'); return }
   const prompt = buildQuestionPrompt(block, q)
   copyText(prompt).then(ok => {
-    showToast(ok
-      ? 'Grounded question prompt copied: paste it into your assistant, then drop the answer back in'
-      : 'Copy failed: try again', ok ? 'success' : 'warning')
+    if (!ok) { showCopyFallback(prompt, 'the prompt'); return }
+    showToast('Grounded question prompt copied: paste it into your assistant, then drop the answer back in', 'success')
   })
 }

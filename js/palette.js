@@ -359,8 +359,27 @@ const isShown = el => !!el && el.getClientRects().length > 0 && !el.closest('[hi
 /** The palette's controls a key can reach, in reading order. */
 export function paletteStops(palette = document.getElementById('palette')) {
   if (!palette) return []
-  return [...palette.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])')]
+  return [...palette.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"]), [data-rove]')]
     .filter(el => !el.disabled && isShown(el))
+}
+
+// ── One Tab stop ─────────────────────────────────────────────
+// The palette is one stop in the page's Tab order (a roving tabindex): the
+// control last focused in it holds tabindex 0, every other one -1, and the
+// arrow keys move along it. Reaching the map from the keyboard crossed 16
+// rail dots and three heads, even after the skip link.
+let roveAt = null
+export function rovePalette(palette = document.getElementById('palette'), current = null) {
+  if (!palette) return null
+  const stops = paletteStops(palette)
+  const keep = current && stops.includes(current) ? current : stops.includes(roveAt) ? roveAt : stops[0] || null
+  palette.querySelectorAll('button, [href], [tabindex], [data-rove]').forEach(el => {
+    el.dataset.rove = ''
+    const t = el === keep ? 0 : -1
+    if (el.tabIndex !== t) el.tabIndex = t
+  })
+  roveAt = keep
+  return keep
 }
 
 /**
@@ -467,6 +486,13 @@ export function setupPalette(palette = document.getElementById('palette')) {
     if (i && i.matches(':focus-visible')) showTip(i)
   })
   palette.addEventListener('focusout', hideTip)
+  // The roving stop follows focus, and a re-render (the templates list, the
+  // types) or a fold that shows other controls is put back to one stop.
+  palette.addEventListener('focusin', e => rovePalette(palette, e.target.closest('button, [href], [tabindex], [data-rove]')))
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(() => rovePalette(palette)).observe(palette, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'inert'] })
+  }
+  rovePalette(palette)
   // Tabbing to a row below the fold scrolls the palette just after focusin
   // showed that row's tip: the tip follows its row instead of vanishing. A
   // wheel scroll moves rows out from under a hover tip, so that one hides.

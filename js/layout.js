@@ -417,8 +417,13 @@ const readingOrder = (nodes, horiz) => nodes.slice().sort((a, b) => {
  * to bottom; the result counts them in `loose`. A map with no connections
  * at all is all step columns, and the result says so with `mode: 'steps'`.
  */
-export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } = {}) {
-  const ids = Object.keys(state.blocks)
+export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true, only = null } = {}) {
+  // `only`: lay out these blocks alone, on their own bounding box, leaving
+  // every other card and its lines where they are (a template merged into a
+  // map arranges what it added, never the person's own layout).
+  const scope = only ? new Set(only.filter(id => state.blocks[id])) : null
+  const ids = scope ? [...scope] : Object.keys(state.blocks)
+  const inScope = a => !scope || (scope.has(a.from) && scope.has(a.to))
   if (ids.length < 2) return { moved: 0, crossings: 0, underCards: 0 }
 
   const nodes = ids.map(id => {
@@ -426,7 +431,7 @@ export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } =
     return { id, w, h, groupId: state.blocks[id].groupId }
   })
   const edges = state.arrows
-    .filter(a => state.blocks[a.from] && state.blocks[a.to])
+    .filter(a => state.blocks[a.from] && state.blocks[a.to] && inScope(a))
     .map(a => ({ from: a.from, to: a.to, id: a.id }))
 
   // Keep the diagram where the user left it rather than teleporting it to
@@ -435,7 +440,7 @@ export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } =
   const anchorY = Math.min(...ids.map(id => state.blocks[id].y))
 
   const linked = connectedIds(ids, edges)
-  if (!linked.size) return tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY })
+  if (!linked.size) return tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY, inScope })
 
   const horizontal = direction !== 'TB'
   const flow = nodes.filter(n => linked.has(n.id))
@@ -474,7 +479,7 @@ export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } =
   const fwd = horiz ? ['right', 'left'] : ['bottom', 'top']
   state.arrows.forEach(a => {
     const f = state.blocks[a.from], t = state.blocks[a.to]
-    if (!f || !t) return
+    if (!f || !t || !inScope(a)) return
     // Canvases tidied before pins carried provenance are stamped with the old
     // scheme (right→left / bottom→top forward, bottom→bottom / right→right
     // back) on every arrow. Adopt those as tidy pins so this Tidy can heal
@@ -530,7 +535,7 @@ export function tidyCanvas({ direction = 'LR', snapshot: takeSnapshot = true } =
  * go back to auto, since a column says nothing about which side a line
  * should leave from; a pin somebody chose stays.
  */
-function tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY }) {
+function tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY, inScope = () => true }) {
   const at = id => state.blocks[id]
   const ordered = readingOrder(nodes.map(n => ({ ...n, type: at(n.id).type })), direction !== 'TB')
   const { positions } = layoutByStep(ordered, { direction })
@@ -545,7 +550,7 @@ function tidyBySteps(nodes, { direction, takeSnapshot, anchorX, anchorY }) {
     b.x = nx; b.y = ny
   })
   state.arrows.forEach(a => {
-    if (a.portsBy !== 'tidy' && a.portsBy !== 'import') return
+    if ((a.portsBy !== 'tidy' && a.portsBy !== 'import') || !inScope(a)) return
     a.fromPort = null; a.toPort = null
     delete a.portsBy
   })

@@ -449,11 +449,15 @@ export function shortDate(when, { time = false, year = false, now = new Date() }
   const lang = (typeof document !== 'undefined' && document.documentElement?.lang) || 'en'
   const opts = { month: 'short', day: 'numeric' }
   if (year || d.getFullYear() !== now.getFullYear()) opts.year = 'numeric'
-  if (time) {
-    opts.hour = 'numeric'; opts.minute = '2-digit'
-    try { opts.hourCycle = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle } catch (_) {}
-  }
-  try { return new Intl.DateTimeFormat(lang, opts).format(d) } catch (_) { return d.toDateString() }
+  let date
+  try { date = new Intl.DateTimeFormat(lang, opts).format(d) } catch (_) { return d.toDateString() }
+  if (!time) return date
+  // The date and the clock are written apart and joined with a comma:
+  // formatted together, Safari writes "Oct 4 at 13:05" where Chrome and
+  // Firefox write "Oct 4, 13:05".
+  const clock = { hour: 'numeric', minute: '2-digit' }
+  try { clock.hourCycle = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle } catch (_) {}
+  try { return `${date}, ${new Intl.DateTimeFormat(lang, clock).format(d)}` } catch (_) { return date }
 }
 
 // What a chip asks the plan to do, for its tooltip and its accessible name
@@ -795,13 +799,65 @@ export function placeToast(toast) {
     } else if (m.left > left + 240 && m.left < right) right = m.left - 12
   }
   const room = right - left
+  watchToastObstacles()
   toast.classList.add('toast-in-canvas')
   Object.assign(toast.style, { position: 'fixed', top: 'auto', right: 'auto',
     maxWidth: Math.min(420, room - 32) + 'px' })
-  const w = toast.getBoundingClientRect().width
-  toast.style.left = Math.round(left + (room - w) / 2) + 'px'
-  toast.style.bottom = Math.round(window.innerHeight - floor + 12) + 'px'
+  const { width: w, height: h } = toast.getBoundingClientRect()
+  const x1 = left + (room - w) / 2, x2 = x1 + w
+  // Nor over a control in use at the foot of the canvas: the N panel's
+  // letters, the view-only review bar's Add note, the start panel's links,
+  // and on a phone the open inspector sheet's fields. A toast that would
+  // meet one sits above it instead.
+  let base = floor - 12
+  const obstacles = toastObstacles().map(el => el.getBoundingClientRect()).filter(o => o.width && o.height)
+    .sort((a, b) => b.bottom - a.bottom)
+  for (const o of obstacles) {
+    if (o.left < x2 && o.right > x1 && o.top < base && o.bottom > base - h) base = o.top - 12
+  }
+  // On a phone the start panel fills the canvas, every row of it a control
+  // but its heading: a toast that would land on one goes to the top of the
+  // canvas, over the heading, instead.
+  const meets = el => { const o = el.getBoundingClientRect(); return o.width && o.left < x2 && o.right > x1 && o.top < base && o.bottom > base - h }
+  const start = document.getElementById('startPanel')
+  if (start && start.getClientRects().length && [...start.querySelectorAll('button, a[href]')].some(meets)) {
+    const v = (vp || ref).getBoundingClientRect()
+    base = v.top + 12 + h
+  }
+  toast.style.left = Math.round(x1) + 'px'
+  toast.style.bottom = Math.round(window.innerHeight - base) + 'px'
   return true
+}
+
+// The controls a toast keeps clear of (placeToast), the ones on screen.
+function toastObstacles() {
+  const sel = ['.typekeys-hint:not([hidden])', '#reviewBar', '#startPanel .start-foot']
+  const out = sel.map(q => document.querySelector(q)).filter(el => el && el.getClientRects().length && !el.closest('[hidden]'))
+  // The inspector as a phone's bottom sheet, opened past its handle.
+  const sheet = document.querySelector('#rightPanel[data-sheet]:not([data-sheet="peek"])')
+  if (sheet && sheet.getClientRects().length) out.push(sheet)
+  return out
+}
+
+// A toast already on screen moves when the sheet opens or the review bar
+// shows: one observer, made the first time a toast is placed.
+let toastWatch = null
+function watchToastObstacles() {
+  if (toastWatch || typeof MutationObserver !== 'function') return
+  const panel = document.getElementById('rightPanel'), review = document.getElementById('reviewBar')
+  if (!panel && !review) return
+  toastWatch = new MutationObserver(() => {
+    const t = document.querySelector('.toast-notification.toast-in-canvas:not(.toast-exiting)')
+    if (t) placeToast(t)
+  })
+  for (const el of [panel, review]) if (el) toastWatch.observe(el, { attributes: true, attributeFilter: ['data-sheet', 'class', 'hidden', 'style'] })
+}
+
+// Long enough to read: about 2s plus 60ms a word, never less than asked.
+export function toastDuration(message, duration) {
+  if (!(duration < 2 ** 31 - 1)) return duration
+  const words = String(message || '').trim().split(/\s+/).filter(Boolean).length
+  return Math.max(duration, 2000 + 60 * words)
 }
 
 // Toast notification + screen-reader announcement.
@@ -823,7 +879,19 @@ export function toastIcon(type) {
 }
 
 let toastTimeout
-export function showToast(message, type = 'info', duration = 3000, { action = null } = {}) {
+/**
+ * A copy that could not reach the clipboard (no permission, an older
+ * browser, a frame) shows the text where it can be copied by hand: a
+ * read-only field in a toast that stays until Dismiss, already selected,
+ * with the keys to press. "Copy failed: try again" left no way forward,
+ * since trying again fails the same way.
+ */
+export function showCopyFallback(text, what = 'the text') {
+  showToast(`Copy did not reach the clipboard. Select ${what} below and press ⌘/Ctrl+C.`, 'warning', 2 ** 31 - 1,
+    { action: { label: 'Dismiss', run: () => {} }, field: String(text ?? '') })
+}
+
+export function showToast(message, type = 'info', duration = 3000, { action = null, field = null } = {}) {
   const existing = document.querySelector('.toast-notification')
   if (existing) existing.remove()
 
@@ -846,8 +914,21 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
     btn.addEventListener('click', () => { toast.remove(); action.run() }, { once: true })
     toast.appendChild(btn)
   }
+  // Text to copy by hand (showCopyFallback): selectable, on its own row.
+  let fieldEl = null
+  if (typeof field === 'string') {
+    fieldEl = document.createElement('textarea')
+    fieldEl.className = 'toast-field'
+    fieldEl.readOnly = true
+    fieldEl.rows = Math.min(4, Math.max(1, Math.ceil(field.length / 48)))
+    fieldEl.value = field
+    fieldEl.setAttribute('aria-label', 'Text to copy')
+    toast.classList.add('toast-has-field')
+    toast.appendChild(fieldEl)
+  }
   document.body.appendChild(toast)
   placeToast(toast)
+  if (fieldEl) { fieldEl.focus({ preventScroll: true }); fieldEl.select() }
 
   const live = document.getElementById('toastLive')
   if (live) live.textContent = message
@@ -856,6 +937,6 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
   toastTimeout = setTimeout(() => {
     toast.classList.add('toast-exiting')
     setTimeout(() => toast.remove(), 300)
-  }, duration)
+  }, toastDuration(message, duration))
 }
 

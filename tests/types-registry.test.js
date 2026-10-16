@@ -914,13 +914,13 @@ describe('prompt -- accepted gaps', () => {
     assert.includes(open, '"Audit log"')
     assert.notIncludes(open, '"Fast checkout"')
     const accepted = sectionOf(p, '## Accepted gaps')
-    assert.includes(accepted, '• Requirement: "Fast checkout": no acceptance criteria')
+    assert.includes(accepted, '• Requirement "Fast checkout" has no acceptance criteria')
     reset()
   })
 
   it('names a rule this build does not know by its id', () => {
     const lines = acceptedGapLines({ x: { id: 'x', type: 'metric', title: 'Lead time', gapAck: ['gap-from-later'] } })
-    assert.deepEq(lines, ['• Metric: "Lead time": gap-from-later'])
+    assert.deepEq(lines, ['• Metric "Lead time" has an open check: gap-from-later.'])
   })
 
   it('drops an acceptance once its gap is fixed, so the prompt does not contradict the canvas', () => {
@@ -944,11 +944,11 @@ describe('prompt -- accepted gaps', () => {
     const inline = firingGaps({ details: [{ id: 'r', gaps: ['gap-no-criteria'] }] })
     const apart = firingGaps({ details: [], accepted: [{ id: 'r', gap: 'gap-no-criteria' }] })
     const fixed = firingGaps({ details: [] })
-    const lineFor = 'Requirement: "Fast"'
+    const lineFor = 'Requirement "Fast"'
     assert.ok(acceptedGapLines(blocks, inline).some(l => l.includes(lineFor)))
     assert.ok(acceptedGapLines(blocks, apart).some(l => l.includes(lineFor)))
     assert.ok(!acceptedGapLines(blocks, fixed).some(l => l.includes(lineFor)), 'a fixed gap is dropped')
-    assert.deepEq(acceptedGapLines(blocks, fixed), ['• Metric: "Lead time": gap-from-later'], 'an unknown rule cannot be re-checked, so it stays')
+    assert.deepEq(acceptedGapLines(blocks, fixed), ['• Metric "Lead time" has an open check: gap-from-later.'], 'an unknown rule cannot be re-checked, so it stays')
   })
 
   it('prints no section when nothing is accepted', () => {

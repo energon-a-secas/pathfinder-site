@@ -285,7 +285,7 @@ export function viewMenuItems() {
  */
 // Rows whose action also has a key, by the row's id.
 const ROW_SHORTCUTS = {
-  exportCopyPrompt: () => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '') ? '⇧⌘C' : 'Ctrl+Shift+C',
+  exportCopyPrompt: () => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '') ? '⌘+Shift+C' : 'Ctrl+Shift+C',
 }
 
 function rowMenuItems(source, readOnly) {

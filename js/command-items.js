@@ -385,7 +385,7 @@ function actionRows(mapActions) {
   ]
   if (!ro) rows.push(
     { id: 'cmd:undo', label: 'Undo', icon: ICONS.undo, shortcut: MOD + 'Z', meta: 'Edit', disabled: !getUndoHistory().length, run: () => undo() },
-    { id: 'cmd:redo', label: 'Redo', icon: ICONS.redo, shortcut: IS_MAC ? '⇧⌘Z' : 'Ctrl+Shift+Z', meta: 'Edit', disabled: !getRedoFuture().length, run: () => redo() },
+    { id: 'cmd:redo', label: 'Redo', icon: ICONS.redo, shortcut: IS_MAC ? '⌘+Shift+Z' : 'Ctrl+Shift+Z', meta: 'Edit', disabled: !getRedoFuture().length, run: () => redo() },
   )
   rows.push({ id: 'cmd:select-all', label: 'Select all blocks', icon: ICONS.all, shortcut: MOD + 'A', meta: 'Canvas',
     disabled: !n, run: () => { const ids = Object.keys(state.blocks); setSelection(ids); announce(`${ids.length} ${ids.length === 1 ? 'block' : 'blocks'} selected`) } })

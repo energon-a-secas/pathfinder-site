@@ -214,7 +214,7 @@ export function placeNewBlocks(items, { occupied = occupiedRects(), known = new 
 
 function finishCreate(id, { edit, select }) {
   if (select || edit) selectBlock(id)
-  if (edit) startInlineEdit(id, 'title', { selectAll: true })
+  if (edit) startInlineEdit(id, 'title', { selectAll: true, fresh: true })
   return id
 }
 
@@ -237,7 +237,7 @@ export function createBlockAt(type, wx, wy, { edit = true, select = true, within
   placeFree(id, within ? { within } : undefined)
   renderBlock(id)
   renderArrows()
-  if (edit) startInlineEdit(id, 'title', { selectAll: true })
+  if (edit) startInlineEdit(id, 'title', { selectAll: true, fresh: true })
   return id
 }
 
@@ -365,6 +365,7 @@ export function applyGapFix(fix, blockId) {
     if (!b.actions.includes(f.id)) mutateBlock(blockId, { actions: [...b.actions, f.id] }, { undo: true })
     return blockId
   }
+  if (f.id === 'connect') { window.dispatchEvent(new CustomEvent('pf:connect-to', { detail: { id: blockId } })); return blockId }
   if (f.id === 'rationale') { document.getElementById('inspRationale')?.focus(); return blockId }
   if (f.id === 'criteria') { document.getElementById('inspCriteria')?.focus(); return blockId }
   return null

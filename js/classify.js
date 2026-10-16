@@ -690,7 +690,8 @@ export function dumpSummary(count, guessed = 0, allInView = true, fit = fitKeyNa
       : `, ${guessed} with a guessed type to check`
   }
   if (!allInView) msg += `. ${fit} shows all of ${count === 1 ? 'it' : 'them'}`
-  return msg
+  // A plain statement, closed like every other toast's.
+  return msg + '.'
 }
 
 /**
@@ -724,6 +725,18 @@ export function layoutDump(nodes, W = 0, H = 0) {
     const z = zoomOf(l)
     if (z > bestZoom + 1e-6) { best = l; bestZoom = z }
   })
+  // Nothing fits whole at the arrival's 100%: then the columns that fit the
+  // view's width at 100%, wrapped downward, so the arrival shows every
+  // column and the rest is a scroll down. The best fit zoom chose four
+  // columns 1200px wide for a 920px canvas, and the camera, at 100% on the
+  // first card, left the fourth under the inspector.
+  if (bestZoom < ARRIVAL_ZOOM - 1e-6) {
+    const room = W / ARRIVAL_ZOOM - pad
+    if (best.width > room) {
+      const fitted = layoutByStep(nodes, { wrap: room })
+      if (fitted.width < best.width) return fitted
+    }
+  }
   return best
 }
 

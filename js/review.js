@@ -17,7 +17,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, selection } from './state.js'
-import { showToast, copyText } from './utils.js'
+import { showToast, copyText, showCopyFallback } from './utils.js'
 import { blockDecorators, renderBlock } from './render.js'
 
 /** The live review: notes taken, and how many of them were already copied. */
@@ -185,11 +185,11 @@ export function setupReview() {
 
   copyBtn.addEventListener('click', () => {
     const count = review.notes.length
-    copyText(buildReviewReply(review.notes)).then(ok => {
-      if (ok) { review.sent = Math.max(review.sent, count); saveReviewNotes() }
-      showToast(ok
-        ? 'Review patch copied. Send it to the canvas owner; it applies with a preview'
-        : 'Copy failed. Try again', ok ? 'success' : 'warning', 3000)
+    const reply = buildReviewReply(review.notes)
+    copyText(reply).then(ok => {
+      if (!ok) { showCopyFallback(reply, 'the review patch'); return }
+      review.sent = Math.max(review.sent, count); saveReviewNotes()
+      showToast('Review patch copied. Send it to the canvas owner; it applies with a preview', 'success', 3000)
     })
   })
 

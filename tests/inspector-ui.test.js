@@ -981,7 +981,8 @@ describe('Inspector: review fixes', () => {
     }
     selectBlock('a')
     assert.eq(byId('gapFixesTitle').textContent, 'Suggestions')
-    assert.includes(byId('gapFixes').textContent, 'drag from a port')
+    assert.includes(byId('gapFixes').textContent, 'drag from a dot on its edge')
+    assert.includes(byId('gapFixes').textContent, 'press C', 'the keyboard way too')
   })
 
   it('keyboard focus stays in the panel after promote, and goes to the canvas after Delete', () => {

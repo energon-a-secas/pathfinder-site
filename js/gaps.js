@@ -338,7 +338,7 @@ let decoratorWired = false
 // better. At a third the step comes later and smaller (four of twelve), and
 // the rule stays a pure function of the map, so the canvas and Attention
 // cannot disagree.
-export const ISOLATION_FINDING = { short: 'Not connected yet' }
+export const ISOLATION_FINDING = { get short() { return GAP_META['gap-isolated'].short } }
 
 /** The isolated blocks a detection reported, and whether they are said once. Pure. */
 export function isolationSummary(details = [], blockCount = 0) {
@@ -356,6 +356,10 @@ let quietIsolation = false
 // A quiet isolation marker is its own state of the slot (`gap-isolated:quiet`)
 // and of the card (`iso-quiet`, which takes the ring away).
 function paintGap(el, id, gap) {
+  // A new card whose first title is being typed is not a gap yet: it waits
+  // for the title (inline-edit.js sets ui.titlingId), as a fresh dump's
+  // isolation waits. It was ringed and badged before its first letter.
+  if (gap && ui.titlingId === id) gap = null
   for (const c of GAP_ORDER) if (c !== gap && el.classList.contains(c)) el.classList.remove(c)
   if (gap && !el.classList.contains(gap)) el.classList.add(gap)
   const quiet = gap === 'gap-isolated' && quietIsolation
@@ -369,6 +373,12 @@ function paintGap(el, id, gap) {
 }
 
 function paintLastGap(b, el) { paintGap(el, b.id, lastGapById.get(b.id) || null) }
+
+/** Repaint one card's gap marker from the last detection (inline-edit.js, as titling starts and ends). */
+export function paintBlockGap(id) {
+  const el = getBlockEl(id)
+  if (el) paintGap(el, id, lastGapById.get(id) || null)
+}
 
 // Paints detectGaps' result onto the rendered cards: one gap class per card
 // and a line icon in its `gi-<id>` slot. Blocks with no element are still
@@ -456,38 +466,52 @@ export function unacceptGap(blockId, gapId) {
 /* ── Rule metadata: one source for the prompt, the breakdown, and docs ──
    The last four entries are finding acks, not card classes: they name an
    accepted canvas finding wherever gapAck is printed (the prompt's Accepted
-   gaps section, the Attention tab). */
+   gaps section, the Attention tab).
+   `short` is the gap's one name (the card, Attention, the inspector),
+   `prompt` what the brief says of the block, as the rest of one sentence
+   after its type and title ('Goal "X" has nothing under it: ...'), and
+   `why` the reason alone, after the name in a tooltip. One colon at most:
+   the brief chained three ('Goal: "X": no connections: not linked'). */
 export const GAP_META = {
-  'gap-isolated':      { short: 'Isolated',            prompt: 'no connections: not linked to anything on the canvas' },
-  'gap-assumption':    { short: 'Dangling assumption', prompt: 'unvalidated assumption: not linked to a Goal or Requirement and not flagged to validate' },
-  'gap-no-req':        { short: 'Goal with nothing under it', prompt: 'no requirement: goal has no linked requirement, metric or implementation, so nothing sits under it' },
-  'gap-unaddressed':   { short: 'Unaddressed problem', prompt: 'unaddressed: problem with no resolve action and no outgoing links' },
-  'gap-no-mitigation': { short: 'Unmitigated risk',    prompt: 'unmitigated: risk with nothing downstream of it and no prepare action' },
-  'gap-no-basis':      { short: 'Decision without basis', prompt: 'no basis: decision with nothing leading to it and no recorded rationale' },
-  'gap-no-producer':   { short: 'Output nothing produces', prompt: 'no producer: output with no incoming connection' },
-  'gap-no-consumer':   { short: 'Output nobody receives', prompt: 'no consumer: output with no outgoing connection and no linked stakeholder, so nobody on the map receives it' },
-  'gap-no-criteria':   { short: 'Requirement without criteria', prompt: 'no acceptance criteria: "done" is undefined for this requirement' },
-  'gap-loose-step':    { short: 'Step outside any flow', prompt: 'loose step: workflow step connected to no other step or Trigger / end' },
-  'gap-no-purpose':    { short: 'Work with no reason', prompt: 'no purpose: implementation linked to no goal, requirement, problem, metric, output or stakeholder' },
-  'gap-metric-no-goal': { short: 'Metric measuring no goal', prompt: 'measures no goal: metric not linked to the goal it is meant to measure' },
-  'gap-no-target':     { short: 'Metric without a target', prompt: 'no target: a metric without a target cannot say whether the work is winning' },
-  'gap-unserved':      { short: 'Stakeholder nothing serves', prompt: 'unserved: nothing on the map is delivered to or asked of this stakeholder' },
-  'gap-finding-duplicate':       { short: 'Possible duplicate', prompt: 'possible duplicate: its title nearly repeats another block\'s' },
-  'gap-finding-hidden-question': { short: 'Question in the description', prompt: 'question in the description: not tracked as an Open question' },
-  'gap-finding-goal-no-metric':  { short: 'Goal with no metric', prompt: 'no metric: nothing on the map measures this goal' },
-  'gap-finding-metric-unmoved':  { short: 'Metric no work moves', prompt: 'unmoved: no implementation is linked to shift this metric' },
+  'gap-isolated':      { short: 'Not connected yet', prompt: 'is not connected to anything on the map', why: 'not connected to anything on the map' },
+  'gap-assumption':    { short: 'Dangling assumption', prompt: 'is not linked to a goal or requirement, and not flagged to validate', why: 'not linked to a goal or requirement, and not flagged to validate' },
+  'gap-no-req':        { short: 'Goal with nothing under it', prompt: 'has nothing under it: no requirement, metric or implementation', why: 'no requirement, metric or implementation is linked to it' },
+  'gap-unaddressed':   { short: 'Unaddressed problem', prompt: 'is not addressed: no resolve action, and nothing linked from it', why: 'no resolve action, and nothing linked from it' },
+  'gap-no-mitigation': { short: 'Unmitigated risk',    prompt: 'is unmitigated: nothing linked from it, and no prepare action', why: 'nothing linked from it, and no prepare action' },
+  'gap-no-basis':      { short: 'Decision without basis', prompt: 'has no basis: nothing leads to it, and no rationale is recorded', why: 'nothing leads to it, and no rationale is recorded' },
+  'gap-no-producer':   { short: 'Output nothing produces', prompt: 'has no producer: no connection leads to it', why: 'no connection leads to it' },
+  'gap-no-consumer':   { short: 'Output nobody receives', prompt: 'has no consumer: no connection leads from it and no stakeholder is linked, so nobody on the map receives it', why: 'no connection leads from it and no stakeholder is linked, so nobody on the map receives it' },
+  'gap-no-criteria':   { short: 'Requirement without criteria', prompt: 'has no acceptance criteria, so "done" is undefined', why: '"done" is undefined without acceptance criteria' },
+  'gap-loose-step':    { short: 'Step outside any flow', prompt: 'is a loose step: connected to no other step or Trigger / end', why: 'connected to no other step or Trigger / end' },
+  'gap-no-purpose':    { short: 'Work with no reason', prompt: 'has no purpose on the map: it is linked to no goal, requirement, problem, metric, output or stakeholder', why: 'linked to no goal, requirement, problem, metric, output or stakeholder' },
+  'gap-metric-no-goal': { short: 'Metric measuring no goal', prompt: 'measures no goal: it is not linked to the goal it is meant to measure', why: 'not linked to the goal it is meant to measure' },
+  'gap-no-target':     { short: 'Metric without a target', prompt: 'has no target, so it cannot say whether the work is winning', why: 'without a target it cannot say whether the work is winning' },
+  'gap-unserved':      { short: 'Stakeholder nothing serves', prompt: 'is unserved: nothing on the map is delivered to or asked of them', why: 'nothing on the map is delivered to or asked of them' },
+  'gap-finding-duplicate':       { short: 'Possible duplicate', prompt: 'may be a duplicate: its title nearly repeats another block\'s', why: 'its title nearly repeats another block\'s' },
+  'gap-finding-hidden-question': { short: 'Question in the description', prompt: 'has a question in its description that is not tracked as an Open question', why: 'not tracked as an Open question' },
+  'gap-finding-goal-no-metric':  { short: 'Goal with no metric', prompt: 'has no metric: nothing on the map measures it', why: 'nothing on the map measures it' },
+  'gap-finding-metric-unmoved':  { short: 'Metric no work moves', prompt: 'is unmoved: no implementation is linked to shift it', why: 'no implementation is linked to shift it' },
 }
 
 /**
- * One readable sentence for a gap: the short name, then the reason without
- * the prompt's leading tag ("Isolated: not linked to anything on the
- * canvas"). The card tooltip and the Attention tab both use it.
+ * One line of the brief for a gap on a block, one sentence:
+ * '• Goal "Ship it" has nothing under it: no requirement, metric or
+ * implementation.' `label` is the block's type label.
+ */
+export function gapLine(label, title, gap) {
+  const what = GAP_META[gap]?.prompt || `has an open check: ${gap}`
+  return `\u2022 ${label} "${title || '(untitled)'}" ${what}.`
+}
+
+/**
+ * One readable sentence for a gap: the short name, then the reason ("Not
+ * connected yet: not connected to anything on the map"). The card tooltip
+ * and the Attention tab both use it.
  */
 export function gapExplain(gap) {
   const meta = GAP_META[gap]
   if (!meta) return gap
-  const why = meta.prompt.split(': ').slice(1).join(': ') || meta.prompt
-  return `${meta.short}: ${why}`
+  return `${meta.short}: ${meta.why || meta.prompt}`
 }
 
 /* ── Suggestion icons ─────────────────────────────────────────
@@ -569,7 +593,9 @@ export function getGapFixes(b) {
     fixes.push({ id, gap, icon: FIX_ICON[icon], text, ...(action ? { action } : {}), ...extra })
   switch (gap) {
     case 'gap-isolated':
-      fix('connect', 'connect', 'This block floats alone: drag from a port to link it to the plan.')
+      // The keyboard way first-class beside the pointer one: Connect to (C,
+      // or Shift+F10) reaches every block a drag can.
+      fix('connect', 'connect', 'Not connected yet: drag from a dot on its edge to another card, or press C to connect it by title.', 'Connect to…')
       break
     case 'gap-assumption':
       fix('add-goal', 'add-goal', 'This assumption isn’t tied to anything yet: link it to the Goal or Requirement it underpins.', 'Create Goal')

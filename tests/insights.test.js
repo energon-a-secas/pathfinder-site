@@ -201,7 +201,7 @@ describe('Insights: one gap per block', () => {
     const icon = document.querySelector('#gi-g .gap-icon')
     assert.ok(icon, 'icon rendered')
     assert.eq(icon.getAttribute('role'), 'img')
-    assert.eq(icon.getAttribute('aria-label'), 'Gap: Isolated')
+    assert.eq(icon.getAttribute('aria-label'), 'Gap: Not connected yet')
     assert.ok(icon.querySelector('svg'))
     state.blocks.r = blk('r', 'requirement', { criteria: ['done'] }); mockBlockEl('r'); mockGapIconEl('r')
     state.arrows.push({ id: 'x', from: 'r', to: 'g' })
@@ -616,7 +616,7 @@ describe('Insights: Attention rows accept and reopen gaps', () => {
 
 describe('Insights: gap wording', () => {
   it('gapExplain drops the prompt tag and leads with the short name', () => {
-    assert.eq(gapExplain('gap-isolated'), 'Isolated: not linked to anything on the canvas')
+    assert.eq(gapExplain('gap-isolated'), 'Not connected yet: not connected to anything on the map')
     GAP_ORDER.forEach(g => {
       assert.ok(gapExplain(g).startsWith(GAP_META[g].short + ': '), g)
       assert.ok(!gapExplain(g).includes('\u2014'), g + ' has no em dash')
@@ -700,7 +700,7 @@ describe('Insights: the prompt gap section and the Attention tab list the same g
       const section = gapSection(generatePrompt())
       const rows = attentionItems(state.blocks, state.arrows).filter(i => i.kind === 'gap' || i.kind === 'criteria')
       rows.forEach(i => {
-        assert.includes(section, `"${i.title}": ${GAP_META[i.gap].prompt}`, `${label}: ${i.title}`)
+        assert.includes(section, `"${i.title}" ${GAP_META[i.gap].prompt}.`, `${label}: ${i.title}`)
       })
       const perBlock = rows.map(i => i.id)
       assert.eq(perBlock.length, new Set(perBlock).size, label + ': one gap row per block')

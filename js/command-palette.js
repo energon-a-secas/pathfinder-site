@@ -19,7 +19,7 @@
 //  isCommandPaletteOpen() / setupCommandPalette()
 // ════════════════════════════════════════════════════════════
 
-import { ui } from './state.js'
+import { ui, state } from './state.js'
 import { $, escHtml } from './utils.js'
 import { closeMenus, isMenuOpen } from './menu.js'
 import { closeShortcuts } from './ui-panels.js'
@@ -221,10 +221,16 @@ function sections() {
   }
   const groups = pool.filter(g => !scope || SCOPE_GROUPS[scope].includes(g.key))
   if (q) {
-    return groups.map(g => { const r = ranked(g.items, q, QUERY_CAP); return { label: g.label, rows: r.rows, more: r.more } })
+    // On a map with cards, a template is the last thing a typed word means:
+    // "risk" is New risk, not the Risk review template, whose Enter merged
+    // four blocks into the map. Templates sort after every other group
+    // that matched, so their rows are never the one Enter takes unless
+    // nothing else matched; on an empty map the best match leads as before.
+    const late = sec => sec.key === 'templates' && Object.keys(state.blocks).length > 0
+    return groups.map(g => { const r = ranked(g.items, q, QUERY_CAP); return { key: g.key, label: g.label, rows: r.rows, more: r.more } })
       .filter(s => s.rows.length)
       // The best match leads, so Enter takes it, whichever group it is in.
-      .sort((a, b) => b.rows[0].score - a.rows[0].score)
+      .sort((a, b) => late(a) - late(b) || b.rows[0].score - a.rows[0].score)
   }
   if (scope) return groups.flatMap(g => byHeading(g.items.filter(r => !r.searchOnly), g.label))
   // With nothing typed, the list is what can be done now, short: what the

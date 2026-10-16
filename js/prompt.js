@@ -5,7 +5,7 @@ import { dependencyEdges, connectionLabel, impliedVerb, relationOf } from './rel
 
 import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, typeInfo, askedQuestions } from './utils.js'
-import { runGapDetection, GAP_META, FINDING_ACKS } from './gaps.js'
+import { runGapDetection, GAP_META, FINDING_ACKS, gapLine } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 import { taskChecklist, mitigationIndex, cardAnswer, IMPLIED_MITIGATION } from './task-plan.js'
 
@@ -83,8 +83,7 @@ export function acceptedGapLines(blocks = state.blocks, firing = null) {
   return Object.values(blocks).flatMap(b => (b.gapAck || [])
     .filter(gapType => !firing || !GAP_META[gapType] || firing.has(`${b.id}|${gapType}`))
     .map(gapType => {
-      const what = GAP_META[gapType]?.prompt || GAP_META[gapType]?.short || gapType
-      return `• ${typeInfo(b.type).label}: "${b.title || '(untitled)'}": ${what}`
+      return gapLine(typeInfo(b.type).label, b.title, gapType)
     }))
 }
 
@@ -325,9 +324,15 @@ export function generatePrompt() {
     const sit = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}) }
     const canCheck = sit.codebase === 'current' && (sit.runtime === 'code' || sit.runtime === 'ide')
     prompt += 'Treat each Assumption below as believed-true-until-disproven. Confirm or challenge each one explicitly before relying on it.\n'
+    // One assumption is "it", not "several of them".
+    const one = byType.assumption.length === 1
     prompt += canCheck
-      ? 'Several of them are probably settleable from the repository you have open. Check those against the code and label each result verified or still open, rather than asking about something you could have read.\n\n'
-      : 'You cannot verify these from here, so do not treat any of them as established. Say which ones would change the plan most if they turned out to be wrong.\n\n'
+      ? (one
+        ? 'It may be settleable from the repository you have open. Check it against the code and label the result verified or still open, rather than asking about something you could have read.\n\n'
+        : 'Several of them are probably settleable from the repository you have open. Check those against the code and label each result verified or still open, rather than asking about something you could have read.\n\n')
+      : (one
+        ? 'You cannot verify it from here, so do not treat it as established. Say how the plan would change if it turned out to be wrong.\n\n'
+        : 'You cannot verify these from here, so do not treat any of them as established. Say which ones would change the plan most if they turned out to be wrong.\n\n')
   }
 
   // 2. Dev option instructions, suppressed in Clarify (no implementation yet)
@@ -419,7 +424,7 @@ export function generatePrompt() {
   if (openGaps.length || (canvasFindings || []).length) {
     prompt += '\n## Planning gaps detected\n'
     openGaps.forEach(({ g, gapType }) => {
-      prompt += `\u2022 ${typeInfo(g.type).label}: "${g.title}": ${GAP_META[gapType]?.prompt || gapType}\n`
+      prompt += gapLine(typeInfo(g.type).label, g.title, gapType) + '\n'
     })
     ;(canvasFindings || []).forEach(f => { prompt += `\u2022 Canvas: ${f}\n` })
   }
@@ -710,7 +715,7 @@ export function scopedGapText(whole, scope, blocks = state.blocks, acceptedIntro
   const acked = (id, gap) => (blocks[id]?.gapAck || []).includes(gap)
   const open = (whole.details || []).filter(d => scope.has(d.id))
     .flatMap(d => d.gaps.filter(g => !acked(d.id, g))
-      .map(g => `• ${typeInfo(d.type).label}: "${d.title}": ${GAP_META[g]?.prompt || g}`))
+      .map(g => gapLine(typeInfo(d.type).label, d.title, g)))
   // A finding about the whole map (no ids) stands as it is, and so does one
   // whose blocks are all in the part. One that names blocks partly outside
   // it would quote titles the brief says not to refer to: it is said once
@@ -722,7 +727,7 @@ export function scopedGapText(whole, scope, blocks = state.blocks, acceptedIntro
     const ack = FINDING_ACKS[f.kind]
     if (!ack || !GAP_META[ack]) return ids.some(id => scope.has(id)) ? [`• Canvas: ${f.text}`] : []
     return ids.filter(id => scope.has(id) && blocks[id] && !acked(id, ack))
-      .map(id => `• ${typeInfo(blocks[id].type).label}: "${blocks[id].title || '(untitled)'}": ${GAP_META[ack].prompt}`)
+      .map(id => gapLine(typeInfo(blocks[id].type).label, blocks[id].title, ack))
   })
   let out = ''
   if (open.length || findings.length) out += '\n## Planning gaps detected\n' + [...open, ...findings].join('\n') + '\n'

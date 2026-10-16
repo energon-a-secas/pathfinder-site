@@ -2298,10 +2298,13 @@
     }
 
     /* Prose holds a 65 to 75 character measure (DESIGN.md Typography):
-       the column is wide enough for figures, the text is not. */
-    .doc p, .doc li { max-width: 68ch; }
+       the column is wide enough for figures, the text is not. In em, not ch:
+       a ch is the width of a 0, and 68 of them held about 90 characters of
+       prose. Counted per rendered line, a character of this prose (spaces
+       included) is about 0.41em, so 29em holds about 70. */
+    .doc p, .doc li { max-width: 29em; }
     .doc-aside {
-      max-width: 68ch;
+      max-width: 29em;
       margin: 0 0 18px;
       padding: 12px 15px;
       border-radius: var(--radius);
@@ -4039,7 +4042,7 @@ body.light-mode .ex-pic-light { display: block; }
 }
 .ex-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin: var(--space-4) 0 var(--space-3); }
 .ex-meta { font-size: var(--fs-13); color: var(--text-3); }
-.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); max-width: 68ch; }
+.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); max-width: 26em; }
 .ex-link {
   padding: 0;
   font: inherit; color: var(--accent);
@@ -4067,11 +4070,14 @@ body.light-mode .ex-pic-light { display: block; }
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
 }
-.doc-strip-caption { grid-column: 1 / -1; font-size: var(--fs-13); line-height: var(--lh-body); color: var(--text-3); }
+.doc-strip-caption { grid-column: 1 / -1; max-width: 29em; font-size: var(--fs-13); line-height: var(--lh-body); color: var(--text-3); }
 @media (min-width: 1000px) {
   .doc-strip {
     width: min(1120px, calc(100vw - 64px));
-    margin-left: 50%; transform: translateX(-50%);
+    /* Centred on the page by its margin, not a transform: Firefox counts an
+       untransformed box (its left at 50%) as overflow, and the page scrolled
+       sideways by half the strip. */
+    margin-left: calc(50% - min(560px, 50vw - 32px));
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 1fr);
     align-items: start;
   }
@@ -4363,7 +4369,8 @@ body.high-contrast .canvas-root.lod-dot .block { --lod-ink: var(--bc, var(--text
   /* Not in Spotlight, whose fade is the point: the hover fade out-ranked it,
      lifting the cards Spotlight had put away above the ones related to
      the hovered card, and dimming the card Spotlight was showing. */
-  .canvas-root.has-hover:not([data-pointer="touch"]) .block:not(.related):not(:hover):not(.spotlight *) {
+  /* A selected card is never faded: the selection is the heaviest state. */
+  .canvas-root.has-hover:not([data-pointer="touch"]) .block:not(.related):not(:hover):not(.selected):not(.spotlight *) {
     opacity: .6;
     transition: opacity var(--dur-2) var(--ease-out) 150ms;
   }
@@ -5895,3 +5902,88 @@ body:not(.readonly-mode) .canvas-viewport:focus-visible:not([data-input="pointer
    beside a word is one space, as in running text. */
 .shortcut-row .shortcut-keys { column-gap: 0; }
 .kbd-keys > .kbd-then { margin-inline: -2px; }
+
+
+/* ── [qa4] ── the fourth QA round's fixes (2026-10-16) ─────────────────── */
+
+/* A port's dot stays 10px; its target is 24px (WCAG 2.5.8), held at its
+   screen size zoomed out (--sp), reaching 7px into the card and the rest
+   out past its edge, so it never sits over the title. It measured 10 by 10,
+   and missed 6px from its centre. */
+.port { --port-hit: calc(24 * var(--sp, 1px)); --port-in: calc(7 * var(--sp, 1px)); }
+.port::before { content: ""; position: absolute; }
+.port-right::before  { top: calc(50% - var(--port-hit) / 2); left: calc(50% - var(--port-in)); width: var(--port-hit); height: var(--port-hit); }
+.port-left::before   { top: calc(50% - var(--port-hit) / 2); left: calc(50% + var(--port-in) - var(--port-hit)); width: var(--port-hit); height: var(--port-hit); }
+.port-top::before    { left: calc(50% - var(--port-hit) / 2); top: calc(50% + var(--port-in) - var(--port-hit)); width: var(--port-hit); height: var(--port-hit); }
+.port-bottom::before { left: calc(50% - var(--port-hit) / 2); top: calc(50% - var(--port-in)); width: var(--port-hit); height: var(--port-hit); }
+
+/* The empty description's caption keeps clear of the bottom port's target.
+   On a touch screen it is a hint, not a control: a double tap on it reached
+   the port and opened its picker, and the sheet below is where a phone
+   writes the description. */
+body:not(.readonly-mode) .block.selected:not(.collapsed) .block-desc:empty:not([contenteditable="true"]) { top: calc(100% + 18px); }
+@media (pointer: coarse) {
+  body:not(.readonly-mode) .block.selected:not(.collapsed) .block-desc:empty:not([contenteditable="true"]) { pointer-events: none; }
+  body:not(.readonly-mode) .block.selected:not(.collapsed) .block-desc:empty:not([contenteditable="true"])::before { content: 'Add a description in the sheet below'; }
+}
+
+/* A connection's note sits on a backdrop in the canvas colour (canvas.js),
+   and its halo is the canvas too: --bg drew a pale band on the light
+   canvas, and the line showed between the note's words and lines. */
+.arrow-note { stroke: var(--canvas); }
+.arrow-note-bg { fill: var(--canvas); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+.arrow-label-g:is(.related, .hover, .sel) .arrow-note-bg,
+body.show-arrow-text .arrow-note-bg { opacity: 1; }
+.canvas-root.lod-full .arrow-label-g .arrow-note-bg {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(max(1, var(--pxn, 1)));
+}
+.canvas-root.lod-quiet-labels .arrow-note-bg { display: none; }
+@media (prefers-reduced-motion: reduce) { .arrow-note-bg { transition: none; } }
+
+/* Text a copy could not put on the clipboard, to copy by hand (utils.js
+   showCopyFallback): its own row under the message, selectable. */
+.toast-notification.toast-has-field { flex-wrap: wrap; }
+.toast-has-field .toast-msg { flex: 1 1 0; }
+.toast-field {
+  flex: 1 0 100%;
+  box-sizing: border-box;
+  min-height: 28px; max-height: 96px;
+  margin-top: var(--space-1);
+  padding: 4px 8px;
+  resize: none;
+  font: var(--fw-regular) var(--fs-12)/1.4 var(--font-mono);
+  color: var(--text-1);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  pointer-events: auto;
+}
+.toast-field:focus-visible { outline: var(--focus-outline); outline-offset: 0; }
+
+/* A large template's block count holds the label's top right, however long
+   its name: two names pushed it onto a line of its own. */
+.template-text > .template-label { display: flex; align-items: baseline; gap: 6px; }
+.template-label > .template-name { flex: 1 1 auto; min-width: 0; }
+.template-label > .template-size { flex: none; margin-left: auto; }
+
+/* View only is a state, not a control: a quiet label with a lock, so Edit
+   a copy beside it is the one button. */
+.readonly-badge { border-color: transparent; padding-inline: 2px; }
+.readonly-badge svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+
+/* One length for the brief's column and its reply row: 57ch at 13px and
+   57ch at 16px scaled by 13/16 are not the same length in Safari, and the
+   reply row ended 10px short of the text. */
+.brief-pane .brief-md { max-width: var(--brief-col); }
+
+/* A face whose one word is wider than its line goes without its dot
+   (lod.js fitFaceTitle): the title takes the dot's room and the hang
+   before a word is cut ("Reconciliati…" at 44%). */
+.canvas-root .block .block-lod-face[data-nodot] > .block-lod-head { display: none; }
+
+/* The multi-select highlight swatches' name: the row's value, or the
+   swatch under the pointer or the keyboard (inspector.js). */
+.hl-row-name { margin-left: var(--space-1); font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-2); white-space: nowrap; }
+

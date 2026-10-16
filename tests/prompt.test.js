@@ -303,7 +303,7 @@ describe('generatePrompt() -- gap details', () => {
     addBlock('g1', 'goal', 'Lonely Goal')
     // goal with no connections -> gap-isolated only (mutual exclusivity)
     const prompt = generatePrompt()
-    assert.includes(prompt, 'no connections')
+    assert.includes(prompt, 'Goal "Lonely Goal" is not connected to anything on the map.')
   })
 
   it('describes a no-requirement gap for a connected goal', () => {

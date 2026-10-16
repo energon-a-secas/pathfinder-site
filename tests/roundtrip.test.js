@@ -399,7 +399,10 @@ describe('roundtrip: unlabelled arrows take their meaning from the endpoint type
     ids.forEach(from => ids.forEach(to => {
       const blocks = { f: { id: 'f', type: from }, t: { id: 't', type: to } }
       const rel = relationOf({ from: 'f', to: 't' }, blocks)
-      const quiet = NON_ORDERING.includes(from) || NON_ORDERING.includes(to)
+      // A problem drawn to what addresses it sets no order either (QA4: a
+      // fix printed as "after: <the problem>").
+      const addresses = from === 'problem' && ['implementation', 'decision', 'requirement'].includes(to)
+      const quiet = NON_ORDERING.includes(from) || NON_ORDERING.includes(to) || addresses
       const want = !quiet ? 'precedes' : (from === 'risk' || to === 'risk') ? 'related' : 'informs'
       assert.eq(rel, want, `${from} → ${to}`)
       assert.eq(dependencyEdges(blocks, [{ from: 'f', to: 't' }]).length, quiet ? 0 : 1, `${from} → ${to} edges`)

@@ -60,6 +60,9 @@ export function relationOf(arrow, blocks = null) {
   if (blocks) {
     const from = typeAt(blocks, arrow.from), to = typeAt(blocks, arrow.to)
     if ((from === 'risk' && MITIGATED_BY.has(label)) || (to === 'risk' && MITIGATES.has(label))) return 'related'
+    // A problem to what addresses it, unlabelled or labelled so: context
+    // for the work, not an order (IMPLIED_VERBS above).
+    if (from === 'problem' && (!label || label === 'addressed by') && impliedVerb(from, to) === 'addressed by') return 'informs'
     if ((!label || NON_ORDERING_VERBS.has(label)) && (NON_ORDERING_TYPES.has(from) || NON_ORDERING_TYPES.has(to))) {
       return from === 'risk' || to === 'risk' ? 'related' : 'informs'
     }
@@ -120,6 +123,13 @@ const IMPLIED_VERBS = {
   'risk>implementation': 'mitigated by',
   'risk>requirement': 'mitigated by',
   'risk>process': 'mitigated by',
+  // A problem points at what answers it. The answer does not come after the
+  // problem in the work: the Build checklist printed a fix as "after: <the
+  // problem>". It reads as informs (relationOf), and the task says what it
+  // addresses.
+  'problem>implementation': 'addressed by',
+  'problem>decision': 'addressed by',
+  'problem>requirement': 'addressed by',
 }
 
 // The implied verbs of pairs that touch a non-ordering type. None of them

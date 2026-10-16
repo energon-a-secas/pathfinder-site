@@ -1,7 +1,7 @@
 // Shared by Build prompts and the spec bundle: both must hand an assistant
 // the same task order and the same evidence from the canvas.
 import { TYPES, PRIORITY_DEFS, STATUS_DEFS, typeInfo, askedQuestions } from './utils.js'
-import { dependencyEdges, mitigationPairs } from './relations.js'
+import { dependencyEdges, mitigationPairs, relationOf, impliedVerb } from './relations.js'
 
 const priorityRank = block => ({ high: 0, medium: 1, low: 2 }[block.priority] ?? 3)
 // The registry says which types are tasks: requirement and output as before,
@@ -136,6 +136,14 @@ export function taskChecklist(blocks, arrows) {
       out += answer
         ? `      Answer to "${blocks[id].title || '(untitled)'}": ${indent(answer)}\n`
         : `      [NEEDS CLARIFICATION]: ${indent(blocks[id].title || '(untitled)')}\n`
+    })
+    // The problems this task answers (a problem drawn to it), said as what
+    // it addresses: never as "after: <the problem>".
+    arrows.forEach(a => {
+      if (a.to !== b.id || !Object.hasOwn(blocks, a.from) || blocks[a.from]?.type !== 'problem') return
+      if (relationOf(a, blocks) === 'informs' && impliedVerb('problem', b.type) === 'addressed by') {
+        out += `      addresses: ${blocks[a.from].title || '(untitled)'} (${a.from})\n`
+      }
     })
     ;(mitigates.get(b.id) || []).forEach(({ id: risk, implied }) => {
       out += `      mitigates${implied ? ` (${IMPLIED_MITIGATION})` : ''}: ${blocks[risk].title || '(untitled)'} (${risk})\n`

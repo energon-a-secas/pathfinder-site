@@ -237,6 +237,10 @@ function workRects() {
   if (ids.length <= WORK_MAX_SELECTED) ids.forEach(id => { const el = getBlockEl(id); if (el) rects.push(el.getBoundingClientRect()) })
   const ae = document.activeElement
   if (ae?.classList?.contains('block') && $.canvasRoot()?.contains(ae)) rects.push(ae.getBoundingClientRect())
+  // The card under the pointer is being read: the minimap hid the last third
+  // of a hovered card's title at 100%.
+  const hov = ui.hoveredBlockId && getBlockEl(ui.hoveredBlockId)
+  if (hov) rects.push(hov.getBoundingClientRect())
   if (mm.press && mm.pointer) rects.push({ left: mm.pointer.x, right: mm.pointer.x, top: mm.pointer.y, bottom: mm.pointer.y })
   return rects.map(r => ({ left: r.left - WORK_PAD, right: r.right + WORK_PAD, top: r.top - WORK_PAD, bottom: r.bottom + WORK_PAD }))
 }
@@ -289,6 +293,11 @@ function wireWork() {
   document.addEventListener('pointerup', up, true)
   document.addEventListener('pointercancel', up, true)
   document.addEventListener('focusin', queuePlace)
+  // events.js keeps ui.hoveredBlockId on the same events; the placement
+  // runs a frame later and reads it.
+  const root = $.canvasRoot()
+  root?.addEventListener('pointerover', queuePlace)
+  root?.addEventListener('pointerout', queuePlace)
 }
 
 /** Move the frame (every pan and zoom), and re-frame the minimap unless a drag is holding it still. */

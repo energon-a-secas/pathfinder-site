@@ -145,6 +145,26 @@ export function fitTitle(text, width, maxLines, measure, hang = 0, words = undef
 }
 
 /**
+ * A face's title with the dot beside it (every layout but 'col'): when a
+ * single word is wider than its whole line ("Reconciliation" on a 220px
+ * card at 44%, cut to "Reconciliati…"), the face gives the title the room
+ * its dot and the dot's gap take, and the closing hang, before any word is
+ * cut. { lines, cut, dot, hangs }: `dot` false when the face goes without
+ * its dot, `hangs[i]` true for a line that reaches into the hang. Pure.
+ */
+export function fitFaceTitle(text, spec, m, measure, words = undefined) {
+  const fit = fitTitle(text, spec.width, spec.lines, measure, m.hang, words)
+  const within = (l, w) => measure(l) <= w + 0.01
+  const keep = { ...fit, dot: true, hangs: fit.lines.map((l, i) => fit.cut && i === fit.lines.length - 1) }
+  if (spec.layout === 'col' || !m.dot) return keep
+  if (fit.lines.every(l => within(l, spec.width + (fit.cut ? m.hang : 0)))) return keep
+  const wide = spec.width + m.dot + m.dotGap
+  const alt = fitTitle(text, wide, spec.lines, measure, m.hang, words)
+  if (!alt.lines.every(l => within(l, wide + m.hang))) return keep
+  return { ...alt, dot: false, hangs: alt.lines.map((l, i) => !within(l, wide) || (alt.cut && i === alt.lines.length - 1)) }
+}
+
+/**
  * How a face is laid out for a card of `w` by `h` face pixels in `band`:
  * { layout: 'col' | 'row' | 'tight', width, lines } where width is the
  * title's room and lines its line budget. From the card's size alone

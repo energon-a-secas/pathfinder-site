@@ -72,12 +72,15 @@ export function openSampleMap() {
   if (ui.readOnly || ui.embed) return false
   const r = openAsNewMap(samplePayload())
   if (!r) return false
-  announceArrival(SAMPLE_ARRIVAL)
+  // A blank map gave the sample its slot (library.js): there is no other map to point at.
+  announceArrival(r.reused ? SAMPLE_OPENED : SAMPLE_ARRIVAL)
   return r
 }
 
 /** What the sample's arrival says: it opened, and the person's own map is kept. */
 export const SAMPLE_ARRIVAL = `${SAMPLE_TITLE} opened. Your own map is under Maps.`
+/** The same, when the sample took a blank map's place. */
+export const SAMPLE_OPENED = `${SAMPLE_TITLE} opened.`
 
 /**
  * Land on the map that just loaded and say `lead`. The camera belongs to

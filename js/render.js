@@ -18,8 +18,25 @@ import { paintColorFor, highlightTabLabel, typeShape, chipIcon } from './cards.j
 // importer of render.js working.
 export { renderInspector, renderQuestions } from './inspector.js'
 
+/**
+ * The hover fade belongs to a card under the pointer. A card removed while
+ * hovered (Del with the pointer still on it, an undo, a map switch) never
+ * sends pointerout, so the fade stayed on over every other card with
+ * nothing hovered. Cleared whenever the hovered card is gone.
+ */
+export function clearStaleHover() {
+  const id = ui.hoveredBlockId
+  if (!id || state.blocks[id]) return
+  ui.hoveredBlockId = null
+  const root = $.canvasRoot()
+  root?.classList.remove('has-hover')
+  root?.querySelectorAll('.block.related').forEach(el => el.classList.remove('related'))
+  $.arrowsGroup()?.querySelectorAll('.related').forEach(el => el.classList.remove('related'))
+}
+
 /** Every edit ends here: the brief, Attention and the status bar catch up. */
 export function afterMutation() {
+  clearStaleHover()
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
   // Attention, the quick copy bar and the backup status refresh on every
@@ -163,6 +180,7 @@ export function renderBlock(id) {
 
 export function renderAllBlocks() {
   $.canvasRoot().querySelectorAll('.block').forEach(el => { if (!state.blocks[el.dataset.id]) el.remove() })
+  clearStaleHover()
   Object.keys(state.blocks).forEach(id => renderBlock(id))
 }
 
@@ -468,6 +486,10 @@ export function undo() {
   const raw = history.pop()
   getRedoFuture().push(undoEntry({ framing: JSON.parse(raw).framing }))
   restoreEntry(raw)
+  // The camera follows an undo that took away what it had arrived on
+  // (zoom-controls.js returnFromArrival): an event, as render.js does not
+  // import the camera.
+  window.dispatchEvent(new CustomEvent('pf:undone'))
 }
 
 export function redo() {

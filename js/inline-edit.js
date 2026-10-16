@@ -12,6 +12,7 @@
 import { state, selection, ui } from './state.js'
 import { $, getBlockEl } from './utils.js'
 import { renderBlock, mutateBlock } from './render.js'
+import { paintBlockGap } from './gaps.js'
 
 let cur = null   // { id, field, el, onKey, onBlur, onPaste }
 
@@ -52,7 +53,7 @@ function placeCaret(el, { selectAll, caretPoint }) {
  * Start editing a block's title or description on the card. Returns false
  * when it cannot (read-only view, missing block, field not on screen).
  */
-export function startInlineEdit(blockId, field = 'title', { selectAll = true, caretPoint = null } = {}) {
+export function startInlineEdit(blockId, field = 'title', { selectAll = true, caretPoint = null, fresh = false } = {}) {
   if (ui.readOnly) return false
   const b = state.blocks[blockId]
   const blockEl = getBlockEl(blockId)
@@ -85,6 +86,10 @@ export function startInlineEdit(blockId, field = 'title', { selectAll = true, ca
   // and opening and closing the editor must never rewrite the block.
   const initial = readValue(el, field)
   cur = { id: blockId, field, el, onKey, onBlur, onPaste, initial }
+  // A card getting its first title (just made, `fresh`, or still without
+  // one) holds its gap marker until the title is in (gaps.js paintGap): no
+  // amber ring around a word not yet typed.
+  if (field === 'title' && (fresh || !initial)) { ui.titlingId = blockId; paintBlockGap(blockId) }
 
   el.focus({ preventScroll: true })
   placeCaret(el, { selectAll: caretPoint ? false : selectAll, caretPoint })
@@ -129,6 +134,8 @@ function commit({ refocus = true, next = null } = {}) {
   if (!cur) return
   const { id, field, el, onKey, onBlur, onPaste, initial } = cur
   cur = null
+  const titling = ui.titlingId === id
+  ui.titlingId = null
   el.removeEventListener('keydown', onKey)
   el.removeEventListener('blur', onBlur)
   el.removeEventListener('paste', onPaste)
@@ -146,6 +153,7 @@ function commit({ refocus = true, next = null } = {}) {
   const value = readValue(el, field)
   if (value !== initial) mutateBlock(id, { [key]: value }, { undo: true })
   else renderBlock(id)   // restores the placeholder and the <br> formatting
+  if (titling) paintBlockGap(id)
   if (selection.blockId === id) {
     const input = key === 'title' ? $.inspTitle() : $.inspDesc()
     if (input) input.value = b[key] || ''

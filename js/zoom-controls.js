@@ -359,7 +359,7 @@ function arrivalCentre(e1, e2, m1, m2, win) {
  * at ARRIVAL_ZOOM, 100%), otherwise ARRIVAL_ZOOM on the entry layer. `whole`
  * says whether everything is in view. Null when there is nothing to frame.
  */
-export function arrivalView(ids, size = null) {
+export function arrivalView(ids, size = null, { avoid = size ? [] : arrivalObstacles() } = {}) {
   const { w: W, h: H } = size || viewportSize()
   const live = (ids || []).filter(id => state.blocks[id])
   if (!live.length || !(W > 0) || !(H > 0)) return null
@@ -373,7 +373,7 @@ export function arrivalView(ids, size = null) {
   const e = boxOf(entryBlocks(live))
   const cx = arrivalCentre(e.x1, e.x2, all.x1, all.x2, W / z)
   const cy = arrivalCentre(e.y1, e.y2, all.y1, all.y2, H / z)
-  return { zoom: z, panX: W / 2 - cx * z, panY: H / 2 - cy * z, whole: false }
+  return clearOfObstacles({ zoom: z, panX: W / 2 - cx * z, panY: H / 2 - cy * z, whole: false }, live, H, avoid)
 }
 
 /** The arrival toast's second sentence, said only when part of the map is off screen. */
@@ -401,13 +401,80 @@ export function arrivalHint() {
 }
 
 /** True when every one of `ids` is on screen at ARRIVAL_ZOOM or closer. */
-export function readableInView(ids, size = null) {
+export function readableInView(ids, size = null, { avoid = size ? [] : arrivalObstacles() } = {}) {
   const { w: W, h: H } = size || viewportSize()
   const live = (ids || []).filter(id => state.blocks[id])
   if (!live.length || !(W > 0) || !(H > 0) || view.zoom < ARRIVAL_ZOOM) return false
   const b = boxOf(live), z = view.zoom
   return b.x1 * z + view.panX >= 0 && b.y1 * z + view.panY >= 0 &&
-    b.x2 * z + view.panX <= W && b.y2 * z + view.panY <= H
+    b.x2 * z + view.panX <= W && b.y2 * z + view.panY <= H &&
+    !underObstacle(live, view, avoid)
+}
+
+// ── What floats over the canvas ─────────────────────────────
+// Find blocks (top right) and, while the canvas holds keyboard focus, its
+// focus chip (top left) sit over the map. An arrival keeps cards out from
+// under them: the sample map landed with a card's type row under Find
+// blocks at 1280 by 800, where a click on the card hit the button, and a
+// pasted dump's first card under the chip.
+const OBSTACLE_PAD = 8
+
+/** The floating controls' boxes in canvas-viewport pixels, OBSTACLE_PAD wider. */
+export function arrivalObstacles() {
+  const vp = $.canvasViewport(); if (!vp || !vp.getClientRects().length) return []
+  const v = vp.getBoundingClientRect(), out = []
+  const add = (x1, y1, x2, y2) => out.push({ x1: x1 - OBSTACLE_PAD, y1: y1 - OBSTACLE_PAD, x2: x2 + OBSTACLE_PAD, y2: y2 + OBSTACLE_PAD })
+  const find = document.getElementById('searchBtn')
+  if (find && find.getClientRects().length) {
+    const r = find.getBoundingClientRect()
+    if (r.width && r.height) add(r.left - v.left, r.top - v.top, r.right - v.left, r.bottom - v.top)
+  }
+  if (vp.matches(':focus-visible') && vp.dataset.input !== 'pointer') {
+    // The chip is the viewport's ::after (style.css [canvas4]).
+    const cs = getComputedStyle(vp, '::after')
+    const top = parseFloat(cs.top) || 12, left = parseFloat(cs.left) || 12
+    const w = parseFloat(cs.width) || 300, h = parseFloat(cs.height) || 28
+    // Its focus outline sits 2px out and is 2px wide.
+    add(left - 4, top - 4, left + w + 24, top + h + 4)
+  }
+  return out
+}
+
+function screenRect(id, cam) {
+  const b = state.blocks[id], { w, h } = blockSize(id), z = cam.zoom
+  return { x1: b.x * z + cam.panX, y1: b.y * z + cam.panY, x2: (b.x + w) * z + cam.panX, y2: (b.y + h) * z + cam.panY }
+}
+const meets = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1
+
+/** How far down `ids` must move under camera `cam` to clear every obstacle (0 when clear). */
+function underObstacle(ids, cam, avoid) {
+  let need = 0
+  if (!avoid.length) return need
+  ids.forEach(id => {
+    const r = screenRect(id, cam)
+    avoid.forEach(o => { if (meets(r, o)) need = Math.max(need, o.y2 - r.y1) })
+  })
+  return need
+}
+
+/**
+ * Move an arrival's camera down until no card of `ids` is under a
+ * floating control, as long as its entry layer still shows whole; a few
+ * steps, since a card coming in from above can meet the control in turn.
+ * The view unchanged when no such move exists.
+ */
+function clearOfObstacles(v, ids, H, avoid) {
+  if (!avoid.length) return v
+  const entry = entryBlocks(ids)
+  let cam = { ...v }
+  for (let i = 0; i < 4; i++) {
+    const need = underObstacle(ids, cam, avoid)
+    if (!need) return cam
+    const next = { ...cam, panY: cam.panY + Math.ceil(need) }
+    if (entry.some(id => screenRect(id, next).y2 > H)) return v
+    cam = next
+  }
+  return underObstacle(ids, cam, avoid) ? v : cam
 }
 
 /** "Checkout 500s added." for a template, the sample or an example. */
@@ -426,7 +493,7 @@ export function arrivalLead(name, verb = 'added') {
  * screen at a readable zoom (a dump pasted where you are looking). Returns
  * { whole, moved }, or null when there was nothing to land on.
  */
-export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, animate = false, stay = false } = {}) {
+export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, animate = false, stay = false, action = null, remember = false } = {}) {
   const list = ids ? [...ids] : Object.keys(state.blocks)
   if (ui.embed) {
     if (!list.some(id => state.blocks[id])) return null
@@ -434,17 +501,52 @@ export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, a
     return { whole: true, moved: true }
   }
   if (stay && readableInView(list)) {
-    if (lead) showToast(lead, type, ms)
+    if (lead) showToast(lead, type, ms, { action })
     return { whole: true, moved: false }
   }
   const v = arrivalView(list)
   if (!v) return null
+  // `remember`: an undo that takes these blocks away again hands the
+  // camera back (see the pf:undone listener below).
+  lastArrival = remember ? { ids: new Set(list), camera: { panX: view.panX, panY: view.panY, zoom: view.zoom } } : null
   exactLodNext()
   if (animate) animateView(v.panX, v.panY, v.zoom, TIDY_MS)
   else { animToken++; Object.assign(view, { panX: v.panX, panY: v.panY, zoom: v.zoom }); applyTransform() }
-  if (lead) showToast(v.whole ? lead : `${lead} ${arrivalHint()}`, type, ms)
+  if (lead) showToast(v.whole ? lead : `${lead} ${arrivalHint()}`, type, ms, { action })
   return { whole: v.whole, moved: true }
 }
+
+// The last remembered arrival (a template merged into a map): its blocks
+// and the camera before it. Cmd+Z on the merge took the blocks away and
+// left the camera where they had been, with the person's own map half off
+// screen under the rail.
+let lastArrival = null
+
+/**
+ * After an undo: when it took away every block the last remembered arrival
+ * landed on, and nothing that is left is wholly in view, the camera goes
+ * back to where it was before that arrival. Returns true when it moved.
+ */
+export function returnFromArrival() {
+  const a = lastArrival
+  if (!a) return false
+  if ([...a.ids].some(id => state.blocks[id])) return false
+  lastArrival = null
+  const rest = Object.keys(state.blocks)
+  if (!rest.length || rest.some(id => wholeInView(id))) return false
+  animToken++
+  Object.assign(view, a.camera)
+  applyTransform()
+  return true
+}
+
+function wholeInView(id) {
+  const el = getBlockEl(id), vp = $.canvasViewport()
+  if (!el || !vp) return false
+  const r = el.getBoundingClientRect(), v = vp.getBoundingClientRect()
+  return r.width > 0 && r.left >= v.left && r.top >= v.top && r.right <= v.right && r.bottom <= v.bottom
+}
+if (typeof window !== 'undefined') window.addEventListener('pf:undone', returnFromArrival)
 
 /**
  * arriveAt after the frame an import scheduled (its lines, frames and fit),

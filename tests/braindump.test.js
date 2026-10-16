@@ -724,13 +724,13 @@ describe('braindump: a dump arrives readable', () => {
   })
 
   it('the toast says how many, how many types to check, and how to see them all', () => {
-    assert.eq(dumpSummary(1), 'Added 1 block')
-    assert.eq(dumpSummary(15, 0, true), 'Added 15 blocks')
-    assert.eq(dumpSummary(15, 14, false, 'Shift+1'), 'Added 15 blocks, 14 with a guessed type to check. Shift+1 shows all of them')
-    assert.eq(dumpSummary(3, 3, true), 'Added 3 blocks, every type a guess to check')
-    assert.eq(dumpSummary(1, 1, false, 'Shift+1'), 'Added 1 block, 1 with a guessed type to check. Shift+1 shows all of it')
-    assert.eq(dumpSummary(4, 0, false, 'Fit'), 'Added 4 blocks. Fit shows all of them', 'a phone names the Fit button')
-    assert.match(dumpSummary(4, 0, false), /^Added 4 blocks\. (Shift\+1|Fit) shows all of them$/)
+    assert.eq(dumpSummary(1), 'Added 1 block.')
+    assert.eq(dumpSummary(15, 0, true), 'Added 15 blocks.')
+    assert.eq(dumpSummary(15, 14, false, 'Shift+1'), 'Added 15 blocks, 14 with a guessed type to check. Shift+1 shows all of them.')
+    assert.eq(dumpSummary(3, 3, true), 'Added 3 blocks, every type a guess to check.')
+    assert.eq(dumpSummary(1, 1, false, 'Shift+1'), 'Added 1 block, 1 with a guessed type to check. Shift+1 shows all of it.')
+    assert.eq(dumpSummary(4, 0, false, 'Fit'), 'Added 4 blocks. Fit shows all of them.', 'a phone names the Fit button')
+    assert.match(dumpSummary(4, 0, false), /^Added 4 blocks\. (Shift\+1|Fit) shows all of them\.$/)
   })
 })
 

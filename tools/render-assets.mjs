@@ -67,13 +67,15 @@ const svgSize = (svg, slug) => {
 
 /**
  * Give every <img data-pic="<slug>"> in a page the size it is drawn at
- * (PIC_SCALE of the picture's own), so it reserves its space and reads.
+ * (PIC_SCALE of the picture's own), so it reserves its space and reads. Its
+ * detail (data-detail-pic) takes the same size: Firefox never loads a lazy
+ * image whose box is 0px tall, and without it the detail's box was.
  */
 function writeSize(file, slug, svg) {
   const path = join(ROOT, file)
   const [w, h] = svgSize(svg, slug).map(n => Math.round(n * PIC_SCALE))
   const html = readFileSync(path, 'utf8')
-  const re = new RegExp(`<img\\b[^>]*\\bdata-pic="${slug}"[^>]*>`, 'g')
+  const re = new RegExp(`<img\\b[^>]*\\bdata-(?:detail-)?pic="${slug}"[^>]*>`, 'g')
   writeFileSync(path, html.replace(re, tag => tag.replace(/\swidth="\d+"/, ` width="${w}"`).replace(/\sheight="\d+"/, ` height="${h}"`)))
 }
 

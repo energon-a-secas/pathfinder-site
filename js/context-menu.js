@@ -331,7 +331,7 @@ function connectPlan(id, other) {
 
 // The implied verbs that are not a verb in the third person: they need "is"
 // to read as a sentence ("it is mitigated by this", not "it mitigated by").
-const VERB_PHRASE = { 'mitigated by': 'is mitigated by', 'delivered to': 'is delivered to', 'source of': 'is a source of' }
+const VERB_PHRASE = { 'mitigated by': 'is mitigated by', 'delivered to': 'is delivered to', 'source of': 'is a source of', 'addressed by': 'is addressed by' }
 
 /**
  * "Metric: it measures this", "Requirement: this satisfies it". With no
@@ -494,7 +494,7 @@ export function connectToItems(id) {
     action: () => {
       const plan = connectPlan(id, o.id)
       const aid = addArrow(plan.from, plan.to)
-      if (aid) showToast(`Connected to "${titleOf(o)}"`, 'success', 1600)
+      if (aid) sayConnected(aid)
     },
   })
   const split = likely.length && likely.length < targets.length
@@ -505,6 +505,55 @@ export function connectToItems(id) {
     split && { type: 'heading', label: 'Other blocks' },
     ...targets.slice(likely.length).map(row),
   ])
+}
+
+/**
+ * What a connection made from Connect to records, said as the brief will
+ * read it ('"Session store fills up" is mitigated by "Write sessions to
+ * both stores".'), with Reverse beside it: a pair can be meant either way
+ * (the work that answers a risk is drawn like the work that brings it),
+ * and from a risk every row could only record "mitigated by".
+ */
+export function sayConnected(aid) {
+  const a = state.arrows.find(x => x.id === aid); if (!a) return
+  const from = state.blocks[a.from], to = state.blocks[a.to]; if (!from || !to) return
+  const verb = impliedVerb(from.type, to.type)
+  const phrase = verb ? (VERB_PHRASE[verb] || verb) : 'connects to'
+  showToast(`Connected: "${titleOf(from)}" ${phrase} "${titleOf(to)}".`, 'success', 4000, { action: { label: 'Reverse', run: () => reverseConnection(aid) } })
+}
+
+/** Turn a connection round: its ends and their pins swap. One undo step. False when refused. */
+export function reverseConnection(aid) {
+  const a = state.arrows.find(x => x.id === aid); if (!a || ui.readOnly) return false
+  // Reversing onto a connection that already runs the other way would
+  // leave two identical arrows.
+  if (state.arrows.some(x => x.id !== aid && x.from === a.to && x.to === a.from)) {
+    showToast('A connection already runs the other way. Turn on Two-way instead', 'info', 2400)
+    return false
+  }
+  // Pins swap with their ends and keep their provenance: reversing is
+  // not the user choosing a side.
+  const changes = { from: a.to, to: a.from, fromPort: a.toPort ?? null, toPort: a.fromPort ?? null }
+  if (a.portsBy) changes.portsBy = a.portsBy
+  mutateArrow(aid, changes)
+  return true
+}
+
+/**
+ * Connect to's search, opened straight away for one block: C on a selected
+ * card, and the Not connected yet suggestion's button. Anchored where
+ * Shift+F10 opens the card's own menu; Escape hands focus back to the card.
+ */
+export function openConnectToMenu(id) {
+  if (!state.blocks[id] || ui.readOnly || ui.embed) return null
+  if (!connectTargets(id).length) { showToast('Nothing to connect to yet. Add another block first.', 'info', 2400); return null }
+  if (!(selection.ids.size === 1 && selection.blockId === id)) selectBlock(id)
+  keyOpenedAt = performance.now()
+  const p = keyPoint(id)
+  return openCtxMenu(connectToItems(id), {
+    x: p.x, y: p.y, className: 'ctx-block-menu ctx-connect-menu',
+    label: `Connect ${titleOf(state.blocks[id])} to`, returnFocus: getBlockEl(id),
+  })
 }
 
 /**
@@ -765,19 +814,7 @@ export function arrowMenuItems(aid, pt) {
         label, radio: true, checked: a.relation === k, action: () => applyArrow(aid, { relation: k }),
       })),
     ] },
-    { ctx: 'reverse', label: 'Reverse direction', icon: I.reverse, action: () => {
-      // Reversing onto a connection that already runs the other way would
-      // leave two identical arrows.
-      if (state.arrows.some(x => x.id !== aid && x.from === a.to && x.to === a.from)) {
-        showToast('A connection already runs the other way. Turn on Two-way instead', 'info', 2400)
-        return
-      }
-      // Pins swap with their ends and keep their provenance: reversing is
-      // not the user choosing a side.
-      const changes = { from: a.to, to: a.from, fromPort: a.toPort ?? null, toPort: a.fromPort ?? null }
-      if (a.portsBy) changes.portsBy = a.portsBy
-      mutateArrow(aid, changes)
-    } },
+    { ctx: 'reverse', label: 'Reverse direction', icon: I.reverse, action: () => reverseConnection(aid) },
     { ctx: 'two-way', label: 'Two-way', icon: I.twoWay, checked: !!a.bidirectional,
       action: () => applyArrow(aid, { bidirectional: !a.bidirectional }) },
     DIV,
@@ -1157,6 +1194,10 @@ export function setupContextMenu() {
 
   // Shift+F10 and the ContextMenu key: the menu for the focused block, else
   // the selection, else the selected connection, else the canvas.
+  // The Not connected yet suggestion's button (create.js applyGapFix) asks
+  // through an event: create.js is imported here, not the other way round.
+  window.addEventListener('pf:connect-to', e => { if (e.detail?.id) openConnectToMenu(e.detail.id) })
+
   document.addEventListener('keydown', e => {
     if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return
     if (e.defaultPrevented || isMenuOpen()) return

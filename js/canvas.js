@@ -12,7 +12,7 @@ import { HEAD_POINTS, headLength, headTrim, colorKey, arrowRoute, arrowPattern, 
          dashArrayFor, pathFor } from './arrow-geometry.js'
 import { resolveRoutes } from './arrow-routes.js'
 import { paintColorFor } from './cards.js'
-import { placeLabels, wrapNote, NOTE_LINE, NOTE_GAP } from './arrow-labels.js'
+import { placeLabels, wrapNote, labelTextWidth, NOTE_LINE, NOTE_GAP } from './arrow-labels.js'
 import { syncArrowStates } from './arrow-hover.js'
 
 export * from './arrow-geometry.js'
@@ -303,7 +303,8 @@ export function renderArrows(opts = {}) {
     t.classList.toggle('sel', sel)
     t.classList.toggle('has-note', !!noteText)
     put(t, '--ac', props['--ac']); put(t, '--ac-hi', props['--ac-hi']); put(t, '--ac-sel', props['--ac-sel'])
-    const [lead, bg, lbl, note] = t.children
+    // By class: a note's backdrop joins the group when a note first shows.
+    const [lead, bg, lbl, note] = ['.arrow-label-leader', '.arrow-label-bg', '.arrow-label', '.arrow-note'].map(q => t.querySelector(q))
     // A label that had to step off its line points back to it.
     if (lp.text && lp.leader) {
       put(lead, 'x1', lp.leader.x1); put(lead, 'y1', lp.leader.y1)
@@ -330,6 +331,15 @@ export function renderArrows(opts = {}) {
     // Arrow note: richer annotation. Content is always rendered when present;
     // CSS decides whether it's visible (hover via .related, .sel, or the global
     // body.show-arrow-text setting) so hover reveal needs no arrow re-render.
+    // The note sits on a backdrop in the canvas colour, the box placeLabels
+    // keeps off the cards: its own line ran through the gaps between its
+    // words and its lines ("certifica|te"), which the text's halo leaves.
+    let noteBg = t.querySelector('.arrow-note-bg')
+    if (noteText && !noteBg) {
+      noteBg = document.createElementNS(SVG_NS, 'rect')
+      noteBg.classList.add('arrow-note-bg')
+      t.insertBefore(noteBg, note)
+    }
     if (noteText) {
       const lines = wrapNote(noteText)
       const startY = lp.y + (lp.text ? lp.h / 2 + NOTE_GAP : NOTE_GAP)
@@ -338,9 +348,16 @@ export function renderArrows(opts = {}) {
         `<tspan x="${lp.x}" dy="${i === 0 ? 0 : NOTE_LINE}">${escHtml(ln)}</tspan>`).join('')
       if (note.__pfHtml !== html) { note.innerHTML = html; note.__pfHtml = html }
       note.classList.toggle('selected', sel)
-    } else if (note.__pfHtml !== '') {
-      note.textContent = ''
-      note.__pfHtml = ''
+      const nw = Math.max(...lines.map(labelTextWidth)) + 8
+      // From the label's foot, so the line shows in neither gap.
+      const top = lp.text ? lp.y + lp.h / 2 : startY - 2
+      put(noteBg, 'x', lp.x - nw / 2); put(noteBg, 'y', top)
+      put(noteBg, 'width', nw); put(noteBg, 'height', startY - top + lines.length * NOTE_LINE + 4)
+      put(noteBg, 'rx', '4')
+      show(noteBg, true)
+    } else {
+      if (note.__pfHtml !== '') { note.textContent = ''; note.__pfHtml = '' }
+      if (noteBg) show(noteBg, false)
     }
   })
   placeHandles(hitLayer, oldHandles, handleAt)

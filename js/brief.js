@@ -15,7 +15,7 @@ import { escHtml, showToast, copyText, TYPES } from './utils.js'
 import { generatePrompt, generateScopedPrompt, briefScope, estimateTokens, roundTokens, formatTokens,
          briefSectionCount, markExported, getPromptDiff, setBriefRenderer, refreshPrompt,
          CHARS_PER_TOKEN, TOKEN_ERROR, TOKEN_ERROR_P75 } from './prompt.js'
-import { attentionModel, isolationItemWords } from './attention.js'
+import { attentionModel, openItemParts } from './attention.js'
 import { openDropdown } from './menu.js'
 import { briefHtml } from './brief-md.js'
 import { refreshFramingSummary } from './ui-panels.js'
@@ -63,35 +63,29 @@ function tally(items, key, rank = null) {
 const TYPE_ORDER = Object.keys(TYPES)
 const typeRank = t => { const i = TYPE_ORDER.indexOf(t); return i < 0 ? TYPE_ORDER.length : i }
 
+// The gaps and missing criteria by type: criteria per type ("2 requirements
+// without criteria", since a metric's list is its targets), then gaps by
+// type ("2 risks, 1 decision"); isolation is about a block's connections,
+// whatever its type, so it is said apart.
+function gapsByType(gapItems) {
+  const parts = []
+  tally(gapItems.filter(i => i.kind === 'criteria'), i => CRITERIA_WORDS[i.type] ? i.type : '', typeRank).forEach(([type, n]) =>
+    parts.push(CRITERIA_WORDS[type] ? CRITERIA_WORDS[type](n) : `${n} without criteria`))
+  const gaps = gapItems.filter(i => i.kind === 'gap')
+  tally(gaps.filter(i => i.gap !== 'gap-isolated'), i => i.type || '', typeRank).forEach(([type, n]) =>
+    parts.push(type ? nOf(n, typeNoun(type, 1), typeNoun(type, 2)) : nOf(n, 'gap')))
+  const isolated = gaps.filter(i => i.gap === 'gap-isolated').length
+  if (isolated) parts.push(nOf(isolated, 'block not connected yet', 'blocks not connected yet'))
+  return parts
+}
+
 /** From an attentionModel result: the open count, its parts and the sentence. */
 export function readiness(model) {
   const items = model?.items || []
   const accepted = (model?.accepted || []).filter(a => a.live !== false).length
-  const of = kind => items.filter(i => i.kind === kind)
-  const parts = []
-  const blocked = of('blocked').length
-  if (blocked) parts.push(`${blocked} blocked`)
-  const questions = of('question').length
-  if (questions) parts.push(nOf(questions, 'question'))
-  const assumptions = of('assumption').length
-  if (assumptions) parts.push(nOf(assumptions, 'assumption'))
-  // Criteria: said per type, since a metric's list is its targets.
-  tally(of('criteria'), i => CRITERIA_WORDS[i.type] ? i.type : '', typeRank).forEach(([type, n]) =>
-    parts.push(CRITERIA_WORDS[type] ? CRITERIA_WORDS[type](n) : `${n} without criteria`))
-  // Gaps: what is open, by type ("2 risks, 1 decision"); isolation is
-  // about a block's connections, whatever its type, so it is said apart.
-  const gaps = of('gap')
-  tally(gaps.filter(i => i.gap !== 'gap-isolated'), i => i.type || '', typeRank).forEach(([type, n]) =>
-    parts.push(type ? nOf(n, typeNoun(type, 1), typeNoun(type, 2)) : nOf(n, 'gap')))
-  const isolated = gaps.filter(i => i.gap === 'gap-isolated').length
-  if (isolated) parts.push(nOf(isolated, 'unconnected block'))
-  // A mostly unconnected map is one finding for many cards: said as the
-  // Attention badge says it, never as a "canvas check".
-  const lone = isolationItemWords(items)
-  if (lone) parts.push(lone)
-  const canvas = of('canvas').filter(i => i.finding !== 'isolated').length
-  if (canvas) parts.push(nOf(canvas, 'canvas check'))
-
+  // One formatter with the Attention tab (openItemParts): one order, one
+  // set of nouns; only the gaps are said by type here ("2 risks").
+  const parts = openItemParts(items, { gapWords: gapsByType })
   const open = items.length
   const acc = accepted ? nOf(accepted, 'accepted gap') : ''
   const lead = open ? nOf(open, 'open item') : 'No open items'

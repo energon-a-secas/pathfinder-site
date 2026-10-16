@@ -615,6 +615,19 @@ export function previewSummary(plan) {
 const KIND_WORDS = { answer: 'Answer', verify: 'Verdict', status: 'Status', criteria: 'Criteria', note: 'Note', block: 'Block', arrow: 'Connection' }
 export const patchKindWord = kind => KIND_WORDS[kind] || kind
 
+// A row's words after its kind tag, without the tag's own word again: the
+// preview read "Answer Answer ..." and "Connection Connect ...". The
+// operation's label keeps the whole sentence (an error, a test, a title).
+const AFTER_TAG = {
+  answer: [[/^Replace the answer on /, 'replaces the one on '], [/^Answer /, ''], [/ and mark it done$/, ', then mark it done']],
+  arrow: [[/^Connect /, '']],
+  status: [[/^Status /, '']],
+  note: [[/^Note /, '']],
+}
+export function patchRowWords(kind, label) {
+  return (AFTER_TAG[kind] || []).reduce((t, [re, to]) => t.replace(re, to), String(label || ''))
+}
+
 function renderPreview(host, plan, error) {
   if (error) { host.innerHTML = errorHtml(error); return }
   const rows = previewPlan(plan).map(o => {
@@ -624,10 +637,11 @@ function renderPreview(host, plan, error) {
     // A block the copied brief did not cover: the assistant never saw it.
     const away = o.ok && o.outside
     const outside = away ? ' <span class="patch-op-outside">outside the brief</span>' : ''
-    const toggle = o.ok ? `<input type="checkbox" data-patch-op="${o.id}" ${o.selected ? 'checked' : ''} aria-label="Include change: ${escHtml(o.label)}${away ? ', outside the brief' : ''}">` : ''
+    const words = o.ok ? patchRowWords(o.kind, o.label) : o.label
+    const toggle = o.ok ? `<input type="checkbox" data-patch-op="${o.id}" ${o.selected ? 'checked' : ''} aria-label="Include change: ${escHtml(patchKindWord(o.kind))} ${escHtml(words)}${away ? ', outside the brief' : ''}">` : ''
     const detail = o.ok ? `<details class="change-detail"><summary>Before and after</summary><strong>Before</strong><pre>${escHtml(o.before)}</pre><strong>After</strong><pre>${escHtml(o.after)}</pre></details>` : ''
     const dependency = o.requires.length ? '<div class="patch-op-detail">Including this connection also includes its new blocks.</div>' : ''
-    return `<div class="patch-op ${cls}${away ? ' outside' : ''}"><label>${toggle}<span><span class="patch-op-kind">${escHtml(patchKindWord(o.kind))}</span> ${escHtml(o.label)}${conf}${outside}</span></label>${dependency}${detail}</div>`
+    return `<div class="patch-op ${cls}${away ? ' outside' : ''}"><label>${toggle}<span><span class="patch-op-kind">${escHtml(patchKindWord(o.kind))}</span> ${escHtml(words)}${conf}${outside}</span></label>${dependency}${detail}</div>`
   }).join('')
   const head = plan.note ? `<div class="patch-op-note">${escHtml(short(plan.note, 120))}</div>` : ''
   host.innerHTML = head + (rows || errorHtml(PATCH_ERRORS.noOps)) +
