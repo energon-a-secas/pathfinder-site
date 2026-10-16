@@ -744,14 +744,14 @@ const answerBox = () => byId('inspAnswer')
 const shown = el => !!el && el.closest('#answerSection').style.display !== 'none' && !el.closest('#answerSection').hidden
 
 describe('roundtrip: the inspector answers a question card', () => {
-  it('mounts the real panel and puts Answer right after the type fields', async () => {
+  it('mounts the real panel and puts Answer right under the Title (wave 4: the Answer leads)', async () => {
     await mount()
     fresh()
     card('q', 'question', 'Does staging fail?')
     selectBlock('q')
     const section = byId('answerSection')
     assert.ok(section, 'the section exists')
-    assert.eq(section.previousElementSibling?.id, 'rationaleSection')
+    assert.eq(section.previousElementSibling, byId('inspTitle').closest('.insp-section'), 'the Answer leads, under the Title')
     assert.ok(shown(answerBox()), 'shown on a question card')
     assert.eq(section.querySelector('label').htmlFor, 'inspAnswer')
     // The hint is its own sentence under the field (QA3), not part of the label.

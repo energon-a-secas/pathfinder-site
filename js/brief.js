@@ -19,6 +19,8 @@ import { attentionModel } from './attention.js'
 import { openDropdown } from './menu.js'
 import { briefHtml } from './brief-md.js'
 import { refreshFramingSummary } from './ui-panels.js'
+import { setupPanelResize, borrowWidth, returnWidth, isWidthBorrowed } from './panel-resize.js'
+import { setBriefCoverage } from './patch.js'
 
 // ── The readiness line ──────────────────────────────────────
 // One sentence instead of a grade: what is still open, counted exactly as
@@ -110,7 +112,45 @@ export function setBriefScope(next) {
   scope = next === 'selection' && selectedIds().length ? 'selection' : 'map'
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
+  syncCopyScope()
   return scope
+}
+
+/**
+ * Every Copy brief copies the scope chosen here, so the two other ways to
+ * copy say which while it is the selection: the status bar's button carries
+ * a "Selection" tag, and File's row reads "Copy brief for the selection"
+ * (view-menu.js reads the row's text when it draws the menu, and the
+ * command palette reads the same rows).
+ */
+export function syncCopyScope() {
+  const part = briefScopeNow() === 'selection'
+  const n = selectedIds().length
+  const pill = byId('copyPromptPill')
+  if (pill) {
+    let tag = pill.querySelector('.quick-copy-scope')
+    if (part && !tag) {
+      tag = document.createElement('span')
+      tag.className = 'quick-copy-scope'
+      tag.textContent = 'Selection'
+      tag.setAttribute('aria-hidden', 'true')
+      pill.appendChild(tag)
+    }
+    if (tag) tag.hidden = !part
+    if (!pill.classList.contains('copied')) pill.setAttribute('aria-label', part ? 'Copy brief for the selection' : 'Copy brief')
+    pill.title = part
+      ? `Copy the brief for the ${nOf(n, 'selected block')} and the blocks connected to ${n === 1 ? 'it' : 'them'} (the Brief tab's scope)`
+      : 'Copy the brief for the whole map'
+  }
+  const row = byId('exportCopyPrompt')
+  if (row) {
+    const text = [...row.childNodes].find(c => c.nodeType === 3 && c.textContent.trim())
+    const label = part ? ' Copy brief for the selection' : ' Copy brief'
+    if (text && text.textContent !== label) text.textContent = label
+    // The command palette reads this: while File's row copies the
+    // selection, its own row offers the whole map instead of a twin.
+    row.dataset.copyScope = part ? 'selection' : 'map'
+  }
 }
 
 /** The brief the tab shows and Copy copies: whole map, or the scoped one. */
@@ -161,6 +201,9 @@ export async function copyBrief({ scope: which } = {}) {
   if (back && back.isConnected && document.activeElement !== back && typeof back.focus === 'function') back.focus({ preventScroll: true })
   if (!ok) { showToast('Copy failed: select the text in the Brief tab and copy it from there', 'warning'); return false }
   if (!partial) markExported()
+  // What the reply to this brief can be expected to touch: patch.js keeps
+  // the last few briefs per map and labels a change none of them covered.
+  setBriefCoverage(partial ? [...briefScope(selectedIds()).scope] : Object.keys(state.blocks))
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
   flashCopied()
@@ -358,6 +401,17 @@ export function wireSizeNote() {
   })
 }
 
+/**
+ * A copy asked for from elsewhere (the `pf:copy-brief` event): the
+ * selection's brief or the whole map's when asked for by name ('selection',
+ * 'whole': the command palette's own row), else the scope chosen in the
+ * Brief tab, which is what File's row and the status bar say they copy.
+ */
+export function copyRequest(detail) {
+  const named = { selection: 'selection', whole: 'map' }[detail?.scope]
+  return copyBrief(named ? { scope: named } : {})
+}
+
 /** Draw the Brief tab from the map. Registered as prompt.js's renderer. */
 export function renderBrief() {
   const pane = byId('promptPane'); if (!pane) return
@@ -458,20 +512,24 @@ export function setupBrief() {
   byId('copyPromptBtn')?.addEventListener('click', () => copyBrief())
 
   // The status bar's copy button (named in ui-panels.js setupQuickCopy):
-  // always the whole map, since only the Brief tab shows a scope.
+  // the Brief tab's scope, like every Copy brief, and it says so while that
+  // is the selection (syncCopyScope).
   const pill = byId('copyPromptPill'), pillLabel = byId('copyPillLabel')
   let pillReset
   pill?.addEventListener('click', async () => {
     if (ui.readOnly || ui.embed || !Object.keys(state.blocks).length) return
-    if (!await copyBrief({ scope: 'map' })) return
+    if (!await copyBrief()) return
     clearTimeout(pillReset)
     if (pillLabel) pillLabel.textContent = 'Copied'
+    pill.classList.add('copied')
     pill.setAttribute('aria-label', 'Brief copied')
     pillReset = setTimeout(() => {
       if (pillLabel) pillLabel.textContent = 'Copy brief'
-      pill.setAttribute('aria-label', 'Copy brief')
+      pill.classList.remove('copied')
+      syncCopyScope()
     }, 1800)
   })
+  syncCopyScope()
 
   byId('briefScope')?.addEventListener('click', e => {
     const b = e.target.closest('[data-scope]'); if (!b) return
@@ -510,6 +568,7 @@ export function setupBrief() {
     const key = [...selection.ids].join(',')
     if (key === selKey) return
     selKey = key
+    syncCopyScope()
     if (ui.activeTab !== 'prompt') return
     ui.promptDirty = true
     refreshPrompt()
@@ -525,10 +584,125 @@ export function setupBrief() {
   })
 
   // The way in for other menus (the command palette, a selection's context
-  // menu, File): dispatch `pf:copy-brief` with { scope: 'map' | 'selection' }
-  // rather than importing this module, which app.js alone may load.
-  window.addEventListener('pf:copy-brief', e => {
-    if (ui.embed) return
-    copyBrief({ scope: e.detail?.scope })
-  })
+  // menu, File): dispatch `pf:copy-brief` rather than importing this module,
+  // which app.js alone may load. { scope: 'selection' } or { scope: 'whole' }
+  // asks for that brief by name (Cmd+K's row); anything else copies the
+  // scope chosen in the Brief tab, which File's row names (syncCopyScope).
+  window.addEventListener('pf:copy-brief', e => { if (!ui.embed) copyRequest(e.detail) })
+
+  setupReading()
+}
+
+/** The panel's width and the Read control (wave 4): wired once, after the panel is in the page. */
+export function setupReading() {
+  setupPanelResize()
+  setupReadWidth()
+}
+
+// ── Read: the panel at the brief's measure ──────────────────
+// A toggle in the brief's bar lends the panel the width that sets the
+// brief's body text at about 68 characters a line (DESIGN.md: prose holds
+// 65 to 75), and gives the width back when pressed again, when the tab
+// changes or when the panel folds away. A drag of the panel's edge while
+// reading keeps the dragged width and ends the loan (panel-resize.js). It
+// is a view, never a map change, so no undo step.
+
+/** Characters a reading line holds. */
+export const READ_MEASURE = 68
+// A line breaks between words, so a box exactly 68 characters wide sets
+// lines of about 62 (measured on the sample brief); six more characters of
+// room bring the typical full line to the measure.
+const WRAP_SLACK = 6
+
+/** The panel width that gives the brief's text a READ_MEASURE line, in pixels. */
+export function readingWidth() {
+  const md = byId('promptOutput'), doc = byId('briefDoc'), panel = byId('rightPanel')
+  // Nothing drawn (a pasted reply has the brief's place): nothing to measure.
+  if (!md || !doc || !panel || !doc.clientWidth) return null
+  const cs = getComputedStyle(md)
+  // The brief's own words in its own font, laid out on one line inside it,
+  // so the measure is of what is read, as the browser draws it.
+  const body = [...md.querySelectorAll('p, .md-text')].map(e => e.textContent).join(' ') || md.textContent || ''
+  const sample = body.replace(/\s+/g, ' ').trim().slice(0, 2000) ||
+    'The relevant repository is open to you. Read it before trusting this canvas: the canvas records what somebody believed.'
+  const probe = document.createElement('span')
+  probe.textContent = sample
+  probe.setAttribute('aria-hidden', 'true')
+  probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;pointer-events:none'
+  md.appendChild(probe)
+  const perChar = probe.getBoundingClientRect().width / sample.length
+  probe.remove()
+  if (!(perChar > 0)) return null
+  const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+  // What the panel spends outside the brief's box: its edge and the
+  // scrollbar's gutter.
+  const around = panel.getBoundingClientRect().width - doc.clientWidth
+  return Math.ceil(perChar * (READ_MEASURE + WRAP_SLACK) + pad + around)
+}
+
+const READ_TITLES = {
+  widen: `Widen the panel to read the brief at about ${READ_MEASURE} characters a line`,
+  back: 'Give the panel its width back',
+  wide: `The panel is already wide enough to read the brief at about ${READ_MEASURE} characters a line`,
+}
+
+/**
+ * Whether Read has width to give: the reading width is wider than the
+ * panel now. A panel dragged wider already sets the brief at its measure
+ * (the brief holds it at any width), and Read never narrows it. Unknown
+ * (nothing drawn to measure) counts as yes, so the button is never
+ * refused on a guess.
+ */
+export function readWidens() {
+  const w = readingWidth()
+  const panel = byId('rightPanel')
+  if (w == null || !panel) return true
+  return w > panel.getBoundingClientRect().width + 1
+}
+
+function syncReadBtn() {
+  const btn = byId('briefReadBtn'); if (!btn) return
+  const on = isWidthBorrowed()
+  const idle = !on && !readWidens()
+  btn.setAttribute('aria-pressed', String(on))
+  // Pressing it would change nothing: it says so rather than taking width.
+  if (idle) btn.setAttribute('aria-disabled', 'true')
+  else btn.removeAttribute('aria-disabled')
+  btn.title = on ? READ_TITLES.back : idle ? READ_TITLES.wide : READ_TITLES.widen
+  byId('promptPane')?.classList.toggle('is-reading', on)
+}
+
+/** Read on or off. Returns whether the panel now reads at the measure. */
+export function setReading(on) {
+  if (on) {
+    const w = readingWidth()
+    // Only ever wider: a panel already past the measure keeps its width.
+    if (w == null || !readWidens() || borrowWidth(w) == null) { syncReadBtn(); return false }
+  } else returnWidth()
+  syncReadBtn()
+  return isWidthBorrowed()
+}
+
+let readWired = false
+function setupReadWidth() {
+  const btn = byId('briefReadBtn'), pane = byId('promptPane'), panel = byId('rightPanel')
+  if (readWired || !btn || !pane) return
+  readWired = true
+  btn.addEventListener('click', () => setReading(!isWidthBorrowed()))
+  // The loan ends with the Brief tab, and when the panel folds away.
+  new MutationObserver(() => {
+    if (!isWidthBorrowed()) return
+    const away = !pane.classList.contains('active') || panel?.classList.contains('collapsed') || panel?.style.display === 'none'
+    if (away) setReading(false)
+  }).observe(pane, { attributes: true, attributeFilter: ['class'] })
+  if (panel) new MutationObserver(() => {
+    if (isWidthBorrowed() && (panel.classList.contains('collapsed') || panel.style.display === 'none')) setReading(false)
+  }).observe(panel, { attributes: true, attributeFilter: ['class', 'style'] })
+  // A drag of the edge ends the loan, and a new width can leave Read
+  // nothing to give: the button follows either way. The Brief tab coming
+  // into view is when there is first something to measure.
+  window.addEventListener('pf:panel-width', syncReadBtn)
+  new MutationObserver(() => { if (pane.classList.contains('active')) syncReadBtn() })
+    .observe(pane, { attributes: true, attributeFilter: ['class'] })
+  syncReadBtn()
 }

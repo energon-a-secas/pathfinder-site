@@ -294,6 +294,40 @@ const WORK_OBJECT = new RegExp(`^${WORK_WORDS}(\\s+(up|out|over|off))?\\s+${DETE
 const WORK_GUESS = { test: line => WORK_VERB.test(line) && !WORK_OBJECT.test(line) }
 const WORK_ON_OBJECT = { test: line => WORK_VERB.test(line) && WORK_OBJECT.test(line) }
 
+// "Track how many teams finish setup" counts something; "Track down the
+// flaky checkout test" hunts for it, and "Count on the platform team" leans
+// on it. A leading track, measure or count is a metric only when the line
+// has a number or a measured noun, and never as "track down", "count on".
+const MEASURED = new RegExp('(\\d|%|\\bhow (many|much|often|long)\\b|\\bper\\s+\\w+|\\b(' +
+  'rates?|ratios?|times?|durations?|counts?|numbers?|totals?|percent(ages?)?|shares?|latency|throughput|uptime|usage|' +
+  'adoption|retention|churn|conversions?|sign-?ups?|activations?|volumes?|frequency|averages?|medians?|p\\d{2}|scores?|' +
+  'nps|spend|costs?|revenue|errors?|failures?)\\b)', 'i')
+const MEASURE_LEAD = {
+  test(line) {
+    const lead = line.match(/^(track|measure|count)\b(?!\s+(down|on|in|up|off)\b)/i)
+    // The rest of the line, so "Count" is not its own measured noun.
+    return !!lead && MEASURED.test(line.slice(lead[0].length))
+  },
+}
+
+// "May", "might" and "could" say a thing is possible, not that it is bad:
+// "We may get a second budget" is a hope. They make a risk only with harm in
+// view: a verb of something going wrong ("might fail", "could slip"), a
+// negated good ("may not ship"), or "get" or "be" with a harm word ("might
+// get flagged as spam", "may be late"). Without harm the line is a belief
+// about what will happen, so a guess at an Assumption (2).
+const HARM_WORDS = '(flagged|blocked|delayed|late|lost|rejected|cut|cancell?ed|denied|throttled|rate[- ]limited|hacked|breached|' +
+  'exposed|leaked|overloaded|overwhelmed|down|slow|slower|wrong|stale|duplicated|dropped|missed|stuck|broken|compromised|spam|' +
+  'banned|fined|sued|penali[sz]ed|abandoned|ignored|confused|overspent|over budget|unavailable|outdated|deprecated|unsupported|' +
+  'expensive|costly|insecure|unreliable|flaky|noisy|locked out|left out|pushed( back| out)?|postponed|descoped|blamed|audited|vetoed)'
+const MODAL = '(might|could|may)'
+const MODAL_HARM = new RegExp(`\\b${MODAL}\\s+(` +
+  '(fail|break|lose|leak|slip|miss|stall|drop|time out|crash|stop|overrun|exceed|expire|block|delay|corrupt|churn|regress|backfire|collapse)\\b|' +
+  'not\\s+(get|be|have|make|reach|arrive|ship|land|work|scale|hold|last|finish|pass)\\b|' +
+  `(get|be|become)\\s+(\\w+\\s+)?${HARM_WORDS}\\b)`, 'i')
+const MODAL_MAYBE = new RegExp(`\\b${MODAL}\\s+(well\\s+)?(get|be|have|receive|win|land|gain|see|become)\\b`, 'i')
+const MODAL_HOPE = { test: line => MODAL_MAYBE.test(line) && !MODAL_HARM.test(line) }
+
 // A period's ceremony is a step the flow repeats, not the moment it starts
 // or ends: "Month-end close", "End of quarter review", "Sprint retro",
 // "Weekly sync". A guess, since a review can also be the document.
@@ -312,11 +346,14 @@ const PERIOD_EVENT = new RegExp(`^(${PERIOD_END}|${UNITS}|${CADENCE_WORDS})\\s+(
 // stronger reading ("Schedule migration risk" is a risk).
 const SCORE_RULES = {
   requirement: [[/\b(need|needs|must|should|shall|require[sd]?|has to|have to)\b/i, 3], [/\b(support|enable|provide|allow)\b/i, 1]],
-  assumption:  [[/\b(assume|assuming|assumption|expect|expects|presumably|likely|probably|i think|we think|believe)\b/i, 3], [/\bwill\s+\w+/i, 2], [/\b(should be fine|hopefully)\b/i, 2]],
+  // "We may get a second budget": a modal with no harm in view is a hope, a
+  // guess at a belief (wave 4).
+  assumption:  [[/\b(assume|assuming|assumption|expect|expects|presumably|likely|probably|i think|we think|believe)\b/i, 3], [/\bwill\s+\w+/i, 2], [/\b(should be fine|hopefully)\b/i, 2],
+                 [MODAL_HOPE, 2]],
   // "Invites might get flagged as spam": a modal on something going wrong
-  // is a risk said plainly (QA3).
+  // is a risk said plainly (QA3). Only with harm in view (MODAL_HARM).
   risk:        [[/\b(risks?|concerns?|danger|threats?|worried|might fail|could fail|fragile|breaks?|vulnerab)\b/i, 3], [/\b(if .* fails|single point of failure)\b/i, 2],
-                 [/\b(might|could|may)\s+(not\s+)?(get|be|fail|break|lose|leak|slip|miss|stall|drop|time out)\b/i, 3]],
+                 [MODAL_HARM, 3]],
   // "We want teams to set up...", "aim to": what the plan is for (QA3).
   goal:        [[/\b(goals?|objectives?|aim|vision|want to|increase|reduce|improve|grow|launch|ship|achieve|reach)\b/i, 3],
                  [/^(want|wants|aim|aims|hope|hopes)\s+(\w+\s+){0,3}to\b/i, 3]],
@@ -343,9 +380,10 @@ const SCORE_RULES = {
   terminator:  [[new RegExp(`^(start|begin|finish|done|complete[d]?|end(?!${SEP}of${SEP}(the${SEP})?${UNITS}\\b))\\b`, 'i'), 3],
                  [CADENCE_ANYWHERE, 1],
                  [CADENCE_WHOLE, 2]],
-  // "Track how many teams finish setup": something counted (QA3).
+  // "Track how many teams finish setup": something counted (QA3). Only with
+  // a number or a measured noun in the line (MEASURE_LEAD, wave 4).
   metric:      [[/\b(kpis?|okrs?|metrics?|key results?|slas?|slos?|nps)\b/i, 3], [new RegExp(METRIC_HINT, 'i'), 2],
-                 [/^(track|measure|count)\b/i, 3], [/\bhow (many|much|often|long)\b/i, 2]],
+                 [MEASURE_LEAD, 3], [/\bhow (many|much|often|long)\b/i, 2]],
   // A leading "build" is work unless the build is the subject ("Build
   // fails on main") or its object is not a thing ("Build trust with ...").
   implementation: [[/^(implement|integrate|migrate|automate|set up|(build|develop)(?!\s+(fails?|failed|failing|broke|broken|breaks|is|was|keeps|still|red|trust|relationships?|rapport|confidence|consensus|momentum|awareness|credibility|loyalty|reputation|culture)\b))\b/i, 3],

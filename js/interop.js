@@ -18,8 +18,8 @@ import { connectionLabel } from './relations.js'
 //  rather than a guess.
 // ════════════════════════════════════════════════════════════
 
-import { state, canvasMeta } from './state.js'
-import { TYPES, DEFAULT_ARROW_WEIGHT, genId, getBlockDims } from './utils.js'
+import { state, canvasMeta, MAX_INFLATED } from './state.js'
+import { TYPES, DEFAULT_ARROW_WEIGHT, genId, getBlockDims, showToast } from './utils.js'
 import { categorizeLine } from './classify.js'
 import { layoutGraph } from './layout.js'
 
@@ -35,6 +35,198 @@ export function detectFormat(text) {
     if (data && typeof data === 'object') return 'pathfinder'
   } catch (_) {}
   return null
+}
+
+// ── Reading what arrives: one reader, errors that say what next ──
+//
+// An imported file and a ?src= link are read here: pathfinder JSON, JSON
+// Canvas, or a Mermaid flowchart. Every refusal says what went wrong and
+// what to try, in one toast: the person reading it has a file in hand and
+// needs the next move, not the parser's complaint.
+
+/** The most text an import reads: what a share link may unpack to (state.js MAX_INFLATED). */
+export const MAX_IMPORT_CHARS = MAX_INFLATED
+
+/**
+ * Where a JSON.parse failure sits, as a 1-based line of `text`, or null
+ * when the text parses. The engine's message says so when it can (V8 adds
+ * "(line 2 column 5)" to some errors, Firefox "at line 3 column 5"); V8's
+ * "Unexpected token" names no place, so the text is scanned for it.
+ */
+export function jsonErrorLine(text, err) {
+  const msg = String(err?.message || '')
+  const line = msg.match(/\(line (\d+) column \d+\)/) || msg.match(/at line (\d+) column/)
+  if (line) return +line[1]
+  const pos = msg.match(/position (\d+)/)
+  const s = String(text ?? '')
+  const at = pos ? +pos[1] : jsonErrorAt(s)
+  return at < 0 ? null : s.slice(0, at).split('\n').length
+}
+
+/** The index of the first character that breaks JSON in `s`, or -1 when it parses. */
+export function jsonErrorAt(s) {
+  let i = 0
+  const n = s.length
+  const fail = () => { throw i }
+  const ws = () => { while (i < n && (s[i] === ' ' || s[i] === '\t' || s[i] === '\n' || s[i] === '\r')) i++ }
+  const str = () => {
+    i++
+    while (i < n) {
+      const c = s[i]
+      if (c === '"') { i++; return }
+      if (c === '\\') i += 2
+      else if (c < ' ') fail()
+      else i++
+    }
+    fail()
+  }
+  const value = () => {
+    ws()
+    const c = s[i]
+    if (c === '{' || c === '[') {
+      const close = c === '{' ? '}' : ']'
+      i++; ws()
+      if (s[i] === close) { i++; return }
+      for (;;) {
+        if (c === '{') { ws(); if (s[i] !== '"') fail(); str(); ws(); if (s[i] !== ':') fail(); i++ }
+        value(); ws()
+        if (s[i] === ',') { i++; continue }
+        if (s[i] === close) { i++; return }
+        fail()
+      }
+    }
+    if (c === '"') return str()
+    const lit = /^(true|false|null|-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?)/.exec(s.slice(i, i + 64))
+    if (!lit) fail()
+    i += lit[0].length
+  }
+  try { value(); ws(); if (i < n) fail(); return -1 } catch (at) { return typeof at === 'number' ? Math.min(at, n) : -1 }
+}
+
+const mb = n => { const v = Math.round(n / 100_000) / 10; return v >= 10 ? String(Math.round(v)) : Number.isInteger(v) ? String(v) : v.toFixed(1) }
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1)
+
+/**
+ * The menu rows a refusal names, spelled as the menus spell them, in one
+ * place: a renamed row is renamed here once, and tests/reading.test.js
+ * fails while any of these is not in the page's menus.
+ */
+export const ROWS = {
+  importFile: 'File, Import JSON / Canvas / Mermaid',
+  downloadJson: 'File, Download JSON',
+  downloadMarkdown: 'File, Download Markdown',
+  copyLink: 'Share, Copy link',
+  importMaps: 'Maps, Import maps (JSON)',
+  exportAllMaps: 'Maps, Export all maps (JSON)',
+  replyBack: 'the Brief tab, under Bring the reply back',
+}
+
+// The longest a timer can wait (2^31 - 1 ms, about 24 days): a refusal
+// leaves when it is dismissed or the next message takes its place.
+const UNTIL_DISMISSED = 2 ** 31 - 1
+
+/**
+ * A refusal that names a next step (a file or a link that cannot open, an
+ * export that did not finish): a toast that stays until it is dismissed
+ * (its Dismiss button) or the next message replaces it. A timed toast took the next step away before it
+ * could be read and acted on (WCAG 2.2.1); the link it came from may
+ * already be gone from the address.
+ */
+export function showRefusal(message, type = 'warning') {
+  showToast(message, type, UNTIL_DISMISSED, { action: { label: 'Dismiss', run: () => {} } })
+}
+
+const LINKED_FILE = 'the file at that link'
+const where = line => line ? ` near line ${line}` : ''
+
+/**
+ * What a damaged JSON file most likely is, from the words it holds: a
+ * Pathfinder map ("blocks", "arrows"), a JSON Canvas ("nodes", "edges"),
+ * or something else. The advice follows: a map is
+ * exported again from Pathfinder, anything else from the app that made it.
+ */
+export function damagedKind(text) {
+  const t = String(text ?? '').slice(0, 200_000)
+  if (/"(blocks|arrows)"\s*:/.test(t)) return 'pathfinder'
+  if (/"(nodes|edges)"\s*:/.test(t)) return 'canvas'
+  return null
+}
+
+/**
+ * What an import says when it cannot open something. `what` names the
+ * thing in hand: "that file" for a file, "the file at that link" for ?src=.
+ * Each message is two short sentences in one string: what is wrong, then
+ * the one thing to try. They stay on screen until dismissed (sharing.js
+ * showRefusal), and stay short enough to read there at a glance.
+ */
+export const IMPORT_ERRORS = {
+  empty: (what = 'that file') =>
+    `${cap(what)} is empty. Check it is the map you meant: a Pathfinder .json, a .canvas file or a Mermaid flowchart.`,
+  tooLarge: (size, what = 'that file') =>
+    `${cap(what)} is ${mb(size)} MB, and a map can be ${mb(MAX_IMPORT_CHARS)} MB at most. Check it is the map you meant.`,
+  damaged: (line, what = 'that file', kind = null) => kind === 'pathfinder'
+    ? `${cap(what)} is damaged${where(line)}. Export the map again with ${ROWS.downloadJson}.`
+    : `${cap(what)} ${kind === 'canvas' ? 'is damaged' : 'is not valid JSON'}${where(line)}. Export it again from the app that made it.`,
+  unknown: (what = 'that file') =>
+    `${cap(what)} is not a map Pathfinder can open. ${what === LINKED_FILE ? 'Link to' : 'Choose'} a Pathfinder .json, a .canvas file or a Mermaid flowchart.`,
+  noMermaidNodes: () =>
+    'That Mermaid text has no flowchart nodes. Start it with "flowchart LR" and a line such as A[Goal] --> B[Work].',
+  noCanvasNodes: () =>
+    'That JSON Canvas file has no cards. Export it again from the app that made it.',
+  severalMaps: () =>
+    `That file holds several maps. Open it with ${ROWS.importMaps}.`,
+  isPatch: () =>
+    `That is a pathfinder-patch, not a map. Paste it in ${ROWS.replyBack}.`,
+  noMap: (what = 'that file') =>
+    `${cap(what)} has no blocks or connections. Check it is a map saved with ${ROWS.downloadJson}.`,
+  readFailed: () =>
+    'The browser could not read that file. Choose it again, or copy it to a local folder first.',
+  // Maps, Import maps (JSON) (library.js importMapsFile, outside this
+  // stream's files): the copy is here so that refusal can say the same
+  // things the same way. Handed to library.js's owner.
+  mapsDamaged: line =>
+    `That file is damaged${where(line)}. Export the maps again with ${ROWS.exportAllMaps}.`,
+  noMaps: () =>
+    `That file has no maps in it. Choose one saved with ${ROWS.exportAllMaps}.`,
+}
+
+/**
+ * Turn the text of an imported file or a ?src= response into a canvas:
+ * { data, low, format } on success, { error } (one message, what went wrong
+ * and what to try) otherwise. `source` is 'file' or 'src'.
+ */
+export function readIncoming(text, { source = 'file' } = {}) {
+  const what = source === 'src' ? LINKED_FILE : 'that file'
+  const raw = String(text ?? '')
+  if (raw.length > MAX_IMPORT_CHARS) return { error: IMPORT_ERRORS.tooLarge(raw.length, what) }
+  const t = raw.trim()
+  if (!t) return { error: IMPORT_ERRORS.empty(what) }
+  const fmt = detectFormat(t)
+  if (!fmt) {
+    // Text that opens like JSON and does not parse is a damaged export, not
+    // an unknown format: say where it breaks.
+    if (/^[{[]/.test(t)) {
+      let line = null
+      try { JSON.parse(t) } catch (err) { line = jsonErrorLine(t, err) }
+      return { error: IMPORT_ERRORS.damaged(line, what, damagedKind(t)) }
+    }
+    return { error: IMPORT_ERRORS.unknown(what) }
+  }
+  if (fmt === 'mermaid') {
+    const r = parseMermaid(t)
+    if (!r.payload.blocks.length) return { error: IMPORT_ERRORS.noMermaidNodes() }
+    return { data: r.payload, low: r.lowConfidence, format: fmt }
+  }
+  const json = JSON.parse(t)
+  if (fmt === 'canvas') {
+    const r = fromJsonCanvas(json)
+    if (!r.payload.blocks.length) return { error: IMPORT_ERRORS.noCanvasNodes() }
+    return { data: r.payload, low: r.lowConfidence, format: fmt }
+  }
+  if (json && json.format === 'pathfinder-maps') return { error: IMPORT_ERRORS.severalMaps() }
+  if (json && json.format === 'pathfinder-patch') return { error: IMPORT_ERRORS.isPatch() }
+  if (!json || Array.isArray(json) || (!json.blocks && !json.arrows)) return { error: IMPORT_ERRORS.noMap(what) }
+  return { data: json, low: [], format: fmt }
 }
 
 // ── JSON Canvas: colours and types ───────────────────────────

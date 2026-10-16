@@ -448,9 +448,15 @@ function renderBlockInspector(b) {
 
   if (isNew) {
     applyDisclosures(root, {
-      questions: b.type === 'question' || (b.questions || []).some(q => (q.text || '').trim() && !(q.answer || '').trim()),
+      questions: (b.questions || []).some(q => (q.text || '').trim() && !(q.answer || '').trim()),
       docs: hasDoc || !!seeRef,
     })
+    // On a question card the Answer leads (answerSection): Questions starts
+    // closed while it is empty, whatever was left open on another block,
+    // and while the Answer is empty it never opens beside it as a second
+    // place to write the answer. Other types keep the remembered state.
+    const qd = byId('questionsDetails')
+    if (qd && b.type === 'question' && (!qCount || !String(b.answer || '').trim())) qd.open = false
   }
   revealFieldsIn(root)
   ;[inspDesc, $.inspCriteria(), $.inspRationale(), inspNotes].forEach(autogrow)
@@ -468,22 +474,31 @@ function renderBlockInspector(b) {
 // label's hint says so before it happens. A block retyped from a question
 // keeps the field while it holds an answer, so what the prompt prints can
 // still be read and cleared.
-function answerSection() {
-  const anchor = byId('rationaleSection') || byId('criteriaSection')
+//
+// On a question card the Answer leads: right under the Title, since the
+// title is the question and the answer is what the card is for, with the
+// description (its context) after. Kept from an earlier question, it sits
+// after the type's fields, where it used to.
+function answerSection(lead = false) {
+  const titleSection = byId('inspTitle')?.closest('.insp-section')
+  const anchor = lead && titleSection ? titleSection : (byId('rationaleSection') || byId('criteriaSection'))
   if (!anchor) return null
-  if (anchor.nextElementSibling?.id === 'answerSection') return anchor.nextElementSibling
-  const section = document.createElement('div')
-  section.className = 'insp-section'
-  section.id = 'answerSection'
-  section.style.display = 'none'
-  section.innerHTML =
-    // The hint is a sentence of its own under the field: inside the label it
-    // read as one phrase ("Answer writing one marks the question done").
-    '<label class="insp-label" for="inspAnswer">Answer</label>' +
-    '<textarea class="insp-textarea insp-autogrow" id="inspAnswer" rows="2" placeholder="What you found, and how you know it" aria-describedby="answerHint"></textarea>' +
-    '<p class="insp-help" id="answerHint"></p>'
-  anchor.after(section)
-  wireAnswerField(section.querySelector('textarea'))
+  let section = byId('answerSection')
+  if (!section) {
+    section = document.createElement('div')
+    section.className = 'insp-section'
+    section.id = 'answerSection'
+    section.style.display = 'none'
+    section.innerHTML =
+      // The hint is a sentence of its own under the field: inside the label it
+      // read as one phrase ("Answer writing one marks the question done").
+      '<label class="insp-label" for="inspAnswer">Answer</label>' +
+      '<textarea class="insp-textarea insp-autogrow" id="inspAnswer" rows="2" placeholder="What you found, and how you know it" aria-describedby="answerHint"></textarea>' +
+      '<p class="insp-help" id="answerHint"></p>'
+    wireAnswerField(section.querySelector('textarea'))
+  }
+  // Moved only when it is somewhere else: moving a field drops its focus.
+  if (anchor.nextElementSibling !== section) anchor.after(section)
   return section
 }
 
@@ -494,7 +509,7 @@ function renderAnswer(b, isNew, ro) {
   // answer typed into the last question still settles its status here,
   // inside its own undo entry.
   if (answerBurst && answerBurst.id !== b.id) settleAnswer()
-  const section = answerSection()
+  const section = answerSection(b.type === 'question')
   if (!section) return
   const has = !!String(b.answer || '').trim()
   const show = b.type === 'question' || has

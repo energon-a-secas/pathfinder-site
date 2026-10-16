@@ -26,9 +26,40 @@ import { currentId, syncPointer, ensureLibrary, takeSnapshot, openAsNewMap, expo
 import { collapseTemplatesAfterUse, refreshSituation, refreshCardStyles,
          refreshSpotlight, syncContextBrief, checkShareUrl } from './ui-panels.js'
 import { suspendUnloadFlush } from './persistence-ui.js'
+import { ROWS } from './interop.js'
 
 const DAY = 86_400_000
 const NAG_AFTER = 7 * DAY
+
+// ── A link that cannot open says what to try ─────────────────
+// A share link (#s=, #z=) or a ?src= link that fails leaves the person with
+// a message in hand and nothing else: each one says what went wrong and the
+// one thing to try, in two short sentences. The files' own errors are
+// interop.js IMPORT_ERRORS; the menu rows both name are interop.js ROWS.
+export const LINK_ERRORS = {
+  empty: () =>
+    `That share link has no map in it. Ask for the link again (${ROWS.copyLink}).`,
+  damaged: () =>
+    'That share link is damaged or cut short. Open it again from the original message, or ask for the map as a file.',
+  tooLarge: () =>
+    `That share link holds more than a map can (over 8 MB). Ask for the map as a file (${ROWS.downloadJson}).`,
+  noCompression: () =>
+    'This browser cannot open compressed share links. Update it, or ask for the map as a file.',
+  srcNotHttps: () =>
+    `That link loads its map from an address that is not https. Download the file and open it with ${ROWS.importFile}.`,
+  srcHttp: status =>
+    `The map at that link did not load (HTTP ${status}). Download the file and open it with ${ROWS.importFile}.`,
+  srcNetwork: () =>
+    `Could not fetch the map at that link: offline, or a host Pathfinder does not allow. Download it and open it with ${ROWS.importFile}.`,
+  srcTooLarge: () =>
+    `The file at that link is over 1 MB. Download it and open it with ${ROWS.importFile}.`,
+}
+
+/** The message for a share link that failed to decode, from the error it failed with. */
+export function linkError(err, { compression = true } = {}) {
+  if (!compression) return LINK_ERRORS.noCompression()
+  return /too large/i.test(String(err?.message || '')) ? LINK_ERRORS.tooLarge() : LINK_ERRORS.damaged()
+}
 
 // ── Incoming canvases ────────────────────────────────────────
 

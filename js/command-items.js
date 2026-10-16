@@ -28,6 +28,7 @@ import { openSearch, runTidy, TYPE_KEYS, PANEL_TABS, showPanelTab } from './ui-p
 import { zoomIn, zoomOut, zoomTo, zoomToBlocks, zoomToSelection, hasSelectionTarget, animateView, FULL_DETAIL_ZOOM } from './zoom-controls.js'
 import { readingOrder, describeBlock, announce, withCameraHeld } from './navigation.js'
 import { openSampleMap, SAMPLE_TITLE } from './start-panel.js'
+import { panelWidthItems, panelIsColumn } from './panel-resize.js'
 
 export const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '')
 export const MOD = IS_MAC ? '⌘' : 'Ctrl+'
@@ -384,13 +385,24 @@ function actionRows(mapActions) {
   if (!ui.embed) {
     rows.push(...PANEL_TABS.map(t => ({ id: 'panel:' + t.tab, label: t.label, icon: ICONS.panel,
       shortcut: (IS_MAC ? '⌥' : 'Alt+') + t.key, meta: 'Panel', run: () => showPanelTab(t.tab) })))
+    // The separator's list of widths (a click on the panel's edge), where
+    // the panel is a column it can size.
+    if (panelIsColumn()) rows.push(...menuRows([{ label: 'Panel width', submenu: () => panelWidthItems() }], { idPrefix: 'panel:', meta: 'Panel' }))
   }
   rows.push(...menuRows(fileMenuItems(), { idPrefix: 'file:', meta: 'File' }))
   // The Brief tab owns Copy (js/brief.js, loaded by app.js alone): ask it.
+  // File's row copies the scope the Brief tab chose and says which
+  // (data-copy-scope); this row is the other one, so both stay in reach
+  // under two names.
   if (!ui.embed && [...selection.ids].some(id => state.blocks[id])) {
-    rows.push({ id: 'cmd:copy-brief-selection', label: 'Copy brief for the selection', icon: ICONS.copy, meta: 'Brief',
-      hint: 'The selected blocks and the blocks connected to them', noRecent: true,
-      run: () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: { scope: 'selection' } })) })
+    const fileCopiesPart = document.getElementById('exportCopyPrompt')?.dataset.copyScope === 'selection'
+    rows.push(fileCopiesPart
+      ? { id: 'cmd:copy-brief-map', label: 'Copy brief for the whole map', icon: ICONS.copy, meta: 'Brief',
+        hint: 'Every block, whatever is selected', noRecent: true,
+        run: () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: { scope: 'whole' } })) }
+      : { id: 'cmd:copy-brief-selection', label: 'Copy brief for the selection', icon: ICONS.copy, meta: 'Brief',
+        hint: 'The selected blocks and the blocks connected to them', noRecent: true,
+        run: () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: { scope: 'selection' } })) })
   }
   if (!ro) rows.push(...menuRows(shareMenuItems(), { idPrefix: 'share:', meta: 'Share' }))
   rows.push(...mapActions)

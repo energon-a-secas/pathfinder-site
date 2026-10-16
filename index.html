@@ -379,6 +379,16 @@
   </div>
   </section>
 
+  <!-- The right panel's width (js/panel-resize.js): drag this edge, click
+       it for a list of widths, or focus it and use the arrow keys; a
+       double-click puts the default back. A sibling of the panel, so its
+       24px target straddles the edge instead of sitting inside the panel.
+       Not on phones, where the panel is a bottom sheet. -->
+  <div class="panel-resizer" id="panelResizer" role="separator" tabindex="0"
+       aria-orientation="vertical" aria-controls="rightPanel" aria-label="Panel width"
+       aria-valuemin="320" aria-valuemax="760" aria-valuenow="320"
+       title="Drag to resize the panel, or click for widths. Double-click for the default width"></div>
+
   <!-- Right panel -->
   <aside class="right-panel" id="rightPanel" data-sheet="peek">
     <!-- Phones (700px and under): the panel is a bottom sheet and this row is
@@ -768,8 +778,9 @@
 
         <div class="brief-framing">
           <button type="button" class="brief-framing-toggle" id="briefFramingBtn" aria-expanded="false" aria-controls="briefFraming">
-            <span class="brief-row-label">Framing</span>
-            <span class="brief-framing-summary" id="briefFramingSummary"></span>
+            <!-- One run of text, so the summary wraps under the label to a
+                 second line instead of cutting a word. -->
+            <span class="brief-framing-text"><span class="brief-row-label">Framing</span> <span class="brief-framing-summary" id="briefFramingSummary"></span></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
           </button>
           <div class="brief-framing-body" id="briefFraming" hidden>
@@ -846,6 +857,12 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
             </button>
             <button type="button" class="brief-tokens" id="briefTokens" aria-expanded="false" aria-controls="briefTokensNote"></button>
+            <!-- Read widens the panel to a reading measure and gives the
+                 width back when pressed again or when the tab changes. -->
+            <button type="button" class="brief-read-btn" id="briefReadBtn" aria-pressed="false" title="Widen the panel to read the brief at about 68 characters a line">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.25C6.75 3.25 4.75 2.75 2.25 2.75v9.5c2.5 0 4.5.5 5.75 1.5 1.25-1 3.25-1.5 5.75-1.5v-9.5c-2.5 0-4.5.5-5.75 1.5z"/><path d="M8 4.25v9.5"/></svg>
+              <span>Read</span>
+            </button>
             <p class="brief-tokens-note" id="briefTokensNote" hidden></p>
           </div>
           <article class="brief-md" id="promptOutput" aria-label="Generated brief"></article>

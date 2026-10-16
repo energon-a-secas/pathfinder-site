@@ -4745,8 +4745,11 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
    in Firefox the label ran past the button's edge at the 320px panel. */
 .brief-actions:has(.brief-scope-n:not(:empty)) .copy-btn svg { display: none; }
 
-/* What is still open, in words: the Attention tab's count, never a grade. */
+/* What is still open, in words: the Attention tab's count, never a grade.
+   Two columns, so Review sits on the count's line however the breakdown
+   wraps (it used to fall to a line of its own at 320px). */
 .brief-ready {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start;
   margin: var(--space-1) 0 0;
   font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-2);
 }
@@ -4769,17 +4772,26 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
 /* Framing: the Situation, context, presets and prompt options, read back as
    one line until asked for. */
 .brief-framing { flex: 0 0 auto; border-top: 1px solid var(--border); }
+/* The summary is one run of text with its label, wrapping between words:
+   one line, ellipsised, cut "read the code first" to "read th..." at
+   320px. Two lines hold the longest summary at 320px; a 280px panel (a
+   1024px window) may take a third. */
 .brief-framing-toggle {
   display: flex; align-items: center; gap: var(--space-2);
-  width: 100%; min-height: 40px; padding: 0 var(--space-3) 0 var(--space-4);
+  width: 100%; min-height: 40px; padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
   background: none; border: 0;
-  font: inherit; font-size: var(--fs-12); text-align: left; color: var(--text-2);
+  font: inherit; font-size: var(--fs-12); line-height: var(--lh-ui); text-align: left; color: var(--text-2);
   cursor: pointer;
 }
 .brief-framing-toggle:hover { background: var(--surface-1); }
 .brief-framing-toggle:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
-.brief-row-label { flex: 0 0 auto; color: var(--text-3); font-weight: var(--fw-medium); }
-.brief-framing-summary { flex: 1 1 auto; min-width: 0; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brief-framing-text {
+  flex: 1 1 auto; min-width: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  overflow-wrap: normal; word-break: normal;
+}
+.brief-row-label { color: var(--text-3); font-weight: var(--fw-medium); }
+.brief-framing-summary { color: var(--text-1); }
 .brief-framing-toggle svg { flex: 0 0 16px; width: 16px; height: 16px; color: var(--text-3); transition: transform var(--dur-1) var(--ease-out); }
 .brief-framing-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .brief-framing-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); padding: var(--space-1) var(--space-4) var(--space-5); }
@@ -4828,24 +4840,32 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
 .brief-pane .dev-options.open .dev-options-body { display: grid; gap: var(--space-3); }
 .brief-pane .dev-row { display: grid; gap: var(--space-1); }
 
-/* The brief itself: a document, 13px at 1.55, a 64ch measure. */
+/* The brief itself: a document, 13px at 1.55, about 68 characters a line
+   at most however wide the panel is dragged (57ch: a ch is a digit, wider
+   than the average letter, so 64ch set lines of up to 84). Read sets the
+   panel to the same measure (brief.js readingWidth). */
 .brief-doc {
   position: relative;
   flex: 1 1 auto; min-height: 240px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
+  /* Its bar's controls fit themselves to the panel's width ([reading]). */
+  container: briefdoc / inline-size;
 }
 .brief-doc:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
+/* Three places on one row: the section (it gives up letters first), the
+   size and Read; the size's note takes a row of its own below them. */
 .brief-docbar {
   position: sticky; top: 0; z-index: 1;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: var(--space-2);
-  min-height: 36px; padding: 0 var(--space-3) 0 var(--space-2);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--space-1);
+  min-height: 36px; padding: 0 var(--space-2) 0 var(--space-2);
   background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .brief-outline-btn {
+  grid-column: 1; justify-self: start;
   display: inline-flex; align-items: center; gap: 4px;
-  min-width: 0; max-width: 60%; height: 28px; padding: 0 6px 0 8px;
+  min-width: 0; max-width: 100%; height: 28px; padding: 0 6px 0 8px;
   background: none; border: 0; border-radius: var(--radius);
   font: inherit; font-size: var(--fs-12); font-weight: var(--fw-semibold); color: var(--text-1);
   cursor: pointer;
@@ -4857,7 +4877,8 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
 /* The size: a quiet disclosure. Its note says what the estimate is and how
    far it can be off, to a pointer, a keyboard and a touch alike. */
 .brief-tokens {
-  min-width: 0; max-width: 50%; height: 28px; margin-left: auto; padding: 0 6px;
+  grid-column: 2; justify-self: end;
+  min-width: 0; height: 28px; padding: 0 6px;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   background: none; border: 0; border-radius: var(--radius);
   font: inherit; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums;
@@ -4868,14 +4889,14 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
 .brief-tokens:hover, .brief-tokens[aria-expanded="true"] { color: var(--text-2); background: var(--surface-2); }
 .brief-tokens:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
 .brief-tokens-note {
-  flex: 0 0 100%;
+  grid-column: 1 / -1;
   margin: 0; padding: 0 var(--space-2) var(--space-2);
   font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-2);
 }
 .brief-tokens-note[hidden] { display: none; }
 
 .brief-md {
-  max-width: calc(64ch + 2 * var(--space-4));
+  max-width: calc(57ch + 2 * var(--space-4));
   padding: var(--space-3) var(--space-4) var(--space-6);
   font-size: var(--fs-13); line-height: var(--lh-body); color: var(--text-2);
   overflow-wrap: anywhere;
@@ -5300,4 +5321,135 @@ html:not([data-theme]) .header-bar[data-header-skin="custom"][data-pf-bar="app"]
   .palette .palette-section-toggle { padding-block: 5px 3px; }
   .palette { scrollbar-width: none; }
   .palette::-webkit-scrollbar { display: none; }
+}
+
+
+/* ════ [reading] ════ */
+/* Wave 4: the brief as a reading surface, and errors that say what to do.
+   A panel the reader can widen (js/panel-resize.js), the Brief's Read
+   width, the patch preview's two-part refusals and its "outside the
+   brief" tag, and the status bar's copy saying its scope. */
+
+/* ── The panel's width ──
+   A chosen width is a custom property on #rightPanel; the stylesheet's
+   width (320px, 280px at 1024px and under) stays the default. Only where
+   the panel is a column beside the canvas (769px and up): under that it
+   is a band across the window's foot, and on a phone a sheet, both the
+   window's width. */
+@media (min-width: 769px) {
+  #rightPanel.is-sized:not(.collapsed) { width: var(--panel-w); }
+}
+/* The separator: the panel's sibling, a 24px target straddling its left
+   hairline (12px over the canvas, 12px over the panel), so it meets the
+   24px target size (WCAG 2.5.8) without covering a control in the panel:
+   it starts under the panel's 44px tab row. At rest a short grip on the
+   hairline says the edge moves; hover and a drag draw a 2px line in the
+   strong border, keyboard focus the accent ring. Hidden wherever the
+   panel is folded, hidden (Z, an embed) or not a column. */
+.panel-resizer {
+  position: relative; z-index: 6;
+  flex: 0 0 24px; width: 24px; margin: 45px -12px 0;
+  align-self: stretch;
+  cursor: col-resize; touch-action: none;
+  outline: none;
+}
+.panel-resizer::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 11px; width: 2px;
+  background: transparent;
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+.panel-resizer::after {
+  content: ''; position: absolute; top: 50%; left: 10px; width: 4px; height: 32px; margin-top: -16px;
+  border-radius: 2px; background: var(--border-strong);
+}
+.panel-resizer:hover::before,
+body.panel-resizing .panel-resizer::before { background: var(--border-strong); }
+.panel-resizer:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
+.panel-resizer:focus-visible::before { background: var(--accent); }
+.panel-resizer:has(+ .right-panel.collapsed),
+body[data-zen="on"] .panel-resizer,
+.embed-mode .panel-resizer { display: none; }
+@media (max-width: 768px) { .panel-resizer { display: none; } }
+/* While dragging, the whole page shows the resize cursor and nothing
+   underneath is selected or hovered. */
+body.panel-resizing, body.panel-resizing * { cursor: col-resize !important; user-select: none; -webkit-user-select: none; }
+body.panel-resizing .canvas-viewport { pointer-events: none; }
+@media (forced-colors: active) {
+  .panel-resizer::after { forced-color-adjust: none; background: CanvasText; }
+  .panel-resizer:is(:hover, :focus-visible)::before { forced-color-adjust: none; background: Highlight; }
+}
+
+/* ── Read: the brief at a reading measure ──
+   A quiet toggle in the brief's bar, pressed like the scope control. */
+.brief-read-btn {
+  grid-column: 3;
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 28px; padding: 0 8px 0 6px;
+  background: none; border: 1px solid transparent; border-radius: var(--radius);
+  font: inherit; font-size: var(--fs-12); font-weight: var(--fw-medium); color: var(--text-2);
+  white-space: nowrap; cursor: pointer;
+}
+.brief-read-btn svg { flex: 0 0 16px; width: 16px; height: 16px; color: var(--text-3); }
+.brief-read-btn:hover { color: var(--text-1); background: var(--surface-2); }
+.brief-read-btn[aria-pressed="true"] { color: var(--text-1); background: var(--surface-3); border-color: var(--border-strong); }
+.brief-read-btn[aria-pressed="true"] svg { color: var(--text-1); }
+.brief-read-btn:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
+/* Nothing to widen: the panel is already past the measure. It stays
+   focusable, and its title says why it rests. */
+.brief-read-btn[aria-disabled="true"] { color: var(--text-3); cursor: default; }
+.brief-read-btn[aria-disabled="true"]:hover { color: var(--text-3); background: none; }
+@media (max-width: 768px) { .brief-read-btn { display: none; } }
+
+/* ── One column at any width ──
+   The brief holds its measure however wide the panel is dragged; the top
+   of the pane, the framing row, the brief's bar and the reply row keep to
+   the same column, so a wide panel leaves one gutter on the right rather
+   than stretching the controls across it. The column is .brief-md's own
+   box (57ch at 13px plus its padding), computed where the pane's 16px
+   type is, so the same width reaches every part of the pane. */
+@property --brief-col { syntax: '<length>'; inherits: true; initial-value: 10000px; }
+.brief-pane { --brief-col: calc(57ch * 13 / 16 + 2 * var(--space-4)); }
+.brief-head,
+.brief-framing-toggle,
+.brief-framing-body { max-width: var(--brief-col); }
+.brief-reply > * { max-width: calc(var(--brief-col) - 2 * var(--space-4)); }
+.brief-docbar { padding-right: max(var(--space-2), calc(100% - var(--brief-col) + var(--space-2))); }
+/* A 280px panel (a 1024px window): Read keeps its icon and its name for a
+   screen reader, so the section's name keeps its words. */
+@container briefdoc (max-width: 300px) {
+  .brief-read-btn { padding: 0 6px; }
+  .brief-read-btn span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+}
+@media (forced-colors: active) {
+  .brief-read-btn[aria-pressed="true"] { border-color: Highlight; }
+}
+
+/* ── The status bar's copy says its scope ──
+   "Copy brief" and, while the Brief tab's scope is the selection, a
+   neutral tag naming it. */
+.quick-copy-scope {
+  display: inline-flex; align-items: center;
+  height: 18px; margin-left: 2px; padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3); color: var(--text-1);
+  font-size: var(--fs-11); font-weight: var(--fw-semibold); line-height: 1;
+}
+.quick-copy-scope[hidden] { display: none; }
+
+/* ── The patch preview: what went wrong, then what to try ──
+   At the hint size (12px), not the preview rows' 11px: these are the
+   sentences someone acts on. */
+.patch-err-text { display: grid; gap: 2px; min-width: 0; font-size: var(--fs-12); line-height: var(--lh-ui); }
+.patch-err-what { color: var(--text-1); font-weight: var(--fw-semibold); }
+.patch-err-next { color: var(--text-2); }
+/* A change to a block the copied brief did not cover. Neutral: a matter of
+   scope, not an error, and it waits unticked. */
+.patch-op-outside {
+  display: inline-block; margin-left: 4px; padding: 0 5px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  color: var(--text-1); font-size: var(--fs-11); font-weight: var(--fw-medium); line-height: 16px;
+  white-space: nowrap;
 }

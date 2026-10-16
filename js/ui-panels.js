@@ -14,7 +14,7 @@ import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
 import { refreshPrompt } from './prompt.js'
 import { exportJSON, exportMarkdown, exportMeetingSummary, exportToPresentationSage } from './export.js'
 import { exportSpecBundle } from './spec-export.js'
-import { detectFormat, fromJsonCanvas, parseMermaid, downloadJsonCanvas, toMermaid } from './interop.js'
+import { downloadJsonCanvas, toMermaid, readIncoming, IMPORT_ERRORS, showRefusal } from './interop.js'
 import { exportPNG, exportSVG } from './image-export.js'
 import { DIAGRAM_BUILDER_PROMPT } from './diagram-instructions.js'
 import { runGapDetection } from './gaps.js'
@@ -26,7 +26,7 @@ import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } fro
 // Where a template or a link lands, and Tidy's move.
 import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint, animateView,
          positionsNow, animateTidy, fitTarget, TIDY_MS } from './zoom-controls.js'
-import { openIncoming, incomingMessage } from './sharing.js'
+import { openIncoming, incomingMessage, LINK_ERRORS, linkError } from './sharing.js'
 import { setupFilter, filterValue, setFilterValue } from './filter-menu.js'
 import { typeDot } from './type-menu.js'
 import { showPanels } from './chrome.js'
@@ -979,28 +979,12 @@ function reportImport(imported, dropped, mode = 'replace') {
 }
 
 /**
- * Turn the text of an imported file or a ?src= response into a canvas.
- * One reader, three formats: pathfinder JSON, JSON Canvas (.canvas, an
- * { nodes, edges } object), or a Mermaid flowchart. Returns
- * { data, low, format } or { error } with a message fit for a toast.
+ * Turn the text of an imported file or a ?src= response into a canvas:
+ * interop.js readIncoming, whose refusals each say what to try next.
+ * Returns { data, low, format } or { error } with a message fit for a toast.
  */
-function parseIncomingText(text) {
-  const fmt = detectFormat(text)
-  if (!fmt) return { error: 'Could not read it: not JSON, JSON Canvas, or a Mermaid flowchart' }
-  if (fmt === 'mermaid') {
-    const r = parseMermaid(text)
-    if (!r.payload.blocks.length) return { error: 'No flowchart nodes found in it' }
-    return { data: r.payload, low: r.lowConfidence, format: fmt }
-  }
-  const json = JSON.parse(text)
-  if (fmt === 'canvas') {
-    const r = fromJsonCanvas(json)
-    if (!r.payload.blocks.length) return { error: 'That canvas has no nodes in it' }
-    return { data: r.payload, low: r.lowConfidence, format: fmt }
-  }
-  if (json && json.format === 'pathfinder-maps') return { error: 'That file holds several maps: use Maps, Import maps' }
-  if (!json || (!json.blocks && !json.arrows)) return { error: 'There is no canvas in it' }
-  return { data: json, low: [], format: fmt }
+function parseIncomingText(text, opts) {
+  return readIncoming(text, opts)
 }
 
 // Converted formats go through the classifier; the calls it was unsure of
@@ -1022,15 +1006,15 @@ export function setupImportHandler() {
     reader.onload = ev => {
       let parsed
       try { parsed = parseIncomingText(ev.target.result) }
-      catch (_) { parsed = { error: 'Could not read file: the JSON is malformed' } }
-      if (parsed.error) { showToast(parsed.error, 'error'); return }
+      catch (_) { parsed = { error: IMPORT_ERRORS.unknown() } }
+      if (parsed.error) { showRefusal(parsed.error, 'error'); return }
       openIncoming(parsed.data, { source: 'file', name: file.name }).then(r => {
         if (!r) return
         reportImport(r.imported, r.dropped, r.mode)
         flagLowConfidence(parsed.low, r.idMap)
       })
     }
-    reader.onerror = () => showToast('Could not read file', 'error')
+    reader.onerror = () => showRefusal(IMPORT_ERRORS.readFailed(), 'error')
     reader.readAsText(file)
   })
 }
@@ -1706,17 +1690,18 @@ export function checkShareUrl() {
     })
     return true
   }
+  // A link that cannot open leaves the address, as a failed ?src= does, or
+  // every reload would show the same refusal again.
+  const refuse = msg => { forgetLinkInUrl({ hash: true, via: true }); showRefusal(msg) }
   if (hash.startsWith('#s=')) {
     let data
-    try { data = decodeLegacyShare(hash) } catch (_) { return /* malformed hash: ignore it */ }
+    try { data = decodeLegacyShare(hash) } catch (_) { refuse(LINK_ERRORS.damaged()); return }
     return receive(data) || undefined
   }
   return decodeShareHash(hash).then(
-    data => receive(data) || (showToast('That share link has no map in it', 'warning'), false),
-    () => {
-      showToast(canCompressLinks()
-        ? 'Could not open that share link: it is damaged, cut short, or too large'
-        : 'This browser cannot open compressed share links. Update it, or ask for the map as a file', 'warning', 4500)
+    data => receive(data) || (refuse(LINK_ERRORS.empty()), false),
+    err => {
+      refuse(linkError(err, { compression: canCompressLinks() }))
       return false
     })
 }
@@ -1736,20 +1721,20 @@ export async function checkSrcUrl() {
   if (!src) return
   // A link that cannot load leaves the address, or every reload would fetch
   // it and show the same error again. Cancelling the choice keeps it.
-  const fail = (msg, ms) => { forgetLinkInUrl({ src: true, via: true }); showToast(msg, 'warning', ms) }
-  if (!/^https:\/\//.test(src) && !src.startsWith('/')) { fail('?src= must be an https URL'); return }
+  const fail = msg => { forgetLinkInUrl({ src: true, via: true }); showRefusal(msg) }
+  if (!/^https:\/\//.test(src) && !src.startsWith('/')) { fail(LINK_ERRORS.srcNotHttps()); return }
   let parsed
   try {
     const res = await fetch(src, { credentials: 'omit' })
-    if (!res.ok) { fail(`Could not load ?src= (HTTP ${res.status})`); return }
+    if (!res.ok) { fail(LINK_ERRORS.srcHttp(res.status)); return }
     const text = await res.text()
-    if (text.length > 1_000_000) { fail('That canvas file is over 1 MB; import it as a file instead'); return }
-    try { parsed = parseIncomingText(text) } catch (_) { parsed = { error: 'The file at that URL is not valid JSON' } }
+    if (text.length > 1_000_000) { fail(LINK_ERRORS.srcTooLarge()); return }
+    try { parsed = parseIncomingText(text, { source: 'src' }) } catch (_) { parsed = { error: IMPORT_ERRORS.unknown('the file at that link') } }
   } catch (_) {
-    fail('Could not fetch ?src= (network, CORS, or a host the app does not allow)')
+    fail(LINK_ERRORS.srcNetwork())
     return
   }
-  if (parsed.error) { fail('?src= ' + parsed.error.charAt(0).toLowerCase() + parsed.error.slice(1), 4000); return }
+  if (parsed.error) { fail(parsed.error); return }
   const r = await openIncoming(parsed.data, { source: 'src', onApplied: () => forgetLinkInUrl({ src: true, via: true }) })
   if (!r) return
   flagLowConfidence(parsed.low, r.idMap)

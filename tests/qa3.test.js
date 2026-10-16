@@ -348,10 +348,12 @@ describe('qa3: the accent bar card style is no longer offered, and a saved one d
 // ── The round trip ───────────────────────────────────────────
 describe('qa3: a reply with no patch says what to do; a patch draws lines like a person does', () => {
   it('a plain chat answer gets a message that names the fix', () => {
-    const { error } = extractPatch('Sure! Here is my analysis of the plan. The risk is real.')
-    assert.includes(error, 'no changes block')
-    assert.includes(error, 'pathfinder-patch')
-    assert.notIncludes(error, '```')
+    // Wave 4 (READING): the refusal names what is missing, and its hint the fix.
+    const { error, hint } = extractPatch('Sure! Here is my analysis of the plan. The risk is real.')
+    assert.includes(error, 'No pathfinder-patch block found')
+    assert.includes(hint, 'Paste the whole reply')
+    assert.includes(hint, 'copy the brief again')
+    assert.notIncludes(error + hint, '```')
   })
 
   it('a patch connection with no style or weight is routed at the default weight; one that sets them keeps them', () => {

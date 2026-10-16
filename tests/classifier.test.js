@@ -410,6 +410,15 @@ const PLACED = [
   ['FYI the audit is in March', 'context'],
   ['Prototype results from the integration', 'output'], ['Month-end close', 'process'], ['Sprint retro', 'process'],
   ['End of day', 'terminator'], ['Start of day', 'terminator'],
+  // Wave 4 (READING): "may" is a risk only with harm in view, and a
+  // leading track, measure or count is a metric only with something measured.
+  ['We may get a second budget', 'assumption'], ['Customers might be willing to pay more', 'assumption'],
+  ['We might get early access to the beta', 'assumption'], ['Leadership could be fine with a later date', 'assumption'],
+  ['The vendor may be late with the API', 'risk'], ['Signups may drop after the price change', 'risk'],
+  ['The launch may get pushed to Q4', 'risk'], ['We may not ship before the freeze', 'risk'],
+  ['Payments could get duplicated on retry', 'risk'],
+  ['Measure checkout conversion weekly', 'metric'], ['Track signup rate by week', 'metric'],
+  ['Count failed payments per day', 'metric'], ['Count on the platform team for reviews', 'resource'],
 ]
 
 const MISSES = [
@@ -419,6 +428,17 @@ const MISSES = [
   ['Install failures after the migration', 'problem'], ['Schedule delay on the integration', 'problem'],
   ['Upgrade guide for the migration', 'output'], ['Rework caused by the migration', 'problem'],
   ['Upgrade blocked by the integration', 'problem'],
+  ['Track down the flaky checkout test', 'implementation'], ['Track down why exports time out', 'implementation'],
+]
+
+// Near misses (wave 4): lines a cue used to read, confidently, as a type
+// they are not. Each must never come out as that type again.
+const NEAR_MISSES = [
+  ['Track down the flaky checkout test', 'metric'], ['Track down why exports time out', 'metric'],
+  ['Count on the platform team for reviews', 'metric'], ['Count the votes', 'metric'],
+  ['Measure twice before the cutover', 'metric'],
+  ['We may get a second budget', 'risk'], ['We might get early access to the beta', 'risk'],
+  ['Customers might be willing to pay more', 'risk'], ['Leadership could be fine with a later date', 'risk'],
 ]
 
 describe('categorizeLine() -- the labelled corpus', () => {
@@ -435,5 +455,18 @@ describe('categorizeLine() -- the labelled corpus', () => {
     }).map(([line]) => `${line}: ${call(line)}`)
     assert.deepEq(confident, [])
     MISSES.forEach(([line, meant]) => assert.neq(categorizeLine(line).type, meant, `${line} is now placed: move it to PLACED`))
+  })
+
+  it('never reads a near miss as the type its cue word suggested (wave 4)', () => {
+    const wrong = NEAR_MISSES.filter(([line, not]) => categorizeLine(line).type === not)
+      .map(([line, not]) => `${line}: ${call(line)}, never ${not}`)
+    assert.deepEq(wrong, [])
+  })
+
+  it('keeps the corpus at its 85.9% or better (wave 4: 79 of 92 before, 92 of 107 after)', () => {
+    const all = [...PLACED, ...MISSES]
+    const right = all.filter(([line, meant]) => categorizeLine(line).type === meant).length
+    assert.ok(right / all.length >= 0.859, `${right} of ${all.length} placed (${(right / all.length * 100).toFixed(1)}%)`)
+    assert.eq(right, PLACED.length, 'every placed line, and no miss')
   })
 })

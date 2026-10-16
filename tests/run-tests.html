@@ -153,6 +153,8 @@
   await import('./roundtrip.test.js')
   await import('./braindump.test.js')
   await import('./consistency.test.js')
+  // Design round, wave 4: one file per stream
+  await import('./reading.test.js')
 
   // Run everything and render results
   const results = await runAll()

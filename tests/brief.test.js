@@ -17,6 +17,7 @@ import { briefHtml, briefInline } from '../js/brief-md.js'
 import { readiness, copiedSummary, renderBrief, setBriefScope, briefScopeNow,
          copyBrief, isCopyBriefKey, sizeNote, setFraming, followReplyPanel, wireSizeNote } from '../js/brief.js'
 import { framingSummary, PRESETS, presetMatches, applyPreset, setupSituation, setupDevOptions, syncReadonlyValues, setupExportDropdown } from '../js/ui-panels.js'
+import { setBriefCoverage } from '../js/patch.js'
 
 // ── A small map ──────────────────────────────────────────────
 // A goal threatened by a risk that a job mitigates, a requirement with no
@@ -398,6 +399,9 @@ describe('brief: the Brief tab', () => {
       delete navigator.clipboard
       document.querySelectorAll('.toast-notification').forEach(t => t.remove())
       promptState.lastSnapshot = savedSnap
+      // The selection's copy recorded what it covered (wave 4): later
+      // suites apply patches to maps of their own.
+      setBriefCoverage(null)
       setBriefScope('map'); clear(); runGapDetection()
     }
   })

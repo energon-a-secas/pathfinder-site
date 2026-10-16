@@ -4,7 +4,7 @@
 
 import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts,
          buildShareUrlAsync } from './state.js'
-import { mermaidShapeFor, toMermaid } from './interop.js'
+import { mermaidShapeFor, toMermaid, ROWS, showRefusal } from './interop.js'
 import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, ACTION_LABELS, genId, getAllVotes, typeInfo, showToast, askedQuestions } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
@@ -437,6 +437,10 @@ export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmit
   return md
 }
 
+/** What a failed meeting summary says: what went wrong, then what to try. */
+export const MEETING_SUMMARY_FAILED = () =>
+  `Could not export the meeting summary. Try again, or save the map as text with ${ROWS.downloadMarkdown}.`
+
 /**
  * Download the meeting summary. Not an async function on purpose: the
  * summary is built once up front, synchronously, so a canvas that cannot be
@@ -459,7 +463,7 @@ export function exportMeetingSummary() {
     return md
   }).catch(err => {
     console.error('Meeting summary export failed', err)
-    showToast('Could not export the meeting summary', 'error')
+    showRefusal(MEETING_SUMMARY_FAILED(), 'error')
     return ''
   })
 }

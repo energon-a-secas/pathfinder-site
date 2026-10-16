@@ -31,32 +31,162 @@ import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import { takeSnapshot, currentId } from './library.js'
 import { blockDetails } from './change-details.js'
+import { jsonErrorLine, ROWS } from './interop.js'
 
 // ── Parsing ──────────────────────────────────────────────────
 
-/** Pull the patch JSON out of a pasted reply (fenced block or bare JSON). */
+// What a reply that cannot be read says: `error`, what is wrong, and `hint`,
+// the next move. The preview shows both (renderPreview); tests pin the copy.
+export const PATCH_ERRORS = {
+  empty: { error: 'Nothing pasted yet.', hint: 'Paste the assistant\'s whole reply.' },
+  noBlock: {
+    error: 'No pathfinder-patch block found in this reply.',
+    hint: 'Paste the whole reply, including the fenced block at its end. If it has none, ask the assistant to end with the pathfinder-patch block the brief describes, or copy the brief again if the reply came from an older one.',
+  },
+  cutOff: {
+    error: 'The pathfinder-patch block is cut off: its closing fence is missing.',
+    hint: 'Paste the whole reply down to its last line, or ask the assistant to send the block again.',
+  },
+  notJson: line => ({
+    error: `The pathfinder-patch block is not valid JSON${line ? `, near line ${line} of the block` : ''}.`,
+    hint: `Ask the assistant to send the block again as plain JSON, or fix ${line ? 'that line' : 'it'} in the box above.`,
+  }),
+  notObject: {
+    error: 'The pathfinder-patch block holds a list or a single value, not an object.',
+    hint: 'Ask the assistant to send it again as one object that starts with {"format": "pathfinder-patch"}.',
+  },
+  // A getter: ROWS is read when the message is, not while modules load.
+  get wholeCanvas() {
+    return {
+      error: 'That looks like a whole canvas, not a patch.',
+      hint: `Open it with ${ROWS.importFile} instead; a patch only lists changes.`,
+    }
+  },
+  noFormat: {
+    error: 'The block is missing "format": "pathfinder-patch".',
+    hint: 'Add that line as its first field, or ask the assistant to send the block again exactly as the brief describes.',
+  },
+  version: v => ({
+    error: `This patch says version ${String(v).slice(0, 12)}; Pathfinder reads version 1.`,
+    hint: 'Ask the assistant to send it again as a version 1 pathfinder-patch, the format the brief describes.',
+  }),
+  noOps: {
+    error: 'The patch has no changes in it.',
+    hint: 'A patch carries at least one of answers, verify, status, criteria, notes, blocks or arrows. Ask the assistant which changes it meant to send.',
+  },
+  // A patch written without the label the brief asks for is refused as
+  // before; the refusal names what is missing and where.
+  unlabelledFence: {
+    error: 'The patch in this reply is in a block not labelled pathfinder-patch.',
+    hint: 'Write pathfinder-patch after the three backticks that open that block, or ask the assistant to send it again as the brief describes.',
+  },
+  unlabelledBare: {
+    error: 'The patch in this reply is not in a pathfinder-patch block.',
+    hint: 'Paste only the patch, from its first { to its last }, or ask the assistant to send it again in a pathfinder-patch block.',
+  },
+}
+
+// A reply that names the patch format outside a pathfinder-patch block:
+// inside some other fenced block, or loose in the prose.
+const NAMES_PATCH = /"format"\s*:\s*"pathfinder-patch"/
+const inOtherFence = raw => [...raw.matchAll(/```[^\n`]*\n([\s\S]*?)```/g)].some(m => NAMES_PATCH.test(m[1]))
+
+/**
+ * Pull the patch JSON out of a pasted reply (fenced block or bare JSON).
+ * Returns { patch } or { error, hint }: what is wrong, then what to try.
+ */
 export function extractPatch(text) {
   const raw = String(text || '').trim()
-  if (!raw) return { error: 'Nothing pasted yet' }
+  if (!raw) return { ...PATCH_ERRORS.empty }
   const fence = raw.match(/```pathfinder-patch\s*\n([\s\S]*?)```/)
-  const body = fence ? fence[1] : raw
   let data
-  try { data = JSON.parse(body) } catch (_) {
-    return { error: fence
-      ? 'The pathfinder-patch block is not valid JSON'
-      : 'This reply has no changes block. Ask the assistant to end with the pathfinder-patch block the brief asks for, or copy the brief again if this reply came from an older one.' }
+  if (fence) {
+    try { data = JSON.parse(fence[1]) } catch (err) { return PATCH_ERRORS.notJson(jsonErrorLine(fence[1], err)) }
+  } else {
+    try { data = JSON.parse(raw) } catch (_) {
+      // An opening fence with nothing to close it: the paste stopped short.
+      if (/```pathfinder-patch/.test(raw)) return { ...PATCH_ERRORS.cutOff }
+      if (inOtherFence(raw)) return { ...PATCH_ERRORS.unlabelledFence }
+      if (NAMES_PATCH.test(raw)) return { ...PATCH_ERRORS.unlabelledBare }
+      return { ...PATCH_ERRORS.noBlock }
+    }
   }
-  if (!data || typeof data !== 'object') return { error: 'The patch is not an object' }
-  if (data.blocks && !data.format) {
-    return { error: 'That looks like a whole canvas, not a patch. Use File, Import JSON / Canvas / Mermaid for it' }
-  }
-  if (data.format !== 'pathfinder-patch') {
-    return { error: 'Missing "format": "pathfinder-patch"' }
-  }
-  if (data.version != null && data.version !== 1) {
-    return { error: 'Unsupported patch version. Ask for a version 1 pathfinder-patch' }
-  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ...PATCH_ERRORS.notObject }
+  if (data.blocks && !data.format) return { ...PATCH_ERRORS.wholeCanvas }
+  if (data.format !== 'pathfinder-patch') return { ...PATCH_ERRORS.noFormat }
+  if (data.version != null && data.version !== 1) return PATCH_ERRORS.version(data.version)
   return { patch: data }
+}
+
+// ── The briefs the reply may answer ─────────────────────────
+// Every copied brief covers part of the map: a selection's brief the
+// selection and the blocks connected to it, a whole-map brief every block
+// there was. The last few copies per map are kept for the tab's session
+// (sessionStorage, so a reload keeps them), newest first. A change is
+// labelled "outside the brief" in the preview, and left for the person to
+// tick, only when no recent brief covered every block it touches: a reply
+// to an earlier part still finds its own blocks covered, and a reply to a
+// whole-map brief finds everything covered. A record whose blocks are all
+// gone (the map was cleared or replaced) no longer applies.
+export const COVERAGE_KEY = 'pathfinder-brief-coverage'
+const COVERAGE_KEEP = 5   // briefs per map
+const COVERAGE_MAPS = 8   // maps per session
+
+function readCoverage() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(COVERAGE_KEY) || '{}')
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
+  } catch (_) { return {} }
+}
+function writeCoverage(all) {
+  try {
+    const maps = Object.keys(all)
+    if (!maps.length) sessionStorage.removeItem(COVERAGE_KEY)
+    else sessionStorage.setItem(COVERAGE_KEY, JSON.stringify(all))
+  } catch (_) {}
+}
+const mapKey = map => String(map ?? '')
+
+/**
+ * Record what a copied brief covered: the block ids it gave the assistant.
+ * `null` forgets every record of the session (a fresh start, and tests).
+ */
+export function setBriefCoverage(ids, map = currentId()) {
+  if (ids == null) { writeCoverage({}); return }
+  const all = readCoverage(), key = mapKey(map)
+  const next = [...new Set(ids)].map(String)
+  const same = r => Array.isArray(r) && r.length === next.length && r.every(id => next.includes(id))
+  const list = (Array.isArray(all[key]) ? all[key] : []).filter(r => !same(r))
+  delete all[key]
+  all[key] = [next, ...list].slice(0, COVERAGE_KEEP)
+  // The most recent maps last in key order; the oldest go first.
+  Object.keys(all).slice(0, Math.max(0, Object.keys(all).length - COVERAGE_MAPS)).forEach(k => delete all[k])
+  writeCoverage(all)
+}
+
+/**
+ * What the recent briefs of the open map covered, newest first, each a Set
+ * of block ids; null when none applies.
+ */
+export function briefCoverages() {
+  const list = readCoverage()[mapKey(currentId())]
+  if (!Array.isArray(list)) return null
+  const live = list.filter(r => Array.isArray(r) && r.some(id => state.blocks[id])).map(r => new Set(r))
+  return live.length ? live : null
+}
+
+/**
+ * The blocks a change touching `ids` reaches outside the recent briefs:
+ * [] when one brief covered all of them, or when no brief is recorded.
+ */
+export function outsideBriefs(ids, coverages = briefCoverages()) {
+  const touched = (ids || []).filter(id => state.blocks[id])
+  if (!coverages || !touched.length) return []
+  if (coverages.some(set => touched.every(id => set.has(id)))) return []
+  // The blocks no brief covered; for a connection between two parts that
+  // different briefs covered (each end seen, never together), both ends.
+  const unseen = touched.filter(id => !coverages.some(set => set.has(id)))
+  return unseen.length ? unseen : touched
 }
 
 // ── Target resolution ────────────────────────────────────────
@@ -167,7 +297,7 @@ export function buildPlan(patch) {
       // answered question is done, so Attention stops listing it.
       const had = !!String(b.answer || '').trim()
       add('answer', true, `${had ? 'Replace the answer on' : 'Answer'} "${short(titleOf(t.id), 60)}"${b.status === 'done' ? '' : ' and mark it done'}`, {
-        conf: t.how, detail: short(text),
+        conf: t.how, detail: short(text), touches: [t.id],
         read: graph => {
           const blk = graph.blocks[t.id]
           return `${String(blk.answer || '').trim() ? blk.answer : 'Not answered'}\nStatus: ${statusLabelOf(blk)}`
@@ -182,7 +312,7 @@ export function buildPlan(patch) {
     }
     const idx = target.idx
     add('answer', true, `Answer "${short(b.questions[idx].text, 60)}" on "${short(titleOf(t.id), 60)}"`, {
-      conf: t.how, detail: short(text),
+      conf: t.how, detail: short(text), touches: [t.id],
       read: graph => graph.blocks[t.id].questions[idx].answer || 'Not answered',
       apply(graph) { graph.blocks[t.id].questions[idx].answer = text },
     })
@@ -208,7 +338,7 @@ export function buildPlan(patch) {
     add('verify', true, verdict === 'verified'
       ? `Verified: "${short(claim, 60)}" becomes a decision`
       : `Refuted: "${short(claim, 60)}" becomes the decision "${short(title, 60)}"`, {
-      conf: t.how, detail: short(evidence),
+      conf: t.how, detail: short(evidence), touches: [t.id],
       read: graph => blockDetails(graph.blocks[t.id]),
       apply(graph) {
         const blk = graph.blocks[t.id]
@@ -241,7 +371,7 @@ export function buildPlan(patch) {
       return refuse('status', `Unknown status "${short(sOp?.status, 24)}" for ${named(t.id)}; use ${Object.keys(STATUS_DEFS).join(', ')}`)
     }
     add('status', true, `Status of "${short(titleOf(t.id), 60)}" → ${sOp.status}`, {
-      conf: t.how,
+      conf: t.how, touches: [t.id],
       read: graph => STATUS_DEFS[graph.blocks[t.id].status || 'not-started']?.label || 'Not Started',
       apply(graph) { graph.blocks[t.id].status = sOp.status },
     })
@@ -265,7 +395,7 @@ export function buildPlan(patch) {
         : `No new criteria for ${named(t.id)}`)
     }
     add('criteria', true, `${adds.length} acceptance criteri${adds.length === 1 ? 'on' : 'a'} on "${short(titleOf(t.id), 60)}"`, {
-      conf: t.how, detail: short(adds.join(' · ')),
+      conf: t.how, detail: short(adds.join(' · ')), touches: [t.id],
       read: graph => (graph.blocks[t.id].criteria || []).join('\n') || 'No acceptance criteria',
       apply(graph) {
         const blk = graph.blocks[t.id], all = [...(blk.criteria || [])]
@@ -289,7 +419,7 @@ export function buildPlan(patch) {
     const text = asText(nOp?.note)
     if (!text) return refuse('note', `Empty note for ${named(t.id)}`)
     add('note', true, `Note on "${short(titleOf(t.id), 60)}"`, {
-      conf: t.how, detail: short(text),
+      conf: t.how, detail: short(text), touches: [t.id],
       read: graph => graph.blocks[t.id].notes || 'No notes',
       apply(graph) {
         const blk = graph.blocks[t.id]
@@ -375,6 +505,7 @@ export function buildPlan(patch) {
     add('arrow', true, `Connect "${short(nameOf(f.id) || clean.from, 60)}" → "${short(nameOf(t.id) || clean.to, 60)}"${clean.label ? ` (${short(clean.label, 20)})` : ''}`, {
       conf: f.how === 'fuzzy' || t.how === 'fuzzy' ? 'fuzzy' : 'id',
       requires: [f.id, t.id].filter(id => blockOps.has(id)).map(id => blockOps.get(id)),
+      touches: [f.id, t.id].filter(id => !blockOps.has(id)),
       read: graph => graph.arrows.some(a => a.id === arrowId)
         ? `${nameOf(f.id)} → ${nameOf(t.id)}${connectionLabel(clean) ? '\nMeaning: ' + connectionLabel(clean) : ''}${clean.note ? '\nNote: ' + clean.note : ''}` : 'Not connected',
       apply(graph) {
@@ -398,6 +529,15 @@ export function buildPlan(patch) {
     // A new block with coordinates is a card in the way and an anchor too.
     const known = new Map([...where].map(([key, p]) => [key, { x: p.x, y: p.y, w: p.w, h: 100 }]))
     placeNewBlocks(autoPlace, { occupied: [...occupiedRects(), ...known.values()], known }).forEach((p, key) => where.set(key, p))
+  }
+
+  // A change no recent brief covered waits to be ticked.
+  const covered = briefCoverages()
+  if (covered) {
+    ops.forEach(op => {
+      const out = op.ok ? outsideBriefs(op.touches, covered) : []
+      if (out.length) { op.outside = out; op.selected = false }
+    })
   }
 
   return { ops, note: String(patch.note || '').trim(), baseline: planBaseline(), applied: false }
@@ -451,25 +591,42 @@ export function applyPlan(plan) {
 // A failure says what to do next, beside a warning icon (a status colour
 // never stands alone), with the block's name set as code.
 const WARN_ICON = '<svg class="patch-err-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5l6 10.5H2z"/><path d="M8 6.75v3M8 11.6v.01"/></svg>'
+/** A refusal in two parts, what is wrong and then what to try, the format's name set as code. */
+function errorHtml({ error, hint } = {}) {
+  const code = t => escHtml(t || '').replace(/`{0,3}pathfinder-patch`{0,3}/g, '<code>pathfinder-patch</code>')
+  return `<div class="patch-op err" role="status">${WARN_ICON}<span class="patch-err-text">` +
+    `<span class="patch-err-what">${code(error)}</span>${hint ? ` <span class="patch-err-next">${code(hint)}</span>` : ''}</span></div>`
+}
+
+/** The line under the preview: how many will apply, and what waits outside the brief. */
+export function previewSummary(plan) {
+  const okCount = selectedOps(plan).length
+  const n = plan.ops.length
+  const away = plan.ops.filter(o => o.ok && o.outside).length
+  const them = away === 1 ? 'it' : 'them'
+  const awayNote = away
+    ? ` ${away === 1 ? 'One change touches a block' : `${away} changes touch blocks`} outside the brief you copied: tick ${them} to include ${them}.`
+    : ''
+  return `${okCount} of ${n} operation${n === 1 ? '' : 's'} will apply.${awayNote}`
+}
+
 function renderPreview(host, plan, error) {
-  if (error) {
-    const text = escHtml(error).replace(/`{0,3}pathfinder-patch`{0,3}/g, '<code>pathfinder-patch</code>')
-    host.innerHTML = `<div class="patch-op err" role="status">${WARN_ICON}<span>${text}</span></div>`
-    return
-  }
+  if (error) { host.innerHTML = errorHtml(error); return }
   const rows = previewPlan(plan).map(o => {
     const cls = o.ok ? (o.conf === 'fuzzy' ? 'warn' : 'ok') : 'err'
     const conf = o.ok && o.conf === 'fuzzy' ? ' <em>(matched by title, check it)</em>'
       : o.ok && o.conf === 'title' ? ' <em>(by title)</em>' : ''
-    const toggle = o.ok ? `<input type="checkbox" data-patch-op="${o.id}" ${o.selected ? 'checked' : ''} aria-label="Include change: ${escHtml(o.label)}">` : ''
+    // A block the copied brief did not cover: the assistant never saw it.
+    const away = o.ok && o.outside
+    const outside = away ? ' <span class="patch-op-outside">outside the brief</span>' : ''
+    const toggle = o.ok ? `<input type="checkbox" data-patch-op="${o.id}" ${o.selected ? 'checked' : ''} aria-label="Include change: ${escHtml(o.label)}${away ? ', outside the brief' : ''}">` : ''
     const detail = o.ok ? `<details class="change-detail"><summary>Before and after</summary><strong>Before</strong><pre>${escHtml(o.before)}</pre><strong>After</strong><pre>${escHtml(o.after)}</pre></details>` : ''
     const dependency = o.requires.length ? '<div class="patch-op-detail">Including this connection also includes its new blocks.</div>' : ''
-    return `<div class="patch-op ${cls}"><label>${toggle}<span><span class="patch-op-kind">${o.kind}</span> ${escHtml(o.label)}${conf}</span></label>${dependency}${detail}</div>`
+    return `<div class="patch-op ${cls}${away ? ' outside' : ''}"><label>${toggle}<span><span class="patch-op-kind">${o.kind}</span> ${escHtml(o.label)}${conf}${outside}</span></label>${dependency}${detail}</div>`
   }).join('')
-  const okCount = selectedOps(plan).length
   const head = plan.note ? `<div class="patch-op-note">${escHtml(short(plan.note, 120))}</div>` : ''
-  host.innerHTML = head + (rows || '<div class="patch-op err">The patch contains no operations</div>') +
-    `<div class="patch-op-sum">${okCount} of ${plan.ops.length} operation${plan.ops.length === 1 ? '' : 's'} will apply</div>`
+  host.innerHTML = head + (rows || errorHtml(PATCH_ERRORS.noOps)) +
+    `<div class="patch-op-sum">${escHtml(previewSummary(plan))}</div>`
 }
 
 export function setupPatchUI() {
@@ -484,8 +641,9 @@ export function setupPatchUI() {
 
   const choose = document.getElementById('patchChooseLine')
   const refresh = () => {
-    const { patch, error } = extractPatch(input.value)
-    plan = error ? null : buildPlan(patch)
+    const read = extractPatch(input.value)
+    const error = read.error ? read : null
+    plan = error ? null : buildPlan(read.patch)
     // Nothing pasted: nothing to say. Nothing parsed: the error alone,
     // without the line about choosing changes or a button that cannot run.
     if (!input.value.trim()) preview.innerHTML = ''
