@@ -6041,12 +6041,23 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
   .neo-footer[data-footer-mode="app"] { --footer-pad-block-app: 6px; }
 }
 
-/* The dot band (under 25%): a card is smaller on screen than a port's 24px
-   target, so the targets covered the whole card. A click opened the
-   quick-add picker, a drag drew a connection, and a frame's name under them
-   could not be grabbed. There only the selected card's ports take a press:
-   select a card, then drag from its edge to connect. */
-.canvas-root.lod-dot .block:not(.selected) .port { pointer-events: none; }
+/* Ports by band. A port's target is 24px on screen and reaches 7px into
+   its card: at full detail and in the title band (45% and up) that is the
+   card's edge. Smaller, the targets covered whole cards: a click opened the
+   quick-add picker, a drag drew a connection, and a frame's name or the
+   card next door could not be grabbed.
+   - Pill band (25 to 45%): only the selected card's ports take a press, and
+     their targets sit outside the card, reaching 12px out, so a press
+     inside a card always selects or moves it.
+   - Dot band (under 25%): no port takes a press. That zoom is for seeing
+     the whole and arranging it; connect there with C or Connect to. */
+.canvas-root.lod-pill .block:not(.selected) .port,
+.canvas-root.lod-dot .block .port { pointer-events: none; }
+.canvas-root.lod-pill .block.selected .port { --port-in: 0px; --port-hit: calc(12 * var(--sp, 1px)); }
+/* Below the title band the gap badge is a mark, not a target: held at 14px
+   on screen it lay over the card above, and a click on that card selected
+   the one below. Its name still shows while its own card is hovered. */
+.canvas-root:is(.lod-pill, .lod-dot) .block .block-gap-icons { pointer-events: none; }
 /* Every card shows its shape in the dot band, the one whose face went
    without its dot (data-nodot) too, and the shape stays inside its card
    (70% of the card's height on screen, 10px at most). */
@@ -6065,4 +6076,8 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
 @media (max-height: 700px) {
   #promptPane.framing-open .brief-doc { display: none; }
   #promptPane.framing-open .brief-framing { flex: 1 1 auto; }
+  /* Closed, the brief's 240px floor plus the reply row overflowed the
+     panel (36px at 640px of height, 166px at 560px); it scrolls inside
+     its own floor of 120px instead. */
+  .brief-doc { min-height: 120px; }
 }

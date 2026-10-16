@@ -116,18 +116,33 @@ async function shadow(markup) {
 }
 
 describe('decisions: the dot band stays usable at the 10% floor', () => {
-  it('only the selected card\'s ports take a press, so a press on a card selects or drags it', async () => {
-    const { root, done } = await shadow(
-      '<div class="canvas-root lod-dot">' +
-      '<div class="block" id="a"><div class="port port-top"></div><div class="port port-right"></div></div>' +
-      '<div class="block selected" id="b"><div class="port port-top"></div></div></div>')
+  it('ports by band: none under 25%, only the selected card\'s from 25 to 45% and outside it, all from 45% up', async () => {
+    const markup = band => `<div class="canvas-root ${band}">` +
+      '<div class="block" id="a"><div class="port port-top"></div><div class="port port-right"></div>' +
+      '<div class="block-gap-icons"><span class="gap-icon"></span></div></div>' +
+      '<div class="block selected" id="b"><div class="port port-top"></div></div></div>'
+    const pe = el => getComputedStyle(el).pointerEvents
+    const dot = await shadow(markup('lod-dot'))
     try {
-      root.querySelectorAll('#a .port').forEach(p => assert.eq(getComputedStyle(p).pointerEvents, 'none'))
-      assert.ok(getComputedStyle(root.querySelector('#b .port')).pointerEvents !== 'none', 'the selected card still connects')
-    } finally { done() }
-    const full = await shadow('<div class="canvas-root lod-full"><div class="block"><div class="port port-top"></div></div></div>')
-    try { assert.ok(getComputedStyle(full.root.querySelector('.port')).pointerEvents !== 'none', 'at full detail every port works') }
-    finally { full.done() }
+      dot.root.querySelectorAll('.port').forEach(p => assert.eq(pe(p), 'none', 'dot band: no port takes a press'))
+      assert.eq(pe(dot.root.querySelector('.block-gap-icons')), 'none', 'dot band: the gap badge is a mark, not a target')
+    } finally { dot.done() }
+    const pill = await shadow(markup('lod-pill'))
+    try {
+      pill.root.querySelectorAll('#a .port').forEach(p => assert.eq(pe(p), 'none', 'pill band: an unselected card\'s ports take no press'))
+      const sel = pill.root.querySelector('#b .port')
+      assert.ok(pe(sel) !== 'none', 'pill band: the selected card still connects')
+      assert.eq(parseFloat(getComputedStyle(sel).getPropertyValue('--port-in')), 0, 'its target starts at the card\'s edge')
+      assert.eq(pe(pill.root.querySelector('.block-gap-icons')), 'none', 'pill band: the gap badge is a mark')
+    } finally { pill.done() }
+    for (const band of ['lod-title', 'lod-full']) {
+      const t = await shadow(markup(band))
+      try {
+        t.root.querySelectorAll('.port').forEach(p => assert.ok(pe(p) !== 'none', `${band}: every port works`))
+        const reach = getComputedStyle(t.root.querySelector('#a .port')).getPropertyValue('--port-in').trim()
+        assert.ok(reach && reach !== '0px', `${band}: targets keep their reach into the card (${reach})`)
+      } finally { t.done() }
+    }
   })
 
   it('every card keeps its shape, inside its own box', async () => {
@@ -179,6 +194,19 @@ describe('decisions: Framing on every window', () => {
       const w = frame.contentWindow, f = frame.contentDocument.getElementById('situationConstraints')
       assert.eq(w.getComputedStyle(f).minHeight, '68px')
     } finally { frame.remove() }
+  })
+  it('on a short window the closed brief keeps a 120px floor, so the panel does not overflow', async () => {
+    const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
+    for (const [height, short] of [[600, true], [900, false]]) {
+      const frame = await paneFrame(height, pane)
+      try {
+        const d = frame.contentDocument
+        d.getElementById('promptPane').classList.remove('framing-open')
+        d.getElementById('briefFraming').hidden = true
+        const floor = frame.contentWindow.getComputedStyle(d.getElementById('briefDoc')).minHeight
+        assert.eq(floor === '120px', short, `${height}px window: the brief's floor is ${floor}`)
+      } finally { frame.remove() }
+    }
   })
   it('on a short window Framing takes the brief\'s place; on a tall one the brief stays below it', async () => {
     const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
