@@ -401,16 +401,22 @@ describe('zoom: titles, frames, lines and tips at small zoom', () => {
         setZoom(z); applyTransform()
         const title = el.querySelector('.block-lod-title'), cs = getComputedStyle(title)
         assert.eq(cs.overflowWrap, 'normal', `${z}`); assert.eq(cs.wordBreak, 'normal'); assert.eq(cs.hyphens, 'manual')
-        assert.eq(cs.textOverflow, 'ellipsis', 'a cut word says so')
-        // A word split across two lines has glyphs on two lines.
-        const text = title.firstChild, words = text.textContent.split(' ')
-        let at = 0
-        for (const w of words) {
-          const r = document.createRange()
-          r.setStart(text, at); r.setEnd(text, at + w.length); at += w.length + 1
-          const tops = new Set([...r.getClientRects()].filter(q => q.width > 0).map(q => Math.round(q.top)))
-          assert.ok(tops.size <= 1, `"${w}" stays on one line at ${z} (${[...tops]})`)
-        }
+        // lod.js breaks the lines (one .block-lod-line each); each line
+        // keeps its own ellipsis for a word wider than the whole line.
+        const lines = [...title.querySelectorAll('.block-lod-line')]
+        assert.ok(lines.length >= 1, `lines written at ${z}`)
+        lines.forEach(l => assert.eq(getComputedStyle(l).textOverflow, 'ellipsis', 'a cut word says so'))
+        lines.forEach(l => assert.eq(getComputedStyle(l).whiteSpace, 'nowrap', 'a line is one line'))
+        // Every line is whole words of the title, in order; only the last
+        // may end in an ellipsis, right after a whole word, or inside the
+        // one word of a last line too long to take one whole.
+        const words = 'Observable reconciliation everything between environments'.split(' ')
+        const shown = lines.map(l => l.textContent)
+        shown.slice(0, -1).forEach(t => assert.ok(!t.includes('\u2026'), `no ellipsis before the last line at ${z}`))
+        const flat = shown.join(' ').replace(/\u2026$/, '').split(' ')
+        assert.deepEq(flat.slice(0, -1), words.slice(0, flat.length - 1), `whole words in order at ${z}: ${JSON.stringify(shown)}`)
+        const lw = flat[flat.length - 1], tw = words[flat.length - 1], last = shown[shown.length - 1]
+        assert.ok(lw === tw || (last.endsWith('\u2026') && !last.includes(' ') && tw.startsWith(lw)), `the last word whole, or a lone word cut at its end, at ${z}: ${JSON.stringify(shown)}`)
       }
     })
   })

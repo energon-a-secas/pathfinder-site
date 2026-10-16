@@ -6,11 +6,13 @@
 //  face. zoom-controls.js sets it up and re-exports it.
 // ════════════════════════════════════════════════════════════
 
-import { state, view } from './state.js'
+import { state, view, saveHooks } from './state.js'
 import { $, escHtml, TYPES } from './utils.js'
 import { transformHooks } from './canvas.js'
 import { blockDecorators } from './render.js'
 import { typeShape } from './cards.js'
+import { ELLIPSIS, FACE_METRICS, fitTitle, faceLayout, faceMetrics } from './face-text.js'
+export { ELLIPSIS, FACE_METRICS, titlePieces, fitTitle, faceLayout, faceMetrics } from './face-text.js'
 
 // ── Level of detail ─────────────────────────────────────────
 // A card drawn at 30% is a texture: a 14px title is 4px on screen. So the
@@ -96,7 +98,7 @@ export function lodScale(z, steps = LOD_STEPS_PER_OCTAVE) {
   return Math.pow(2, Math.ceil(Math.log2(inv) * steps - 1e-9) / steps)
 }
 
-const lod = { band: null, labels: null, z: null, exact: true, k: null }
+const lod = { band: null, labels: null, z: null, exact: true, k: null, fitK: null, vp: null }
 let settleTimer = 0
 
 /** The canvas root's band right now ('full', 'title', 'pill' or 'dot'). */
@@ -123,14 +125,23 @@ export function applyLod({ exact = false, settle = false } = {}) {
   clearTimeout(settleTimer)
   if (zooming) settleTimer = setTimeout(() => applyLod({ settle: true }), LOD_SETTLE_MS)
   const k = band === 'full' ? 1 : lodScale(z, zooming ? LOD_GESTURE_STEPS : LOD_STEPS_PER_OCTAVE)
+  // The cards' sizes, read before this frame writes anything they depend on.
+  if (FIT_BANDS.has(band) && (k !== lod.fitK || band !== lod.band)) primeSizes(root)
   if (k !== lod.k || !root.style.getPropertyValue('--lodk')) {
     root.style.setProperty('--lodk', String(+k.toFixed(5)))
     lod.k = k
   }
+  let refit = k !== lod.fitK
   if (band !== lod.band || !root.classList.contains('lod-' + band)) {
     LOD_BANDS.forEach(b => root.classList.toggle('lod-' + b.band, b.band === band))
+    refit = refit || band !== lod.band
     lod.band = band
   }
+  // A new band or a new face scale changes how much of a title fits: break
+  // every title again, now, so no frame shows the old lines at the new size
+  // (on a large map, the ones in and near the view now and the rest just
+  // after: refitFaces).
+  if (refit && FIT_BANDS.has(band)) refitFaces(root)
   if (labels !== lod.labels || root.classList.contains('lod-quiet-labels') === labels) {
     root.classList.toggle('lod-quiet-labels', !labels)
     lod.labels = labels
@@ -160,6 +171,180 @@ export function paintLodFace(b, el) {
       '</div>' +
       `<div class="block-lod-tip"><span class="block-lod-tip-type">${escHtml(label)}</span>${text}</div>` +
     '</div>')
+  // Below full detail the new face's title is broken into lines before the
+  // next paint (a microtask, batched: a whole map renders card by card).
+  sizes.delete(el)
+  if (FIT_BANDS.has(currentLod())) queueFit(el)
+  else queuePrime()
+}
+
+// ── Titles that break between words ─────────────────────────
+// The lines, the layout and the metrics are face-text.js (pure); this
+// module measures and writes them.
+const FIT_BANDS = new Set(['title', 'pill'])
+
+// Measuring: one canvas context, a cache per font and string (cleared when
+// web fonts arrive, which change every width).
+// The family is read once: asking for a computed style right after the band
+// class changed would restyle every card a second time in the same frame.
+let measureCtx = null, family = ''
+const widths = new Map()
+function measurer(px, weight = 600) {
+  if (!measureCtx) {
+    try { measureCtx = document.createElement('canvas').getContext('2d') } catch (_) { measureCtx = null }
+  }
+  if (!family) family = getComputedStyle(document.body).fontFamily || 'sans-serif'
+  const font = `${weight} ${px}px ${family}`
+  return s => {
+    const k = font + '\n' + s
+    let v = widths.get(k)
+    if (v === undefined) {
+      if (measureCtx) { measureCtx.font = font; v = measureCtx.measureText(s).width }
+      else v = s.length * px * 0.6
+      if (widths.size > 20000) widths.clear()
+      widths.set(k, v)
+    }
+    return v
+  }
+}
+
+// A card's size (inside its border) does not change with the zoom, so it
+// is read once and kept: a band change or a scale step then only writes,
+// and the page lays out once. Reading it after the new --lodk forced a
+// layout of every face first, which doubled the cost of a step at 300
+// cards. A card that renders again, any save (a resize handle moves no
+// state) and the fonts arriving forget the sizes they may have changed.
+let sizes = new WeakMap()
+function cardSize(el) {
+  let s = sizes.get(el)
+  if (!s) {
+    s = { w: el.clientWidth, h: el.clientHeight }
+    // A canvas that is not laid out (hidden) has no sizes to keep.
+    if (s.w > 0) sizes.set(el, s)
+  }
+  return s
+}
+// The viewport's size too (refitFaces culls with it), but only when a
+// card's size was read anyway or it is not known: reading it on every
+// refit forced a layout that the writes then threw away.
+function primeSizes(root) {
+  let read = !lod.vp
+  for (const el of root.querySelectorAll(':scope > .block')) if (!sizes.has(el)) { cardSize(el); read = true }
+  const vp = read && $.canvasViewport()
+  if (vp) lod.vp = { w: vp.clientWidth, h: vp.clientHeight }
+}
+
+/**
+ * The title's lines, written one element per line (a space between, so its
+ * text reads whole). The closing line of a cut title is `is-end`, which
+ * lets its ellipsis hang into the padding (--lod-hang).
+ */
+function writeLines(title, lines, cut = false) {
+  const want = lines.join('\n') + (cut ? '\n…' : '')
+  if (title.dataset.lines === want) return
+  title.dataset.lines = want
+  title.replaceChildren(...lines.flatMap((l, i) => {
+    const span = document.createElement('span')
+    span.className = cut && i === lines.length - 1 ? 'block-lod-line is-end' : 'block-lod-line'
+    span.textContent = l
+    return i ? [document.createTextNode(' '), span] : [span]
+  }))
+}
+
+/**
+ * Break the face titles of `els` (every card by default) for the current
+ * band and scale. Reads every card's size first and writes after, so a map
+ * of 300 cards lays out once.
+ */
+export function fitFaces(els = null) {
+  const band = currentLod()
+  if (!FIT_BANDS.has(band)) return
+  const root = $.canvasRoot(); if (!root) return
+  const cards = els ? [...els].filter(el => el?.isConnected) : [...root.querySelectorAll(':scope > .block')]
+  const k = lod.k || 1
+  const measureType = measurer(FACE_METRICS.title.typeFont)
+  const measure = { [FACE_METRICS.title.font]: measurer(FACE_METRICS.title.font), [FACE_METRICS.pill.font]: measurer(FACE_METRICS.pill.font) }
+  const jobs = cards.map(el => {
+    const face = el.querySelector(':scope > .block-lod .block-lod-face')
+    const title = face?.querySelector('.block-lod-title')
+    if (!title) return null
+    const size = cardSize(el)
+    return { el, face, title, w: size.w / k, h: size.h / k }
+  }).filter(Boolean)
+  for (const j of jobs) {
+    const b = state.blocks[j.el.dataset.id]
+    const text = (b?.title || '').trim()
+    const type = TYPES[b?.type]?.label || b?.type || ''
+    const spec = faceLayout(band, j.w, j.h, { typeFits: width => measureType(type) <= width })
+    if (j.face.dataset.layout !== spec.layout) j.face.dataset.layout = spec.layout
+    const m = faceMetrics(band, spec.layout)
+    const fit = text ? fitTitle(text, spec.width, spec.lines, measure[m.font], m.hang) : { lines: ['Untitled'], cut: false }
+    writeLines(j.title, fit.lines, fit.cut)
+    // A cut title is read whole in the tip, in the title band too.
+    const box = j.face.parentElement
+    if ((box.dataset.cut === '1') !== fit.cut) { if (fit.cut) box.dataset.cut = '1'; else delete box.dataset.cut }
+  }
+  if (!els) lod.fitK = k
+}
+
+// ── Refitting a large map ───────────────────────────────────
+// A band change or a new face scale refits every face. At 300 cards the
+// first time (nothing measured yet) took 78ms in one frame, so a map of
+// more than FIT_NOW_MAX cards fits the cards in and near the view (half a
+// view round it) at once and the rest in idle time, a batch at a time,
+// before a pan could bring them in. A newer refit drops what is left of an
+// older one, and a batch that runs after the zoom went back to full detail
+// does nothing.
+export const FIT_NOW_MAX = 80
+const FIT_BATCH = 60
+let restJob = null
+const idle = cb => typeof requestIdleCallback === 'function' ? { idle: requestIdleCallback(cb, { timeout: 120 }) } : { timer: setTimeout(() => cb(null), 16) }
+function cancelRest() {
+  if (!restJob) return
+  if (restJob.idle) cancelIdleCallback(restJob.idle); else clearTimeout(restJob.timer)
+  restJob = null
+}
+function fitRest(queue) {
+  restJob = idle(deadline => {
+    restJob = null
+    do fitFaces(queue.splice(0, FIT_BATCH))
+    while (queue.length && deadline && deadline.timeRemaining() > 6)
+    if (queue.length) fitRest(queue)
+  })
+}
+
+/** Which of `cards` are in or near the view, from the state, the camera and the kept sizes: no layout read. Pure but for the sizes. */
+export function nearView(cards, cam = view, vp = lod.vp) {
+  const z = cam.zoom || 1
+  if (!vp?.w) return { near: cards, far: [] }
+  const w = vp.w / z, h = vp.h / z, pad = Math.max(w, h) / 2
+  const x0 = -cam.panX / z - pad, y0 = -cam.panY / z - pad, x1 = x0 + w + 2 * pad, y1 = y0 + h + 2 * pad
+  const near = [], far = []
+  for (const el of cards) {
+    const b = state.blocks[el.dataset.id], s = sizes.get(el)
+    const inView = !b || !s || (b.x < x1 && b.x + s.w > x0 && b.y < y1 && b.y + s.h > y0)
+    ;(inView ? near : far).push(el)
+  }
+  return { near, far }
+}
+
+function refitFaces(root) {
+  cancelRest()
+  const cards = [...root.querySelectorAll(':scope > .block')]
+  lod.fitK = lod.k
+  if (cards.length <= FIT_NOW_MAX) { fitFaces(cards); return }
+  const { near, far } = nearView(cards)
+  fitFaces(near)
+  if (far.length) fitRest(far)
+}
+
+let fitQueue = null
+function queueFit(el) {
+  if (!fitQueue) {
+    fitQueue = new Set()
+    queueMicrotask(() => { const q = fitQueue; fitQueue = null; fitFaces(q) })
+  }
+  fitQueue.add(el)
 }
 
 let lodWired = false
@@ -173,7 +358,41 @@ export function setupLod() {
   if (lodWired) return
   lodWired = true
   transformHooks.add(applyLod)
+  // A card can change size without a re-render (a resize handle, a web font
+  // arriving): every save, and the fonts, break the titles again. Lines
+  // that did not change are not rewritten.
+  saveHooks.push(() => { sizes = new WeakMap(); if (FIT_BANDS.has(currentLod())) queueFitAll(); else queuePrime() })
+  window.addEventListener('resize', () => { lod.vp = null; queuePrime() })
+  document.fonts?.ready?.then(() => {
+    widths.clear(); family = ''; sizes = new WeakMap()
+    if (FIT_BANDS.has(currentLod())) fitFaces(); else queuePrime()
+  }, () => {})
+  queuePrime()
   applyLod({ exact: true })
+}
+
+// At full detail the cards' sizes, the viewport's and the font are read
+// in idle time, while the layout is clean and a read costs nothing, so the
+// zoom that first crosses into the faces only writes. Read there, they
+// forced a layout of the whole map at the old band that the new band's
+// writes then threw away: the first crossing at 300 cards took 78ms.
+let primeJob = null
+function queuePrime() {
+  if (primeJob) return
+  primeJob = idle(() => {
+    primeJob = null
+    const root = $.canvasRoot()
+    if (!root || FIT_BANDS.has(currentLod())) return
+    if (!family) family = getComputedStyle(document.body).fontFamily || 'sans-serif'
+    primeSizes(root)
+  })
+}
+
+let fitAllQueued = false
+function queueFitAll() {
+  if (fitAllQueued) return
+  fitAllQueued = true
+  queueMicrotask(() => { fitAllQueued = false; fitFaces() })
 }
 
 // ── Hover fade ──────────────────────────────────────────────
@@ -201,6 +420,30 @@ export function setupHoverDim() {
   }
   root.addEventListener('pointerover', place)
   root.addEventListener('focusin', place)
+  setupFocusChip()
+}
+
+// ── The canvas's focus chip ─────────────────────────────────
+// The canvas's own keyboard focus shows as a chip at its top left
+// ([canvas4]), and only when the focus arrived from the keyboard (Tab, or
+// a key that handed it back). :focus-visible is not enough on its own: it
+// stays true when a click lands on a canvas the keyboard had focused, and
+// Chrome turns it on for a canvas a click focused as soon as any key is
+// pressed, so N, then a letter, or Cmd+K after a click flashed the chip.
+// The viewport carries how its focus arrived (data-input): a press
+// anywhere takes the chip away, and only focus arriving again by keyboard
+// brings it back.
+let chipWired = false
+export function setupFocusChip() {
+  const vp = $.canvasViewport()
+  if (chipWired || !vp) return
+  chipWired = true
+  let last = 'pointer'
+  const note = kind => { if (vp.dataset.input !== kind) vp.dataset.input = kind }
+  document.addEventListener('pointerdown', () => { last = 'pointer'; note('pointer') }, true)
+  document.addEventListener('keydown', () => { last = 'key' }, true)
+  vp.addEventListener('focus', () => note(last))
+  note(last)
 }
 
 // ── The tip's side ──────────────────────────────────────────
@@ -221,10 +464,9 @@ export function tipSides(card, vp, room = TIP_ROOM) {
   }
 }
 
-/** Set the card's tip side for where it is on screen now (pill and dot bands only). */
+/** Set the card's tip side for where it is on screen now (below full detail only). */
 export function placeTip(el) {
-  const band = currentLod()
-  if (band !== 'pill' && band !== 'dot') return
+  if (!FIT_BANDS.has(currentLod()) && currentLod() !== 'dot') return
   const vp = $.canvasViewport()?.getBoundingClientRect(); if (!vp) return
   const { x, y } = tipSides(el.getBoundingClientRect(), vp)
   if ((el.dataset.tipX || '') !== x) { if (x) el.dataset.tipX = x; else delete el.dataset.tipX }

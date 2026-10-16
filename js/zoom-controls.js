@@ -276,6 +276,23 @@ export function setupZoomControls() {
   setupLod()
   setupHoverDim()
   setupMinimap()
+  // The page has just loaded: the camera it restored may show nothing.
+  arriveIfLost()
+}
+
+// ── A restored camera that shows nothing ────────────────────
+// Each map restores its own camera. Reopened in a narrower window than it
+// was saved in (a desktop session opened on a phone, a window made half as
+// wide), the saved pan can point at empty canvas, and the map looked gone.
+// On load, a camera that shows no block arrives on the map instead, the
+// way a template or a link does (arriveAt: 100% on the entry layer, or the
+// whole map when it fits); one that shows any block is left where it was.
+// No toast: nothing new arrived. An embed fits its map as always.
+
+/** Arrive on the map when the camera shows none of it. Returns arriveAt's result, or null when it stayed. */
+export function arriveIfLost() {
+  if (!Object.keys(state.blocks).length || contentInView()) return null
+  return arriveAt(null)
 }
 
 // ════════════════════════════════════════════════════════════

@@ -936,8 +936,18 @@ export function setupKeyboardShortcuts() {
       if (selection.ids.size || selection.arrowId || selection.groupId) {
         deselectAll(); announce('Selection cleared')
         // A focused card would otherwise keep a ring that reads as selected.
-        const ae = document.activeElement
-        if (blockFocusFromPointer && ae?.classList?.contains('block') && $.canvasRoot().contains(ae)) ae.blur()
+        // Letting go of it is letting go of the canvas, as the keyboard
+        // path below does: the browser's focus point stayed on the card, so
+        // the next Tab went to the card after it and back into the map.
+        // The same for any selection the pointer made: a box drawn with
+        // Shift and a clicked connection leave the canvas itself focused
+        // from that press (data-input, which lod.js keeps: 'pointer' from
+        // any press until focus arrives again by keyboard). A selection
+        // made on a canvas the keyboard reached (Cmd+A) keeps its focus.
+        const ae = document.activeElement, vp = $.canvasViewport()
+        const onCard = ae?.classList?.contains('block') && $.canvasRoot().contains(ae)
+        const fromPointer = onCard ? blockFocusFromPointer : ae === vp && vp.dataset.input === 'pointer'
+        if (fromPointer) { ae.blur(); leftCanvasByEscape = true }
         return
       }
       // Nothing left to deselect: let go of the canvas, so the keyboard is

@@ -194,7 +194,9 @@ describe('Insights: one gap per block', () => {
     assert.deepEq(GAP_ORDER.filter(g => el.classList.contains(g)), ['gap-metric-no-goal'])
   })
   it('paints an icon with an accessible name into the card slot, and clears it', () => {
-    load(canvas([blk('g', 'goal')], []))
+    // A lone goal beside a connected pair: on a map that is mostly
+    // unconnected isolation is one quiet finding instead (wave 4).
+    load(canvas([blk('g', 'goal'), blk('p', 'process'), blk('t', 'terminator')], [['t', 'p']]))
     runGapDetection()
     const icon = document.querySelector('#gi-g .gap-icon')
     assert.ok(icon, 'icon rendered')
@@ -461,9 +463,9 @@ describe('Insights: the Attention tab and the gap checks agree', () => {
     assert.ok(!attentionItems(c.blocks, c.arrows).some(i => i.id === 'r'))
   })
   it('without the connections only the block checks run', () => {
-    const c = canvas([blk('g', 'goal')], [])
+    const c = canvas([blk('g', 'goal'), blk('p', 'process'), blk('q', 'process')], [['p', 'q']])
     assert.eq(attentionItems(c.blocks).length, 0)
-    assert.deepEq(attentionItems(c.blocks, []).map(i => i.kind), ['gap'])
+    assert.deepEq(attentionItems(c.blocks, c.arrows).map(i => i.kind), ['gap'])
   })
 })
 
@@ -548,7 +550,7 @@ describe('Insights: Attention rows accept and reopen gaps', () => {
   it('a criteria gap behind another gap gets no row of its own, and accepting it anyway stays visible', () => {
     // Regression: the row was offered, the acceptance was written, the toast
     // said it was listed under Accepted gaps, and the list stayed empty.
-    load(canvas([blk('r', 'requirement', { title: 'Fast' })], []))
+    load(canvas([blk('r', 'requirement', { title: 'Fast' }), blk('p', 'process'), blk('q', 'process')], [['p', 'q']]))
     resetUndo()
     assert.deepEq(attentionItems(state.blocks, state.arrows).map(i => `${i.kind}:${i.gap}`), ['gap:gap-isolated'])
     assert.ok(acceptGap('r', 'gap-no-criteria'), 'the inspector can still accept it')
@@ -879,10 +881,12 @@ describe('Insights: canvas findings can be accepted per block', () => {
     assert.eq(getUndoHistory().length, 0)
     const rows = attentionItems(state.blocks, state.arrows).filter(i => i.kind === 'canvas')
     const acts = [...rowsDom(rows).querySelectorAll('li')].map(li => li.querySelector('[data-attention-act]')?.dataset.attentionAct || '')
-    assert.deepEq(rows.map(r => r.finding), ['untyped', 'type-check'])
+    // Three unconnected blocks are also one isolation finding (wave 4),
+    // which has nothing to accept either: connecting them settles it.
+    assert.deepEq(rows.map(r => r.finding), ['isolated', 'untyped', 'type-check'])
     // Each offers a fix, never an Accept: suggesting types for the untyped
     // blocks, and keeping the automatic types (which settles each check).
-    assert.deepEq(acts, ['suggest-types', 'confirm-types'])
+    assert.deepEq(acts, ['', 'suggest-types', 'confirm-types'])
     assert.ok(!acts.includes('accept'))
   })
   it('every finding ack has metadata the prompt can print', () => {
@@ -968,7 +972,9 @@ describe('Insights: QA round', () => {
       setupAttention()
       const count = () => document.getElementById('attentionCount').textContent
       const first = count()
-      state.blocks.b = full('b', { type: 'problem' })
+      // An Open Question card is an item of its own, whatever the map's
+      // connections say (two lone cards are one isolation item).
+      state.blocks.b = full('b', { type: 'question' })
       saveStatus.phase = 'pending'
       window.dispatchEvent(new CustomEvent('pf:save-status'))
       assert.eq(count(), first, 'a pending save does not re-run the checks')

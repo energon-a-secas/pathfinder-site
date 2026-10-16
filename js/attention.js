@@ -2,7 +2,7 @@ import { state, ui, saveStatus } from './state.js'
 import { escHtml, showToast, TYPES } from './utils.js'
 import { focusBlock } from './ui-panels.js'
 import { detectGaps, CRITERIA_GAPS, GAP_META, FINDING_ACKS, FINDING_META, gapExplain, hasCriteria,
-         acceptGap, acceptFinding, unacceptGap } from './gaps.js'
+         acceptGap, acceptFinding, unacceptGap, isolationSummary, ISOLATION_FINDING } from './gaps.js'
 import { categorizeLine } from './classify.js'
 import { mutateBlocks } from './render.js'
 import { retypeBlocks } from './type-menu.js'
@@ -23,6 +23,7 @@ const CRITERIA_ASK = {
   metric: 'Set the target this metric has to hit.',
 }
 const sentence = s => s ? s[0].toUpperCase() + s.slice(1) : s
+const isolatedWords = n => n === 1 ? '1 block is not connected yet' : `${n} blocks are not connected yet`
 
 /**
  * The open rows and the accepted rows, from one detection pass.
@@ -37,7 +38,10 @@ const sentence = s => s ? s[0].toUpperCase() + s.slice(1) : s
 export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
   const structural = Array.isArray(arrows)
   const result = structural ? detectGaps(blocks, arrows, { groups }) : null
-  const gapOf = new Map((result?.details || []).map(d => [d.id, d.gaps[0]]))
+  // A map that is mostly unconnected says so once (isolationSummary): one
+  // canvas finding instead of a row per card, the cards' quiet markers.
+  const iso = isolationSummary(result?.details || [], Object.keys(blocks).length)
+  const gapOf = new Map((result?.details || []).filter(d => !(iso.quiet && d.gaps[0] === 'gap-isolated')).map(d => [d.id, d.gaps[0]]))
   const items = []
   Object.values(blocks).forEach(block => {
     const add = (kind, detail, question = null, extra = {}) =>
@@ -63,6 +67,13 @@ export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
       }
     }
   })
+  if (iso.quiet) {
+    items.push({
+      id: iso.ids[0], ids: iso.ids, kind: 'canvas', finding: 'isolated', ack: null, question: null, type: null,
+      title: ISOLATION_FINDING.short,
+      detail: `${isolatedWords(iso.ids.length)}. Draw a line from a dot on a card's edge to link it; its own checks start once it is linked.`,
+    })
+  }
   ;(result?.findings || []).forEach(f => items.push({
     id: f.ids[0] || null, ids: f.ids, kind: 'canvas', finding: f.kind, ack: FINDING_ACKS[f.kind] || null,
     detail: sentence(f.text) + '.', question: null, title: FINDING_META[f.kind]?.short || 'Whole canvas', type: null,
@@ -87,15 +98,32 @@ export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
  * assumptions, blocked work, canvas checks). The badge counts all of them,
  * and its name says so, so "Attention 4" beside one ringed card is explained.
  */
+/**
+ * The isolation finding in words, for any line that counts the open items
+ * ("12 blocks not connected yet"), or '' when the map has none. The Brief's
+ * readiness line should say this rather than count the finding as a canvas
+ * check.
+ */
+export function isolationWords(items = []) {
+  const iso = items.find(i => i.kind === 'canvas' && i.finding === 'isolated')
+  if (!iso) return ''
+  const n = iso.ids.length
+  return `${n} ${n === 1 ? 'block' : 'blocks'} not connected yet`
+}
+
 export function attentionBreakdown(items) {
   const n = (...kinds) => items.filter(i => kinds.includes(i.kind)).length
   const say = (count, one, many = one + 's') => count ? `${count} ${count === 1 ? one : many}` : ''
+  // A mostly unconnected map is one item for many cards, each wearing the
+  // quiet marker: said with its card count, so the words match the map.
+  const iso = items.find(i => i.kind === 'canvas' && i.finding === 'isolated')
   return [
     say(n('gap', 'criteria'), 'gap marked on the map', 'gaps marked on the map'),
+    iso ? `1 item for the ${iso.ids.length === 1 ? 'block not connected yet' : isolationWords(items)}` : '',
     say(n('question'), 'unanswered question'),
     say(n('assumption'), 'unverified assumption'),
     n('blocked') ? `${n('blocked')} blocked` : '',
-    say(n('canvas'), 'canvas check'),
+    say(n('canvas') - (iso ? 1 : 0), 'canvas check'),
   ].filter(Boolean).join(', ')
 }
 
@@ -244,7 +272,9 @@ export function setupAttention() {
       const what = `${items.length} open item${items.length === 1 ? '' : 's'}${items.length ? `: ${attentionBreakdown(items)}` : ''}`
       const tab = badge.closest('button')
       tab?.setAttribute('aria-label', `Attention, ${what}`)
-      tab?.setAttribute('title', items.length ? `Needs attention: ${what}` : 'Needs attention')
+      // The tooltip says what the number counts: one item per open issue,
+      // so a map that is mostly unconnected counts once, not per card.
+      tab?.setAttribute('title', items.length ? `Counts ${what}` : 'Needs attention')
     }
     const open = shown.filter(item => item.kind !== 'accepted')
     const acc = shown.length - open.length

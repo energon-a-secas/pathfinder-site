@@ -408,13 +408,15 @@ describe('QA2 a11y: focus and state survive forced colors', () => {
     }
     const forced = blocks.join('\n')
     assert.match(forced, /\.pf-menu-item:is\([^)]*:focus[^)]*\)\s*\{[^}]*outline:\s*2px solid Highlight/)
-    assert.match(forced, /\.canvas-viewport:focus-visible\s*\{[^}]*outline:\s*2px solid Highlight/)
+    // The canvas's keyboard focus is a chip (wave 4), ringed in Highlight.
+    assert.match(forced, /\.canvas-viewport:focus-visible[^{]*::after\s*\{[^}]*outline:\s*2px solid Highlight/)
     assert.match(forced, /\.panel-tab\.active\s*\{[^}]*border-bottom-color:\s*Highlight/)
   })
 
   it('the canvas focus ring is a solid outline, not a faint inset shadow', async () => {
     const rules = await cssRules('../css/style.css')
-    const ring = rules.filter(([sel]) => sel === '.canvas-viewport:focus-visible').map(([, b]) => b).join(';')
+    // Wave 4: the ring is on the canvas's focus chip, not round the whole map.
+    const ring = rules.filter(([sel]) => sel === '.canvas-viewport:focus-visible:not([data-input="pointer"])::after').map(([, b]) => b).join(';')
     // The one focus treatment: the --focus-outline token, a solid 2px line.
     assert.match(ring, /outline:\s*var\(--focus-outline\)/)
     const css = await (await fetch('../css/style.css')).text()
@@ -644,6 +646,9 @@ describe('QA2 a11y: focus stays put when a control re-renders or removes itself'
     block('g1', { type: 'goal', title: 'Faster status notes' })
     block('p1', { type: 'problem', title: 'Notes arrive late', x: 400 })
     block('r1', { type: 'risk', title: 'Owner leaves', x: 800 })
+    // One connection, so the map is not mostly unconnected (which Attention
+    // says as a single row since wave 4) and each card has a row of its own.
+    state.arrows = [{ id: 'a-g1-p1', from: 'g1', to: 'p1' }]
     const host = await mountFrom(['attentionFilter', 'attentionList'])
     try {
       setupAttention()

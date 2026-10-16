@@ -324,19 +324,47 @@ export function nextEmptyStep(blocks = {}) {
 let lastGapById = new Map()
 let decoratorWired = false
 
+// ── Isolation on a map that is largely unconnected ──────────
+// A fresh paste of notes, or any map where most blocks have no connection
+// yet, painted an amber ring on every card: twelve rings saying one thing,
+// and twelve Attention rows saying it again. When more than a third of the
+// blocks are isolated, isolation is one canvas finding in Attention ("12
+// blocks are not connected yet") and each of those cards wears a quiet
+// neutral marker instead of the ring. A first block counts: it is a map in
+// progress. The ring comes back, for the cards still alone, once two thirds
+// of the map is connected, where a lone card is news, not wallpaper. The
+// line was at half, and connecting the sixth of twelve blocks brought six
+// rings and six rows back at once: the map looked worse the moment it got
+// better. At a third the step comes later and smaller (four of twelve), and
+// the rule stays a pure function of the map, so the canvas and Attention
+// cannot disagree.
+export const ISOLATION_FINDING = { short: 'Not connected yet' }
+
+/** The isolated blocks a detection reported, and whether they are said once. Pure. */
+export function isolationSummary(details = [], blockCount = 0) {
+  const ids = details.filter(d => d.gaps[0] === 'gap-isolated').map(d => d.id)
+  return { ids, quiet: ids.length > 0 && ids.length * 3 > blockCount }
+}
+
+let quietIsolation = false
+
 // Writes only what changed. classList.remove rewrites the class attribute
 // even when the class is absent, and this runs for every card on every
 // mutation: WebKit re-layered the whole canvas each time (140ms at 300
 // cards, for one nudge). The slot's data-gap says what it already shows; a
 // re-render empties the slot and drops the marker, so it is painted again.
+// A quiet isolation marker is its own state of the slot (`gap-isolated:quiet`)
+// and of the card (`iso-quiet`, which takes the ring away).
 function paintGap(el, id, gap) {
   for (const c of GAP_ORDER) if (c !== gap && el.classList.contains(c)) el.classList.remove(c)
   if (gap && !el.classList.contains(gap)) el.classList.add(gap)
+  const quiet = gap === 'gap-isolated' && quietIsolation
+  if (el.classList.contains('iso-quiet') !== quiet) el.classList.toggle('iso-quiet', quiet)
   const gi = el.querySelector('.block-gap-icons') || document.getElementById('gi-' + id)
   if (!gi) return
-  const want = gap || ''
+  const want = gap ? gap + (quiet ? ':quiet' : '') : ''
   if (gi.dataset.gap === want && !want === !gi.firstChild) return
-  gi.innerHTML = gap ? gapIconHtml(gap) : ''
+  gi.innerHTML = gap ? gapIconHtml(gap, { quiet }) : ''
   gi.dataset.gap = want
 }
 
@@ -353,6 +381,7 @@ export function runGapDetection() {
     if (!blockDecorators.includes(paintLastGap)) blockDecorators.push(paintLastGap)
   }
   const result = detectGaps(state.blocks, state.arrows, { groups: state.groups })
+  quietIsolation = isolationSummary(result.details, Object.keys(state.blocks).length).quiet
   lastGapById = new Map(result.details.map(d => [d.id, d.gaps[0]]))
   for (const id in state.blocks) {
     const el = getBlockEl(id); if (!el) continue
@@ -513,8 +542,15 @@ export function gapIconFor(gapClass, size = 14) {
 // The card marker: a corner badge with the rule's icon, and its name, which
 // the stylesheet shows while the card is hovered or focused. The name is the
 // accessible text too, so the gap is never signalled by the ring alone.
-function gapIconHtml(gap) {
+// The quiet isolation marker is the same badge in neutral ink, named for
+// what it is on a map in progress: not yet connected, not a gap to fix.
+function gapIconHtml(gap, { quiet = false } = {}) {
   const attr = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+  if (quiet) {
+    const name = ISOLATION_FINDING.short
+    return `<span class="gap-icon is-quiet" role="img" title="${attr(`${name}: draw a line from a dot on its edge to link it to the plan`)}" aria-label="${attr(name)}">` +
+      `${gapIconFor(gap, 12)}<span class="gap-name" aria-hidden="true">${attr(name)}</span></span>`
+  }
   const name = GAP_META[gap]?.short || gap
   return `<span class="gap-icon" role="img" title="${attr(gapExplain(gap))}" aria-label="Gap: ${attr(name)}">` +
     `${gapIconFor(gap, 12)}<span class="gap-name" aria-hidden="true">${attr(name)}</span></span>`

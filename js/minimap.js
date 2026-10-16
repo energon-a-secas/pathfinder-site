@@ -11,8 +11,8 @@
 //  embed, and not on a phone, where there is no room for it.
 // ════════════════════════════════════════════════════════════
 
-import { state, view, ui, saveHooks } from './state.js'
-import { $ } from './utils.js'
+import { state, view, ui, saveHooks, selection } from './state.js'
+import { $, getBlockEl } from './utils.js'
 import { applyTransform, transformHooks } from './canvas.js'
 import { blockSize } from './create.js'
 import { paintColorFor } from './cards.js'
@@ -24,7 +24,8 @@ export const MINIMAP_SIZE = { w: 160, h: 100 }
 // World units of margin around what the minimap frames.
 const MARGIN = 60
 
-const mm = { on: false, el: null, svg: null, blocks: null, frame: null, drag: null, queued: false }
+const mm = { on: false, el: null, svg: null, blocks: null, frame: null, drag: null, queued: false,
+  rects: new Map(), moved: new Set(), sel: false, synced: false, press: false, pointer: null, placeQueued: false, mo: null }
 
 /** Whether this view can have a minimap at all: not an embed, not a phone. */
 export function minimapAvailable() {
@@ -118,6 +119,7 @@ export function rebuildMinimap() {
   if (!ensureEl()) return
   const g = mm.blocks
   const frag = document.createDocumentFragment()
+  mm.rects = new Map()
   for (const id in state.blocks) {
     const b = state.blocks[id], { w, h } = blockSize(id)
     const r = document.createElementNS(SVG_NS, 'rect')
@@ -135,10 +137,158 @@ export function rebuildMinimap() {
     } else {
       r.style.setProperty('--mm-type', `var(--c-${/^[a-z]+$/.test(b.type) ? b.type : 'custom'})`)
     }
+    if (selection.ids.has(id)) r.classList.add('is-sel')
+    mm.rects.set(id, r)
     frag.appendChild(r)
   }
   g.replaceChildren(frag)
   updateMinimapView()
+}
+
+// ── The selection, and a card on the move ───────────────────
+// The selected blocks are marked (the accent, the one selection colour), and
+// a card being dragged moves its rectangle as it goes, not only when the
+// drag is saved. Both come from the cards themselves: while the minimap
+// shows, an observer watches the cards' class (selected) and style (left,
+// top), and one animation frame applies whatever changed.
+
+/** Mark the selected blocks' rectangles. */
+function syncSelection() {
+  for (const [id, r] of mm.rects) {
+    const on = selection.ids.has(id)
+    if (r.classList.contains('is-sel') !== on) r.classList.toggle('is-sel', on)
+  }
+}
+
+/** Move the rectangles of blocks whose cards moved. */
+function syncMoved() {
+  for (const id of mm.moved) {
+    const b = state.blocks[id], r = mm.rects.get(id)
+    if (!b || !r) continue
+    if (+r.getAttribute('x') !== b.x) r.setAttribute('x', b.x)
+    if (+r.getAttribute('y') !== b.y) r.setAttribute('y', b.y)
+  }
+  mm.moved.clear()
+}
+
+function queueSync() {
+  if (mm.synced) return
+  mm.synced = true
+  requestAnimationFrame(() => {
+    mm.synced = false
+    if (!mm.el || mm.el.hidden) { mm.moved.clear(); return }
+    syncMoved()
+    if (mm.sel) { mm.sel = false; syncSelection() }
+    placeMinimap()
+  })
+}
+
+function onCardMutations(records) {
+  const root = $.canvasRoot()
+  for (const r of records) {
+    const t = r.target
+    if (t.parentNode !== root || !t.classList?.contains('block')) continue
+    if (r.attributeName === 'style') mm.moved.add(t.dataset.id)
+    else mm.sel = true
+  }
+  if (mm.moved.size || mm.sel) queueSync()
+}
+
+/** Watch the cards only while the minimap shows. */
+function watchCards(on) {
+  const root = $.canvasRoot()
+  if (!root || typeof MutationObserver !== 'function') return
+  mm.mo = mm.mo || new MutationObserver(onCardMutations)
+  mm.mo.disconnect()
+  if (on) mm.mo.observe(root, { subtree: true, attributes: true, attributeFilter: ['class', 'style'] })
+}
+
+// ── Out of the way of the work ──────────────────────────────
+// The minimap never sits over the card you are working on: the selected
+// cards, a card with keyboard focus, and the pointer while a press that
+// started on the canvas is held (a drag, a line being drawn, a marquee). It
+// steps aside to the bottom left corner when one of those is under its
+// home corner, and fades out when both corners are taken, coming back as
+// soon as the work moves on. It never moves while its own frame is dragged.
+// The other corner has to be clear of every card, not only of the work: it
+// stepped aside onto a card there, covered it, and took the click meant
+// for it.
+
+export const MINIMAP_MARGIN = 12
+const WORK_PAD = 8
+const WORK_MAX_SELECTED = 12
+
+/**
+ * Which corner the minimap takes: 'right' (home), 'left' (stepped aside) or
+ * 'faded', for its two corner rects, the rects of the work in progress and
+ * the rects of the cards on screen (all in the same coordinates). It steps
+ * aside only to a corner with no card under it. Pure, for the tests.
+ */
+export function minimapSpot(corners, work, cards = []) {
+  const under = (c, rects) => rects.some(w => w.left < c.right && w.right > c.left && w.top < c.bottom && w.bottom > c.top)
+  if (!under(corners.right, work)) return 'right'
+  if (corners.left && !under(corners.left, work) && !under(corners.left, cards)) return 'left'
+  return 'faded'
+}
+
+function workRects() {
+  const rects = []
+  const ids = [...selection.ids]
+  if (ids.length <= WORK_MAX_SELECTED) ids.forEach(id => { const el = getBlockEl(id); if (el) rects.push(el.getBoundingClientRect()) })
+  const ae = document.activeElement
+  if (ae?.classList?.contains('block') && $.canvasRoot()?.contains(ae)) rects.push(ae.getBoundingClientRect())
+  if (mm.press && mm.pointer) rects.push({ left: mm.pointer.x, right: mm.pointer.x, top: mm.pointer.y, bottom: mm.pointer.y })
+  return rects.map(r => ({ left: r.left - WORK_PAD, right: r.right + WORK_PAD, top: r.top - WORK_PAD, bottom: r.bottom + WORK_PAD }))
+}
+
+/** The screen rects of the cards that reach into `area`, from their world rects and the camera. */
+function cardRectsIn(area, v) {
+  const z = view.zoom || 1, ox = v.left + view.panX, oy = v.top + view.panY
+  const out = []
+  for (const id in state.blocks) {
+    const b = state.blocks[id], { w, h } = blockSize(id)
+    const r = { left: ox + b.x * z, top: oy + b.y * z, right: ox + (b.x + w) * z, bottom: oy + (b.y + h) * z }
+    if (r.left < area.right && r.right > area.left && r.top < area.bottom && r.bottom > area.top) out.push(r)
+  }
+  return out
+}
+
+/** Put the minimap where it is out of the way, for the work in progress now. */
+export function placeMinimap() {
+  const el = mm.el
+  if (!el || el.hidden || mm.drag) return null
+  const vp = $.canvasViewport(); if (!vp) return null
+  const v = vp.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight
+  const bottom = v.bottom - (parseFloat(getComputedStyle(el).bottom) || MINIMAP_MARGIN)
+  const corner = left => ({ left, right: left + w, top: bottom - h, bottom })
+  const corners = { right: corner(v.right - MINIMAP_MARGIN - w), left: v.width >= 2 * (w + MINIMAP_MARGIN) ? corner(v.left + MINIMAP_MARGIN) : null }
+  const work = workRects()
+  // The cards are read only when the home corner is taken (the rare case),
+  // from the state and the camera: no layout read per card.
+  const spot = minimapSpot(corners, work, corners.left && work.length ? cardRectsIn(corners.left, v) : [])
+  if (el.classList.contains('is-aside') !== (spot === 'left')) el.classList.toggle('is-aside', spot === 'left')
+  if (el.classList.contains('is-faded') !== (spot === 'faded')) el.classList.toggle('is-faded', spot === 'faded')
+  return spot
+}
+
+function queuePlace() {
+  if (mm.placeQueued || !mm.el || mm.el.hidden) return
+  mm.placeQueued = true
+  requestAnimationFrame(() => { mm.placeQueued = false; placeMinimap() })
+}
+
+function wireWork() {
+  const vp = $.canvasViewport(); if (!vp) return
+  const at = e => { mm.pointer = { x: e.clientX, y: e.clientY } }
+  document.addEventListener('pointerdown', e => {
+    mm.press = !!(vp.contains(e.target) && !mm.el?.contains(e.target))
+    if (mm.press) { at(e); queuePlace() }
+  }, true)
+  document.addEventListener('pointermove', e => { if (mm.press) { at(e); queuePlace() } }, { capture: true, passive: true })
+  const up = () => { if (mm.press) { mm.press = false; queuePlace() } }
+  document.addEventListener('pointerup', up, true)
+  document.addEventListener('pointercancel', up, true)
+  document.addEventListener('focusin', queuePlace)
 }
 
 /** Move the frame (every pan and zoom), and re-frame the minimap unless a drag is holding it still. */
@@ -153,6 +303,8 @@ export function updateMinimapView() {
     r.setAttribute('x', vis.x); r.setAttribute('y', vis.y)
     r.setAttribute('width', Math.max(1, vis.w)); r.setAttribute('height', Math.max(1, vis.h))
   }
+  // A pan or a zoom moves the cards under its corner.
+  queuePlace()
 }
 
 /** Show or hide it for the current state, and redraw it when shown. */
@@ -160,7 +312,8 @@ export function refreshMinimap() {
   const el = ensureEl(); if (!el) return
   const show = mm.on && minimapAvailable() && Object.keys(state.blocks).length > 0
   el.hidden = !show
-  if (show) rebuildMinimap()
+  watchCards(show)
+  if (show) { rebuildMinimap(); placeMinimap() }
 }
 
 function queueRefresh() {
@@ -224,6 +377,7 @@ export function setupMinimap() {
   wired = true
   try { mm.on = !ui.embed && localStorage.getItem(STORE_KEY) === '1' } catch (_) { mm.on = false }
   ensureEl()
+  wireWork()
   transformHooks.add(updateMinimapView)
   // Every saved change, not only the ones that announce themselves: a drag,
   // a resize or a frame move ends with a save and no pf:canvas-changed, and
