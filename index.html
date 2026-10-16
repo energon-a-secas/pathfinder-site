@@ -94,23 +94,25 @@
       <!-- File: import first, every export, then clearing the map. These rows
            are the menu's source, not its display: js/view-menu.js renders them
            through menu.js and clicks the row you pick, so each keeps its id and
-           its listeners. data-file-group splits the menu with dividers, and
-           data-readonly="ok" keeps a row on view-only links. -->
+           its listeners. data-file-group splits the menu with dividers,
+           data-file-menu names the submenu a row sits in (Export, Copy,
+           Hand off; FILE_MENUS in view-menu.js), and data-readonly="ok"
+           keeps a row on view-only links. -->
       <div class="export-wrapper" id="exportWrapper">
         <button class="header-btn" id="exportBtn" aria-haspopup="menu" aria-expanded="false" title="Import, export and download"><span>File</span><svg class="hdr-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg></button>
         <div class="file-actions" id="fileActions" hidden>
           <button type="button" id="importJSON" data-file-group="import"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.25V2.75"/><path d="M5.25 5.5L8 2.75l2.75 2.75"/><path d="M2.75 9.75v2.5c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1v-2.5"/></svg> Import JSON / Canvas / Mermaid…</button>
-          <button type="button" id="exportCopyPrompt" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg> Copy brief</button>
-          <button type="button" id="copyDiagramInstructions" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 2.75h8.5c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1H7.5l-3 2.5v-2.5h-.75c-.55 0-1-.45-1-1v-5.5c0-.55.45-1 1-1z"/><path d="M5.75 5.5h4.5M5.75 7.5h2.5"/></svg> Copy AI diagram-builder prompt</button>
-          <button type="button" id="exportJSON" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.75h-.5C4.67 2.75 4 3.42 4 4.25v2C4 7.22 3.5 8 2.75 8 3.5 8 4 8.78 4 9.75v2c0 .83.67 1.5 1.5 1.5H6"/><path d="M10 2.75h.5c.83 0 1.5.67 1.5 1.5v2c0 .97.5 1.75 1.25 1.75-.75 0-1.25.78-1.25 1.75v2c0 .83-.67 1.5-1.5 1.5H10"/></svg> Download JSON</button>
-          <button type="button" id="exportMarkdown" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="3.75" width="12.5" height="8.5" rx="1.5"/><path d="M4.25 10V6l1.75 2 1.75-2v4"/><path d="M11 6v4M9.5 8.5L11 10l1.5-1.5"/></svg> Download Markdown</button>
-          <button type="button" id="exportMermaid" data-file-group="data" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4" height="3.5" rx=".75"/><rect x="9.75" y="2.25" width="4" height="3.5" rx=".75"/><rect x="6" y="10.25" width="4" height="3.5" rx=".75"/><path d="M4.25 5.75v1.5c0 .55.45 1 1 1h5.5c.55 0 1-.45 1-1v-1.5M8 8.25v2"/></svg> Copy Mermaid</button>
-          <button type="button" id="exportJsonCanvas" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="9" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="2.25" y="9" width="4.75" height="4.75" rx="1"/><rect x="9" y="9" width="4.75" height="4.75" rx="1"/></svg> Download JSON Canvas</button>
-          <button type="button" id="exportSpecBundle" data-file-group="data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="3" rx=".75"/><path d="M3.25 5.75v6.5c0 .55.45 1 1 1h7.5c.55 0 1-.45 1-1v-6.5"/><path d="M6.5 8.25h3"/></svg> Download spec bundle (zip)</button>
-          <button type="button" id="exportPNG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><circle cx="5.75" cy="6.25" r="1.25"/><path d="M13.75 10.5L10.5 7.25 4 13.25"/></svg> Download image (PNG 2×)</button>
-          <button type="button" id="exportSVG" data-file-group="image" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.25 12.25C5.5 6 10.5 10 12.75 3.75"/><rect x="1.75" y="11.5" width="2.75" height="2.75" rx=".5"/><rect x="11.5" y="1.75" width="2.75" height="2.75" rx=".5"/></svg> Download vector (SVG)</button>
-          <button type="button" id="exportMeetingSummary" data-file-group="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.25 2.25h-4.5c-.55 0-1 .45-1 1v9.5c0 .55.45 1 1 1h6.5c.55 0 1-.45 1-1V5.25z"/><path d="M9.25 2.25v3h3"/><path d="M6 8.25h4M6 10.75h4"/></svg> Export meeting summary</button>
-          <button type="button" id="exportToPresentationSage" data-file-group="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.75" width="12" height="8" rx="1"/><path d="M8 10.75v2.5M5.5 13.25h5"/></svg> Open in Presentation Sage</button>
+          <button type="button" id="exportCopyPrompt" data-file-group="data" data-file-menu="copy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg> Copy brief</button>
+          <button type="button" id="copyDiagramInstructions" data-file-group="data" data-file-menu="copy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 2.75h8.5c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1H7.5l-3 2.5v-2.5h-.75c-.55 0-1-.45-1-1v-5.5c0-.55.45-1 1-1z"/><path d="M5.75 5.5h4.5M5.75 7.5h2.5"/></svg> Copy AI diagram-builder prompt</button>
+          <button type="button" id="exportJSON" data-file-group="data" data-file-menu="export"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.75h-.5C4.67 2.75 4 3.42 4 4.25v2C4 7.22 3.5 8 2.75 8 3.5 8 4 8.78 4 9.75v2c0 .83.67 1.5 1.5 1.5H6"/><path d="M10 2.75h.5c.83 0 1.5.67 1.5 1.5v2c0 .97.5 1.75 1.25 1.75-.75 0-1.25.78-1.25 1.75v2c0 .83-.67 1.5-1.5 1.5H10"/></svg> Download JSON</button>
+          <button type="button" id="exportMarkdown" data-file-group="data" data-file-menu="export" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="3.75" width="12.5" height="8.5" rx="1.5"/><path d="M4.25 10V6l1.75 2 1.75-2v4"/><path d="M11 6v4M9.5 8.5L11 10l1.5-1.5"/></svg> Download Markdown</button>
+          <button type="button" id="exportMermaid" data-file-group="data" data-file-menu="copy" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4" height="3.5" rx=".75"/><rect x="9.75" y="2.25" width="4" height="3.5" rx=".75"/><rect x="6" y="10.25" width="4" height="3.5" rx=".75"/><path d="M4.25 5.75v1.5c0 .55.45 1 1 1h5.5c.55 0 1-.45 1-1v-1.5M8 8.25v2"/></svg> Copy Mermaid</button>
+          <button type="button" id="exportJsonCanvas" data-file-group="data" data-file-menu="export"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="9" y="2.25" width="4.75" height="4.75" rx="1"/><rect x="2.25" y="9" width="4.75" height="4.75" rx="1"/><rect x="9" y="9" width="4.75" height="4.75" rx="1"/></svg> Download JSON Canvas</button>
+          <button type="button" id="exportSpecBundle" data-file-group="data" data-file-menu="export"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="3" rx=".75"/><path d="M3.25 5.75v6.5c0 .55.45 1 1 1h7.5c.55 0 1-.45 1-1v-6.5"/><path d="M6.5 8.25h3"/></svg> Download spec bundle (zip)</button>
+          <button type="button" id="exportPNG" data-file-group="image" data-file-menu="export" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><circle cx="5.75" cy="6.25" r="1.25"/><path d="M13.75 10.5L10.5 7.25 4 13.25"/></svg> Download image (PNG 2×)</button>
+          <button type="button" id="exportSVG" data-file-group="image" data-file-menu="export" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.25 12.25C5.5 6 10.5 10 12.75 3.75"/><rect x="1.75" y="11.5" width="2.75" height="2.75" rx=".5"/><rect x="11.5" y="1.75" width="2.75" height="2.75" rx=".5"/></svg> Download vector (SVG)</button>
+          <button type="button" id="exportMeetingSummary" data-file-group="handoff" data-file-menu="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.25 2.25h-4.5c-.55 0-1 .45-1 1v9.5c0 .55.45 1 1 1h6.5c.55 0 1-.45 1-1V5.25z"/><path d="M9.25 2.25v3h3"/><path d="M6 8.25h4M6 10.75h4"/></svg> Export meeting summary</button>
+          <button type="button" id="exportToPresentationSage" data-file-group="handoff" data-file-menu="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.75" width="12" height="8" rx="1"/><path d="M8 10.75v2.5M5.5 13.25h5"/></svg> Open in Presentation Sage</button>
           <button type="button" id="clearBtn" data-file-group="danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.75 4.25h10.5"/><path d="M6.25 4.25v-1.5h3.5v1.5"/><path d="M4 4.25l.6 8.1c.04.52.47.9.99.9h4.82c.52 0 .95-.38.99-.9l.6-8.1"/></svg> Clear this map</button>
         </div>
       </div>
@@ -634,6 +636,9 @@
               <span class="insp-chip-text" id="multiPriorityText">Priority</span>
               <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
             </button>
+            <button type="button" class="insp-icon-btn" id="multiMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for the selected blocks" title="More actions">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="3.5" cy="8" r=".75"/><circle cx="8" cy="8" r=".75"/><circle cx="12.5" cy="8" r=".75"/></svg>
+            </button>
           </div>
           <div class="insp-section">
             <div class="insp-label" id="multiHighlightLabel">Highlight <span class="insp-label-hint">for presenting, not for meaning</span></div>
@@ -659,7 +664,6 @@
             </div>
             <button class="btn btn-secondary btn-sm insp-quiet-btn" id="ungroupBtn" type="button">Ungroup</button>
           </div>
-          <button class="btn btn-danger btn-block insp-delete-btn" id="deleteMultiBtn" type="button">Delete selected</button>
         </div>
 
         <!-- One connection. -->
@@ -668,6 +672,9 @@
             <div class="inspector-arrow-info" id="arrowInfo"></div>
             <button type="button" class="insp-icon-btn" id="arrowReverse" aria-label="Reverse direction" title="Reverse direction">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.75 5.25h7.5l-2-2M11.25 10.75h-7.5l2 2"/></svg>
+            </button>
+            <button type="button" class="insp-icon-btn" id="arrowMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="More connection actions" title="More actions">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="3.5" cy="8" r=".75"/><circle cx="8" cy="8" r=".75"/><circle cx="12.5" cy="8" r=".75"/></svg>
             </button>
           </div>
           <div class="insp-section">
@@ -762,7 +769,6 @@
               <button type="button" class="btn btn-secondary btn-sm insp-quiet-btn" id="arrowAutoRoute">Reset ends to auto</button>
             </div>
           </details>
-          <button class="btn btn-danger btn-block insp-delete-btn" id="deleteArrowBtn" type="button">Delete connection</button>
         </div>
       </div>
 

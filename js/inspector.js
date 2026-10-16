@@ -33,6 +33,7 @@ import { typeShape, chipIcon } from './cards.js'
 import { showPanels } from './chrome.js'
 import { setSpotlight } from './view-menu.js'
 import { animateView } from './zoom-controls.js'
+import { openMoreMenu } from './context-menu.js'
 
 // The type picker lives in type-menu.js; the inspector was its first home.
 export { typeMenuItems }
@@ -321,7 +322,6 @@ function renderBlockInspector(b) {
     statusBtn.setAttribute('aria-label', `Status: ${statusLabel(k)}`)
     statusBtn.title = `Status: ${statusLabel(k)}`
   }
-  setHidden(byId('inspMoreBtn'), ro)
   fitHead()
 
   // Title and description.
@@ -1058,19 +1058,12 @@ export function setupInspectorEvents() {
     const b = selectedBlock(); if (!b || ui.readOnly) return null
     return statusMenuItems(statusKey(b), k => editBlock({ status: k || null }))
   }, 'Status')
-  dropdown('inspMoreBtn', () => {
-    const b = selectedBlock(); if (!b || ui.readOnly) return null
-    return [
-      { label: 'Duplicate', shortcut: isMac() ? '⌘D' : 'Ctrl+D', action: () => {
-        const newId = duplicateBlock(b.id)
-        if (newId) selectBlock(newId)
-      } },
-      { type: 'divider' },
-      // The panel empties, taking the focused button with it, so focus goes
-      // to the canvas the block was on rather than falling to the page.
-      { label: 'Delete block', shortcut: 'Del', danger: true, action: () => { deleteBlock(b.id); focusCanvas() } },
-    ]
-  }, 'Block actions')
+  // More (⋯) in each header: the selection's own context menu
+  // (context-menu.js openMoreMenu), so the panel and a right-click offer
+  // the same actions in the same words. Delete lives there, not as a
+  // button at the foot of the panel; when the panel empties with what it
+  // removed, focus goes to the canvas.
+  ;['inspMoreBtn', 'multiMoreBtn', 'arrowMoreBtn'].forEach(id => on(id, 'click', e => openMoreMenu(e.currentTarget)))
 
   // The button hides once the block is an Assumption, so focus moves to the
   // type chip, which now says so.

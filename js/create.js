@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════
 //  create.js: every "make a block here" path in one place.
 //
-//  The palette, the canvas add menu, quick-create from a port,
-//  the keyboard and the gap fixes all create through these, so
+//  The palette, the canvas add menu, quick-create from a port
+//  (createFromPort, after its picker), the keyboard and the gap
+//  fixes all create through these, so
 //  each creation is one undo step and lands in title editing.
 //  Every one lands in a free slot (nearestFreeSpot), CARD_GAP
 //  clear of every card; the brain dump and a patch's new blocks
@@ -283,6 +284,18 @@ export function createConnected(fromId, type, { dir = 'right', incoming = false,
   else addArrow(fromId, id, null, null, { undo: false, relation })
   renderArrows({ cheap: false })
   return finishCreate(id, { edit, select })
+}
+
+// The way a block grows out of each side of its source.
+const PORT_GROWTH = { left: 'left', right: 'right', top: 'up', bottom: 'down' }
+
+/**
+ * A click on a port, then a type in the picker beside it (context-menu.js
+ * openPortMenu): a connected block of that type grown out of that side,
+ * pointing the way the pair's verb reads. One undo step, in title editing.
+ */
+export function createFromPort(fromId, side, type) {
+  return createConnected(fromId, type, { dir: PORT_GROWTH[side] || 'right', incoming: 'auto' })
 }
 
 /**

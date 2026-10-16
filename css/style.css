@@ -5844,3 +5844,49 @@ body:not(.readonly-mode) .canvas-viewport:focus-visible:not([data-input="pointer
 /* The walkthrough's keys: the caps in one column, what they do beside. */
 .doc-keys-caps { flex: 0 0 9.5rem; display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); }
 .doc-keys .doc-keys-caps { font-size: var(--fs-13); }
+
+
+
+
+/* ════ [menus4] ════ */
+/* Design round wave 4, MENUS: menus a person can scan. A long menu is one
+   flat list (what the command palette searches) shown chunked by menu.js
+   groupItems: ten rows at most, groups of three or four between dividers,
+   the rest in named submenus (Planning, Appearance, Select, Arrange, Line;
+   File's Export, Copy, Hand off; View's Theme, Display, Lines) whose
+   sections are headed. */
+
+/* A section heading inside a submenu sits close over its own rows: the
+   divider above it already separates it from the section before. */
+.pf-menu-divider + .pf-menu-heading { padding-top: 4px; }
+
+/* The inspector's More (⋯) on several blocks ends the header row, on a line
+   of its own when the chips wrap. */
+.insp-head-multi #multiMoreBtn { margin-left: auto; }
+
+/* The More menus and the port's picker hold full-width rows. */
+.insp-more-menu,
+.ctx-port-menu { min-width: 220px; }
+
+/* Every menu sits above a toast, as the header's own menus do ([chrome]): a
+   menu is what the person is using, a toast is status. A context menu, the
+   port's picker, the inspector's More and every submenu (a header menu's
+   included) opened under one, so "Sample opened" hid a block menu's rows. */
+.pf-menu { z-index: 10001; }
+
+/* A type list with a note at its foot (Add connected, Change type, Insert
+   block, More types, the quick-add and port pickers) is as wide as a menu
+   gets, from the moment it opens. It used to open as wide as its labels and
+   widen when the note for the row in focus came in, after it had been
+   placed, so on a phone it ran past the window's edge and bottom. At this
+   width every note takes two lines, which the note already holds room for;
+   a stacked submenu narrower than this holds room for three. The
+   inspector's own type list keeps its own width (its rule is more
+   specific). */
+.pf-menu:where(:has(> .type-menu-note-wrap)) { width: 340px; }
+.pf-submenu-stacked > .type-menu-note-wrap .type-menu-note { min-height: calc(3 * 1.35em + 8px); }
+
+/* A status or priority glyph in a menu row takes the row's 16px icon
+   column like every other icon there (the chip's own 11px basis made the
+   priority bars too small to tell apart beside 16px icons). */
+.pf-menu-icon .chip-icon { flex: 0 0 16px; width: 16px; height: 16px; }

@@ -405,7 +405,11 @@ describe('chrome -- View menu', () => {
     try {
       const menu = openViewMenu(btn)
       assert.eq(btn.getAttribute('aria-expanded'), 'true')
-      const row = [...menu.el.querySelectorAll('.pf-menu-item')]
+      // Animate highlights sits under View, Display.
+      ;[...menu.el.querySelectorAll('.pf-menu-item')]
+        .find(r => r.querySelector('.pf-menu-label').textContent === 'Display').click()
+      const subs = document.querySelectorAll('.pf-menu.pf-submenu')
+      const row = [...subs[subs.length - 1].querySelectorAll('.pf-menu-item')]
         .find(r => r.querySelector('.pf-menu-label').textContent === 'Animate highlights')
       assert.eq(row.getAttribute('role'), 'menuitemcheckbox')
       assert.eq(row.getAttribute('aria-checked'), 'false')

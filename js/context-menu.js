@@ -9,25 +9,37 @@
 //  Every change is one undo step. Read-only and embed views get
 //  navigation only (zoom to block, go to an end, fit, 100%).
 //
+//  Each menu is one flat list of rows (blockMenuItems, multiMenuItems,
+//  arrowMenuItems: what the command palette reads, so every row is
+//  found by its name) shown chunked: ten rows at most, in groups of
+//  four at most, the rest in named submenus (Planning, Appearance,
+//  Select and zoom, Arrange, Line; menu.js groupItems).
+//
 //  Used elsewhere:
 //   openCanvasAddMenu(clientX, clientY, opts?)  the quick-add type
 //     picker (double-click on empty canvas, port drop). opts:
 //     { suggested, title, onPick(type, world), onCancel }
+//   openPortMenu(fromId, side, portEl, { touch })  the same picker
+//     beside a port that was clicked; refocusPortMenu() gives it the
+//     keyboard back after the second press of a double-click, and
+//     closePortMenu() closes it once a press on its port becomes a drag
+//   openMoreMenu(button)  the inspector's More: the selection's menu
 //   openBlockMenu / openMultiMenu / openArrowMenu / openCanvasMenu
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, ui, view, pointer, snapshot, toWorld } from './state.js'
+import { state, selection, ui, view, pointer, canvasMeta, snapshot, toWorld } from './state.js'
 import { $, TYPES, typesByStep, STATUS_DEFS, PRIORITY_DEFS, HIGHLIGHTS,
-         SWATCH_COLORS, SWATCH_NAMES, genId, getBlockEl, showToast } from './utils.js'
+         SWATCH_COLORS, SWATCH_NAMES, CARD_STYLES, DEFAULT_CARD_STYLE, drawnCardStyle, pickableCardStyles,
+         genId, getBlockEl, showToast } from './utils.js'
 import { applyTransform, fitView, updateHint,
          arrowRoute, arrowPattern, ARROW_ROUTES } from './canvas.js'
 import { selectBlock, setSelection, selectArrow, renderInspector,
          mutateBlock, mutateBlocks, mutateArrow, deleteBlock, deleteBlocksBatch,
          deleteArrow, duplicateBlock, addArrow, createGroup } from './render.js'
-import { openMenu, isMenuOpen } from './menu.js'
+import { openMenu, openDropdown, isMenuOpen, closeMenus, groupItems } from './menu.js'
 import { typeDot, typeRow, typeNoteItem, typeMenuItems, retypeBlocks, typeNoun } from './type-menu.js'
 import { typeShape, chipIcon } from './cards.js'
-import { createBlockAt, createConnected, insertOnArrow, suggestedNextTypes,
+import { createBlockAt, createConnected, createFromPort, insertOnArrow, suggestedNextTypes,
          defaultConnectDirection } from './create.js'
 import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
@@ -141,12 +153,31 @@ function tagRows(el, items) {
   })
 }
 
-// A menu action can remove what had focus (Delete). Keep the keyboard on
-// the canvas rather than dropping it on the page.
+// A menu action can remove what had focus (Delete), or hide it (the
+// inspector's More button, whose panel empties with the block). Keep the
+// keyboard on the canvas rather than dropping it on the page.
 function keepFocus() {
   const ae = document.activeElement
-  if (!ae || ae === document.body || !ae.isConnected) $.canvasViewport()?.focus({ preventScroll: true })
+  const gone = !ae || ae === document.body || !ae.isConnected ||
+    (typeof ae.checkVisibility === 'function' && !ae.checkVisibility())
+  if (gone) $.canvasViewport()?.focus({ preventScroll: true })
 }
+
+// ── Named groups ─────────────────────────────────────────────
+// The submenus a long menu folds its less frequent rows into (menu.js
+// groupItems). Each row keeps its own label, so the palette, which reads
+// the flat lists, still finds "Select upstream" or "Priority" by name.
+// Select and zoom always opens as a submenu, even when Zoom to block is all
+// it holds (a block with no connections), so that row is in one place
+// whatever the map around the block looks like.
+const GROUPS = {
+  planning:   { ctx: 'planning', label: 'Planning', icon: I.priority },
+  appearance: { ctx: 'appearance', label: 'Appearance', icon: I.colour },
+  select:     { ctx: 'select', label: 'Select and zoom', icon: I.sameType, keep: true },
+  arrange:    { ctx: 'arrange', label: 'Arrange', icon: I.align },
+  line:       { ctx: 'line', label: 'Line', icon: I.route },
+}
+const grouped = build => groupItems(build, GROUPS)
 
 // The viewport is overflow:hidden and pans by transform, so it must never
 // scroll: from then on the canvas is drawn out of step with view.pan, and
@@ -339,19 +370,25 @@ function changeTypeItems(ids) {
   return typeMenuItems(shared(ids, b => b.type) ?? null, t => retypeAll(ids, t), { notes: 'pointer' })
 }
 
+// Status rows draw the status chip's own circles, as priority rows draw its
+// bars, so the two sections of Planning line up label under label.
 function statusItems(ids) {
   const cur = shared(ids, b => (b.status && STATUS_DEFS[b.status]) ? b.status : 'not-started')
   return Object.entries(STATUS_DEFS).map(([k, v]) => ({
-    label: v.label, radio: true, checked: cur === k,
+    label: v.label, icon: chipIcon('status', k), radio: true, checked: cur === k,
     // "Not started" is the absence of a status, as in the inspector.
     action: () => applyBlocks(ids, { status: k === 'not-started' ? null : k }),
   }))
 }
 
+// An empty icon slot: a row with no picture of its own keeps its label in
+// line with the rows that have one.
+const NO_ICON = '<span aria-hidden="true"></span>'
+
 function priorityItems(ids) {
   const cur = shared(ids, b => b.priority || null)
   return [
-    { label: 'None', radio: true, checked: cur === null, action: () => applyBlocks(ids, { priority: null }) },
+    { label: 'None', icon: NO_ICON, radio: true, checked: cur === null, action: () => applyBlocks(ids, { priority: null }) },
     ...Object.entries(PRIORITY_DEFS).map(([k, v]) => ({
       label: v.label, icon: chipIcon('priority', k), radio: true, checked: cur === k,
       action: () => applyBlocks(ids, { priority: k }),
@@ -374,16 +411,37 @@ function highlightItems(ids) {
   }]
 }
 
-function colourItems(id) {
-  const b = state.blocks[id]; if (!b) return []
+// A colour for one block or several. The default swatch shows the type's
+// colour when they share a type, else a neutral one.
+function colourItems(ids) {
+  const live = ids.filter(id => state.blocks[id]); if (!live.length) return []
+  const cur = shared(live, b => b.color || null)
+  const type = shared(live, b => b.type)
   return [{
     type: 'swatches', label: 'Colour',
     options: [
-      { value: '', color: typeDot(b.type), label: 'Type colour (default)', active: !b.color, className: 'ctx-sw-default' },
-      ...SWATCH_COLORS.map(c => ({ value: c, color: c, label: SWATCH_NAMES[c] || c, active: b.color === c })),
+      { value: '', color: type ? typeDot(type) : 'var(--text-3)', label: 'Type colour (default)', active: cur === null, className: 'ctx-sw-default' },
+      ...SWATCH_COLORS.map(c => ({ value: c, color: c, label: SWATCH_NAMES[c] || c, active: cur === c })),
     ],
-    onPick: v => applyBlocks([id], { color: v || null }),
+    onPick: v => applyBlocks(live, { color: v || null }),
   }]
+}
+
+// A block's own card style, or the map's (null). The inspector's Card
+// picker offers the same choices; each row shows the preset in miniature,
+// as View's Card style does.
+const CARD_PREVIEW = k => `<span class="card-swatch card-swatch-${k}"></span>`
+function cardStyleItems(ids) {
+  const cur = shared(ids, b => (b.cardStyle && CARD_STYLES[b.cardStyle] ? drawnCardStyle(b.cardStyle) : null))
+  const mapKey = drawnCardStyle(canvasMeta.cardStyle || DEFAULT_CARD_STYLE)
+  const mapStyle = CARD_STYLES[mapKey]?.label || 'Outline'
+  return [
+    { label: 'Map default', hint: `Follows the map (${mapStyle})`, icon: CARD_PREVIEW(mapKey), radio: true, checked: cur === null,
+      action: () => applyBlocks(ids, { cardStyle: null }) },
+    ...pickableCardStyles().map(([k, v]) => ({
+      label: v.label, icon: CARD_PREVIEW(k), radio: true, checked: cur === k, action: () => applyBlocks(ids, { cardStyle: k }),
+    })),
+  ]
 }
 
 // ── Block menu ───────────────────────────────────────────────
@@ -509,50 +567,68 @@ function addQuestion(id) {
   focusQuestion(id, index)
 }
 
-function blockMenuItems(id) {
+/**
+ * One block's rows, flat (the palette reads them as they are). Shown through
+ * blockMenu: Edit title, Edit description, Change type; Add connected,
+ * Connect to, Duplicate; Planning, Appearance, Select and zoom; Delete. Ten
+ * rows at most, in groups of three, whatever the block has.
+ */
+export function blockMenuItems(id) {
   const b = state.blocks[id]; if (!b) return []
-  // The same camera move as Shift+2 with this block selected.
+  // The same camera move as Shift+2 with this block selected. A view-only
+  // link has nothing else to offer, so there it is the menu's one row.
   const zoom = { ctx: 'zoom', label: 'Zoom to block', icon: I.zoom, shortcut: 'Shift+2', action: () => zoomToBlocks([id]) }
   if (ui.readOnly) return [zoom]
   const hasIn = hasStep(id, 'up'), hasOut = hasStep(id, 'down')
   const sameType = Object.values(state.blocks).filter(o => o.type === b.type).length
   return tidyItems([
+    // Editing what the block says.
     { ctx: 'edit-title', label: 'Edit title', icon: I.edit, shortcut: 'Enter', action: () => startInlineEdit(id, 'title') },
     // Caret at the end: selecting a whole paragraph invites typing over it.
     !b.collapsed && { ctx: 'edit-desc', label: 'Edit description', icon: I.desc, shortcut: 'Shift+Enter',
       action: () => startInlineEdit(id, 'description', { selectAll: false }) },
+    { ctx: 'type', label: 'Change type', icon: I.type, submenu: () => changeTypeItems([id]) },
+    DIV,
+    // Growing the map from it.
     { ctx: 'add-connected', label: 'Add connected', icon: I.add, submenu: () => addConnectedItems(id) },
     connectTargets(id).length && { ctx: 'connect', label: 'Connect to…', icon: I.connect, submenu: () => connectToItems(id) },
-    connectionRows(id).length && { ctx: 'connections', label: 'Select connection', icon: I.route, submenu: () => connectionItems(id) },
-    { ctx: 'type', label: 'Change type', icon: I.type, submenu: () => changeTypeItems([id]) },
-    { ctx: 'status', label: 'Status', icon: I.status, submenu: () => statusItems([id]) },
-    { ctx: 'priority', label: 'Priority', icon: I.priority, submenu: () => priorityItems([id]) },
-    { ctx: 'highlight', label: 'Highlight', icon: I.highlight, submenu: () => highlightItems([id]) },
-    { ctx: 'colour', label: 'Colour', icon: I.colour, submenu: () => colourItems(id) },
-    DIV,
-    hasIn && { ctx: 'upstream', label: 'Select upstream', icon: I.up,
-      action: () => selectAndSay(reach(id, 'up'), 'upstream') },
-    hasOut && { ctx: 'downstream', label: 'Select downstream', icon: I.down,
-      action: () => selectAndSay(reach(id, 'down'), 'downstream') },
-    sameType > 1 && { ctx: 'same-type', label: `Select all ${sameType} ${typeNoun(b.type, sameType)}`, icon: I.sameType,
-      action: () => setSelection(Object.values(state.blocks).filter(o => o.type === b.type).map(o => o.id)) },
-    zoom,
-    DIV,
     { ctx: 'duplicate', label: 'Duplicate', icon: I.duplicate, shortcut: MOD + 'D',
       action: () => { const n = duplicateBlock(id); if (n) selectBlock(n) } },
+    DIV,
+    // Planning: where it stands, and what is still to find out.
+    { ctx: 'status', label: 'Status', icon: I.status, group: 'planning', inline: true, submenu: () => statusItems([id]) },
+    { ctx: 'priority', label: 'Priority', icon: I.priority, group: 'planning', inline: true, submenu: () => priorityItems([id]) },
+    { ctx: 'question', label: 'Add question', icon: I.question, group: 'planning', action: () => addQuestion(id) },
+    // Appearance: the inspector's section of the same name.
+    { ctx: 'highlight', label: 'Highlight', icon: I.highlight, group: 'appearance', inline: true, submenu: () => highlightItems([id]) },
+    { ctx: 'colour', label: 'Colour', icon: I.colour, group: 'appearance', inline: true, submenu: () => colourItems([id]) },
+    { ctx: 'card-style', label: 'Card style', icon: I.type, group: 'appearance', inline: true, submenu: () => cardStyleItems([id]) },
     { ctx: 'collapse', label: b.collapsed ? 'Expand' : 'Collapse', icon: b.collapsed ? I.expand : I.collapse,
-      action: () => applyBlocks([id], { collapsed: !b.collapsed }) },
-    { ctx: 'question', label: 'Add question', icon: I.question, action: () => addQuestion(id) },
+      group: 'appearance', action: () => applyBlocks([id], { collapsed: !b.collapsed }) },
+    // Select and zoom: what it is part of, and the camera on it.
+    hasIn && { ctx: 'upstream', label: 'Select upstream', icon: I.up, group: 'select',
+      action: () => selectAndSay(reach(id, 'up'), 'upstream') },
+    hasOut && { ctx: 'downstream', label: 'Select downstream', icon: I.down, group: 'select',
+      action: () => selectAndSay(reach(id, 'down'), 'downstream') },
+    sameType > 1 && { ctx: 'same-type', label: `Select all ${sameType} ${typeNoun(b.type, sameType)}`, icon: I.sameType, group: 'select',
+      action: () => setSelection(Object.values(state.blocks).filter(o => o.type === b.type).map(o => o.id)) },
+    connectionRows(id).length && { ctx: 'connections', label: 'Select connection', icon: I.route, group: 'select',
+      submenu: () => connectionItems(id) },
+    { type: 'divider', group: 'select' },
+    { ...zoom, group: 'select' },
     DIV,
     { ctx: 'delete', label: 'Delete', icon: I.trash, shortcut: 'Del', danger: true,
       action: () => { deleteBlock(id); keepFocus() } },
   ])
 }
 
+/** One block's menu as it opens: the flat rows chunked (see blockMenuItems). */
+export function blockMenu(id) { return grouped(() => blockMenuItems(id)) }
+
 export function openBlockMenu(id, clientX, clientY) {
   if (!state.blocks[id]) return null
   if (!(selection.ids.size === 1 && selection.blockId === id)) selectBlock(id)
-  return openCtxMenu(blockMenuItems(id), {
+  return openCtxMenu(blockMenu(id), {
     x: clientX, y: clientY, className: 'ctx-block-menu',
     label: `Actions for ${titleOf(state.blocks[id])}`,
     returnFocus: getBlockEl(id),
@@ -589,7 +665,12 @@ function duplicateAll(ids) {
   return fresh
 }
 
-function multiMenuItems(ids) {
+/**
+ * A selection's rows, flat (the palette reads them as they are). Shown
+ * through multiMenu: the tally, then Change type, Planning, Appearance;
+ * Arrange, Duplicate all, Zoom to selection; Delete.
+ */
+export function multiMenuItems(ids) {
   const n = ids.length
   const zoom = { ctx: 'zoom-selection', label: 'Zoom to selection', icon: I.zoom, shortcut: 'Shift+2', action: () => zoomToBlocks(ids) }
   if (ui.readOnly) return [zoom]
@@ -598,34 +679,39 @@ function multiMenuItems(ids) {
   return tidyItems([
     { type: 'heading', label: selectionTally(ids) },
     { ctx: 'type', label: 'Change type', icon: I.type, submenu: () => changeTypeItems(ids) },
-    { ctx: 'status', label: 'Status', icon: I.status, submenu: () => statusItems(ids) },
-    { ctx: 'highlight', label: 'Highlight', icon: I.highlight, submenu: () => highlightItems(ids) },
-    n >= 2 && { ctx: 'align', label: 'Align', icon: I.align, submenu: () => tidyItems(ALIGN_ROWS.map(r => r ? {
-      label: r[1], action: () => arrangeSelection('align', ids, r[0]),
-    } : DIV)) },
-    n >= 3 && { ctx: 'distribute', label: 'Distribute', icon: I.distribute, submenu: () => [
+    { ctx: 'status', label: 'Status', icon: I.status, group: 'planning', inline: true, submenu: () => statusItems(ids) },
+    { ctx: 'priority', label: 'Priority', icon: I.priority, group: 'planning', inline: true, submenu: () => priorityItems(ids) },
+    { ctx: 'highlight', label: 'Highlight', icon: I.highlight, group: 'appearance', inline: true, submenu: () => highlightItems(ids) },
+    { ctx: 'colour', label: 'Colour', icon: I.colour, group: 'appearance', inline: true, submenu: () => colourItems(ids) },
+    { ctx: 'card-style', label: 'Card style', icon: I.type, group: 'appearance', inline: true, submenu: () => cardStyleItems(ids) },
+    DIV,
+    n >= 2 && { ctx: 'align', label: 'Align', icon: I.align, group: 'arrange', inline: true,
+      submenu: () => tidyItems(ALIGN_ROWS.map(r => r ? { label: r[1], action: () => arrangeSelection('align', ids, r[0]) } : null)) },
+    n >= 3 && { ctx: 'distribute', label: 'Distribute', icon: I.distribute, group: 'arrange', inline: true, submenu: () => [
       { label: 'Horizontally', hint: 'Even gaps left to right',
         action: () => arrangeSelection('distribute', ids, 'h') },
       { label: 'Vertically', hint: 'Even gaps top to bottom',
         action: () => arrangeSelection('distribute', ids, 'v') },
     ] },
-    !oneGroup && { ctx: 'group', label: 'Group into frame', icon: I.group, action: () => {
+    !oneGroup && { ctx: 'group', label: 'Group into frame', icon: I.group, group: 'arrange', action: () => {
       if (createGroup(ids)) showToast(`Grouped ${n} blocks. Name the frame in the inspector`, 'success', 2000)
     } },
-    zoom,
-    DIV,
     { ctx: 'duplicate', label: 'Duplicate all', icon: I.duplicate, action: () => duplicateAll(ids) },
+    zoom,
     DIV,
     { ctx: 'delete', label: `Delete ${n} blocks`, icon: I.trash, shortcut: 'Del', danger: true,
       action: () => { deleteBlocksBatch(ids); keepFocus() } },
   ])
 }
 
+/** A selection's menu as it opens: the flat rows chunked (see multiMenuItems). */
+export function multiMenu(ids) { return grouped(() => multiMenuItems(ids)) }
+
 /** The menu for a selection of several blocks. Never changes the selection. */
 export function openMultiMenu(ids, clientX, clientY, { anchorId = null } = {}) {
   const live = ids.filter(id => state.blocks[id])
   if (live.length < 2) return live.length ? openBlockMenu(live[0], clientX, clientY) : null
-  return openCtxMenu(multiMenuItems(live), {
+  return openCtxMenu(multiMenu(live), {
     x: clientX, y: clientY, className: 'ctx-multi-menu', label: `Actions for ${live.length} selected blocks`,
     // With no card on screen to go back to, the canvas itself.
     returnFocus: (anchorId && getBlockEl(anchorId)) || $.canvasViewport(),
@@ -651,13 +737,21 @@ function weightItems(aid, a) {
   const rows = WEIGHTS.map(([w, label]) => ({
     label, radio: true, checked: cur === w, action: () => applyArrow(aid, { weight: w }),
   }))
+  // The legacy row stays inside the Weight section (no divider): it is one
+  // more of the same choice, under Line's Weight heading.
   if (!WEIGHTS.some(([w]) => w === cur)) {
-    rows.push(DIV, { ctx: 'weight-current', label: `${cur}px`, hint: 'Current weight', radio: true, checked: true, action: () => {} })
+    rows.push({ ctx: 'weight-current', label: `${cur}px`, hint: 'Current weight', radio: true, checked: true, action: () => {} })
   }
   return rows
 }
 
-function arrowMenuItems(aid, pt) {
+/**
+ * A connection's rows, flat (the palette reads them as they are). Shown
+ * through arrowMenu: Edit label, Meaning, Reverse direction, Two-way; Line
+ * (route, pattern, weight, colour), Insert block, Reset ends; the two ends;
+ * Delete.
+ */
+export function arrowMenuItems(aid, pt) {
   const a = arrowById(aid); if (!a) return []
   const from = state.blocks[a.from], to = state.blocks[a.to]
   const goTo = [
@@ -676,15 +770,6 @@ function arrowMenuItems(aid, pt) {
         label, radio: true, checked: a.relation === k, action: () => applyArrow(aid, { relation: k }),
       })),
     ] },
-    { ctx: 'route', label: 'Route', icon: I.route, submenu: () => ARROW_ROUTES.map(k => ({
-      label: ROUTE_LABELS[k] || k, radio: true, checked: route === k,
-      // A legacy style of 'dashed' is a pattern too; keep it when the route changes.
-      action: () => applyArrow(aid, { style: k, ...(a.style !== route && !a.pattern ? { pattern } : {}) }),
-    })) },
-    { ctx: 'pattern', label: 'Pattern', icon: I.pattern, submenu: () => Object.entries(PATTERN_LABELS).map(([k, label]) => ({
-      label, radio: true, checked: pattern === k,
-      action: () => applyArrow(aid, { pattern: k, ...(a.style !== route ? { style: route } : {}) }),
-    })) },
     { ctx: 'reverse', label: 'Reverse direction', icon: I.reverse, action: () => {
       // Reversing onto a connection that already runs the other way would
       // leave two identical arrows.
@@ -700,7 +785,18 @@ function arrowMenuItems(aid, pt) {
     } },
     { ctx: 'two-way', label: 'Two-way', icon: I.twoWay, checked: !!a.bidirectional,
       action: () => applyArrow(aid, { bidirectional: !a.bidirectional }) },
-    { ctx: 'colour', label: 'Colour', icon: I.colour, submenu: () => [{
+    DIV,
+    { ctx: 'route', label: 'Route', icon: I.route, group: 'line', inline: true, submenu: () => ARROW_ROUTES.map(k => ({
+      label: ROUTE_LABELS[k] || k, radio: true, checked: route === k,
+      // A legacy style of 'dashed' is a pattern too; keep it when the route changes.
+      action: () => applyArrow(aid, { style: k, ...(a.style !== route && !a.pattern ? { pattern } : {}) }),
+    })) },
+    { ctx: 'pattern', label: 'Pattern', icon: I.pattern, group: 'line', inline: true, submenu: () => Object.entries(PATTERN_LABELS).map(([k, label]) => ({
+      label, radio: true, checked: pattern === k,
+      action: () => applyArrow(aid, { pattern: k, ...(a.style !== route ? { style: route } : {}) }),
+    })) },
+    { ctx: 'weight', label: 'Weight', icon: I.weight, group: 'line', inline: true, submenu: () => weightItems(aid, a) },
+    { ctx: 'colour', label: 'Colour', icon: I.colour, group: 'line', inline: true, submenu: () => [{
       type: 'swatches', label: 'Connection colour',
       options: [
         { value: '', label: 'Default colour', className: 'ctx-sw-edge', active: !a.color },
@@ -708,7 +804,6 @@ function arrowMenuItems(aid, pt) {
       ],
       onPick: v => applyArrow(aid, { color: v || null }),
     }] },
-    { ctx: 'weight', label: 'Weight', icon: I.weight, submenu: () => weightItems(aid, a) },
     from && to && { ctx: 'insert', label: 'Insert block', icon: I.insert, submenu: () => [
       ...groupedTypeRows(t => typeRow(t, { action: () => insertOnArrow(aid, t) })),
       typeNoteItem(),
@@ -726,10 +821,13 @@ function arrowMenuItems(aid, pt) {
 export function openArrowMenu(aid, clientX, clientY) {
   if (!arrowById(aid)) return null
   if (selection.arrowId !== aid) selectArrow(aid)
-  const items = arrowMenuItems(aid, { clientX, clientY })
+  const items = arrowMenu(aid, { clientX, clientY })
   if (!items.length) return null
   return openCtxMenu(items, { x: clientX, y: clientY, className: 'ctx-arrow-menu', label: 'Connection actions' })
 }
+
+/** A connection's menu as it opens: the flat rows chunked (see arrowMenuItems). */
+export function arrowMenu(aid, pt) { return grouped(() => arrowMenuItems(aid, pt)) }
 
 // ── Canvas menus ─────────────────────────────────────────────
 async function pasteAsBlocks(w) {
@@ -821,6 +919,9 @@ export function openCanvasAddMenu(clientX, clientY, opts = {}) {
   const m = openCtxMenu(items, {
     x: clientX, y: clientY, className: ('ctx-add-menu ' + (opts.className || '')).trim(), label: opts.label || 'Add a block here',
     ...(opts.returnFocus ? { returnFocus: opts.returnFocus } : {}),
+    // A press on the anchor is left to its own handler (menu.js), so the
+    // second click of a double-click on a port does not close its picker.
+    ...(opts.anchor ? { anchor: opts.anchor } : {}),
     // menu.js closes before it runs the chosen action, so decide "cancelled"
     // once that action has had its turn. onClose runs at once, like menu.js's.
     onClose: () => { opts.onClose?.(); queueMicrotask(() => { if (!picked) opts.onCancel?.() }) },
@@ -832,6 +933,160 @@ export function openCanvasAddMenu(clientX, clientY, opts = {}) {
   const sync = () => { if (!input.value.trim()) filterOnly.forEach(r => { r.hidden = true }) }
   sync()
   input.addEventListener('input', sync)
+  return m
+}
+
+// ── A click on a port ────────────────────────────────────────
+/**
+ * The quick-add picker beside a port that was clicked: the source's
+ * suggested types first, the first of them marked as the row Enter picks, so
+ * a click then Enter is still the one fast path, and a pick grows a connected
+ * block out of that side (create.js createFromPort). Escape adds nothing.
+ * A click used to add the first suggestion with no choice offered. It is the
+ * picker a line dropped on empty canvas opens (navigation.js
+ * openQuickCreate), under the same name.
+ *
+ * `touch`: a tap opened it. The marked row takes focus instead of the
+ * filter, since a focused text field raises a phone's keyboard over the
+ * rows; the filter is one tap away.
+ */
+export function openPortMenu(fromId, side, portEl, { touch = false } = {}) {
+  const src = state.blocks[fromId]
+  if (!src || ui.readOnly) return null
+  const r = portEl?.isConnected ? portEl.getBoundingClientRect() : null
+  const at = r && (r.width || r.height) ? r : null
+  const p = at ? { x: at.left + at.width / 2, y: at.top + at.height / 2 } : blockPoint(fromId)
+  const m = openCanvasAddMenu(p.x, p.y, {
+    suggested: suggestedNextTypes(src.type),
+    title: `Add after ${TYPES[src.type]?.label || src.type}`,
+    label: 'Add a connected block',
+    className: 'ctx-port-menu',
+    returnFocus: $.canvasViewport(),
+    anchor: portEl?.isConnected ? portEl : null,
+    onPick: t => createFromPort(fromId, side, t),
+  })
+  if (m && at) placeBesidePort(m.el, at, side, portEl.closest('.block')?.getBoundingClientRect())
+  if (m && touch) {
+    const row = m.el.querySelector(':scope > .pf-menu-match') ||
+      [...m.el.querySelectorAll(':scope > .pf-menu-item')].find(n => !n.hidden)
+    if (row) { row.focus({ preventScroll: true }); m.el._pfRefocus = row }
+  }
+  return m
+}
+
+/**
+ * The second press of a double-click on a port opens nothing more, but the
+ * browser still moves focus onto the card under it, so Enter would have
+ * edited the card's title instead of taking the marked type. Give the
+ * keyboard back to the picker the first click opened (its filter, or the
+ * row a tap put it on). True when one is open.
+ */
+export function refocusPortMenu() {
+  const menu = document.querySelector('.pf-menu.ctx-port-menu')
+  const target = menu?._pfRefocus?.isConnected ? menu._pfRefocus : menu?.querySelector('.pf-menu-search-input')
+  if (!target?.isConnected) return false
+  target.focus({ preventScroll: true })
+  return true
+}
+
+/**
+ * A press on a port while its picker is open is left to the port (menu.js
+ * keeps an anchor's own press), so a double-click keeps one picker. Once that
+ * press travels it is a connection being drawn, not a choice of type: the
+ * picker closes rather than stay open over the drag (events.js).
+ */
+export function closePortMenu() {
+  if (!document.querySelector('.pf-menu.ctx-port-menu')) return false
+  closeMenus()
+  return true
+}
+
+// The picker opens off the port's side, level with it, so it covers neither
+// the port (a second click there is the same gesture) nor the card it grows
+// from. With no room there (a card near the window's edge, a phone) it tries
+// the far side of the card, under and over it, then either side of it. Only
+// when none of those holds it whole does it take the roomier of under and
+// over and scroll inside: a picker held into the window over its own port
+// took the second click of a double-click on a row, and Enter then made
+// that row's type instead of the marked one.
+function placeBesidePort(el, r, side, card) {
+  const PAD = 8, GAP = 10
+  const W = window.innerWidth, H = window.innerHeight
+  el.style.maxHeight = Math.max(120, H - PAD * 2) + 'px'
+  const { width: w, height: h } = el.getBoundingClientRect()
+  const c = card || r
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+  // [left, top, which axis must fit as it is (the other is held in the window)]
+  const beside = {
+    right:  [r.right + GAP, cy - 20, 'x'],
+    left:   [r.left - GAP - w, cy - 20, 'x'],
+    bottom: [cx - 24, r.bottom + GAP, 'y'],
+    top:    [cx - 24, r.top - GAP - h, 'y'],
+  }
+  const far = {
+    right:  [c.left - GAP - w, cy - 20, 'x'],
+    left:   [c.right + GAP, cy - 20, 'x'],
+    bottom: [cx - 24, c.top - GAP - h, 'y'],
+    top:    [cx - 24, c.bottom + GAP, 'y'],
+  }
+  const lowest = Math.max(c.bottom, r.bottom), highest = Math.min(c.top, r.top)
+  const under = [cx - 24, lowest + GAP, 'y']
+  const over = [cx - 24, highest - GAP - h, 'y']
+  const rightOf = [Math.max(c.right, r.right) + GAP, cy - 20, 'x']
+  const leftOf = [Math.min(c.left, r.left) - GAP - w, cy - 20, 'x']
+  const fits = ([x, y, axis]) => axis === 'x' ? x >= PAD && x + w <= W - PAD : y >= PAD && y + h <= H - PAD
+  let pick = [beside[side], far[side], under, over, rightOf, leftOf].filter(Boolean).find(fits)
+  if (!pick) {
+    const below = H - PAD - (lowest + GAP), above = highest - GAP - PAD
+    const room = Math.max(120, below >= above ? below : above)
+    el.style.maxHeight = Math.round(room) + 'px'
+    const held = Math.min(h, room)
+    pick = [cx - 24, below >= above ? lowest + GAP : highest - GAP - held, 'y']
+  }
+  const { height: hh } = el.getBoundingClientRect()
+  const left = Math.max(PAD, Math.min(pick[0], W - PAD - w))
+  const top = Math.max(PAD, Math.min(pick[1], H - PAD - hh))
+  el.style.left = Math.round(left) + 'px'
+  el.style.top = Math.round(top) + 'px'
+}
+
+// ── The inspector's More ─────────────────────────────────────
+// The selection's own menu under the panel's ⋯ button, without the rows the
+// panel already shows as fields or buttons, and without the tally heading
+// (the panel's own heading). A block's panel has its title and description;
+// a connection's has its label, Meaning, the line's route, pattern, heads
+// (Two-way), weight and colour, Reverse beside More, and Reset ends to auto,
+// so its More is what the panel cannot do: Insert block, the two ends,
+// Delete. On a view-only link it holds what works there: the camera and,
+// for a connection, its two ends.
+const SHOWN_IN_PANEL = {
+  block: new Set(['edit-title', 'edit-desc']),
+  blocks: new Set(),
+  connection: new Set(['edit-label', 'meaning', 'reverse', 'two-way', 'route', 'pattern', 'weight', 'colour', 'reset-ends']),
+}
+
+/** { kind, items } for the inspector's More menu, or null with nothing selected. */
+export function moreMenuItems() {
+  const keep = (kind, list) => list.filter(it => !(it.ctx && SHOWN_IN_PANEL[kind].has(it.ctx)) && it.type !== 'heading')
+  const ids = [...selection.ids].filter(id => state.blocks[id])
+  if (ids.length > 1) return { kind: 'blocks', label: `More actions for ${ids.length} selected blocks`, items: grouped(() => keep('blocks', multiMenuItems(ids))) }
+  const id = ids.length === 1 ? ids[0] : (selection.blockId && state.blocks[selection.blockId] ? selection.blockId : null)
+  if (id) return { kind: 'block', label: `More actions for ${titleOf(state.blocks[id])}`, items: grouped(() => keep('block', blockMenuItems(id))) }
+  if (selection.arrowId && arrowById(selection.arrowId)) {
+    const aid = selection.arrowId
+    return { kind: 'connection', label: 'More actions for this connection', items: grouped(() => keep('connection', arrowMenuItems(aid, arrowPoint(aid)))) }
+  }
+  return null
+}
+
+/** Open (or close, on a second press) the More menu under the inspector's ⋯. */
+export function openMoreMenu(btn) {
+  const more = moreMenuItems()
+  if (!more || !more.items.length) return null
+  const m = openDropdown(btn, more.items, {
+    label: more.label, className: 'insp-menu insp-more-menu', placement: 'bottom-end', onClose: guardScroll,
+  })
+  if (m) tagRows(m.el, more.items)
   return m
 }
 

@@ -7,6 +7,11 @@
 //  overflow panel, the same items open in place inside that panel
 //  instead of floating over it.
 //
+//  File and View are each one flat list of rows (fileMenuItems,
+//  viewMenuItems: what the command palette searches) that the header
+//  shows chunked into a few named submenus (fileMenu, viewMenu), so
+//  neither opens as a wall of fifteen rows.
+//
 //  View holds every display preference, in two scopes that behave
 //  differently and are labelled so: "This browser" is localStorage
 //  and never leaves the machine; "This map" is canvasMeta, which
@@ -21,7 +26,7 @@ import { $, CARD_STYLES, escHtml, showToast, drawnCardStyle, pickableCardStyles 
 import { renderAllBlocks, renderInspector } from './render.js'
 import { renderArrows, renderFrames } from './canvas.js'
 import { commandPaletteMenuItem } from './command-palette.js'
-import { openDropdown, closeMenus } from './menu.js'
+import { openDropdown, closeMenus, groupItems, tidyDividers } from './menu.js'
 import { getPref, setPref } from './prefs.js'
 import { isVotingMode, setVotingMode } from './voting.js'
 import { chrome, toggleChrome, toggleZen } from './chrome.js'
@@ -200,41 +205,58 @@ function cardStyleHint() {
   return hasLegacyTint() ? `${label}, tinted (old setting)` : label
 }
 
+// The View menu's named submenus (menu.js groupItems). The rows keep their
+// own labels, so the command palette, which reads the flat list, still
+// finds "Minimap" or "Light theme" by name.
+const highContrastOn = () => document.body.classList.contains('high-contrast')
+export const VIEW_GROUPS = {
+  theme: { label: 'Theme', liveHint: () => (ui.lightMode ? 'Light' : 'Dark') + (highContrastOn() ? ', high contrast' : '') },
+  display: { label: 'Display' },
+  lines: { label: 'Lines' },
+}
+
+/** The View menu as the header shows it: Theme, Display, Lines and the rest. */
+export function viewMenu() { return groupItems(viewMenuItems, VIEW_GROUPS) }
+
 /**
- * The View menu, built from live state each time it opens so every check mark
- * is current. Read-only links get only what a reader can use: authoring
- * settings and the map-scoped section are left out.
+ * The View menu's rows, flat, built from live state each time so every check
+ * mark is current: the command palette reads this list as it is, and the
+ * header shows it through viewMenu(), chunked into Theme, Display and Lines.
+ * Read-only links get only what a reader can use: authoring settings and
+ * the map-scoped section are left out.
  */
 export function viewMenuItems() {
   const ro = ui.readOnly
   const motionOn = !!getPref('motion')
   const items = [
     { type: 'heading', label: 'This browser' },
-    { label: 'Dark theme', radio: true, checked: !ui.lightMode, keepOpen: true, action: () => setLightMode(false) },
-    { label: 'Light theme', radio: true, checked: ui.lightMode, keepOpen: true, action: () => setLightMode(true) },
-    { type: 'divider' },
-  ]
-  if (!ro) items.push(
-    { label: 'Snap to grid', checked: ui.snapToGrid, keepOpen: true, action: () => setSnapToGrid(!ui.snapToGrid) },
-    { label: 'Pin connections to the port you drag from', checked: ui.pinPorts, keepOpen: true,
-      hint: 'Off: connections pick the nearest side as blocks move',
-      action: () => setPinPorts(!ui.pinPorts) },
-  )
-  items.push(
-    { label: 'Always show connection notes', checked: ui.showArrowText, keepOpen: true,
-      action: () => setArrowText(!ui.showArrowText) },
-    { label: 'Animate highlights', checked: motionOn, keepOpen: true,
+    { label: 'Dark theme', radio: true, checked: !ui.lightMode, keepOpen: true, group: 'theme', action: () => setLightMode(false) },
+    { label: 'Light theme', radio: true, checked: ui.lightMode, keepOpen: true, group: 'theme', action: () => setLightMode(true) },
+    { type: 'divider', group: 'theme' },
+    { label: 'High contrast', shortcut: 'Alt+H', checked: highContrastOn(), keepOpen: true, group: 'theme',
+      action: () => setHighContrast(!highContrastOn()) },
+    ...(minimapAvailable() ? [{ label: 'Minimap', shortcut: 'M', checked: isMinimapOn(), keepOpen: true, group: 'display', action: () => toggleMinimap() }] : []),
+    { label: 'Hide header and footer', shortcut: 'H', checked: !chrome.frame, group: 'display',
+      action: () => { toggleChrome(); if (!chrome.frame) focusCanvas() } },
+    { label: 'Zen: hide panels', shortcut: 'Z', checked: !chrome.panels, group: 'display',
+      action: () => { toggleZen(); if (!chrome.frame) focusCanvas() } },
+    { type: 'divider', group: 'display' },
+    { label: 'Animate highlights', checked: motionOn, keepOpen: true, group: 'display',
       hint: reducedMotion()
         ? 'Your system asks for reduced motion, so nothing moves'
         : 'Gap hints too, and only on the card you hover or select',
       action: () => setMotion(!getPref('motion')) },
-    { label: 'High contrast', shortcut: 'Alt+H', checked: document.body.classList.contains('high-contrast'), keepOpen: true,
-      action: () => setHighContrast(!document.body.classList.contains('high-contrast')) },
-    { label: 'Hide header and footer', shortcut: 'H', checked: !chrome.frame,
-      action: () => { toggleChrome(); if (!chrome.frame) focusCanvas() } },
-    { label: 'Zen: hide panels', shortcut: 'Z', checked: !chrome.panels,
-      action: () => { toggleZen(); if (!chrome.frame) focusCanvas() } },
-    ...(minimapAvailable() ? [{ label: 'Minimap', shortcut: 'M', checked: isMinimapOn(), keepOpen: true, action: () => toggleMinimap() }] : []),
+    { label: 'Always show connection notes', checked: ui.showArrowText, keepOpen: true, group: 'lines',
+      action: () => setArrowText(!ui.showArrowText) },
+    // Theme, Display and Lines are how the map looks here; what follows is
+    // how it behaves (snapping, a session's facilitation).
+    { type: 'divider' },
+  ]
+  if (!ro) items.push(
+    { label: 'Pin connections to the port you drag from', checked: ui.pinPorts, keepOpen: true, group: 'lines',
+      hint: 'Off: connections pick the nearest side as blocks move',
+      action: () => setPinPorts(!ui.pinPorts) },
+    { label: 'Snap to grid', checked: ui.snapToGrid, keepOpen: true, action: () => setSnapToGrid(!ui.snapToGrid) },
   )
   if (!ui.embed) items.push(
     { label: 'Facilitation', hint: facilitationHint(), submenu: facilitationItems },
@@ -256,7 +278,8 @@ export function viewMenuItems() {
 /**
  * A menu read from a row of hidden source buttons in index.html: their order
  * is the menu's order, a change of data-file-group (or data-menu-group) draws
- * a divider, and a view-only link keeps only rows marked data-readonly="ok".
+ * a divider, data-file-menu names the submenu the header shows a row in, and
+ * a view-only link keeps only rows marked data-readonly="ok".
  * Picking an entry clicks its row, so the listeners in ui-panels.js
  * (setupExportDropdown, setupShareDropdown) stay the one place each runs.
  */
@@ -280,15 +303,56 @@ function rowMenuItems(source, readOnly) {
       danger: g === 'danger',
       rowId: el.id,
       shortcut: ROW_SHORTCUTS[el.id]?.(),
+      // The rows' own chunk (a divider between two) and the named submenu
+      // the header shows them in (data-file-menu); the palette reads neither.
+      chunk: g,
+      subKey: el.dataset.fileMenu || null,
       action: () => el.click(),
     })
   }
   return items
 }
 
-/** File: import first, every export, then clearing the map (#fileActions). */
+/**
+ * File's rows, flat: import first, every export, then clearing the map
+ * (#fileActions). The command palette reads this list; the header shows it
+ * through fileMenu().
+ */
 export function fileMenuItems(source = document.getElementById('fileActions'), { readOnly = ui.readOnly } = {}) {
   return rowMenuItems(source, readOnly)
+}
+
+// File's named submenus, in the order the menu lists them. A row joins one
+// through its data-file-menu attribute in index.html.
+const FILE_ICON = d => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
+export const FILE_MENUS = [
+  ['export', 'Export', FILE_ICON('<path d="M8 2.75v7.5"/><path d="M5.25 7.5L8 10.25l2.75-2.75"/><path d="M2.75 9.75v2.5c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1v-2.5"/>')],
+  ['copy', 'Copy', FILE_ICON('<rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/>')],
+  ['handoff', 'Hand off', FILE_ICON('<path d="M9.25 2.75h4v4"/><path d="M13.25 2.75L7.5 8.5"/><path d="M11.25 9.5v2.75c0 .55-.45 1-1 1h-6.5c-.55 0-1-.45-1-1v-6.5c0-.55.45-1 1-1h2.75"/>')],
+]
+
+/**
+ * The File menu as the header shows it: Import and Export, then Copy and
+ * Hand off, then Clear this map. Rows keep their order inside a submenu, with
+ * a divider where their chunk changes (the downloads, then the pictures). A
+ * submenu holding one row (a view-only link's Copy Mermaid) is that row.
+ */
+export function fileMenu(source = document.getElementById('fileActions'), opts) {
+  const rows = fileMenuItems(source, opts).filter(i => !i.type)
+  const members = new Map(FILE_MENUS.map(([key]) => [key, rows.filter(r => r.subKey === key)]))
+  const subRow = ([key, label, icon]) => {
+    const list = members.get(key)
+    if (!list.length) return null
+    if (list.length === 1) return list[0]
+    return {
+      label, icon, ctx: 'file-' + key,
+      submenu: () => list.flatMap((r, i) => (i && r.chunk !== list[i - 1].chunk ? [{ type: 'divider' }, r] : [r])),
+    }
+  }
+  const top = rows.filter(r => !r.subKey && r.chunk !== 'danger')
+  const danger = rows.filter(r => r.chunk === 'danger')
+  const [exp, copy, handoff] = FILE_MENUS.map(subRow)
+  return tidyDividers([...top, exp, { type: 'divider' }, copy, handoff, { type: 'divider' }, ...danger])
 }
 
 /** Share: the three copy actions (#shareActions). Hidden on view-only links. */
@@ -406,6 +470,21 @@ function fillInline(list, items) {
   list.replaceChildren(...(items || []).map(inlineRow).filter(Boolean))
 }
 
+// A submenu row that summarises its rows (Theme: Dark) re-reads it.
+function refreshInlineHint(row) {
+  const item = row?._pfItem
+  if (!item || typeof item.liveHint !== 'function') return
+  const text = item.liveHint() || ''
+  let hint = row.querySelector('.hdr-inline-hint')
+  if (!text) { hint?.remove(); return }
+  if (!hint) {
+    hint = document.createElement('span')
+    hint.className = 'hdr-inline-hint'
+    row.querySelector('.hdr-inline-text')?.appendChild(hint)
+  }
+  hint.textContent = text
+}
+
 function toggleInlineSub(row) {
   const next = row.nextElementSibling
   if (next?.classList.contains('hdr-inline-sub')) {
@@ -452,6 +531,19 @@ function toggleInlineMenu(btn, getItems, label) {
     if (item.submenu) { toggleInlineSub(row); return }
     if (item.keepOpen) {
       try { item.action?.() } catch (err) { console.error(err) }
+      // A toggle inside an open submenu (Theme, Display) rebuilds that
+      // submenu alone, so it stays open with every mark current, and its
+      // row's summary follows (Theme: Light).
+      const sub = row.parentElement?.classList.contains('hdr-inline-sub') ? row.parentElement : null
+      if (sub) {
+        const parent = sub.previousElementSibling
+        const at = [...sub.querySelectorAll(':scope > .hdr-inline-item')].indexOf(row)
+        const pi = parent?._pfItem
+        if (pi) fillInline(sub, typeof pi.submenu === 'function' ? pi.submenu() : pi.submenu)
+        refreshInlineHint(parent)
+        sub.querySelectorAll(':scope > .hdr-inline-item')[at]?.focus()
+        return
+      }
       // Rebuilt from live state, so every mark is current; focus stays put.
       const at = [...list.querySelectorAll('.hdr-inline-item')].indexOf(row)
       fillInline(list, getItems())
@@ -464,8 +556,17 @@ function toggleInlineMenu(btn, getItems, label) {
   })
   list.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return
-    // One level at a time: the list folds, the panel stays.
+    // One level at a time: an open submenu (Theme, Export) folds back to its
+    // row, then the list to its button; the panel stays.
     e.preventDefault(); e.stopPropagation()
+    const sub = e.target.closest?.('.hdr-inline-sub')
+    if (sub && list.contains(sub)) {
+      const row = sub.previousElementSibling
+      sub.remove()
+      row?.setAttribute('aria-expanded', 'false')
+      row?.focus()
+      return
+    }
     closeInlineMenus()
     btn.focus()
   })
@@ -487,7 +588,7 @@ export function openHeaderMenu(btn, items, label) {
   return openDropdown(btn, get(), { label, className: 'pf-header-menu' })
 }
 
-export function openViewMenu(btn) { return openHeaderMenu(btn, viewMenuItems, 'View') }
+export function openViewMenu(btn) { return openHeaderMenu(btn, viewMenu, 'View') }
 
 function wire(id, itemsFn, label) {
   const btn = document.getElementById(id)
@@ -531,10 +632,10 @@ function wireInlineDismissal() {
 
 export function setupViewMenu() {
   wire('mapsBtn', mapsMenuWithRename, 'Maps')
-  wire('exportBtn', () => fileMenuItems(), 'File')
+  wire('exportBtn', () => fileMenu(), 'File')
   wire('shareBtn', () => shareMenuItems(), 'Share')
   wire('tidyMenuBtn', tidyMenuItems, 'Tidy direction')
-  wire('viewBtn', viewMenuItems, 'View')
+  wire('viewBtn', viewMenu, 'View')
   wire('helpBtn', helpMenuItems, 'Help')
   wireInlineDismissal()
   applySessionTimer()

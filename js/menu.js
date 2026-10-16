@@ -16,6 +16,12 @@
 //     className? }], onPick }
 //   { type: 'search', placeholder, filter: true }
 //   { type: 'custom', render: containerEl => void }
+//
+//  groupItems(items, groups)  one flat list of rows (what the command
+//  palette reads) shown chunked: rows tagged { group } gather into one
+//  named submenu, and a row tagged { inline: true } shows inside it as
+//  a headed section. A row's { liveHint } re-reads its hint while a
+//  submenu it opened changes something (Theme: Dark, then Light).
 // ════════════════════════════════════════════════════════════
 
 import { escHtml } from './utils.js'
@@ -99,6 +105,7 @@ function buildMenu(items, { className = '', label, level }) {
   el.dataset.level = String(level)
   const list = typeof items === 'function' ? items() : items
   ;(list || []).forEach(item => { const row = buildItem(item, level); if (row) el.appendChild(row) })
+  nameSections(el)
   el.addEventListener('keydown', onKeydown)
   el.addEventListener('mouseover', onHover)
   el.addEventListener('click', onClick)
@@ -191,6 +198,127 @@ function buildItem(item, level) {
   return b
 }
 
+// ── Sections and named groups ───────────────────────────────
+// A heading names the rows under it, up to the next heading or divider. It
+// is presentation to assistive tech, so each of those rows is described by
+// it: "Done, radio button, Status" rather than a bare "Done" beside
+// Priority's "High".
+let sectionSeq = 0
+function nameSections(menuEl) {
+  let heading = null
+  for (const child of menuEl.children) {
+    if (child.classList.contains('pf-menu-heading')) {
+      heading = child
+      if (!heading.id) heading.id = 'pf-menu-sec-' + (++sectionSeq)
+    } else if (child.classList.contains('pf-menu-divider')) heading = null
+    else if (heading && child.classList.contains('pf-menu-item')) child.setAttribute('aria-describedby', heading.id)
+  }
+}
+
+// The rows a radio shares its choice with: its own section, between the
+// headings and dividers either side of it. One submenu can hold Status and
+// Priority, and picking a status must not uncheck the priority.
+function sectionOf(itemEl) {
+  const brk = n => n.classList.contains('pf-menu-divider') || n.classList.contains('pf-menu-heading')
+  const out = [itemEl]
+  for (let n = itemEl.previousElementSibling; n && !brk(n); n = n.previousElementSibling) out.push(n)
+  for (let n = itemEl.nextElementSibling; n && !brk(n); n = n.nextElementSibling) out.push(n)
+  return out
+}
+
+const DIVIDER = { type: 'divider' }
+
+/** Drop dividers that would lead, trail or double up. */
+export function tidyDividers(items) {
+  const out = []
+  for (const it of items || []) {
+    if (!it) continue
+    if (it.type === 'divider' && (!out.length || out[out.length - 1].type === 'divider')) continue
+    out.push(it)
+  }
+  while (out.length && out[out.length - 1].type === 'divider') out.pop()
+  return out
+}
+
+/**
+ * Show a flat list of rows chunked. `items` is a list or a function that
+ * builds one (a function is called again whenever a group opens, so every
+ * mark in it is current). Rows tagged { group: key } with a known key leave
+ * the top level and gather into one row, `groups[key]` ({ label, icon?,
+ * hint?, liveHint?, ctx? }), a submenu standing where the first of them
+ * stood. Inside it, a row tagged { inline: true } that has a submenu shows
+ * that submenu's rows under its label as a heading instead of a third
+ * level; a divider tagged with the group stays inside it. A group with a
+ * single row shows that row itself, unless the group says { keep: true }
+ * (a row that always lives in it stays there, wherever the map stands).
+ * Untagged rows, dividers and headings keep their place. The flat list
+ * stays the source: the command palette
+ * reads it as it is, so a row moved into a group is still found by name.
+ */
+export function groupItems(items, groups = {}) {
+  const read = () => ((typeof items === 'function' ? items() : items) || []).filter(Boolean)
+  const keyOf = it => (it.group && Object.hasOwn(groups, it.group) ? it.group : null)
+  const membersOf = (list, key) => list.filter(it => keyOf(it) === key)
+  const isRow = it => !it.type || it.type === 'swatches'
+  const list = read()
+  const out = [], placed = new Set()
+  for (const it of list) {
+    const key = keyOf(it)
+    if (!key) { out.push(it); continue }
+    if (placed.has(key)) continue
+    placed.add(key)
+    const members = membersOf(list, key)
+    const rows = members.filter(isRow)
+    if (!rows.length) continue
+    if (rows.length === 1 && !groups[key].keep) { out.push(rows[0]); continue }
+    const { label, keep: _keep, ...rest } = groups[key]
+    let hint = rest.hint
+    if (typeof rest.liveHint === 'function') { try { hint = rest.liveHint() || undefined } catch (_) {} }
+    out.push({
+      ...rest, label, hint,
+      submenu: () => sectionItems(typeof items === 'function' ? membersOf(read(), key) : members),
+    })
+  }
+  return tidyDividers(out)
+}
+
+/** A group's rows, its inline rows expanded into headed sections. */
+function sectionItems(members) {
+  const out = []
+  let afterSection = false
+  for (const it of members) {
+    if (it.inline && it.submenu) {
+      const sub = (typeof it.submenu === 'function' ? it.submenu() : it.submenu) || []
+      out.push(DIVIDER, { type: 'heading', label: it.section || it.label }, ...sub)
+      afterSection = true
+    } else {
+      // A plain row after a section is not one of its choices.
+      if (afterSection && it.type !== 'divider' && it.type !== 'heading') out.push(DIVIDER)
+      out.push(it)
+      afterSection = false
+    }
+  }
+  return tidyDividers(out)
+}
+
+// A row whose submenu changes something it summarises (Theme: Dark) says so
+// at once, without the menu closing: its liveHint is read again.
+function refreshHint(rowEl) {
+  const item = rowEl?._pfItem
+  if (!item || typeof item.liveHint !== 'function') return
+  let text = ''
+  try { text = item.liveHint() || '' } catch (err) { console.error(err) }
+  let hint = rowEl.querySelector('.pf-menu-hint')
+  if (!text) { hint?.remove(); rowEl.removeAttribute('title'); return }
+  if (!hint) {
+    hint = document.createElement('span')
+    hint.className = 'pf-menu-hint'
+    rowEl.querySelector('.pf-menu-text')?.appendChild(hint)
+  }
+  hint.textContent = text
+  rowEl.title = text
+}
+
 // ── Positioning ─────────────────────────────────────────────
 function fitHeight(el) {
   el.style.maxHeight = Math.max(120, window.innerHeight - PAD * 2) + 'px'
@@ -238,17 +366,93 @@ function placeAtAnchor(el, anchor, placement) {
   el.style.top = top + 'px'
 }
 
+// A submenu with no room on either side of its menu (a phone, a narrow
+// window) stacks over it, this far in from its left edge. Narrower than
+// this, it moves left instead of narrowing further.
+const STACK_INSET = 12
+const STACK_MIN_W = 240
+
 function placeSubmenu(el, itemEl, parentEl) {
+  const W = window.innerWidth, H = window.innerHeight
   el.style.left = '0px'; el.style.top = '0px'
+  el.style.minWidth = el.style.maxWidth = el.style.minHeight = ''
+  el.classList.remove('pf-submenu-stacked')
   fitHeight(el)
   const r = itemEl.getBoundingClientRect(), p = parentEl.getBoundingClientRect()
-  const { width: w, height: h } = el.getBoundingClientRect()
+  const cap = parseFloat(getComputedStyle(el).maxWidth) || Infinity
+  let { width: w } = el.getBoundingClientRect()
   let left = p.right + 2
-  if (left + w > window.innerWidth - PAD) left = p.left - w - 2
-  let top = r.top - 5
-  if (top + h > window.innerHeight - PAD) top = window.innerHeight - PAD - h
-  el.style.left = clampLeft(left, w) + 'px'
-  el.style.top = Math.max(PAD, top) + 'px'
+  if (left + w > W - PAD) left = p.left - w - 2
+  const stacked = left < PAD
+  if (stacked) {
+    // Neither side holds it. Clamped into the window it used to cover half
+    // of its menu and cut that menu's labels mid-word. Stacked one step in
+    // and as wide as the rest of the menu, it covers whole rows: the menu's
+    // edge and the rows above it still show, and still answer a tap. Too
+    // wide to start one step in, it narrows (a long label ends in an
+    // ellipsis) rather than hang out past its menu's left edge.
+    el.classList.add('pf-submenu-stacked')
+    left = p.left + STACK_INSET
+    const room = W - PAD - left
+    if (w > room) {
+      if (room >= STACK_MIN_W) el.style.maxWidth = Math.floor(room) + 'px'
+      else left = Math.max(PAD, W - PAD - w)
+    }
+    ;({ width: w } = el.getBoundingClientRect())
+    const cover = Math.min(p.right, W - PAD) - left
+    if (cover > w) el.style.minWidth = Math.ceil(cover) + 'px'
+  }
+  left = clampLeft(left, el.getBoundingClientRect().width)
+  el.style.left = left + 'px'
+  // Whatever fills in later (a type's note) wraps inside the window instead
+  // of pushing the menu past its edge; measured here, where it now stands,
+  // so its height is the height it shows at.
+  el.style.maxWidth = Math.floor(Math.min(cap, parseFloat(el.style.maxWidth) || Infinity, W - PAD - left)) + 'px'
+  const h = el.getBoundingClientRect().height
+  // Beside its menu, its first row level with the row that opened it;
+  // stacked, its top on a row's top, so no row of the menu under it shows
+  // cut across.
+  let top = stacked ? stackedTop(parentEl, r.top, h) : r.top - 5
+  if (top + h > H - PAD) top = H - PAD - h
+  top = Math.max(PAD, top)
+  el.style.top = top + 'px'
+  if (stacked) coverWholeRows(el, parentEl, top)
+}
+
+// A stacked submenu's top: on the row that opened it, so the rows above stay
+// whole. With no room below that for all of it, on the top of a row higher
+// up, or on the menu's own top (covering every row), never part way down a
+// row: the 16px sliver of a label that used to show above it.
+function stackedTop(parentEl, rowTop, h) {
+  const limit = window.innerHeight - PAD - h
+  if (rowTop <= limit) return rowTop
+  const p = parentEl.getBoundingClientRect()
+  const tops = [...parentEl.children].filter(isShown).map(c => c.getBoundingClientRect())
+    .filter(c => c.height && c.top >= p.top && c.top < rowTop).map(c => c.top)
+  const fit = [...tops, p.top].filter(t => t <= limit)
+  return fit.length ? Math.max(...fit) : limit
+}
+
+// A stacked submenu that ends part way down a row of the menu under it
+// reaches on to that row's bottom, so the rows still showing are whole.
+function coverWholeRows(el, parentEl, top) {
+  const end = top + el.getBoundingClientRect().height
+  const cut = [...parentEl.children].filter(isShown).map(c => c.getBoundingClientRect())
+    .filter(c => c.height && c.top < end - 0.5 && c.bottom > end + 0.5)
+  if (cut.length) el.style.minHeight = Math.ceil(Math.max(...cut.map(c => c.bottom)) - top) + 'px'
+}
+
+// A submenu that grows after it opens (a longer note for the row in focus)
+// moves up to stay whole in the window. It only moves: a size changed here
+// would be observed again, a loop the browser reports as an error.
+function keepInWindow(el) {
+  if (typeof ResizeObserver !== 'function') return
+  const ro = new ResizeObserver(() => {
+    if (!el.isConnected) { ro.disconnect(); return }
+    const r = el.getBoundingClientRect(), limit = window.innerHeight - PAD
+    if (r.bottom > limit + 0.5) el.style.top = Math.max(PAD, limit - r.height) + 'px'
+  })
+  ro.observe(el)
 }
 
 // ── Focus helpers ───────────────────────────────────────────
@@ -311,6 +515,7 @@ function openSubmenu(itemEl, { focus = false } = {}) {
   itemEl.setAttribute('aria-expanded', 'true')
   itemEl.classList.add('pf-open')
   placeSubmenu(el, itemEl, itemEl.closest('.pf-menu'))
+  keepInWindow(el)
   if (focus) focusInitial(el)
 }
 
@@ -322,7 +527,7 @@ function activateItem(itemEl, { viaKeyboard = false } = {}) {
   if (item.keepOpen) {
     if (item.checked !== undefined) {
       if (item.radio) {
-        itemEl.parentElement.querySelectorAll('[role=menuitemradio]').forEach(b => {
+        sectionOf(itemEl).filter(b => b.getAttribute('role') === 'menuitemradio').forEach(b => {
           if (b._pfItem) { b._pfItem.checked = false; b.setAttribute('aria-checked', 'false'); b.querySelector('.pf-menu-check').innerHTML = '' }
         })
         item.checked = true
@@ -331,6 +536,7 @@ function activateItem(itemEl, { viaKeyboard = false } = {}) {
       itemEl.querySelector('.pf-menu-check').innerHTML = item.checked ? CHECK_SVG : ''
     }
     try { item.action?.() } catch (err) { console.error(err) }
+    if (itemEl._pfLevel > 0) refreshHint(stack[itemEl._pfLevel]?.parentItem)
     return
   }
   // Close first, then act: an action that moves focus (inline editing, a

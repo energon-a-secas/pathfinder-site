@@ -22,7 +22,7 @@ import { openDocPopup } from './doc-panel.js'
 import { releaseTidyPins } from './layout.js'
 import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
-import { openCanvasAddMenu } from './context-menu.js'
+import { openCanvasAddMenu, openPortMenu, refocusPortMenu, closePortMenu } from './context-menu.js'
 import { setVotingMode, refreshVotingBanner } from './voting.js'
 // Navigation (keyboard, zoom, quick create). Its own lines, so the shared
 // imports above stay as other streams left them.
@@ -268,10 +268,17 @@ export function setupCanvasPointerEvents() {
     } else if (port) {
       if (ui.readOnly) return
       e.stopPropagation()
+      // A tap's compatibility mousedown arrives after the release has opened
+      // the port's picker, and would move focus out of it onto the card (so
+      // Enter and Escape went to the canvas). Cancelling the press cancels
+      // those mouse events; the tap is still a click. A tap's picker puts
+      // focus on its marked row, not its filter: a focused field raises the
+      // phone's keyboard over the rows.
+      if (e.pointerType === 'touch') e.preventDefault()
       const bid  = port.dataset.bid
       const pp   = portPos(bid, port.dataset.port); if (!pp) return
       pointer.ix = { type: 'arrow', fromId: bid, fromPort: port.dataset.port, x1: pp.x, y1: pp.y, d1: pp.dir,
-                     detail: e.detail }
+                     detail: e.detail, portEl: port, touch: e.pointerType === 'touch' || e.pointerType === 'pen' }
       arrowPreview.setAttribute('d', '')
       arrowPreview.setAttribute('marker-end', isLight() ? 'url(#arrowhead-light-pre)' : 'url(#arrowhead-pre)')
 
@@ -435,6 +442,9 @@ export function setupCanvasPointerEvents() {
 
     } else if (ix.type === 'arrow' || ix.type === 'aend') {
       if (ix.type === 'arrow' && !ix.dragged) return
+      // A press on a port that travels is a connection being drawn: the
+      // picker a click on that port opened is not what it is doing.
+      if (ix.type === 'arrow' && !ix.leftPicker) { ix.leftPicker = true; closePortMenu() }
       const r = canvasViewport.getBoundingClientRect()
       const w = toWorld(e.clientX - r.left, e.clientY - r.top)
       const c1 = cpOffset(ix.x1, ix.y1, ix.d1, 80)
@@ -539,12 +549,14 @@ export function setupCanvasPointerEvents() {
     } else if (ix.type === 'arrow') {
       arrowPreview.setAttribute('d', '')
       if (!ix.dragged) {
-        // A click on a port grows a connected block out of that side; the
-        // second click of a double-click does nothing more.
+        // A click on a port offers the types to grow out of that side, the
+        // usual next one first and marked, so Enter takes it; Escape adds
+        // nothing. The second click of a double-click opens nothing more,
+        // and hands the keyboard back to the picker its press took it from.
         pointer.ix = null
         if (!isPortRepeat(ix.fromId, e.clientX, e.clientY, ix.detail)) {
-          createInDirection(ix.fromId, PORT_DIR[ix.fromPort] || 'right')
-        }
+          openPortMenu(ix.fromId, ix.fromPort, ix.portEl, { touch: ix.touch })
+        } else refocusPortMenu()
         return
       }
       const r = canvasViewport.getBoundingClientRect()

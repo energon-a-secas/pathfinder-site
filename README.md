@@ -64,7 +64,7 @@ An empty map opens on the start panel, with three ways in (keys `1`, `2`, `3`):
   space, at a zoom where they read.
 - **Start from a template**, or **open the sample map** as a map of its own.
 
-After that, add blocks from the palette on the left, or double-click empty canvas to add one where you clicked. Each block type carries a specific meaning (see the table below). Draw connections by dragging from the small port circles that appear on block edges when you hover; drop one on empty canvas, or just click a port, to add the next block there already connected.
+After that, add blocks from the palette on the left, or double-click empty canvas to add one where you clicked. Each block type carries a specific meaning (see the table below). Draw connections by dragging from the small port circles that appear on block edges when you hover; drop one on empty canvas, or just click a port, and pick a type to add the next block there already connected (Enter takes the usual next one).
 
 The gap detection layer runs automatically and flags structural problems:
 
@@ -169,7 +169,7 @@ Badges are neutral chips: the icon and the word tell them apart, never a colour 
 | Action | How |
 |---|---|
 | Add block | Click any item in the palette, or right-click empty canvas |
-| Add a connected block | Click a port, drop a port's line on empty canvas and pick a type, or `Alt + Arrow` |
+| Add a connected block | Click a port or drop a port's line on empty canvas, then pick a type (Enter takes the first suggestion), or `Alt + Arrow` |
 | Move block | Drag the block body |
 | Select block | Click once |
 | Run anything by name | `Cmd + K` (`Ctrl + K` off the Mac): every menu action, the selection's actions, blocks, maps and templates. `/` opens it at Create |
@@ -185,14 +185,14 @@ Badges are neutral chips: the icon and the word tell them apart, never a colour 
 | Align a selection | Select two or more blocks, then use Align / Distribute in the inspector |
 | Highlight for a presentation | Select blocks, pick a colour in the inspector. Spotlight fades the rest |
 | Quick changes | Right-click a card, a connection, a selection or the canvas (`Shift + F10` from the keyboard) |
-| Select every block of one type | Right-click a block, "Select all Problems" |
+| Select every block of one type | Right-click a block, **Select and zoom → Select all 5 problems** |
 | Hide the header and footer | `H`. `Z` hides the side panels too |
 | Delete selected | `Delete` or `Backspace` key |
 | Duplicate block | `Cmd/Ctrl + D`, or Duplicate in the inspector's ⋯ menu |
 | Pan canvas | Drag on empty canvas area, or scroll |
 | Zoom | `Ctrl/Cmd` + scroll, or pinch. Scroll alone pans |
 | Fit all blocks | `Shift + 1`, or **Fit** in the bar under the canvas. Zoomed out, cards keep a readable title and then become pills and dots |
-| Minimap | `M`, or **View ▾ → Minimap**: drag its frame to pan, click to jump |
+| Minimap | `M`, or **View ▾ → Display → Minimap**: drag its frame to pan, click to jump |
 | Rename the map | Click its name in the header, next to **Maps** |
 | Deselect | Click empty canvas, or `Escape` |
 | Every shortcut | `?` |
@@ -227,9 +227,9 @@ For the moment you share a canvas and five of its thirty boxes are the point.
 Select some blocks, pick a colour: **Alert** (red), **Focus** (blue),
 **Go** (green), **Hold** (grey), or **Festive** (a candy-cane border). Each is
 a ring around the card with its word on a tab, so it never relies on colour
-alone. Nothing moves by default; **View ▾ → Animate highlights** makes Alert
+alone. Nothing moves by default; **View ▾ → Display → Animate highlights** makes Alert
 and Festive move on the card you hover or select, and never under reduced
-motion. Right-click a block and choose **Select all Problems**
+motion. Right-click a block and choose **Select and zoom → Select all 5 problems**
 to mark a whole type in one action.
 
 **Spotlight** fades everything that is not highlighted, which is where the drama
@@ -336,13 +336,13 @@ since the last copy.
 
 | Action | How |
 |---|---|
-| Copy brief | **Copy brief** at the top of the Brief tab or under the canvas, File → **Copy brief**, or `Cmd/Ctrl + Shift + C` |
-| Download JSON | File → **Download JSON**: full canvas state including block positions |
-| Download Markdown | File → **Download Markdown**: one section per type, labelled connections, and a Mermaid graph that keeps every block and its type |
-| Copy Mermaid | File → **Copy Mermaid**: the same graph on its own, for a README or an issue; it imports back with every type |
-| Download JSON Canvas | File → **Download JSON Canvas**: a `.canvas` file for Obsidian, each node in its type's colour |
-| Download spec bundle | File → **Download spec bundle (zip)**: spec.md (stakeholders, goals, metrics, requirements), plan.md, tasks.md (work items included), EARS requirements |
-| Meeting summary | File → **Export meeting summary**: decisions, votes, actions, open questions, then every other type on the canvas |
+| Copy brief | **Copy brief** at the top of the Brief tab or under the canvas, File → Copy → **Copy brief**, or `Cmd/Ctrl + Shift + C` |
+| Download JSON | File → Export → **Download JSON**: full canvas state including block positions |
+| Download Markdown | File → Export → **Download Markdown**: one section per type, labelled connections, and a Mermaid graph that keeps every block and its type |
+| Copy Mermaid | File → Copy → **Copy Mermaid**: the same graph on its own, for a README or an issue; it imports back with every type |
+| Download JSON Canvas | File → Export → **Download JSON Canvas**: a `.canvas` file for Obsidian, each node in its type's colour |
+| Download spec bundle | File → Export → **Download spec bundle (zip)**: spec.md (stakeholders, goals, metrics, requirements), plan.md, tasks.md (work items included), EARS requirements |
+| Meeting summary | File → Hand off → **Export meeting summary**: decisions, votes, actions, open questions, then every other type on the canvas |
 | Import | File → **Import JSON / Canvas / Mermaid**: opens as a new map by default, or replaces or merges into the current one |
 
 The JSON export preserves everything: block positions, connections, actions, questions, notes. Use it to save snapshots, share canvases with a team, or resume planning sessions.

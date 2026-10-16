@@ -606,14 +606,21 @@ describe('Quick create from a port', () => {
     } finally { ui.readOnly = false; renderBlock('a') }
   })
 
-  it('a click on a port (no drag) adds a connected block on that side, in one undo step', () => {
+  it('a click on a port (no drag) offers the types, then Enter adds the first suggestion on that side, in one undo step', () => {
     wire(); reset()
     block('a', { x: 0, y: 0 })
     const port = document.querySelector('#b-a .port-bottom')
     ptr(port, 'pointerdown', 100, 100)
     ptr(port, 'pointerup', 100, 100)
+    const menu = document.querySelector('.pf-menu.ctx-port-menu')
+    assert.ok(menu, 'the click opened the picker')
+    assert.eq(Object.keys(state.blocks).length, 1, 'nothing is created before a type is picked')
+    const marked = menu.querySelector('.pf-menu-match .pf-menu-label')?.textContent
+    assert.eq(marked, TYPES[suggestedNextTypes('goal')[0]].label, 'the first suggestion is the row Enter picks')
+    key('Enter', {}, menu.querySelector('.pf-menu-search-input'))
     const nid = Object.keys(state.blocks).find(id => id !== 'a')
     assert.ok(nid, 'created')
+    assert.eq(state.blocks[nid].type, suggestedNextTypes('goal')[0])
     assert.ok(state.blocks[nid].y > 0, 'below the bottom port')
     assert.eq(state.arrows.length, 1)
     assert.ok(isInlineEditing())
@@ -999,11 +1006,21 @@ describe('Port clicks', () => {
     ptr(port, 'pointerdown', 100, 100, { detail }); ptr(port, 'pointerup', 100, 100, { detail })
   }
 
-  it('a double-click on a port adds one connected block, not two', () => {
+  // A click opens the port's picker and Enter takes its marked type.
+  const enter = () => {
+    const input = document.querySelector('.pf-menu.ctx-port-menu .pf-menu-search-input')
+    assert.ok(input, 'the picker is open')
+    key('Enter', {}, input)
+  }
+  const pickers = () => document.querySelectorAll('.pf-menu.ctx-port-menu').length
+
+  it('a double-click on a port opens one picker, and adds one connected block, not two', () => {
     wire(); reset()
     block('dbl1', { x: 0, y: 0 })
     click('dbl1', 1)
     click('dbl1', 2)
+    assert.eq(pickers(), 1, 'the second click left the picker open')
+    enter()
     if (isInlineEditing()) commitInlineEdit()
     assert.eq(Object.keys(state.blocks).length, 2, 'one gesture, one new block')
     assert.eq(state.arrows.length, 1)
@@ -1015,6 +1032,8 @@ describe('Port clicks', () => {
     block('dbl2', { x: 0, y: 0 })
     click('dbl2', 0)
     click('dbl2', 0)
+    assert.eq(pickers(), 1)
+    enter()
     if (isInlineEditing()) commitInlineEdit()
     assert.eq(Object.keys(state.blocks).length, 2)
   })
@@ -1023,9 +1042,11 @@ describe('Port clicks', () => {
     wire(); reset()
     block('dbl3', { x: 0, y: 0 })
     click('dbl3', 1)
+    enter()
     if (isInlineEditing()) commitInlineEdit()
     await sleep(560)
     click('dbl3', 1)
+    enter()
     if (isInlineEditing()) commitInlineEdit()
     assert.eq(Object.keys(state.blocks).length, 3, 'clicks half a second apart are two gestures')
   })

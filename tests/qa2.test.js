@@ -366,9 +366,9 @@ describe('QA2 a11y: a connection can be selected without a pointer', () => {
     ]
     withViewport(vp => {
       openBlockMenu('a', 100, 100)
-      const root = lastMenu()
-      const row = rowsOf(root).find(r => labelOf(r) === 'Select connection')
-      assert.ok(row, 'the card menu offers it')
+      rowsOf(lastMenu()).find(r => labelOf(r) === 'Select and zoom').click()
+      const row = rowsOf(lastMenu()).find(r => labelOf(r) === 'Select connection')
+      assert.ok(row, 'the card menu offers it, under Select and zoom')
       row.click()
       const sub = lastMenu()
       assert.ok(sub.classList.contains('pf-submenu'))
@@ -391,6 +391,8 @@ describe('QA2 a11y: a connection can be selected without a pointer', () => {
     block('a')
     openBlockMenu('a', 100, 100)
     assert.ok(!rowsOf(lastMenu()).some(r => labelOf(r) === 'Select connection'))
+    rowsOf(lastMenu()).find(r => labelOf(r) === 'Select and zoom').click()
+    assert.deepEq(rowsOf(lastMenu()).map(labelOf), ['Zoom to block'], 'nothing to select from it at all, only the camera')
     closeMenus()
   })
 })
