@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, selection, ui } from './state.js'
-import { escHtml, showToast, copyText, TYPES } from './utils.js'
+import { escHtml, showToast, copyText, TYPES, autogrow } from './utils.js'
 import { generatePrompt, generateScopedPrompt, briefScope, estimateTokens, roundTokens, formatTokens,
          briefSectionCount, markExported, getPromptDiff, setBriefRenderer, refreshPrompt,
          CHARS_PER_TOKEN, TOKEN_ERROR, TOKEN_ERROR_P75 } from './prompt.js'
@@ -227,6 +227,9 @@ export function setFraming(open) {
   btn.setAttribute('aria-expanded', String(open))
   body.hidden = !open
   byId('promptPane')?.classList.toggle('framing-open', open)
+  // Its text fields grow with their text (no scroller inside Framing's
+  // own); they can only be measured once shown.
+  if (open) ['situationConstraints', 'contextBrief'].forEach(id => autogrow(byId(id)))
   // Opening it shows the brief from the top: the Situation, which the
   // framing writes, is its first section.
   if (open && !was) { const doc = byId('briefDoc'); if (doc) doc.scrollTop = 0 }

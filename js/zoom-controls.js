@@ -32,7 +32,7 @@ export {
 
 // Round stops for the buttons and the = / - keys, so repeated presses land
 // on numbers people recognise (50%, 100%, 200%) instead of 83.3%.
-export const ZOOM_STOPS = [...new Set([MIN_ZOOM, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, MAX_ZOOM])]
+export const ZOOM_STOPS = [...new Set([MIN_ZOOM, 0.18, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, MAX_ZOOM])]
   .filter(z => z >= MIN_ZOOM && z <= MAX_ZOOM)
   .sort((a, b) => a - b)
 

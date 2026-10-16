@@ -25,7 +25,7 @@ Wire a block to an external doc, preview it inline, and turn its questions into 
 - `.canvas-root` → transformed child (CSS translate + scale), holds blocks and arrows
 - Dot grid: radial gradient at 28px spacing, follows pan and zoom
 - Arrows: SVG layer (`.arrows-layer`) behind blocks. Default style is `routed` (orthogonal, obstacle-avoiding); several arrows on one side get separate lanes
-- `MIN_ZOOM = 0.18`, `MAX_ZOOM = 2.6`
+- `MIN_ZOOM = 0.1` (low enough that Fit shows a large map whole on a phone), `MAX_ZOOM = 2.6`
 
 **Key canvas functions:**
 - `applyTransform()`: applies pan + zoom CSS transform, and debounce-saves the camera

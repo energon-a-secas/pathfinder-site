@@ -6,7 +6,7 @@
 import { state, selection, ui, view, canvasMeta, devOpts,
          saveState, buildShareUrl, buildEmbedUrl, snapshot, debouncedSave } from './state.js'
 import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELDS, SITUATION_DEFAULT,
-         clamp, escHtml, showToast, showCopyFallback, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+         clamp, escHtml, showToast, showCopyFallback, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM, autogrow } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, undo, updateCanvasTitle } from './render.js'
 import { phraseCapsHtml } from './keycaps.js'
@@ -462,6 +462,7 @@ export function setupShortcutOverlay() {
 export function syncContextBrief() {
   const el = document.getElementById('contextBrief')
   if (el && el.value !== (canvasMeta.contextBrief || '')) el.value = canvasMeta.contextBrief || ''
+  autogrow(el)
   refreshFramingSummary()
 }
 
@@ -473,6 +474,7 @@ export function setupContextBrief() {
   window.addEventListener('pf:meta-restored', () => { syncContextBrief(); refreshSituation() })
   if (ui.readOnly) { el.readOnly = true; return }
   el.addEventListener('input', () => {
+    autogrow(el)
     canvasMeta.contextBrief = el.value
     debouncedSave()
     refreshFramingSummary()
@@ -671,6 +673,7 @@ export function setupSituation() {
     if (back) host.querySelector(`[data-situation="${back[0]}"] [data-situation-value="${back[1]}"]`)?.focus({ preventScroll: true })
     if (repo && document.activeElement !== repo) repo.value = sit.repoHint || ''
     if (cons && document.activeElement !== cons) cons.value = sit.constraints || ''
+    autogrow(cons)
     refreshSituationPreview()
   }
 
@@ -683,6 +686,7 @@ export function setupSituation() {
   })
 
   const bindText = (el, key) => el && !locked && el.addEventListener('input', () => {
+    autogrow(el)
     canvasMeta.situation = { ...SITUATION_DEFAULT, ...(canvasMeta.situation || {}), [key]: el.value }
     refreshSituationPreview(); debouncedSave(); ui.promptDirty = true; refreshPrompt()
   })

@@ -6032,3 +6032,11 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
     max-width: calc(100% - 32px);
   }
 }
+
+/* ── [decisions] ── settled calls, 2026-10-16 ─────────────────
+   The app page's footer on a phone: the footer kit's own padding token
+   (the per-site escape the kit documents), tightened, so the map keeps
+   more of a phone's height. The bar itself is the kit's. */
+@media (max-width: 700px) {
+  .neo-footer[data-footer-mode="app"] { --footer-pad-block-app: 6px; }
+}

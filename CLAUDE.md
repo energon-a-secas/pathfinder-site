@@ -144,6 +144,13 @@ Multi-file layout. No build step, no dependencies. Uses native ES modules (`<scr
 - **One right edge in the Brief**: `syncBriefGutter` (`brief.js`, a ResizeObserver on the scroller and the brief) writes the brief scroller's scrollbar width as `--brief-gutter`, and the head, the framing and the reply row take it off their width (CSS `[qa4b]`), so all of them end on the text column in Safari (5px scrollbar) as in Chrome and Firefox.
 - **Doc prose** holds 31em (a median of 67 to 70 characters a line in Inter, 70 to 74 in the system face, measured on the tutorial and the examples page).
 
+**Settled calls (2026-10-16):**
+- **The zoom floor is 10%** (`MIN_ZOOM`, was 18%), so Fit shows a large map whole on a phone; below 25% cards draw as their type colour and shape (`lod-dot`). `ZOOM_STOPS` keeps 18% as a step.
+- **Pills keep the card's box**: a zoomed-out face is drawn on the card's own height, because the selection edge, gap ring, ports and lines all sit on that box.
+- **Framing stays a split view** (Framing above, the brief below, two sibling scrollers; the panel does not scroll), so a framing change is seen where it lands. Its two text fields are `.insp-autogrow`; `autogrow` now lives in `utils.js`, shared with the inspector.
+- **The app page footer**: `data-fin="off"` (the kit's attribute) drops "Fin."; on phones `[decisions]` in `style.css` sets only the kit's `--footer-pad-block-app` token. The header kit's logo tilt stays (kit-owned, stops under reduced motion). Share links are counted through `?via=share`, so the kit's `#z=` pattern needs no change.
+- Tests: `tests/decisions.test.js`.
+
 **Key interactions added 2026-10-04 (design round QA3):**
 - **Panel tabs by key**: Alt+1/2/3 (and palette rows) show Inspector, Brief, Attention with focus on the tab (`PANEL_TABS`, `showPanelTab` in `ui-panels.js`). The Tab after an Escape that let go of the canvas goes past it (`leftCanvasByEscape` in `events.js`) instead of re-entering at the first card.
 - **View-only links**: `#editCopyBtn` (Edit a copy) reopens the same link without `?readonly`, so it arrives as any share link does; an edit attempt says "View only" (`sayViewOnly`).
@@ -384,7 +391,7 @@ canvasMeta = {
   situation: { codebase, runtime, firstMove, repoHint, constraints },
   prompt: { mode, tone, detail, pre: [] }  // serialized from devOpts by serializeCanvas(); applied back on load/import/switch
 }                                    // travels through save, share and import
-view = { panX, panY, zoom }          // zoom range: 0.18 to 2.6
+view = { panX, panY, zoom }          // zoom range: 0.1 to 2.6 (MIN_ZOOM, MAX_ZOOM in utils.js)
 ```
 
 Auto-saved via `debouncedSave()` (300ms) on every change. The camera is saved

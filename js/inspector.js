@@ -19,7 +19,7 @@ import { state, selection, ui, view, canvasMeta, debouncedSave,
          snapshotOnce, resetSnapshotToken } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
          STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ACTION_LABELS, ACTION_ASKS, ARROW_LABEL_PRESETS, CARD_STYLES, drawnCardStyle, pickableCardStyles,
-         DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
+         DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl, autogrow } from './utils.js'
 import { renderFrames, arrowRoute, arrowPattern, ARROW_ROUTES } from './canvas.js'
 import { ROUTE_NAMES, PATTERN_NAMES, WEIGHT_NAMES, WEIGHTS, DIRECTION_NAMES, DRAWN_WEIGHT_HINT, drawnWeight,
          weightName, meaningName, portsValue, routeName, patternName, directionName, colourName as lineColourName } from './connection-words.js'
@@ -241,14 +241,6 @@ function revealFieldsIn(root) {
     .forEach(revealOnFocus)
 }
 
-// Description, criteria and notes grow with their text. Chromium does it
-// natively with field-sizing; elsewhere, measure on input.
-const NATIVE_AUTOGROW = typeof CSS !== 'undefined' && !!CSS.supports?.('field-sizing', 'content')
-function autogrow(el) {
-  if (NATIVE_AUTOGROW || !el || !el.offsetParent) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight + 2, 320) + 'px'
-}
 
 // ── Inspector ────────────────────────────────────────────────
 let lastBlockId = null

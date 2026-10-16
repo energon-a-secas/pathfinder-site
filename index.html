@@ -828,10 +828,10 @@
               <input class="insp-input" id="situationRepoHint" type="text" maxlength="300"
                      placeholder="The billing service, src/billing">
               <label class="brief-field-label" for="situationConstraints">Boundaries <span class="brief-hint">one per line</span></label>
-              <textarea class="insp-textarea" id="situationConstraints" rows="2" maxlength="1000"
+              <textarea class="insp-textarea insp-autogrow" id="situationConstraints" rows="2" maxlength="1000"
                 placeholder="Do not touch the auth module&#10;No new dependencies&#10;Ship behind a flag"></textarea>
               <label class="brief-field-label" for="contextBrief">Context <span class="brief-hint">who it is for, the stack, the ask</span></label>
-              <textarea class="insp-textarea" id="contextBrief" rows="2"
+              <textarea class="insp-textarea insp-autogrow" id="contextBrief" rows="2"
                 placeholder="Two lines the assistant reads first: who this is for, the stack, what you want back"></textarea>
             </section>
 
@@ -972,7 +972,7 @@
      layout, the footer takes its natural slot at the bottom of the flex. -->
 <!-- No copy of its own: where maps live is said once, by the start panel
      and the status bar's save state (QA3); the kit's bar carries the links. -->
-<footer class="neo-footer" data-footer-mode="app" data-stick="off"></footer>
+<footer class="neo-footer" data-footer-mode="app" data-stick="off" data-fin="off"></footer>
 
 <script type="module" src="js/app.js"></script>
 </body>

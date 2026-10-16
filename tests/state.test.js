@@ -3,6 +3,7 @@
 // ============================================================
 
 import { describe, it, assert, mockLocalStorage } from './test-utils.js'
+import { MIN_ZOOM, MAX_ZOOM } from '../js/utils.js'
 import {
   state, view, ui, canvasMeta, devOpts, selection,
   snapshot, getUndoHistory, getRedoFuture,
@@ -316,7 +317,7 @@ describe('Shared preview persistence', () => {
   }
   it('clamps stored zoom so a bad camera cannot hide the canvas', () => {
     localStorage.removeItem('pathfinder-map-current')
-    for (const [zoom, expected] of [[0, .18], [-1, .18], [90, 2.6]]) {
+    for (const [zoom, expected] of [[0, MIN_ZOOM], [-1, MIN_ZOOM], [90, MAX_ZOOM]]) {
       localStorage.setItem('pathfinder-view', JSON.stringify({ panX: 2, panY: 3, zoom }))
       assert.ok(loadView())
       assert.eq(view.zoom, expected)

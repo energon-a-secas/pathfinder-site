@@ -415,7 +415,10 @@ export const DEFAULT_WIDTH  = 220
 // A new connection's stroke. Saved ones without a weight keep drawing at 2
 // (arrow-geometry.js arrowWeight), so an old map does not change.
 export const DEFAULT_ARROW_WEIGHT = 1.5
-export const MIN_ZOOM       = 0.18
+// 10%: low enough that Fit shows a large map whole on a phone (the sample
+// needs about 12% at 390px). Below 25% a card draws as its type colour and
+// shape (lod-dot), so nothing tries to be read there.
+export const MIN_ZOOM       = 0.1
 export const MAX_ZOOM       = 2.6
 
 export const ACTION_DEFS = {
@@ -971,3 +974,12 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
   }, toastDuration(message, duration))
 }
 
+// Description, criteria, notes and the Brief's Framing fields grow with
+// their text (.insp-autogrow). Chromium does it natively with
+// field-sizing; elsewhere, measure on input and when the field is shown.
+const NATIVE_AUTOGROW = typeof CSS !== 'undefined' && !!CSS.supports?.('field-sizing', 'content')
+export function autogrow(el) {
+  if (NATIVE_AUTOGROW || !el || !el.offsetParent) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight + 2, 320) + 'px'
+}
