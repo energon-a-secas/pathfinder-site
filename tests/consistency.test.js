@@ -298,12 +298,13 @@ describe('consistency: one stroked icon set and sentence case in the menus', () 
     } finally { document.getElementById('b-cx')?.remove(); state.blocks = {} }
   })
 
-  it('the connection meaning reads Auto (label or types) in the inspector and the context menu', async () => {
+  it('the connection meaning reads Automatic in the inspector and the context menu', async () => {
     const doc = await page()
-    assert.eq(doc.querySelector('#arrowRelation option[value=""]').textContent, 'Auto (label or types)')
+    assert.eq(doc.querySelector('#arrowRelationText').textContent, 'Automatic')
     const src = await (await fetch('../js/context-menu.js')).text()
-    assert.includes(src, "label: 'Auto (label or types)'")
+    assert.includes(src, "label: 'Automatic'")
     assert.notIncludes(src, 'From label or direction')
+    assert.notIncludes(src, 'Auto (label or types)')
   })
 
   it('labels, menu headings, palette heads and the view-only badge are not set in capitals', async () => {

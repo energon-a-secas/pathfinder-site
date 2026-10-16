@@ -269,7 +269,7 @@ describe('roundtrip: the answer field is stored, carried and exported', () => {
     assert.eq(cardAnswer(null), '')
   })
 
-  it('the prompt prints an answered card under Answered Questions, never as an open question', () => {
+  it('the prompt prints an answered card under Answered questions, never as an open question', () => {
     reset()
     add('q1', 'question', 'Do service accounts use the provider?', { answer: 'No, they use API keys.', status: 'done' })
     add('q2', 'question', 'Which region hosts the provider?')
@@ -278,7 +278,7 @@ describe('roundtrip: the answer field is stored, carried and exported', () => {
       devOpts.mode = mode
       const p = generatePrompt()
       const open = section(p, TYPES.question.section)
-      const answered = section(p, 'Answered Questions')
+      const answered = section(p, 'Answered questions')
       assert.includes(open, 'Which region hosts the provider?', mode)
       assert.notIncludes(open, 'Do service accounts use the provider?', `${mode}: the answered card is not listed as open`)
       assert.includes(answered, '• [DONE] Do service accounts use the provider?', mode)
@@ -295,7 +295,7 @@ describe('roundtrip: the answer field is stored, carried and exported', () => {
     reset()
     add('q', 'question', 'Q?')
     const reply = section(generatePrompt(), 'When you reply')
-    assert.includes(reply, 'To answer an Open Question card, give its id and leave out "question".')
+    assert.includes(reply, 'To answer an Open question card, give its id and leave out "question".')
     assert.includes(reply, '"decision": the statement that is true instead')
   })
 
@@ -504,10 +504,10 @@ describe('roundtrip: the persona map hands over a true order', () => {
     assert.notIncludes(flag, 'after: Provider outage')
     // Every arrow on this map is unlabelled, so each mitigation is the
     // tool's reading of the types and is printed as one, never as fact.
-    assert.includes(flag, 'mitigates (implied by an unlabelled arrow): Provider outage locks every user out (outage)')
+    assert.includes(flag, 'mitigates (implied by an unlabelled connection): Provider outage locks every user out (outage)')
     assert.notIncludes(out, '      mitigates: ')
     assert.includes(taskEntry(out, 'Write the account-linking migration script'),
-      'mitigates (implied by an unlabelled arrow): Email mismatch links the wrong person (mismatch)')
+      'mitigates (implied by an unlabelled connection): Email mismatch links the wrong person (mismatch)')
   })
 
   it('labelling the arrow states the mitigation', () => {
@@ -547,8 +547,8 @@ describe('roundtrip: the persona map hands over a true order', () => {
     devOpts.mode = 'build'
     const p = generatePrompt()
     const risks = section(p, TYPES.risk.section)
-    assert.includes(risks, '• Provider outage locks every user out\n  Mitigated by (implied by an unlabelled arrow): Put provider login behind a feature flag (Implementation)')
-    assert.includes(risks, '• Email mismatch links the wrong person\n  Mitigated by (implied by an unlabelled arrow): Write the account-linking migration script (Implementation)')
+    assert.includes(risks, '• Provider outage locks every user out\n  Mitigated by (implied by an unlabelled connection): Put provider login behind a feature flag (Implementation)')
+    assert.includes(risks, '• Email mismatch links the wrong person\n  Mitigated by (implied by an unlabelled connection): Write the account-linking migration script (Implementation)')
     assert.notIncludes(risks, '  Mitigated by: ', 'no risk is handed over as covered on a guess')
     // The connection list says the same thing: implied, not stated.
     assert.includes(section(p, 'Connections'), 'Risk "Provider outage locks every user out" [implied: mitigated by] → Implementation')
@@ -578,7 +578,7 @@ describe('roundtrip: the persona map hands over a true order', () => {
     devOpts.mode = 'build'
     ui.promptDirty = true
     const p = generatePrompt()
-    assert.includes(section(p, 'Answered Questions'), 'Answer: No. Service accounts use API keys')
+    assert.includes(section(p, 'Answered questions'), 'Answer: No. Service accounts use API keys')
     assert.notIncludes(section(p, TYPES.question.section), 'Do service accounts')
     const out = section(p, 'Implementation checklist')
     assert.notIncludes(out, 'Not ordered by the map', 'the reply ordered the cleanup after the flag')
@@ -681,7 +681,7 @@ describe('roundtrip: every built-in template keeps its gap set', () => {
     })
   })
   it('the bug template hands its test over as the guard on its risk, not as work after the risk', () => {
-    const { blocks, arrows } = templateCanvas(TEMPLATES.find(t => t.name === 'Investigate a Bug'))
+    const { blocks, arrows } = templateCanvas(TEMPLATES.find(t => t.name === 'Investigate a bug'))
     const out = taskChecklist(blocks, arrows)
     const test = taskEntry(out, 'A test that fails before the fix')
     assert.ok(test, out)
@@ -1004,7 +1004,7 @@ describe('roundtrip: the connection menu reads an unlabelled arrow the way the b
     try {
       hit.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }))
       rowOf(lastMenu(), 'Meaning').click()
-      return rowOf(lastMenu(), 'Auto (label or types)')?.querySelector('.pf-menu-hint')?.textContent
+      return rowOf(lastMenu(), 'Automatic')?.querySelector('.pf-menu-hint')?.textContent
     } finally {
       closeMenus()
       document.querySelectorAll('.ctx-test-svg').forEach(el => el.remove())

@@ -44,16 +44,16 @@ const gapSet = details => details.map(d => `${d.title} => ${d.gaps.join(',')}`).
 // Recorded against the rules as they stood before the INSIGHTS stream
 // (commit ecb74f2). A new rule must leave every one of these unchanged.
 const TEMPLATE_GAPS = {
-  'Validate an Idea': ['Validate the core idea => gap-no-req'],
-  'Sprint Planning': ['Biggest delivery risk => gap-no-mitigation', 'Must have => gap-no-criteria',
+  'Validate an idea': ['Validate the core idea => gap-no-req'],
+  'Sprint planning': ['Biggest delivery risk => gap-no-mitigation', 'Must have => gap-no-criteria',
     'Should have => gap-no-criteria'],
-  'Problem Analysis': [],
-  'Feature Launch': ['Launch risk => gap-no-mitigation', 'Launch-blocking requirement => gap-no-criteria'],
-  'Risk Review': ['Resulting requirement => gap-no-criteria'],
-  'Investigate a Bug': ['A test that fails before the fix => gap-no-criteria'],
-  'Inherit a Codebase': ['A rollback you have actually tried => gap-no-criteria',
+  'Problem analysis': [],
+  'Feature launch': ['Launch risk => gap-no-mitigation', 'Launch-blocking requirement => gap-no-criteria'],
+  'Risk review': ['Resulting requirement => gap-no-criteria'],
+  'Investigate a bug': ['A test that fails before the fix => gap-no-criteria'],
+  'Inherit a codebase': ['A rollback you have actually tried => gap-no-criteria',
     'Be able to make a safe change => gap-no-req'],
-  'Migrate a System': ['Cutover under load => gap-no-mitigation', 'No data loss => gap-no-criteria',
+  'Migrate a system': ['Cutover under load => gap-no-mitigation', 'No data loss => gap-no-criteria',
     'Per-tenant, not big bang => gap-no-basis', 'Reversible at every step => gap-no-criteria',
     'Silent divergence between the two => gap-no-mitigation'],
 }
@@ -654,7 +654,7 @@ describe('Insights: gap wording', () => {
 // ── The prompt and the Attention tab agree ───────────────────
 
 function gapSection(prompt) {
-  const start = prompt.indexOf('## Planning Gaps Detected')
+  const start = prompt.indexOf('## Planning gaps detected')
   if (start < 0) return ''
   const end = prompt.indexOf('\n## ', start + 3)
   return prompt.slice(start, end < 0 ? undefined : end)

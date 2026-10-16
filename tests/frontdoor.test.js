@@ -197,7 +197,7 @@ describe('frontdoor: the start panel says what the tool is and offers three ways
 // ── First-block pills ───────────────────────────────────────
 
 describe('frontdoor: or add a first block', () => {
-  it('offers Goal, Problem, Stakeholder, Metric, Requirement, Risk and Open Question, from the registry', async () => {
+  it('offers Goal, Problem, Stakeholder, Metric, Requirement, Risk and Open question, from the registry', async () => {
     assert.deepEq(FIRST_BLOCK_TYPES, ['goal', 'problem', 'stakeholder', 'metric', 'requirement', 'risk', 'question'])
     const row = (await index()).getElementById('startFirstBlocks')
     const pills = [...row.querySelectorAll('button.start-pill')]
@@ -318,7 +318,7 @@ describe('frontdoor: the sample map opens as a map of its own', () => {
   it('is the walkthrough example, named for the Maps menu, and a copy', () => {
     const p = samplePayload()
     assert.eq(p.meta.title, SAMPLE_TITLE)
-    assert.eq(SAMPLE_TITLE, 'Sample: Checkout 500s')
+    assert.eq(SAMPLE_TITLE, 'Checkout 500s: investigation', 'the example\'s own title, the name the examples page and the walkthrough use')
     assert.eq(Object.keys(p.blocks).length, EXAMPLE_CANVAS.blocks.length)
     assert.eq(p.arrows.length, EXAMPLE_CANVAS.arrows.length)
     p.blocks.t2.title = 'changed'
@@ -351,7 +351,7 @@ describe('frontdoor: the sample map opens as a map of its own', () => {
   }))
 
   it('lands once, through the camera\'s own arrival, and says what opened', async () => {
-    assert.eq(SAMPLE_ARRIVAL, 'Sample: Checkout 500s opened. Your own map is under Maps.')
+    assert.eq(SAMPLE_ARRIVAL, 'Checkout 500s: investigation opened. Your own map is under Maps.')
     // ZOOM's API: arriveAfterLoad(ids, { lead }) runs arriveAt after the load's fit.
     const calls = []
     const zoomApi = { arriveAfterLoad: (ids, opts) => { calls.push(['after', ids, opts]); return Promise.resolve({ whole: false }) },
@@ -399,7 +399,7 @@ describe('frontdoor: start from a template', () => {
     assert.eq(items[0].type, 'heading')
     const rows = items.filter(i => !i.type && !i.submenu)
     assert.deepEq(rows.map(r => r.label), large.map(t => t.name.charAt(0) + t.name.slice(1).toLowerCase()))
-    assert.deepEq(rows.map(r => r.label), ['Investigate a bug', 'Inherit a codebase', 'Migrate a system', 'Recurring reporting flow'])
+    assert.deepEq(rows.map(r => r.label), ['Investigate a bug', 'Inherit a codebase', 'Migrate a system', 'Plan a recurring report'])
     rows.forEach((r, i) => assert.includes(r.hint, `${large[i].blocks.length} blocks`))
     const more = items.find(i => i.submenu)
     assert.eq(more.label, 'Smaller starters')
@@ -412,7 +412,7 @@ describe('frontdoor: start from a template', () => {
     const list = document.getElementById('templatesList')
     const saved = list.innerHTML
     try {
-      const tpl = TEMPLATES.find(t => t.name === 'Migrate a System')
+      const tpl = TEMPLATES.find(t => t.name === 'Migrate a system')
       const i = TEMPLATES.indexOf(tpl)
       list.innerHTML = `<button type="button" class="template-item" data-tpl="${i}">Migrate</button>`
       let clicked = 0

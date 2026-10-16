@@ -66,7 +66,7 @@ function showHint() {
     '<div class="typekeys-head"><span class="typekeys-title">New block</span>' +
     '<span class="typekeys-sub">Press a letter. Esc cancels</span></div>' +
     '<ul class="typekeys-list">' + Object.keys(TYPES).filter(t => TYPE_KEYS[t]).map(t =>
-      `<li><kbd class="typekeys-key">${TYPE_KEYS[t].toUpperCase()}</kbd>` +
+      `<li><kbd class="kbd typekeys-key">${TYPE_KEYS[t].toUpperCase()}</kbd>` +
       `<span class="pf-menu-dot" data-shape="${TYPES[t].shape || 'dot'}" style="background:${typeDot(t)}"></span>` +
       `<span class="typekeys-label">${TYPES[t].label}</span></li>`).join('') + '</ul>'
   if (hintEl.parentElement !== vp) vp.appendChild(hintEl)

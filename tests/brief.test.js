@@ -233,7 +233,7 @@ describe('brief: a brief for the selection and its neighbours', () => {
       assert.ok(!ids.includes('i2: '), 'a block outside the scope is not offered for the patch')
       // The risk's mitigation is outside the scope; on its own the part
       // would call it unmitigated. The whole map says otherwise.
-      const gaps = text.slice(text.indexOf('## Planning Gaps Detected'))
+      const gaps = text.slice(text.indexOf('## Planning gaps detected'))
       assert.ok(!gaps.includes('"Owner leaves"'), 'no false "unmitigated" on a risk mitigated outside the scope')
       assert.includes(gaps, '"One place for the numbers"')
       assert.ok(!generatePrompt().includes('## Scope'), 'the whole brief is not marked partial')
@@ -245,7 +245,7 @@ describe('brief: a brief for the selection and its neighbours', () => {
     state.blocks.r1.gapAck = ['gap-no-criteria']
     try {
       const full = generatePrompt()
-      const from = full.indexOf('\n## Planning Gaps Detected\n')
+      const from = full.indexOf('\n## Planning gaps detected\n')
       const to = full.indexOf('\n## When you reply\n')
       assert.ok(from > 0 && to > from)
       const intro = full.slice(full.indexOf('\n## Accepted gaps\n')).split('\n')[2]
@@ -585,7 +585,7 @@ describe('brief: a scoped brief\'s findings stay inside its scope', () => {
       assert.includes(both, '• Canvas: possible duplicate: "Invoices export to CSV" and "Invoices export to CSV"')
       // Through the generator too.
       const brief = generateScopedPrompt(['r1'])
-      const gaps = brief.slice(brief.indexOf('## Planning Gaps Detected'), brief.indexOf('## When you reply'))
+      const gaps = brief.slice(brief.indexOf('## Planning gaps detected'), brief.indexOf('## When you reply'))
       assert.ok(!gaps.includes('" and "'), gaps)
     } finally { clear(); runGapDetection() }
   })

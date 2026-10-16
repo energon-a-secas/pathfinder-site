@@ -5,7 +5,7 @@
 
 import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
          getUndoHistory, getRedoFuture, resetSnapshotToken, undoEntry, applyPromptOpts } from './state.js'
-import { $, TYPES, ACTION_DEFS, ACTION_LABELS, STATUS_DEFS, PRIORITY_DEFS,
+import { $, TYPES, ACTION_LABELS, ACTION_ASKS, STATUS_DEFS, PRIORITY_DEFS,
          DEFAULT_WIDTH, DEFAULT_CARD_STYLE, DEFAULT_ARROW_WEIGHT,
          escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon, drawnCardStyle, showToast } from './utils.js'
 import { renderArrows, renderFrames, updateHint } from './canvas.js'
@@ -73,7 +73,7 @@ export function renderBlock(id) {
   // colour (red and amber already mean a type and a gap).
   const word = a => escHtml(ACTION_LABELS[a] || String(a).charAt(0).toUpperCase() + String(a).slice(1))
   const actHtml = (b.actions || []).map(a =>
-    `<span class="chip action-badge ${escHtml(a)}" title="${escHtml(ACTION_DEFS[a] || a)}">${chipIcon('action', a)}<span>${word(a)}</span></span>`).join('')
+    `<span class="chip action-badge ${escHtml(a)}" role="img" title="${escHtml(ACTION_ASKS[a] || word(a))}" aria-label="${escHtml(ACTION_ASKS[a] || word(a))}">${chipIcon('action', a)}<span>${word(a)}</span></span>`).join('')
   const statusLabel = STATUS_DEFS[b.status]?.label || b.status
   const statusHtml = b.status && b.status !== 'not-started'
     ? `<span class="chip status-badge status-${escHtml(b.status)}" title="${escHtml(statusLabel)}">${chipIcon('status', b.status)}<span>${escHtml(statusLabel)}</span></span>` : ''

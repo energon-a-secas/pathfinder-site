@@ -739,7 +739,7 @@ describe('reading: a reply that cannot be read says what to try', () => {
       input.value = '{"format": "pathfinder-patch"}'
       input.dispatchEvent(new Event('input', { bubbles: true }))
       assert.eq(byId('patchPreview').querySelector('.patch-err-what')?.textContent, 'The patch has no changes in it.')
-      assert.includes(byId('patchPreview').querySelector('.patch-err-next').textContent, 'answers, verify, status, criteria, notes, blocks or arrows')
+      assert.includes(byId('patchPreview').querySelector('.patch-err-next').textContent, 'an answer, a verdict, a status, criteria, a note, a block or a connection')
     } finally { byId('patchInput').value = ''; byId('patchPreview').innerHTML = '' }
   })
 })

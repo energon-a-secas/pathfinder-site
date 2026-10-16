@@ -9,6 +9,7 @@ import { $, TYPES, STATUS_DEFS, CARD_STYLES, DEFAULT_CARD_STYLE, SITUATION_FIELD
          clamp, escHtml, showToast, getBlockDims, copyText, undoKeyLabel, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, renderArrows, renderFrames, fitView, updateHint } from './canvas.js'
 import { renderAllBlocks, renderInspector, selectBlock, undo, updateCanvasTitle } from './render.js'
+import { phraseCapsHtml } from './keycaps.js'
 import { TEMPLATES, TICONS, applyTemplate, applyTemplateSituation,
          listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from './templates.js'
 import { refreshPrompt } from './prompt.js'
@@ -222,10 +223,10 @@ export const SHORTCUTS = [
     ['Double-click card',      'Edit the title, or the description where you click'],
     ['Double-click line',      'Edit the connection’s label'],
     ['Tab / Shift + Tab (editing)', 'Keep what you typed and move between the title and the description'],
-    ['Enter or Escape',        'Finish a title (Escape keeps what you typed); a description finishes with ⌘/Ctrl + Enter or Escape'],
+    ['Enter or Esc',           'Finish a title (Esc keeps what you typed); a description finishes with ⌘/Ctrl + Enter or Esc'],
     ['Arrow keys',             'Nudge the selected blocks 1px, a grid step when snapping (Shift nudges 10px)'],
     ['⌘/Ctrl + D',        'Duplicate the selected block'],
-    ['Delete / Backspace',     'Delete the selected blocks or connection'],
+    ['Del / Backspace',        'Delete the selected blocks or connection'],
     ['⌘/Ctrl + Z',        'Undo (add Shift to redo)', { top: 8, short: 'Undo (add Shift to redo)' }],
     ['Shift + F10 / Menu key', 'Quick actions for the selected card, the selection or the connection', { top: 7, short: 'Actions for the selection', key: 'Shift + F10' }],
     ['Right-click',            'Quick actions for a card, a connection or the canvas'],
@@ -237,7 +238,7 @@ export const SHORTCUTS = [
     ['Tab / Shift + Tab',      'Select the next or previous block in reading order; past the last one, leave the canvas', { top: 5, short: 'Next or previous block' }],
     ['⌘/Ctrl + Arrow',    'Select the nearest block in that direction, connected ones first', { top: 6, short: 'Nearest block that way' }],
     ['Enter / Space',          'Select the focused block'],
-    ['Escape',                 'Deselect; press again to leave the canvas. Also closes overlays and ends dot voting'],
+    ['Esc',                    'Deselect; press again to leave the canvas. Also closes overlays and ends dot voting'],
     ['Shift + click',          'Add a block to the selection'],
     ['Shift + drag',           'Select blocks inside a box'],
     ['⌘/Ctrl + A',        'Select every block'],
@@ -291,9 +292,13 @@ export function topShortcuts({ readOnly = ui.readOnly } = {}) {
     .sort((a, b) => a.top - b.top)
 }
 
+// The key column holds one cap per key (keycaps.js), with the words that
+// are not keys ("click", "a letter") beside them; data-keys keeps the row's
+// phrase as SHORTCUTS writes it.
 function shortcutRow(key, desc) {
   const row = document.createElement('div'); row.className = 'shortcut-row'
-  const k = document.createElement('dt'); k.className = 'shortcut-key'; k.textContent = key
+  const k = document.createElement('dt'); k.className = 'shortcut-keys'; k.dataset.keys = key
+  k.innerHTML = phraseCapsHtml(key, { cls: 'shortcut-key' })
   const d = document.createElement('dd'); d.className = 'shortcut-desc'; d.textContent = desc
   row.append(k, d)
   return row
@@ -318,7 +323,7 @@ export function buildShortcutGrid() {
   grid.textContent = ''
   const note = document.createElement('p')
   note.className = 'shortcut-note'
-  note.textContent = 'Single keys (letters, digits, =, -, arrows, Space) work while the canvas has focus: click it or press Tab to reach it.' +
+  note.textContent = 'Single keys (letters, digits, =, -, arrow keys, Space) work while the canvas has focus: click it or press Tab to reach it.' +
     (ui.readOnly ? ' This is a view-only link, so editing keys are off.' : '')
   grid.appendChild(note)
 
@@ -338,7 +343,7 @@ export function buildShortcutGrid() {
     Object.keys(TYPES).filter(t => TYPE_KEYS[t]).forEach(t => {
       const li = document.createElement('li')
       li.className = 'shortcut-typekey'
-      const k = document.createElement('kbd'); k.className = 'shortcut-key'; k.textContent = TYPE_KEYS[t].toUpperCase()
+      const k = document.createElement('kbd'); k.className = 'kbd shortcut-key'; k.textContent = TYPE_KEYS[t].toUpperCase()
       const dot = document.createElement('span'); dot.className = 'pf-menu-dot'; dot.setAttribute('aria-hidden', 'true')
       if (TYPES[t].shape) dot.dataset.shape = TYPES[t].shape
       dot.style.background = ui.lightMode ? TYPES[t].light : TYPES[t].color
@@ -895,7 +900,7 @@ export function setupExportDropdown() {
   on('copyDiagramInstructions', () => {
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {
       showToast(ok
-        ? 'AI diagram-builder prompt copied: paste it into Claude, add your topic, then Import the JSON'
+        ? 'Copied a prompt that builds a map: paste it into an assistant with your topic, then import the JSON it returns'
         : 'Copy failed: try again', ok ? 'success' : 'warning')
     })
   })
@@ -1533,8 +1538,8 @@ function renderTemplatesList() {
       <button type="button" class="utpl-del" data-utpl-del="${escHtml(tpl.id)}" title="Delete this template" aria-label="Delete template ${escHtml(tpl.name)}">×</button>
     </div>`).join('')
     + `
-    <button type="button" class="template-save" id="saveTemplateBtn" title="Keep the current canvas as a reusable starting point">
-      ${SAVE_TPL_ICON}<span>Save canvas as template</span>
+    <button type="button" class="template-save" id="saveTemplateBtn" title="Keep this map as a starting point for new ones">
+      ${SAVE_TPL_ICON}<span>Save this map as a template</span>
     </button>`
 }
 
@@ -1550,7 +1555,7 @@ export function setupTemplates() {
     if (del) {
       e.stopPropagation()
       // The row goes with it; keep the keyboard in the list rather than on
-      // the page: the next saved template, else Save canvas as template.
+      // the page: the next saved template, else Save this map as a template.
       const rows = [...list.querySelectorAll('.utpl-del')]
       const at = rows.indexOf(del)
       deleteUserTemplate(del.dataset.utplDel)
@@ -1602,10 +1607,10 @@ export function setupTemplates() {
     // arriveAt), not at a whole-map fit too small to read.
     if (tpl.large) {
       // The template click already took its undo step above: one click, one Cmd+Z.
-      const lead = framed ? `${tpl.name} added and arranged, with its situation.` : `${tpl.name} added and arranged.`
+      const lead = framed ? `"${tpl.name}" added and arranged, with its situation.` : `"${tpl.name}" added and arranged.`
       runTidy({ snapshot: false, arrive: { ids: added, lead } })
     } else {
-      arriveAt(added, { lead: `${arrivalLead(tpl.name)} Press Tidy or L to arrange it.`, ms: 2600 })
+      arriveAt(added, { lead: `${arrivalLead(`"${tpl.name}"`)} Press Tidy or L to arrange it.`, ms: 2600 })
     }
   })
 }

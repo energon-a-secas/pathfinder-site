@@ -15,7 +15,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { state, ui, canvasMeta, saveStatus, snapshot, primeShareLink, serializeCanvas, isShareHash } from './state.js'
-import { STORAGE_KEY, showToast } from './utils.js'
+import { STORAGE_KEY, showToast, shortDate } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { applyImport } from './export.js'
 import { updateCanvasTitle } from './render.js'
@@ -183,7 +183,7 @@ export function withMapName(data, { source = 'link', name = '', now = new Date()
   if (typeof meta.title === 'string' && meta.title.trim()) return data
   const base = source === 'file' ? String(name || '').replace(/\.[^./\\]+$/, '').trim() : ''
   let when = ''
-  try { when = now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) } catch (_) {}
+  try { when = shortDate(now, { now }) } catch (_) {}
   const title = base || (when ? `Shared map, ${when}` : 'Shared map')
   return { ...data, meta: { ...meta, title } }
 }
@@ -468,7 +468,7 @@ export function refreshBackupStatus(now = Date.now()) {
   }
   const at = lastBackupAt()
   host.querySelector('.backup-text').textContent = backupStatusText(at, now)
-  host.title = at ? 'Last exported ' + new Date(at).toLocaleString() : 'No export of this map yet. Maps live only in this browser until you export them'
+  host.title = at ? 'Last exported ' + shortDate(at, { time: true }) : 'No export of this map yet. Maps live only in this browser until you export them'
   host.classList.toggle('backup-stale', backupStale(now))
   // An empty map has nothing to back up: the first visit opened on "Backed
   // up: never" beside the start panel's own storage line (QA3). It shows

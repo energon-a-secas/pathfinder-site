@@ -29,12 +29,12 @@ const TABLE = [
   ['output', 'Output', '#d1925a', '#935417', 'more', 'what', 'square', '#818cf8', '#5558cc'],
   ['implementation', 'Implementation', '#9ea044', '#7a8409', 'core', 'how', 'dot', '#a3e635', '#4d7c0f'],
   ['process', 'Process', '#6cb3fd', '#5181c7', 'more', 'how', 'dot', '#60a5fa', '#2563eb'],
-  ['terminator', 'Trigger / End', '#cd7ab2', '#933a76', 'more', 'how', 'dot', '#f0abfc', '#c026a8'],
+  ['terminator', 'Trigger / end', '#cd7ab2', '#933a76', 'more', 'how', 'dot', '#f0abfc', '#c026a8'],
   ['decision', 'Decision', '#73dea4', '#20683c', 'core', 'how', 'dot', '#34d399', '#18a872'],
-  ['resource', 'Resource / System', '#1aa7a0', '#469177', 'more', 'how', 'dot', '#2dd4bf', '#14a894'],
+  ['resource', 'Resource / system', '#1aa7a0', '#469177', 'more', 'how', 'dot', '#2dd4bf', '#14a894'],
   ['assumption', 'Assumption', '#d09aea', '#9b54ad', 'core', 'doubt', 'diamond', '#eab308', '#b07d06'],
   ['risk', 'Risk', '#f89d79', '#c85030', 'core', 'doubt', 'diamond', '#fb923c', '#d46e14'],
-  ['question', 'Open Question', '#2fa5d8', '#0a5e89', 'more', 'doubt', 'diamond', '#38bdf8', '#1490c8'],
+  ['question', 'Open question', '#2fa5d8', '#0a5e89', 'more', 'doubt', 'diamond', '#38bdf8', '#1490c8'],
   ['context', 'Context', '#b7bcc6', '#646975', 'more', 'other', 'dot', '#64748b', '#4b5563'],
   ['custom', 'Other', '#837a73', '#50453d', 'more', 'other', 'dot', '#d8b4fe', '#8b3fc4'],
 ]
@@ -102,7 +102,7 @@ describe('types registry -- shape', () => {
   it('ships the three disambiguation lines', () => {
     assert.eq(TYPE_DISAMBIGUATION.length, 3)
     assert.includes(TYPE_DISAMBIGUATION.join(' '), 'Implementation')
-    assert.includes(TYPE_DISAMBIGUATION.join(' '), 'Trigger / End')
+    assert.includes(TYPE_DISAMBIGUATION.join(' '), 'Trigger / end')
     assert.includes(TYPE_DISAMBIGUATION.join(' '), 'Metric')
   })
 })

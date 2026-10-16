@@ -749,7 +749,7 @@ describe('Shortcut sheet', () => {
     for (const k of ['Enter / F2', 'Shift + Enter', 'Double-click line', 'Double-click canvas',
       'Shift + F10 / Menu key', 'Tab / Shift + Tab', '⌘/Ctrl + Arrow', 'Alt + Arrow',
       '⌘/Ctrl + Enter', 'Click a port ●', 'Space + drag',
-      'Shift + 1', 'Shift + 2', 'Shift + 0', '= / -', 'Escape', 'L', 'H', 'Z', '?',
+      'Shift + 1', 'Shift + 2', 'Shift + 0', '= / -', 'Esc', 'L', 'H', 'Z', '?',
       '⌘/Ctrl + K', 'N, then a letter', '/']) {
       assert.includes(keys, k)
     }
@@ -767,7 +767,7 @@ describe('Shortcut sheet', () => {
     const all = grid.querySelector('details.shortcut-all')
     assert.ok(all, 'one disclosure holds the full list')
     assert.eq(all.querySelectorAll('.shortcut-section').length, SHORTCUTS.length)
-    assert.eq(all.querySelectorAll('dt.shortcut-key').length, SHORTCUTS.reduce((n, g) => n + g.keys.length, 0))
+    assert.eq(all.querySelectorAll('dt.shortcut-keys').length, SHORTCUTS.reduce((n, g) => n + g.keys.length, 0))
     ui.readOnly = true
     try {
       buildShortcutGrid()
@@ -1066,7 +1066,7 @@ describe('A view-only link: the sheet promises only what works', () => {
     ui.readOnly = true
     try {
       buildShortcutGrid()
-      const listed = [...$.shortcutGrid().querySelectorAll('dt.shortcut-key')].map(k => k.textContent)
+      const listed = [...$.shortcutGrid().querySelectorAll('dt.shortcut-keys')].map(k => k.dataset.keys)
       assert.includes(listed, '⌘/Ctrl + A')
       const ev = withMultiInspector(() => key('a', { metaKey: true }, document.body))
       assert.ok(ev.defaultPrevented)

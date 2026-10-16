@@ -40,7 +40,7 @@ export const TICONS = {
 export const TEMPLATES = [
   {
     icon: 'idea',
-    name: 'Validate an Idea',
+    name: 'Validate an idea',
     desc: 'Goal → assumptions → next experiment',
     blocks: [
       { type: 'goal',        title: 'Validate the core idea', dx:   0, dy:   0, priority: 'high',
@@ -58,7 +58,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'sprint',
-    name: 'Sprint Planning',
+    name: 'Sprint planning',
     desc: 'Goal → requirements → risk',
     blocks: [
       { type: 'goal',        title: 'Sprint goal', dx:   0, dy:   0, priority: 'high',
@@ -76,7 +76,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'search',
-    name: 'Problem Analysis',
+    name: 'Problem analysis',
     desc: 'Problem → options → decision',
     blocks: [
       { type: 'problem',  title: 'Core problem', dx:   0, dy:   0, priority: 'high', actions: ['resolve'],
@@ -94,7 +94,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'launch',
-    name: 'Feature Launch',
+    name: 'Feature launch',
     desc: 'Context + goal → output + risk',
     blocks: [
       { type: 'context',     title: 'Why now', dx:   0, dy: -80,
@@ -112,7 +112,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'balance',
-    name: 'Risk Review',
+    name: 'Risk review',
     desc: 'Risk → assumption → mitigation',
     blocks: [
       { type: 'risk',        title: 'Top risk', dx:   0, dy:   0, priority: 'high',
@@ -128,7 +128,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'bug',
-    name: 'Investigate a Bug',
+    name: 'Investigate a bug',
     desc: 'Symptom → suspects → evidence → fix',
     large: true,
     mode: 'investigate',
@@ -173,7 +173,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'map',
-    name: 'Inherit a Codebase',
+    name: 'Inherit a codebase',
     desc: 'Unknown repo → map → first safe change',
     large: true,
     mode: 'investigate',
@@ -216,7 +216,7 @@ export const TEMPLATES = [
   },
   {
     icon: 'migrate',
-    name: 'Migrate a System',
+    name: 'Migrate a system',
     desc: 'Old → new, with a way back',
     large: true,
     mode: 'plan',
@@ -271,7 +271,9 @@ export const TEMPLATES = [
     // no task order; the rest keep the default. No title contains another,
     // and no description hides a question: the open one is its own block.
     icon: 'report',
-    name: 'Recurring Reporting Flow',
+    name: 'Plan a recurring report',
+    // Its name until 2026-10, kept so a link or a file that names it still finds it.
+    aliases: ['Recurring reporting flow'],
     desc: 'Cadence → reports → readers, with a measure',
     large: true,
     mode: 'plan',
@@ -324,6 +326,19 @@ export const TEMPLATES = [
     ],
   },
 ]
+
+/**
+ * A built-in template by name, in any case: a name written before the names
+ * went to sentence case ("Investigate a Bug") still finds its template, and
+ * so does a retired name kept in `aliases`. Null when none matches. Saved
+ * templates are found by id, never by name, so they are not searched.
+ */
+export function findTemplate(name) {
+  const key = String(name ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
+  if (!key) return null
+  return TEMPLATES.find(t => t.name.toLowerCase() === key ||
+    (t.aliases || []).some(a => a.toLowerCase() === key)) || null
+}
 
 export function applyTemplate(tpl) {
   const canvasViewport = $.canvasViewport()
@@ -427,7 +442,7 @@ export function saveCurrentAsTemplate(name, deps) {
 /**
  * A template's engagement setup, applied only to a canvas that was empty.
  *
- * Dropping "Investigate a Bug" onto a canvas already framed as a build is a
+ * Dropping "Investigate a bug" onto a canvas already framed as a build is a
  * merge, and silently rewriting the framing under it would be the wrong call.
  */
 export function applyTemplateSituation(tpl, canvasMeta, devOpts) {

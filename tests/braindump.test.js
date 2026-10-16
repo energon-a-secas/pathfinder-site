@@ -991,7 +991,7 @@ describe('braindump: Tidy lays the unconnected blocks out in step columns', () =
     reset()
   })
 
-  // The Risk Review template (four blocks, three lines) plus ten pasted lines.
+  // The Risk review template (four blocks, three lines) plus ten pasted lines.
   function riskReviewPlusNotes() {
     reset()
     block('top', 'risk', 0, 0); block('asm', 'assumption', 0, 150)

@@ -69,7 +69,7 @@ After that, add blocks from the palette on the left, or double-click empty canva
 The gap detection layer runs automatically and flags structural problems:
 
 - A **goal** with no requirements linked (how will you get there?)
-- A **problem** with no outgoing arrow and no "Resolve" action (what are you doing about it?)
+- A **problem** with no outgoing connection and no "Resolve" action (what are you doing about it?)
 - An **assumption** not anchored to a goal or requirement (unanchored assumptions compound)
 - A **risk** with nothing downstream and no "Prepare" action (what mitigates it?)
 - A **decision** with nothing leading to it and no rationale (why was this chosen?)
@@ -117,12 +117,12 @@ chosen after it.
 | What | **Output** | ochre square `#d1925a` | A deliverable someone can hold: report, doc, release |
 | How | **Implementation** | olive dot `#9ea044` | Work done once to build or change something |
 | How | **Process** | blue dot `#6cb3fd` | A recurring step in a workflow |
-| How | **Trigger / End** | magenta dot `#cd7ab2` | What starts or ends a flow: an event, a cadence, a finish |
+| How | **Trigger / end** | magenta dot `#cd7ab2` | What starts or ends a flow: an event, a cadence, a finish |
 | How | **Decision** | mint dot `#73dea4` | A choice made, or one to make |
-| How | **Resource / System** | teal dot `#1aa7a0` | An existing team, tool, system or data source |
+| How | **Resource / system** | teal dot `#1aa7a0` | An existing team, tool, system or data source |
 | Doubt | **Assumption** | lilac diamond `#d09aea` | A belief you are treating as true |
 | Doubt | **Risk** | orange diamond `#f89d79` | Something that might go wrong |
-| Doubt | **Open Question** | sky diamond `#2fa5d8` | A genuine unknown |
+| Doubt | **Open question** | sky diamond `#2fa5d8` | A genuine unknown |
 | Other | **Context** | slate dot `#b7bcc6` | Background that frames the work |
 | Other | **Other** | warm grey dot `#837a73` | Untyped: checks skip it |
 
@@ -134,7 +134,7 @@ on a card always means a gap, never a type.
 
 Three pairs get confused, so the type picker says it outright: every time a
 flow runs is a Process, once to build or change something is an
-Implementation; a moment in time is a Trigger / End, a thing someone can hold
+Implementation; a moment in time is a Trigger / end, a thing someone can hold
 is an Output; a number with a target is a Metric (its targets go in
 **Targets**).
 
@@ -177,9 +177,9 @@ Badges are neutral chips: the icon and the word tell them apart, never a colour 
 | Find a block | **Find blocks** on the canvas, or `Cmd/Ctrl + F`. Search content, then narrow by type or status |
 | Add a block where you are | Double-click empty canvas and pick a type |
 | Edit title | Double-click the card, or select it and press `Enter` (or `F2`). `Shift + Enter` edits the description |
-| Draw arrow | Drag from a port circle on a block edge |
+| Draw a connection | Drag from a port circle on a block edge |
 | Label a connection | Double-click it |
-| Change where an arrow attaches | Select it, then pick a side under **Connection points**, or drag either endpoint handle |
+| Change where a connection attaches | Select it, then pick a side under **Connection points**, or drag either endpoint handle |
 | Auto-arrange everything | **Tidy** in the header, or `L`. Blocks no line touches go into step columns. One `Cmd/Ctrl+Z` undoes the whole arrangement |
 | Change layout direction | Tidy's menu: arrange left to right, or top to bottom |
 | Align a selection | Select two or more blocks, then use Align / Distribute in the inspector |
@@ -212,7 +212,7 @@ Selecting a block opens its properties in the right panel:
 - **Title** and **Description**: also editable on the card itself
 - **Actions**: the toggles that fit the type: Resolve on a problem, Prepare on a risk, Validate on an assumption (Look back and Strengthen sit under Planning)
 - **Acceptance criteria**, or **Targets** on a metric: the block's definition of done
-- **Answer**, on an Open Question card: writing one marks the question done, and the brief hands it over as an answer
+- **Answer**, on an Open question card: writing one marks the question done, and the brief hands it over as an answer
 - **Suggestions**: the block's gap, a fix for it, and **Accept** for a gap you mean to keep
 - Closed until you open them: **Questions**, **Notes**, **Links and docs**, **Planning** (priority), and **Appearance** (colour, card style, border, highlight)
 
@@ -275,29 +275,29 @@ mode; every mode carries every block type):
 ## Scope                        (a brief for the selection only)
 ## Task
 [selected prompt options: tone, detail level, pre-prompt flags]
-## Block Type Legend            (one line per type used, in step order)
+## Block type legend            (one line per type used, in step order)
 ---
 # <canvas title>
 ## Context
-## Context / Background
+## Context and background
 ## Stakeholders (who this is for)
-## Project Goals
-## Success Metrics (how we will know)
-## Problems / Blockers
+## Project goals
+## Success metrics (how we will know)
+## Problems and blockers
 ## Requirements
-## Work Items (implementation)
+## Work items (implementation)
 ## Assumptions (validate before building)
 ## Risks
-## Open Questions (Review Before Assuming)
-## Answered Questions
+## Open questions (review before assuming)
+## Answered questions
 ## Decisions
-## Resources Available
-## Expected Outputs
-## Workflow (end-to-end)
-## Custom / Other
+## Resources available
+## Expected outputs
+## Workflow (end to end)
+## Other (untyped)
 ## Connections
 • Implementation "Build the scheduler" [implied: produces] → Output "Weekly report"
-## Planning Gaps Detected
+## Planning gaps detected
 ## Accepted gaps
 ## When you reply
 ```
@@ -306,7 +306,7 @@ An unlabelled connection between two types that imply a verb prints it as
 `[implied: ...]` (an Implementation satisfies a Requirement, a Metric measures
 a Goal, an Output is delivered to a Stakeholder), marked so the reader knows
 the tool inferred it. A risk prints what mitigates it, and says so when only an
-unlabelled arrow implies it. Gaps the author accepted are listed apart from the
+unlabelled connection implies it. Gaps the author accepted are listed apart from the
 open ones, so the assistant does not raise them again.
 
 **Build mode** combines requirements, outputs and implementation work into one
@@ -319,7 +319,7 @@ it as `satisfies:` with that requirement's acceptance criteria, instead of
 asking for criteria of its own. Circular connections are flagged for review.
 
 **Bring the reply back.** At the end of the Brief tab, **Paste a reply** takes an assistant's reply (or a reviewer's notes) and
-previews its `pathfinder-patch`. Answers land in their questions, an Open Question
+previews its `pathfinder-patch`. Answers land in their questions, an Open question
 card takes its answer and is marked done, and a refuted assumption becomes a
 decision titled with what is true, never with the claim it disproved. Expand full before/after details and choose each
 operation independently. Accepting a connection includes its new endpoint blocks;
@@ -362,8 +362,8 @@ and missing acceptance criteria. Filter by issue and open a block to resolve it.
 Select a connection and set its **Meaning**: comes before, depends on, blocks,
 informs, or related. Task checklists and cycle detection use this meaning.
 “Depends on” orders the target first; informational links do not impose an order.
-Left on **Auto (label or types)**, a known label decides it, and
-otherwise the card types do: an arrow touching a goal, stakeholder, metric, risk,
+Left on **Automatic**, a known label decides it, and
+otherwise the card types do: a connection touching a goal, stakeholder, metric, risk,
 resource or context sets no order (related at a risk, informs elsewhere), while
 flow steps, tasks and decisions keep the order they are drawn in. An explicit
 meaning takes precedence over a custom label.
@@ -400,7 +400,7 @@ pathfinder-site/
 │   ├── start-panel.js      # The empty map's start panel
 │   ├── classify.js         # Pasted notes to typed blocks (prefixes, step columns)
 │   ├── state.js            # State, localStorage, block mutations
-│   ├── canvas.js           # Pan/zoom, ports, Bézier arrows
+│   ├── canvas.js           # Pan/zoom, ports, Bézier connections
 │   ├── render.js           # Block + inspector DOM rendering
 │   ├── events.js           # Canvas pointer, keyboard shortcuts
 │   ├── gaps.js             # Automatic gap detection

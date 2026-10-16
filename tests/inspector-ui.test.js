@@ -233,26 +233,20 @@ describe('Inspector: one block', () => {
     } finally { document.body.classList.remove('light-mode') }
   })
 
-  it('selects keep a single caret in both themes', () => {
+  it('a connection\'s settings are pickers like the rest of the panel, one caret each', () => {
     reset()
     block('a'); block('b')
     arrow('x', 'a', 'b')
     refresh()
     selectArrow('x')
-    const sel = byId('arrowPatternSelect')
-    // The caret is two gradient strokes (one per layer), as on .select:
-    // neither layer tiles, in either theme.
-    const oneCaret = () => {
-      const cs = getComputedStyle(sel)
-      // Firefox and WebKit serialise one value for both layers, Chromium one
-      // per layer: every value listed must be no-repeat.
-      assert.ok(cs.backgroundRepeat.split(',').every(v => v.trim() === 'no-repeat'), cs.backgroundRepeat)
-      assert.eq((cs.backgroundImage.match(/gradient\(/g) || []).length, 2, 'two strokes, one caret')
-    }
-    oneCaret()
-    document.body.classList.add('light-mode')
-    try { oneCaret() }
-    finally { document.body.classList.remove('light-mode') }
+    const pane = byId('inspectorArrow')
+    assert.eq(pane.querySelectorAll('select').length, 0, 'no native select is left in the panel')
+    const pickers = [...pane.querySelectorAll('.insp-row-chip')]
+    assert.deepEq(pickers.map(b => b.id), ['arrowRelationBtn', 'arrowRouteBtn', 'arrowPatternBtn', 'arrowHeadsBtn', 'arrowWeightBtn', 'arrowColourBtn'])
+    pickers.forEach(b => {
+      assert.eq(b.getAttribute('aria-haspopup'), 'menu', b.id)
+      assert.eq(b.querySelectorAll('.insp-caret').length, 1, `${b.id}: one caret`)
+    })
   })
 
   it('the type dropdown lists all 16 types grouped by step, current one checked', () => {
@@ -661,22 +655,22 @@ describe('Inspector: several blocks', () => {
 })
 
 describe('Inspector: one connection', () => {
-  it('the pattern select writes arrow.pattern, one undo step per change', () => {
+  it('the pattern picker writes arrow.pattern, one undo step per change', () => {
     reset()
     block('a'); block('b', { type: 'requirement' })
     arrow('x', 'a', 'b')
     refresh()
     selectArrow('x')
-    const sel = byId('arrowPatternSelect')
-    assert.eq(sel.value, 'solid')
-    sel.value = 'dashed'
-    sel.dispatchEvent(new Event('change', { bubbles: true }))
+    assert.eq(byId('arrowPatternText').textContent, 'Solid')
+    open('arrowPatternBtn'); pick('Dashed')
     assert.eq(state.arrows[0].pattern, 'dashed')
     assert.eq(state.arrows[0].style, 'routed', 'the route is untouched')
-    sel.value = 'dotted'
-    sel.dispatchEvent(new Event('change', { bubbles: true }))
+    assert.eq(byId('arrowPatternText').textContent, 'Dashed')
+    open('arrowPatternBtn'); pick('Dotted')
     assert.eq(state.arrows[0].pattern, 'dotted')
     assert.eq(history(), 2)
+    open('arrowPatternBtn'); pick('Dotted')
+    assert.eq(history(), 2, 'picking the current value takes no undo step')
     undo()
     assert.eq(state.arrows[0].pattern, 'dashed')
   })
@@ -688,33 +682,35 @@ describe('Inspector: one connection', () => {
     delete state.arrows[0].pattern
     refresh()
     selectArrow('x')
-    assert.eq(byId('arrowRouteSelect').value, 'curved')
-    assert.eq(byId('arrowPatternSelect').value, 'dashed')
-    const route = byId('arrowRouteSelect')
-    route.value = 'elbow'
-    route.dispatchEvent(new Event('change', { bubbles: true }))
+    assert.eq(byId('arrowRouteText').textContent, 'Curved')
+    assert.eq(byId('arrowPatternText').textContent, 'Dashed')
+    open('arrowRouteBtn'); pick('Elbow')
     assert.eq(state.arrows[0].style, 'elbow')
     assert.eq(state.arrows[0].pattern, 'dashed')
   })
 
-  it('route, heads and weight are selects that write the arrow', () => {
+  it('route, direction and weight are pickers that write the arrow', () => {
     reset()
     block('a'); block('b')
     arrow('x', 'a', 'b', { weight: 2 })
     refresh()
     selectArrow('x')
-    const weight = byId('arrowWeightSelect')
-    assert.eq(weight.value, '2', 'an older weight shows as itself, not snapped')
-    weight.value = '3.5'
-    weight.dispatchEvent(new Event('change', { bubbles: true }))
+    assert.eq(byId('arrowWeightText').textContent, 'Normal (2px)', 'an older weight shows as itself, not snapped')
+    // What it draws already, picked again, is no change and no undo step,
+    // a pattern or a direction it never stored included.
+    delete state.arrows[0].pattern; delete state.arrows[0].bidirectional
+    selectArrow('x')
+    open('arrowPatternBtn'); pick('Solid')
+    open('arrowHeadsBtn'); pick('One-way')
+    open('arrowWeightBtn'); pick('Normal (2px)')
+    assert.eq(history(), 0)
+    assert.ok(!('pattern' in state.arrows[0]) && !('bidirectional' in state.arrows[0]), 'nothing written')
+    open('arrowWeightBtn'); pick('Bold')
     assert.eq(state.arrows[0].weight, 3.5)
-    const heads = byId('arrowHeadsSelect')
-    heads.value = 'both'
-    heads.dispatchEvent(new Event('change', { bubbles: true }))
+    open('arrowHeadsBtn'); pick('Two-way')
     assert.eq(state.arrows[0].bidirectional, true)
-    const route = byId('arrowRouteSelect')
-    route.value = 'straight'
-    route.dispatchEvent(new Event('change', { bubbles: true }))
+    assert.eq(byId('arrowHeadsBtn').getAttribute('aria-label'), 'Direction: Two-way')
+    open('arrowRouteBtn'); pick('Straight')
     assert.eq(state.arrows[0].style, 'straight')
     assert.eq(history(), 3)
   })
@@ -744,10 +740,9 @@ describe('Inspector: one connection', () => {
     arrow('x', 'a', 'b', { fromPort: 'right', toPort: 'left', portsBy: 'tidy' })
     refresh()
     selectArrow('x')
-    const rel = byId('arrowRelation')
-    rel.value = 'depends-on'
-    rel.dispatchEvent(new Event('change', { bubbles: true }))
+    open('arrowRelationBtn'); pick('Depends on')
     assert.eq(state.arrows[0].relation, 'depends-on')
+    assert.eq(byId('arrowRelationText').textContent, 'Depends on')
     byId('arrowReverse').click()
     assert.eq(state.arrows[0].from, 'b')
     assert.eq(state.arrows[0].fromPort, 'left')
@@ -792,7 +787,7 @@ describe('Inspector: one connection', () => {
     ui.readOnly = true
     try {
       selectArrow('x')
-      ;['arrowPatternSelect', 'arrowRouteSelect', 'arrowHeadsSelect', 'arrowWeightSelect', 'arrowRelation']
+      ;['arrowPatternBtn', 'arrowRouteBtn', 'arrowHeadsBtn', 'arrowWeightBtn', 'arrowRelationBtn']
         .forEach(id => assert.eq(byId(id).disabled, true, id))
       assert.eq(byId('arrowLabelInput').readOnly, true)
       assert.eq(byId('arrowLabelInput').checkVisibility(), false, 'no label, nothing to read')
@@ -1067,12 +1062,13 @@ describe('Inspector: review fixes', () => {
     arrow('y', 'b', 'c', { weight: 5 })
     refresh()
     selectArrow('x')
-    const sel = byId('arrowWeightSelect')
-    assert.eq(sel.value, '2')
-    assert.eq(sel.selectedOptions[0].textContent, 'Normal (2px)')
+    assert.eq(byId('arrowWeightText').textContent, 'Normal (2px)')
     selectArrow('y')
-    assert.eq(sel.selectedOptions[0].textContent, 'Bold (5px)')
-    assert.eq(sel.querySelectorAll('option[data-current]').length, 1, 'one off-scale option at a time')
+    assert.eq(byId('arrowWeightText').textContent, 'Bold (5px)')
+    open('arrowWeightBtn')
+    assert.eq(rows().filter(r => /px\)$/.test(rowLabel(r))).length, 1, 'one off-scale row at a time')
+    assert.eq(rows().find(r => rowLabel(r) === 'Bold (5px)').getAttribute('aria-checked'), 'true')
+    closeMenus()
   })
 
   it('placeholders reach 4.5:1 in both themes', () => {

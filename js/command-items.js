@@ -130,7 +130,7 @@ export function matchScore(query, text) {
   // Scattered letters count only where a person would type them: from the
   // start of a word, and past a skip of more than one letter only onto the
   // start of another word ("ct" is Change type, "rsk" is Risk; "png" is not
-  // Sprint Planning).
+  // Sprint planning).
   const h = f.hits
   if (!wordStart(s, h[0])) return null
   for (let i = 1; i < h.length; i++) if (h[i] - h[i - 1] > 2 && !wordStart(s, h[i])) return null
@@ -160,15 +160,23 @@ export function aliasesOf(label) {
   return out
 }
 
-/** matchScore against the label, else against its synonyms (a step lower, nothing bold). */
-export function rowMatch(query, label) {
+/**
+ * matchScore against the label, else against its synonyms (a step lower,
+ * nothing bold), else against the row's own `keywords` (two steps lower):
+ * a name the row used to have, so a template renamed in sentence case
+ * ("Recurring reporting flow" is now "Plan a recurring report") is still
+ * found by the name a returning person types.
+ */
+export function rowMatch(query, label, keywords = []) {
   const m = matchScore(query, label)
   if (m) return m
   let best = null
-  for (const alias of aliasesOf(label)) {
-    const a = matchScore(query, alias)
-    if (a && (!best || a.score - 1 > best.score)) best = { score: a.score - 1, hits: [] }
+  const consider = (text, step) => {
+    const a = matchScore(query, text)
+    if (a && (!best || a.score - step > best.score)) best = { score: a.score - step, hits: [] }
   }
+  for (const alias of aliasesOf(label)) consider(alias, 1)
+  for (const word of keywords || []) consider(word, 2)
   return best
 }
 
@@ -347,6 +355,8 @@ function clickTemplate(selector) {
 function templateRows() {
   const rows = TEMPLATES.map((tpl, i) => ({
     id: 'tpl:' + tpl.name, label: tpl.name, hint: tpl.desc, icon: ICONS.template, noRecent: true,
+    // A retired name still finds it (templates.js `aliases`), ranked under a label match.
+    keywords: tpl.aliases || [],
     meta: tpl.large ? `${tpl.blocks.length} blocks` : '', run: () => clickTemplate(`[data-tpl="${i}"]`),
   }))
   listUserTemplates().forEach(tpl => rows.push({

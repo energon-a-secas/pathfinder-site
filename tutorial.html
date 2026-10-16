@@ -196,14 +196,14 @@ no test covers the retry path</code></pre>
   </p>
   <p>
     Later, add one block at a time: <kbd>N</kbd> then a letter adds that type where you
-    point (<kbd>N</kbd> <kbd>K</kbd> a risk, <kbd>N</kbd> <kbd>Q</kbd> an open question),
+    point (<kbd>N</kbd> then <kbd>K</kbd> a risk, <kbd>N</kbd> then <kbd>Q</kbd> an open question),
     and the palette shows each type's letter beside its dot.
-    <kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd> finds any action or block by name.
+    <span class="kbd-press"><kbd>⌘/Ctrl</kbd><span class="sr-only">+</span><kbd>K</kbd></span> finds any action or block by name.
   </p>
   <p>
     The shortcut for this exact case is the <strong>Investigate a bug</strong> template
     (<strong>Start from a template</strong> on the start panel, or the palette): thirteen
-    blocks, arranged, with the Situation set to match. Delete what does not apply.
+    blocks, arranged, with the situation set to match. Delete what does not apply.
   </p>
 
   <h2 id="step-3">Step 3. Separate what you know from what you assume</h2>
@@ -240,7 +240,7 @@ no test covers the retry path</code></pre>
     <kbd>L</kbd>, or the <strong>Tidy</strong> button. The map is rearranged into layers
     along the flow, connections are re-pointed to match, and the toast says how many
     crossings are left. The caret beside Tidy picks left to right or top to bottom. It is
-    one undo step: <kbd>Cmd/Ctrl</kbd>+<kbd>Z</kbd> puts every block back.
+    one undo step: <span class="kbd-press"><kbd>⌘/Ctrl</kbd><span class="sr-only">+</span><kbd>Z</kbd></span> puts every block back.
   </p>
   <p class="doc-aside">
     Tidy is also a diagnostic. If the result is a straight line with everything dangling
@@ -258,7 +258,7 @@ no test covers the retry path</code></pre>
     The <strong>Attention</strong> tab lists every gap, and a gap you mean to keep can be
     accepted there or in the inspector. The Brief tab counts what is still open before
     you copy anything: a thin map makes a thin brief. On a map bigger than the window,
-    <kbd>M</kbd> shows the minimap and <kbd>Shift</kbd>+<kbd>1</kbd> fits all of it.
+    <kbd>M</kbd> shows the minimap and <span class="kbd-press"><kbd>Shift</kbd><span class="sr-only">+</span><kbd>1</kbd></span> fits all of it.
   </p>
 
   <h2 id="step-7">Step 7. Pick what you want back</h2>
@@ -274,12 +274,12 @@ no test covers the retry path</code></pre>
   <h2 id="step-8">Step 8. Hand it over</h2>
   <p>
     <strong>Copy brief</strong> at the top of the Brief tab
-    (<kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>), or in the bar under the canvas.
+    (<span class="kbd-press"><kbd>⌘/Ctrl</kbd><span class="sr-only">+</span><kbd>Shift</kbd><span class="sr-only">+</span><kbd>C</kbd></span>), or in the bar under the canvas.
     After the Situation, the brief opens on its task:
   </p>
   <pre class="doc-pre"><code>## Task
 Investigate. Establish what is actually true before anything is changed or
-proposed. Work outward from the Problems and Open Questions below.</code></pre>
+proposed. Work outward from the problems and open questions below.</code></pre>
   <p>
     Then the blocks, grouped by type, with the connections as a dependency list. The
     assistant knows what it is holding, what it can reach and what to do first, before it
@@ -319,7 +319,7 @@ proposed. Work outward from the Problems and Open Questions below.</code></pre>
   <h2 id="formats">Other formats</h2>
   <ul class="doc-list">
     <li><strong>Download Markdown</strong>: every block type as a section, connections with their labels, and a Mermaid graph.</li>
-    <li><strong>Download JSON</strong>: the whole map, Situation included. The one to hand a terminal session.</li>
+    <li><strong>Download JSON</strong>: the whole map, situation included. The one to hand a terminal session.</li>
     <li><strong>Share, Copy link</strong>: the entire map encoded in the URL. Nothing is uploaded; the link is the data.</li>
     <li>The other direction: File also copies a prompt that has any assistant build a map from your description; import the JSON it hands back.</li>
     <li><a href="examples.html">Examples</a>: four finished maps, from this bug investigation to a recurring report.</li>
@@ -328,11 +328,11 @@ proposed. Work outward from the Problems and Open Questions below.</code></pre>
 
   <h2 id="keyboard">Keyboard</h2>
   <div class="doc-keys">
-    <div><span class="doc-keys-caps"><kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd></span><span>Find any action or block by name</span></div>
+    <div><span class="doc-keys-caps"><span class="kbd-press"><kbd>⌘/Ctrl</kbd><span class="sr-only">+</span><kbd>K</kbd></span></span><span>Find any action or block by name</span></div>
     <div><span class="doc-keys-caps"><kbd>N</kbd> then a letter</span><span>Add a block of that type (the palette shows each letter)</span></div>
     <div><span class="doc-keys-caps"><kbd>L</kbd></span><span>Tidy the map</span></div>
     <div><span class="doc-keys-caps"><kbd>M</kbd></span><span>Show the minimap</span></div>
-    <div><span class="doc-keys-caps"><kbd>Shift</kbd>+<kbd>1</kbd></span><span>Fit the whole map</span></div>
+    <div><span class="doc-keys-caps"><span class="kbd-press"><kbd>Shift</kbd><span class="sr-only">+</span><kbd>1</kbd></span></span><span>Fit the whole map</span></div>
     <div><span class="doc-keys-caps"><kbd>H</kbd></span><span>Hide the header and footer</span></div>
     <div><span class="doc-keys-caps"><kbd>Z</kbd></span><span>Zen: hide every panel</span></div>
     <div><span class="doc-keys-caps"><kbd>?</kbd></span><span>Every other shortcut</span></div>

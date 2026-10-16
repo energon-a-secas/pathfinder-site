@@ -215,7 +215,7 @@ export function generatePrompt() {
     let out = ''
     if (open.length) out += `## ${typeInfo('question').section}\n${open.map(fmt).join('\n')}\n`
     if (answered.length) {
-      out += `${out ? '\n' : ''}## Answered Questions\nAnswers recorded on the map. Rely on them rather than asking again, and say so if you find one is wrong.\n`
+      out += `${out ? '\n' : ''}## Answered questions\nAnswers recorded on the map. Rely on them rather than asking again, and say so if you find one is wrong.\n`
       out += `${answered.map(fmt).join('\n')}\n`
     }
     return out
@@ -243,7 +243,7 @@ export function generatePrompt() {
       ((layer.get(a.id) ?? 0) - (layer.get(b.id) ?? 0)) ||
       (rank(a) - rank(b)) ||
       (a.title || '').localeCompare(b.title || ''))
-    let out = '## Workflow (end-to-end)\n'
+    let out = '## Workflow (end to end)\n'
     let step = 0
     ordered.forEach(b => {
       const kind = b.type === 'terminator' ? '◆' : `${++step}.`
@@ -286,7 +286,7 @@ export function generatePrompt() {
   const modeDirectives = {
     investigate:
       '## Task\nInvestigate. Establish what is actually true before anything is changed or proposed. ' +
-      'Work outward from the Problems and Open Questions below.\n\n' +
+      'Work outward from the problems and open questions below.\n\n' +
       'For each finding, state the evidence you based it on. Where you could not establish something, say so plainly ' +
       'rather than filling the gap with a plausible guess: an unmarked guess in an investigation is worse than an ' +
       'admitted unknown.\n' +
@@ -295,7 +295,7 @@ export function generatePrompt() {
     explore:
       '## Task\nReview this strategy canvas and surface gaps, assumptions, and missing connections. ' +
       'Ask clarifying questions rather than proposing solutions. Highlight what is unclear or contradictory. ' +
-      'Start from the Assumptions and Open Questions below; they are where this plan is weakest.\n',
+      'Start from the assumptions and open questions below; they are where this plan is weakest.\n',
     plan:
       '## Task\nReview this strategy canvas and produce a phased implementation plan. ' +
       'Break work into concrete phases with clear outputs for each. Flag any assumptions you are making.\n',
@@ -314,7 +314,7 @@ export function generatePrompt() {
       'For each question, cite the specific canvas block it comes from.\n' +
       'Mark each as [BLOCKING], [IMPORTANT], or [NICE TO HAVE].\n' +
       'Return no more than 15 questions, prioritized by blocking status.\n' +
-      'Close with a one-paragraph Readiness Assessment.\n'
+      'Close with a one-paragraph readiness assessment.\n'
   }
   let prompt = situationSection() + (modeDirectives[mode] || modeDirectives.plan) + '\n'
 
@@ -358,7 +358,7 @@ export function generatePrompt() {
   // order blocks happened to be created.
   const usedTypes = new Set(Object.values(state.blocks).map(b => b.type))
   if (usedTypes.size) {
-    prompt += '## Block Type Legend\n'
+    prompt += '## Block type legend\n'
     const ordered = [...Object.keys(TYPES).filter(t => usedTypes.has(t)), ...[...usedTypes].filter(t => !Object.hasOwn(TYPES, t))]
     ordered.forEach(t => {
       prompt += `\u2022 **${typeInfo(t).label}**: ${typeInfo(t).legend}\n`
@@ -367,7 +367,7 @@ export function generatePrompt() {
   }
 
   // 4. Canvas content, titled by the canvas, with the engagement framing first
-  const title = (canvasMeta.title || '').trim() || 'Project Canvas'
+  const title = (canvasMeta.title || '').trim() || 'Untitled map'
   prompt += `---\n\n# ${title}\n\n`
   const brief = (canvasMeta.contextBrief || '').trim()
   if (brief) prompt += `## Context\n${brief}\n\n`
@@ -402,7 +402,7 @@ export function generatePrompt() {
   const usedActions = new Set()
   Object.values(state.blocks).forEach(b => (b.actions||[]).forEach(a => usedActions.add(a)))
   if (usedActions.size) {
-    prompt += '\n## Action Labels\nBlocks may carry action labels indicating their status:\n'
+    prompt += '\n## Action labels\nBlocks may carry action labels indicating their status:\n'
     usedActions.forEach(a => {
       prompt += `\u2022 **${a}**: ${ACTION_DEFS[a] || a}\n`
     })
@@ -417,7 +417,7 @@ export function generatePrompt() {
   const isAccepted = (id, gapType) => (state.blocks[id]?.gapAck || []).includes(gapType)
   const openGaps = gapDetails.flatMap(g => g.gaps.filter(gapType => !isAccepted(g.id, gapType)).map(gapType => ({ g, gapType })))
   if (openGaps.length || (canvasFindings || []).length) {
-    prompt += '\n## Planning Gaps Detected\n'
+    prompt += '\n## Planning gaps detected\n'
     openGaps.forEach(({ g, gapType }) => {
       prompt += `\u2022 ${typeInfo(g.type).label}: "${g.title}": ${GAP_META[gapType]?.prompt || gapType}\n`
     })
@@ -436,10 +436,10 @@ export function generatePrompt() {
     'https://pathfinder.neorgon.com/llms.txt) carrying: answers to the open questions, each ' +
     'assumption marked verified or refuted with its evidence, status changes, new acceptance ' +
     'criteria, and any new blocks wired to existing ones. Address blocks by the ids below; ' +
-    'do not invent answers you do not have. To answer an Open Question card, give its id and leave out "question". ' +
+    'do not invent answers you do not have. To answer an Open question card, give its id and leave out "question". ' +
     'For a refuted assumption, add "decision": the statement that is true instead, which becomes the card\'s title. ' +
-    'For new arrows, set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n' +
-    // The ids, not the labels: a label ("Trigger / End") is what a person
+    'For a new connection (an entry in "arrows"), set relation to precedes, depends-on, blocks, informs, or related. depends-on means the target is a prerequisite; informs and related do not set task order.\n' +
+    // The ids, not the labels: a label ("Trigger / end") is what a person
     // reads, the id is what the patch must carry.
     `A new block's type is one of: ${Object.keys(TYPES).join(', ')}.\n`
   prompt += '\n### Block ids\n'
@@ -458,7 +458,7 @@ export function generatePrompt() {
 export function buildQuestionPrompt(block, question) {
   const q = question || (block.questions || [])[0] || { text: '' }
   const brief = (canvasMeta.contextBrief || '').trim()
-  const title = (canvasMeta.title || '').trim() || 'Project Canvas'
+  const title = (canvasMeta.title || '').trim() || 'Untitled map'
 
   const describe = b => {
     let s = `${typeInfo(b.type).label}: "${b.title || '(untitled)'}"`
@@ -725,7 +725,7 @@ export function scopedGapText(whole, scope, blocks = state.blocks, acceptedIntro
       .map(id => `• ${typeInfo(blocks[id].type).label}: "${blocks[id].title || '(untitled)'}": ${GAP_META[ack].prompt}`)
   })
   let out = ''
-  if (open.length || findings.length) out += '\n## Planning Gaps Detected\n' + [...open, ...findings].join('\n') + '\n'
+  if (open.length || findings.length) out += '\n## Planning gaps detected\n' + [...open, ...findings].join('\n') + '\n'
   const inScope = Object.fromEntries(Object.keys(blocks).filter(id => scope.has(id)).map(id => [id, blocks[id]]))
   const accepted = acceptedGapLines(inScope, firingGaps(whole))
   if (accepted.length) out += '\n## Accepted gaps\n' + (acceptedIntro ? acceptedIntro + '\n' : '') + accepted.join('\n') + '\n'
@@ -811,7 +811,7 @@ export function generateScopedPrompt(ids) {
   }
 
   // Swap the part's gap sections for the whole map's.
-  const cutGaps = cutSection(text, 'Planning Gaps Detected')
+  const cutGaps = cutSection(text, 'Planning gaps detected')
   const cutAcc = cutSection(cutGaps.text, 'Accepted gaps')
   const intro = cutAcc.body.split('\n')[2] || ''
   const acceptedIntro = intro.startsWith('•') ? '' : intro

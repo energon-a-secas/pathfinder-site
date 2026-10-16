@@ -349,7 +349,7 @@ describe('Share links: #z= compressed, #s= still read', () => {
   })
 
   it('a #z= link round-trips the canvas exactly', () => sandbox(async () => {
-    const c = templateCanvas('Investigate a Bug')
+    const c = templateCanvas('Investigate a bug')
     state.blocks = c.blocks; state.arrows = c.arrows; state.groups = c.groups
     canvasMeta.title = 'Round trip'
     const url = await buildShareUrlAsync()
@@ -363,7 +363,7 @@ describe('Share links: #z= compressed, #s= still read', () => {
   }))
 
   it('a #z= link is several times shorter than the #s= one', () => sandbox(async () => {
-    const c = templateCanvas('Migrate a System')
+    const c = templateCanvas('Migrate a system')
     state.blocks = c.blocks; state.arrows = c.arrows; state.groups = c.groups
     const legacy = 's=' + btoa(encodeURIComponent(JSON.stringify(serializeCanvas())))
     const z = (await buildShareUrlAsync()).split('#')[1]

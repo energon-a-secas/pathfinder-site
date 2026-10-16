@@ -53,7 +53,7 @@ describe('diffPayloads()', () => {
     assert.includes(d, '+1 block')
     assert.includes(d, '-1')
     assert.includes(d, '1 changed')
-    assert.includes(d, '+1 arrow')
+    assert.includes(d, '+1 connection')
   })
   it('says so when nothing changed', () => {
     const a = P({ x: { id: 'x', title: 'One', description: '' } })
@@ -70,13 +70,13 @@ describe('diffPayloads()', () => {
   it('detects changed connection text even when arrow counts stay the same', () => {
     const a = { ...P({}), arrows: [{ from: 'x', to: 'y', label: 'enables' }] }
     const b = { ...P({}), arrows: [{ from: 'x', to: 'y', label: 'blocks' }] }
-    assert.includes(diffPayloads(a, b), '1 arrow changed')
+    assert.includes(diffPayloads(a, b), '1 connection changed')
   })
   it('detects rewiring instead of reporting no changes for equal arrow counts', () => {
     const a = { ...P({}), arrows: [{ from: 'x', to: 'y' }] }
     const b = { ...P({}), arrows: [{ from: 'x', to: 'z' }] }
-    assert.includes(diffPayloads(a, b), '+1 arrow')
-    assert.includes(diffPayloads(a, b), '-1 arrow')
+    assert.includes(diffPayloads(a, b), '+1 connection')
+    assert.includes(diffPayloads(a, b), '-1 connection')
   })
   it('detects map framing and group changes', () => {
     assert.includes(diffPayloads(P({}), { ...P({}), meta: { title: 'Renamed' } }), 'map settings changed')

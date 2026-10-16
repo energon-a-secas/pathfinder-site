@@ -32,8 +32,8 @@ The blocks most worth your attention are the ones people skim:
 - **Assumptions** are beliefs nobody has checked. If the Situation says you have
   the repository open, several are probably settleable by reading it. Check
   those rather than asking, and label each result verified or still open.
-- **Open Questions** are genuine unknowns. Answering them from a guess is the
-  main way a plan like this goes wrong. **Answered Questions** carry the answer
+- **Open questions** are genuine unknowns. Answering them from a guess is the
+  main way a plan like this goes wrong. **Answered questions** carry the answer
   somebody recorded on the map; use it rather than asking again.
 - **Connections** carry labels (`blocks`, `depends on`, `mitigates`). They are
   the dependency order. Use them to sequence work rather than inventing an
@@ -45,21 +45,21 @@ The blocks most worth your attention are the ones people skim:
   `after:` names what must come first; `mitigates:` names the risk a task
   answers, which is not an order. Tasks under "Not ordered by the map" may be
   connected, but no connection sets their order: decide where each belongs.
-- A mitigation marked **(implied by an unlabelled arrow)**, on a risk
-  ("Mitigated by (implied by an unlabelled arrow): ...") or on a task
-  ("mitigates (implied by an unlabelled arrow): ..."), is the tool's reading
-  of an arrow from a risk that nobody labelled. The author did not say the
+- A mitigation marked **(implied by an unlabelled connection)**, on a risk
+  ("Mitigated by (implied by an unlabelled connection): ...") or on a task
+  ("mitigates (implied by an unlabelled connection): ..."), is the tool's reading
+  of a connection from a risk that nobody labelled. The author did not say the
   risk is covered; check that the work really answers it before relying on
   it.
 - **Accepted gaps** are gaps the author looked at and chose to leave. Do not
   raise them again as findings.
-- A **Gap summary** at the end lists blocks the tool itself flagged as
+- **Planning gaps detected**, near the end, lists blocks the tool itself flagged as
   unconnected or unsupported. Treat it as a list of things the author has not
   finished thinking about.
 
 **2. You are asked to produce a canvas.** Emit the JSON below and the user
-imports it with File ▾ → Import JSON / Canvas / Mermaid. In the app, File ▾ → **Copy AI
-diagram-builder prompt** gives the same instructions with the current schema
+imports it with File ▾ → Import JSON / Canvas / Mermaid. In the app, File ▾ → **Copy a prompt
+that builds a map** gives the same instructions with the current schema
 inlined.
 
 ---
@@ -106,7 +106,7 @@ inlined.
 ```
 
 Only `id`, `type`, `title`, `x` and `y` are needed on a block; the rest default.
-Only `from` and `to` are needed on an arrow. Unknown fields and unknown enum
+Only `from` and `to` are needed on a connection (an entry in `arrows`). Unknown fields and unknown enum
 values are dropped on import rather than rejected, so a partial canvas still
 loads. Positions can be rough: the user presses **Tidy** (or `L`) and the app
 lays the graph out properly.
@@ -128,12 +128,12 @@ it. Context and Other support any step.
 | `output` | Output | What | A deliverable someone can hold: report, doc, release |
 | `implementation` | Implementation | How | Work done once to build or change something |
 | `process` | Process | How | A recurring step in a workflow |
-| `terminator` | Trigger / End | How | What starts or ends a flow: an event, a cadence, a finish |
+| `terminator` | Trigger / end | How | What starts or ends a flow: an event, a cadence, a finish |
 | `decision` | Decision | How | A choice made, or one to make |
-| `resource` | Resource / System | How | An existing team, tool, system or data source |
+| `resource` | Resource / system | How | An existing team, tool, system or data source |
 | `assumption` | Assumption | Doubt | A belief you are treating as true |
 | `risk` | Risk | Doubt | Something that might go wrong |
-| `question` | Open Question | Doubt | A genuine unknown |
+| `question` | Open question | Doubt | A genuine unknown |
 | `context` | Context | Other | Background that frames the work |
 | `custom` | Other | Other | Untyped: checks skip it |
 
@@ -146,7 +146,7 @@ Pairs that get confused:
 
 - Every time the flow runs is a Process; once, to build or change something,
   is an Implementation.
-- A moment in time is a Trigger / End; a thing someone can hold is an Output.
+- A moment in time is a Trigger / end; a thing someone can hold is an Output.
 - A number with a target is a Metric. Put the target in its `criteria`.
 - An assumption is something you are acting on without checking; a question is
   something you know you do not know. The export tells the reader to
@@ -154,7 +154,7 @@ Pairs that get confused:
 - A problem is happening now; a risk only might.
 
 Connections between some pairs imply a verb, printed in the prompt when the
-arrow has no label (it is never stored):
+connection has no label (it is never stored):
 
 | From → to | Implied verb |
 |---|---|
@@ -177,10 +177,10 @@ arrow has no label (it is never stored):
   `depends-on` means the target must precede the source. `precedes` and `blocks`
   order the source first. `informs` and `related` provide context without task
   ordering. Explicit meaning overrides label text. When omitted, recognized
-  old labels infer their meaning. An unlabelled arrow (or one labelled with
+  old labels infer their meaning. An unlabelled connection (or one labelled with
   the verb its pair implies, such as "measures") that touches a `goal`,
   `stakeholder`, `metric`, `risk`, `resource` or `context` sets no order:
-  it reads as `related` at a risk and `informs` otherwise. Every other arrow
+  it reads as `related` at a risk and `informs` otherwise. Every other connection
   keeps source-to-target ordering, so flow steps, tasks, decisions and the
   assumption or question a task waits on stay in sequence. Set a relation
   when you mean an order the types do not imply.
@@ -193,9 +193,9 @@ arrow has no label (it is never stored):
   risk with its mitigations, and each task with the risks it mitigates. A
   risk pointing at a decision, implementation, requirement or process with
   no label and no relation is printed as a mitigation **implied by an
-  unlabelled arrow**, never as fact: the work that brings a risk is drawn the
-  same way. An arrow with a relation set (`informs`, `related`) is not read
-  as a mitigation. To state one, label the arrow `mitigated by`.
+  unlabelled connection**, never as fact: the work that brings a risk is drawn the
+  same way. A connection with a relation set (`informs`, `related`) is not read
+  as a mitigation. To state one, label the connection `mitigated by`.
 - `arrows[].style`: the route only. `routed` (default, steers around
   blocks), `curved`, `straight`, `elbow`. The old values `dashed` and `dotted`
   still load, as `curved` plus that pattern
@@ -225,9 +225,9 @@ arrow has no label (it is never stored):
   type of a block whose type this build did not know, so a newer build can
   restore it
 - `blocks[].rationale`: why a decision was made (string, `decision` blocks)
-- `blocks[].answer`: the answer to an Open Question card (`question` blocks;
+- `blocks[].answer`: the answer to an Open question card (`question` blocks;
   the card is the question, so it holds its own answer). The prompt prints an
-  answered card under "Answered Questions". Set `status` to `done` with it.
+  answered card under "Answered questions". Set `status` to `done` with it.
   Questions raised on other blocks keep theirs in `questions[].answer`
 - `meta.cardStyle`: `outline`, `bar`, `header`, `tint`, `plain`
 - `blocks[].highlight`: `alert`, `focus`, `go`, `hold`, `festive`, or omitted
@@ -283,7 +283,7 @@ old `dashed` style, describe a lossless reading and do not fail the check.
 - **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): File ▾ →
   Download JSON Canvas writes the map as a `.canvas` file, each text node in
   its type's exact hex colour plus a `pathfinderType` field (and
-  `pathfinderColor` when the author recoloured it). An answered Open Question
+  `pathfinderColor` when the author recoloured it). An answered Open question
   card carries its answer in the text (`**Answer:** ...`) and, exactly, in
   `pathfinderAnswer`, which import puts back in `answer`. File ▾ → Import reads one
   and types each node from, in order: `pathfinderType`, an exact type hex
@@ -294,12 +294,12 @@ old `dashed` style, describe a lossless reading and do not fail the check.
 - **Mermaid flowcharts** import through the same picker (a fenced
   ```mermaid block or a bare `flowchart`/`graph` file): a `class <nodes>
   <type id>` line types a node outright, otherwise shapes map to types
-  (rhombus → decision, stadium/circle → Trigger / End), subgraphs become
+  (rhombus → decision, stadium/circle → Trigger / end), subgraphs become
   groups, and positions come from the app's own layout. File ▾ → Copy
   Mermaid and the Markdown export write the same graph: every block declared
-  (connected or not), each type in its shape (decision `{}`, Trigger / End
-  `([])`, Resource / System `[()]`, Output `[//]`, Implementation `[[]]`,
-  Open Question `{{}}`, Context `>]`, the rest `[]`), groups as subgraphs,
+  (connected or not), each type in its shape (decision `{}`, Trigger / end
+  `([])`, Resource / system `[()]`, Output `[//]`, Implementation `[[]]`,
+  Open question `{{}}`, Context `>]`, the rest `[]`), groups as subgraphs,
   and a `class` line per type, so it reads back without losing a type.
   Quotes, `#`, `%` and backticks in labels travel as Mermaid entity codes.
 
@@ -334,11 +334,11 @@ Semantics:
 - `answers`: fills a question's `answer` field. `question` is the zero-based
   index or unique question text; omit it when the block has exactly one
   question. If two questions have the same text, use the index. **An Open
-  Question card** (`type: "question"`) is the question itself: give its id
+  question card** (`type: "question"`) is the question itself: give its id
   and omit `question`, and the answer lands in the card's own `answer` and
   marks the card done. An assumption is not answered; send it under `verify`.
 - `verify`: an `assumption` becomes a `decision` **in place** (same id, so its
-  arrows survive); `verdict` is `verified` or `refuted`, and `evidence` is
+  connections survive); `verdict` is `verified` or `refuted`, and `evidence` is
   required, because a verdict without evidence is still a guess. A verified
   assumption keeps its claim as the decision's title, with the evidence in
   `rationale`. A refuted one never does: the card is retitled with
@@ -355,7 +355,7 @@ Semantics:
   each other and existing ids. A block without a position lands beside what it
   connects to (right of a block that points at it, left of one it points at),
   in the nearest free space, never on a card; Tidy arranges them. Each new block must have a unique id within the patch.
-  Duplicate ids and arrows to rejected new blocks are refused. Repeated
+  Duplicate ids and connections to rejected new blocks are refused. Repeated
   connections are deduplicated.
 
 Do not put answers you do not have in a patch. An empty patch is a valid reply.
@@ -407,7 +407,7 @@ none`, do not reason about files. If it says `runtime: chat`, do not claim to
 have read anything.
 
 **Return blocks, not prose.** An answered question becomes
-`questions[].answer`, or, on an Open Question card, the card's own `answer`
+`questions[].answer`, or, on an Open question card, the card's own `answer`
 with `status: "done"`. A checked assumption becomes a `decision` in place with
 the evidence in its `rationale`; a refuted one is retitled with what is true
 instead, never left stating the claim that turned out false.

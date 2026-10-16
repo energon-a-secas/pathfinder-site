@@ -399,11 +399,11 @@ describe('qa3: deleting blocks shows a toast with Undo', () => {
 
 // ── The command palette finds the words people type ──────────
 describe('qa3: the palette matches synonyms, rejects scattered letters, and can rename the map', () => {
-  it('"export png" and "export image" find Download image; "png" no longer finds Sprint Planning', () => {
+  it('"export png" and "export image" find Download image; "png" no longer finds Sprint planning', () => {
     assert.ok(rowMatch('export png', 'Download image (PNG 2×)'), 'export png')
     assert.ok(rowMatch('export image', 'Download image (PNG 2×)'), 'export image')
     assert.ok(rowMatch('save svg', 'Download vector (SVG)'), 'save svg')
-    assert.eq(rowMatch('png', 'Sprint Planning'), null)
+    assert.eq(rowMatch('png', 'Sprint planning'), null)
     assert.ok(matchScore('rsk', 'Risk'), 'a run with one letter skipped still counts')
     assert.ok(matchScore('ct', 'Change type'), 'word starts still count')
     assert.gt(rowMatch('download', 'Download image (PNG 2×)').score, rowMatch('export', 'Download image (PNG 2×)').score,

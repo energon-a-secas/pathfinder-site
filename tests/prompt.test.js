@@ -84,7 +84,7 @@ describe('generatePrompt() -- mode directives', () => {
     const prompt = generatePrompt()
     assert.includes(prompt, 'Do NOT implement')
     assert.includes(prompt, 'BLOCKING')
-    assert.includes(prompt, 'Readiness Assessment')
+    assert.includes(prompt, 'readiness assessment')
   })
 })
 
@@ -107,16 +107,16 @@ describe('generatePrompt() -- sections grouped by type', () => {
     const prompt = generatePrompt()
 
     // Verify all sections are present
-    assert.includes(prompt, '## Context / Background')
-    assert.includes(prompt, '## Project Goals')
-    assert.includes(prompt, '## Problems / Blockers')
+    assert.includes(prompt, '## Context and background')
+    assert.includes(prompt, '## Project goals')
+    assert.includes(prompt, '## Problems and blockers')
     assert.includes(prompt, '## Requirements')
     assert.includes(prompt, '## Risks')
-    assert.includes(prompt, '## Open Questions')
+    assert.includes(prompt, '## Open questions')
     assert.includes(prompt, '## Decisions')
-    assert.includes(prompt, '## Resources Available')
-    assert.includes(prompt, '## Expected Outputs')
-    assert.includes(prompt, '## Custom / Other')
+    assert.includes(prompt, '## Resources available')
+    assert.includes(prompt, '## Expected outputs')
+    assert.includes(prompt, '## Other (untyped)')
   })
 
   it('Context appears before Goals in the prompt', () => {
@@ -125,7 +125,7 @@ describe('generatePrompt() -- sections grouped by type', () => {
     addBlock('g1', 'goal', 'Goal')
     const prompt = generatePrompt()
     const ctxIdx  = prompt.indexOf('## Context')
-    const goalIdx = prompt.indexOf('## Project Goals')
+    const goalIdx = prompt.indexOf('## Project goals')
     assert.ok(ctxIdx < goalIdx, 'Context should appear before Goals')
   })
 
@@ -133,7 +133,7 @@ describe('generatePrompt() -- sections grouped by type', () => {
     resetPromptState()
     addBlock('g1', 'goal', 'Only a goal')
     const prompt = generatePrompt()
-    assert.includes(prompt, '## Project Goals')
+    assert.includes(prompt, '## Project goals')
     assert.notIncludes(prompt, '## Problems')
     assert.notIncludes(prompt, '## Requirements')
   })
@@ -228,14 +228,14 @@ describe('generatePrompt() -- connections', () => {
   })
 })
 
-// ── Action Labels section in prompt ──────────────────────────
+// ── Action labels section in prompt ──────────────────────────
 
-describe('generatePrompt() -- Action Labels section', () => {
-  it('includes Action Labels section when blocks have actions', () => {
+describe('generatePrompt() -- Action labels section', () => {
+  it('includes Action labels section when blocks have actions', () => {
     resetPromptState()
     addBlock('p1', 'problem', 'Bug', { actions: ['resolve'] })
     const prompt = generatePrompt()
-    assert.includes(prompt, '## Action Labels')
+    assert.includes(prompt, '## Action labels')
   })
 
   it('lists each used action with its definition', () => {
@@ -248,11 +248,11 @@ describe('generatePrompt() -- Action Labels section', () => {
     assert.includes(prompt, 'Gather resources')
   })
 
-  it('omits Action Labels section when no blocks have actions', () => {
+  it('omits Action labels section when no blocks have actions', () => {
     resetPromptState()
     addBlock('g1', 'goal', 'Ship v2', { actions: [] })
     const prompt = generatePrompt()
-    assert.notIncludes(prompt, '## Action Labels')
+    assert.notIncludes(prompt, '## Action labels')
   })
 
   it('only lists actions that are actually used on blocks', () => {
@@ -270,17 +270,17 @@ describe('generatePrompt() -- Action Labels section', () => {
     addBlock('p1', 'problem', 'Bug 1', { actions: ['resolve'] })
     addBlock('p2', 'problem', 'Bug 2', { actions: ['resolve', 'prepare'] })
     const prompt = generatePrompt()
-    // Count occurrences of **resolve** in Action Labels section
-    const actionSection = prompt.split('## Action Labels')[1]?.split('##')[0] || ''
+    // Count occurrences of **resolve** in Action labels section
+    const actionSection = prompt.split('## Action labels')[1]?.split('##')[0] || ''
     const resolveCount = (actionSection.match(/\*\*resolve\*\*/g) || []).length
-    assert.eq(resolveCount, 1, 'resolve should appear only once in Action Labels')
+    assert.eq(resolveCount, 1, 'resolve should appear only once in Action labels')
   })
 
   it('handles custom/unknown action names gracefully', () => {
     resetPromptState()
     addBlock('p1', 'problem', 'Bug', { actions: ['unknown_action'] })
     const prompt = generatePrompt()
-    assert.includes(prompt, '## Action Labels')
+    assert.includes(prompt, '## Action labels')
     assert.includes(prompt, '**unknown_action**')
     // Falls back to the action name itself when not in ACTION_DEFS
     assert.includes(prompt, 'unknown_action')
@@ -295,7 +295,7 @@ describe('generatePrompt() -- gap details', () => {
     addBlock('q1', 'question', 'Floating question')
     // question with no connections -> gap-isolated + gap-assumption
     const prompt = generatePrompt()
-    assert.includes(prompt, '## Planning Gaps Detected')
+    assert.includes(prompt, '## Planning gaps detected')
   })
 
   it('describes the isolated gap type in gap details', () => {
@@ -596,7 +596,7 @@ describe('Changes since prompt export', () => {
 })
 
 describe('Risks, mitigations and answered cards in the prompt (design round)', () => {
-  it('prints a risk with what mitigates it, and a guess from an unlabelled arrow as implied', () => {
+  it('prints a risk with what mitigates it, and a guess from an unlabelled connection as implied', () => {
     resetPromptState()
     addBlock('k', 'risk', 'Provider outage')
     addBlock('w', 'implementation', 'Feature flag')
@@ -606,15 +606,15 @@ describe('Risks, mitigations and answered cards in the prompt (design round)', (
     state.arrows.find(a => a.to === 'd').label = 'mitigated by'
     const p = generatePrompt()
     assert.includes(p, '• Provider outage\n  Mitigated by: Keep local login as a fallback (Decision)\n' +
-      '  Mitigated by (implied by an unlabelled arrow): Feature flag (Implementation)')
+      '  Mitigated by (implied by an unlabelled connection): Feature flag (Implementation)')
   })
   it('prints an answered Open Question card as an answer', () => {
     resetPromptState()
     addBlock('q', 'question', 'Staging too?')
     state.blocks.q.answer = 'Yes, both.'
     const p = generatePrompt()
-    assert.includes(p, '## Answered Questions')
+    assert.includes(p, '## Answered questions')
     assert.includes(p, '• Staging too?\n  Answer: Yes, both.')
-    assert.notIncludes(p, '## Open Questions')
+    assert.notIncludes(p, '## Open questions')
   })
 })

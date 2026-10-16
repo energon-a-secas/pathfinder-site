@@ -99,7 +99,7 @@ export function mitigationIndex(blocks, arrows) {
 }
 
 /** The label a mitigation line opens with: stated, or implied by the drawing. */
-export const IMPLIED_MITIGATION = 'implied by an unlabelled arrow'
+export const IMPLIED_MITIGATION = 'implied by an unlabelled connection'
 
 export function taskChecklist(blocks, arrows) {
   const { tasks, unordered, incoming, hasCycle } = buildTaskPlan(blocks, arrows)

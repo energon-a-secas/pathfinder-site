@@ -1,9 +1,9 @@
 import { state, ui, view, serializeCanvas } from './state.js'
-import { $, escHtml, DEFAULT_WIDTH, getBlockDims, clamp, MIN_ZOOM, MAX_ZOOM } from './utils.js'
+import { $, escHtml, DEFAULT_WIDTH, getBlockDims, clamp, MIN_ZOOM, MAX_ZOOM, shortDate } from './utils.js'
 import { currentId, restoreSnapshot, diffPayloads } from './library.js'
 import { compareCanvases } from './comparison.js'
 import { blockDetails } from './change-details.js'
-import { connectionLabel } from './relations.js'
+import { connectionSettings } from './connection-words.js'
 import { applyTransform } from './canvas.js'
 import { focusBlock } from './ui-panels.js'
 
@@ -68,8 +68,22 @@ function markCanvas() {
   $.canvasRoot().appendChild(ghosts)
 }
 
+// A connection before or after, named the way its inspector names it: the
+// same settings in the same order and words (connection-words.js).
+export function edgeDetails(arrow, canvas) {
+  const ends = `${canvas.blocks[arrow.from]?.title || arrow.from} → ${canvas.blocks[arrow.to]?.title || arrow.to}`
+  const [meaning, ...drawn] = connectionSettings(arrow)
+  const rows = [
+    ...(arrow.label?.trim() ? [['Label', arrow.label.trim()]] : []),
+    meaning,
+    ...(arrow.note?.trim() ? [['Note', arrow.note.trim()]] : []),
+    ...drawn,
+  ]
+  return [ends, ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n')
+}
+
 function renderChanges() {
-  const edgeText = (arrow, canvas) => arrow ? `${canvas.blocks[arrow.from]?.title || arrow.from} → ${canvas.blocks[arrow.to]?.title || arrow.to}\n${connectionLabel(arrow)}${arrow.note ? '\n' + arrow.note : ''}\nStyle: ${arrow.style}${arrow.pattern && arrow.pattern !== 'solid' ? `, ${arrow.pattern}` : ''}, weight: ${arrow.weight}, color: ${arrow.color || 'default'}\nDirection: ${arrow.bidirectional ? 'both ways' : 'one way'}\nConnection sides: ${arrow.fromPort || 'automatic'} → ${arrow.toPort || 'automatic'}${arrow.portsBy ? '\nSides placed by Tidy' : ''}` : 'Not connected'
+  const edgeText = (arrow, canvas) => arrow ? edgeDetails(arrow, canvas) : 'Not connected'
   const blockRows = changes.blocks.map((change, i) => `<li class="comparison-change">
     <button class="comparison-jump" data-change="${i}"><span class="comparison-kind ${change.kind}">${change.kind}</span><strong>${escHtml(name(change))}</strong><span>Show on canvas →</span></button>
     ${change.fields.length ? `<p class="comparison-fields">Changed: ${escHtml(change.fields.join(', '))}</p>` : ''}
@@ -127,7 +141,7 @@ export function openComparison(snapshot) {
   document.getElementById('comparisonHeader').hidden = false
   document.getElementById('comparisonBar').hidden = false
   document.getElementById('comparisonName').textContent = snapshot.name
-  document.getElementById('comparisonDate').textContent = new Date(snapshot.at).toLocaleString()
+  document.getElementById('comparisonDate').textContent = shortDate(snapshot.at, { time: true })
   refresh()
   document.querySelector('.panel-content').scrollTop = 0
   requestAnimationFrame(fitChanges)

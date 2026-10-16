@@ -43,7 +43,7 @@ describe('Block search', () => {
     const blocks = { a: block('a'), b: block('b', { status: 'not-started' }), c: block('c', { status: 'done' }) }
     assert.deepEq(ids(searchBlocks(blocks, '', { status: 'not-started' })), ['a', 'b'])
   })
-  it('searches the visible type labels, including Open Question and Trigger / End', () => {
+  it('searches the visible type labels, including Open question and Trigger / end', () => {
     assert.eq(searchBlocks({ a: block('a', { type: 'question' }) }, 'open question').length, 1)
     assert.eq(searchBlocks({ a: block('a', { type: 'terminator' }) }, 'trigger end').length, 1)
     assert.eq(searchBlocks({ a: block('a', { type: 'resource' }) }, 'system').length, 1)

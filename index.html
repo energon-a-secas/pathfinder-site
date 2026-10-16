@@ -103,7 +103,7 @@
         <div class="file-actions" id="fileActions" hidden>
           <button type="button" id="importJSON" data-file-group="import"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.25V2.75"/><path d="M5.25 5.5L8 2.75l2.75 2.75"/><path d="M2.75 9.75v2.5c0 .55.45 1 1 1h8.5c.55 0 1-.45 1-1v-2.5"/></svg> Import JSON / Canvas / Mermaid…</button>
           <button type="button" id="exportCopyPrompt" data-file-group="data" data-file-menu="copy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5"/><path d="M10.75 5.25v-1.5c0-.55-.45-1-1-1h-6c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h1.5"/></svg> Copy brief</button>
-          <button type="button" id="copyDiagramInstructions" data-file-group="data" data-file-menu="copy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 2.75h8.5c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1H7.5l-3 2.5v-2.5h-.75c-.55 0-1-.45-1-1v-5.5c0-.55.45-1 1-1z"/><path d="M5.75 5.5h4.5M5.75 7.5h2.5"/></svg> Copy AI diagram-builder prompt</button>
+          <button type="button" id="copyDiagramInstructions" data-file-group="data" data-file-menu="copy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 2.75h8.5c.55 0 1 .45 1 1v5.5c0 .55-.45 1-1 1H7.5l-3 2.5v-2.5h-.75c-.55 0-1-.45-1-1v-5.5c0-.55.45-1 1-1z"/><path d="M5.75 5.5h4.5M5.75 7.5h2.5"/></svg> Copy a prompt that builds a map</button>
           <button type="button" id="exportJSON" data-file-group="data" data-file-menu="export"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.75h-.5C4.67 2.75 4 3.42 4 4.25v2C4 7.22 3.5 8 2.75 8 3.5 8 4 8.78 4 9.75v2c0 .83.67 1.5 1.5 1.5H6"/><path d="M10 2.75h.5c.83 0 1.5.67 1.5 1.5v2c0 .97.5 1.75 1.25 1.75-.75 0-1.25.78-1.25 1.75v2c0 .83-.67 1.5-1.5 1.5H10"/></svg> Download JSON</button>
           <button type="button" id="exportMarkdown" data-file-group="data" data-file-menu="export" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="3.75" width="12.5" height="8.5" rx="1.5"/><path d="M4.25 10V6l1.75 2 1.75-2v4"/><path d="M11 6v4M9.5 8.5L11 10l1.5-1.5"/></svg> Download Markdown</button>
           <button type="button" id="exportMermaid" data-file-group="data" data-file-menu="copy" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.25" width="4" height="3.5" rx=".75"/><rect x="9.75" y="2.25" width="4" height="3.5" rx=".75"/><rect x="6" y="10.25" width="4" height="3.5" rx=".75"/><path d="M4.25 5.75v1.5c0 .55.45 1 1 1h5.5c.55 0 1-.45 1-1v-1.5M8 8.25v2"/></svg> Copy Mermaid</button>
@@ -112,7 +112,7 @@
           <button type="button" id="exportPNG" data-file-group="image" data-file-menu="export" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.5"/><circle cx="5.75" cy="6.25" r="1.25"/><path d="M13.75 10.5L10.5 7.25 4 13.25"/></svg> Download image (PNG 2×)</button>
           <button type="button" id="exportSVG" data-file-group="image" data-file-menu="export" data-readonly="ok"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.25 12.25C5.5 6 10.5 10 12.75 3.75"/><rect x="1.75" y="11.5" width="2.75" height="2.75" rx=".5"/><rect x="11.5" y="1.75" width="2.75" height="2.75" rx=".5"/></svg> Download vector (SVG)</button>
           <button type="button" id="exportMeetingSummary" data-file-group="handoff" data-file-menu="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.25 2.25h-4.5c-.55 0-1 .45-1 1v9.5c0 .55.45 1 1 1h6.5c.55 0 1-.45 1-1V5.25z"/><path d="M9.25 2.25v3h3"/><path d="M6 8.25h4M6 10.75h4"/></svg> Export meeting summary</button>
-          <button type="button" id="exportToPresentationSage" data-file-group="handoff" data-file-menu="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.75" width="12" height="8" rx="1"/><path d="M8 10.75v2.5M5.5 13.25h5"/></svg> Open in Presentation Sage</button>
+          <button type="button" id="exportToPresentationSage" data-file-group="handoff" data-file-menu="handoff"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.75" width="12" height="8" rx="1"/><path d="M8 10.75v2.5M5.5 13.25h5"/></svg> Open as slides in Presentation Sage</button>
           <button type="button" id="clearBtn" data-file-group="danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.75 4.25h10.5"/><path d="M6.25 4.25v-1.5h3.5v1.5"/><path d="M4 4.25l.6 8.1c.04.52.47.9.99.9h4.82c.52 0 .95-.38.99-.9l.6-8.1"/></svg> Clear this map</button>
         </div>
       </div>
@@ -214,7 +214,7 @@
   <section class="canvas-workspace" aria-label="Planning canvas">
   <div class="canvas-viewport" id="canvasViewport"
        role="application"
-       aria-label="Map canvas. Tab and Shift+Tab move between blocks in reading order. Enter or F2 edits the selected block. Arrow keys nudge it, or pan when nothing is selected. Ctrl or Command with an arrow selects the nearest block, Alt with an arrow adds a connected block. Escape deselects. Question mark lists every shortcut."
+       aria-label="Map canvas. Tab and Shift+Tab move between blocks in reading order. Enter or F2 edits the selected block. Arrow keys nudge it, or pan when nothing is selected. Ctrl or Command with an arrow key selects the nearest block, Alt with an arrow key adds a connected block. Escape deselects. Question mark lists every shortcut."
        tabindex="0">
 
     <!-- Empty state hint -->
@@ -254,7 +254,7 @@
               </label>
               <div class="brain-dump-actions">
                 <button class="btn btn-primary" id="brainDumpBtn" type="button">Turn into blocks</button>
-                <span class="start-submit-hint" id="startSubmitHint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+                <span class="start-submit-hint" id="startSubmitHint"><span class="kbd-keys"><kbd class="kbd">Ctrl</kbd><span class="sr-only">+</span><kbd class="kbd">Enter</kbd></span></span>
               </div>
             </div>
           </div>
@@ -283,7 +283,7 @@
             <button type="button" class="start-pill" data-type="metric" title="A measurable signal with a target"><span class="palette-dot" data-shape="square" style="background:var(--c-metric)" aria-hidden="true"></span>Metric</button>
             <button type="button" class="start-pill" data-type="requirement" title="Must be true when done"><span class="palette-dot" data-shape="square" style="background:var(--c-requirement)" aria-hidden="true"></span>Requirement</button>
             <button type="button" class="start-pill" data-type="risk" title="Something that might go wrong"><span class="palette-dot" data-shape="diamond" style="background:var(--c-risk)" aria-hidden="true"></span>Risk</button>
-            <button type="button" class="start-pill" data-type="question" title="A genuine unknown"><span class="palette-dot" data-shape="diamond" style="background:var(--c-question)" aria-hidden="true"></span>Open Question</button>
+            <button type="button" class="start-pill" data-type="question" title="A genuine unknown"><span class="palette-dot" data-shape="diamond" style="background:var(--c-question)" aria-hidden="true"></span>Open question</button>
           </div>
         </section>
 
@@ -572,9 +572,12 @@
                   <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
                 </button>
               </div>
-              <div class="insp-toggle-row" role="group" aria-label="Planning intent">
-                <button type="button" class="action-toggle" data-action="recollect" aria-pressed="false" title="Review past decisions or context relevant here"><span class="action-tick" aria-hidden="true"></span>Look back</button>
-                <button type="button" class="action-toggle" data-action="reinforce" aria-pressed="false" title="Strengthen or validate the current approach"><span class="action-tick" aria-hidden="true"></span>Strengthen</button>
+              <div class="insp-field-row insp-intent-row">
+                <span class="insp-sublabel" id="inspIntentCaption">Intent</span>
+                <div class="insp-toggle-row" role="group" aria-label="Planning intent">
+                  <button type="button" class="action-toggle" data-action="recollect" aria-pressed="false" title="Look back: review past decisions before acting on this"><span class="action-tick" aria-hidden="true"></span>Look back</button>
+                  <button type="button" class="action-toggle" data-action="reinforce" aria-pressed="false" title="Strengthen: firm up the chosen approach"><span class="action-tick" aria-hidden="true"></span>Strengthen</button>
+                </div>
               </div>
               <p class="insp-help">Look back: review past decisions first. Strengthen: firm up the chosen approach. The brief tags them recollect and reinforce.</p>
             </div>
@@ -677,6 +680,9 @@
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="3.5" cy="8" r=".75"/><circle cx="8" cy="8" r=".75"/><circle cx="12.5" cy="8" r=".75"/></svg>
             </button>
           </div>
+          <!-- What the connection says, then how it is drawn. Every setting is
+               a picker like the rest of the panel (inspector.js opens each
+               through menu.js), a label in the label column beside it. -->
           <div class="insp-section">
             <label class="insp-label" for="arrowLabelInput">Label</label>
             <input class="insp-input" id="arrowLabelInput" type="text" list="arrowLabelSuggestions"
@@ -684,58 +690,51 @@
             <datalist id="arrowLabelSuggestions"></datalist>
           </div>
           <div class="insp-section">
-            <label class="insp-label" for="arrowRelation">Meaning</label>
-            <select class="insp-input insp-select" id="arrowRelation" aria-describedby="arrowRelationHint">
-              <option value="">Auto (label or types)</option>
-              <option value="precedes">Comes before</option>
-              <option value="depends-on">Depends on</option>
-              <option value="blocks">Blocks</option>
-              <option value="informs">Informs</option>
-              <option value="related">Related</option>
-            </select>
+            <div class="insp-label" id="arrowRelationCaption">Meaning</div>
+            <button type="button" class="insp-chip insp-row-chip" id="arrowRelationBtn" aria-haspopup="menu" aria-expanded="false"
+                    aria-label="Meaning" aria-describedby="arrowRelationHint">
+              <span class="insp-chip-text" id="arrowRelationText">Automatic</span>
+              <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
+            </button>
             <p class="insp-label-hint" id="arrowRelationHint"></p>
           </div>
-          <div class="insp-section">
+          <div class="insp-section" id="arrowNoteSection">
             <label class="insp-label" for="arrowNoteInput">Note <span class="insp-label-hint">shown on hover or when selected</span></label>
             <textarea class="insp-textarea insp-autogrow" id="arrowNoteInput" rows="2"
                       placeholder="Why these two connect, in a sentence or two" maxlength="400"></textarea>
           </div>
-          <div class="insp-section" id="arrowLineSection">
-            <div class="insp-label">Line</div>
-            <div class="insp-line-grid">
-              <label class="insp-mini" for="arrowRouteSelect"><span>Route</span>
-                <select class="insp-input insp-select" id="arrowRouteSelect">
-                  <option value="routed">Routed</option>
-                  <option value="curved">Curved</option>
-                  <option value="straight">Straight</option>
-                  <option value="elbow">Elbow</option>
-                </select>
-              </label>
-              <label class="insp-mini" for="arrowPatternSelect"><span>Pattern</span>
-                <select class="insp-input insp-select" id="arrowPatternSelect">
-                  <option value="solid">Solid</option>
-                  <option value="dashed">Dashed</option>
-                  <option value="dotted">Dotted</option>
-                </select>
-              </label>
-              <label class="insp-mini" for="arrowHeadsSelect"><span>Heads</span>
-                <select class="insp-input insp-select" id="arrowHeadsSelect">
-                  <option value="end">End</option>
-                  <option value="both">Both</option>
-                </select>
-              </label>
-              <label class="insp-mini" for="arrowWeightSelect"><span>Weight</span>
-                <select class="insp-input insp-select" id="arrowWeightSelect">
-                  <option value="1">Thin</option>
-                  <option value="1.5">Normal</option>
-                  <option value="2.5">Thick</option>
-                  <option value="3.5">Bold</option>
-                </select>
-              </label>
+          <div class="insp-line" id="arrowLineSection" role="group" aria-label="Line">
+            <div class="insp-section">
+              <div class="insp-label" id="arrowRouteCaption">Route</div>
+              <button type="button" class="insp-chip insp-row-chip" id="arrowRouteBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Route">
+                <span class="insp-chip-text" id="arrowRouteText">Routed</span>
+                <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
+              </button>
             </div>
-            <div class="insp-field-row" id="arrowColourRow">
-              <span class="insp-sublabel" aria-hidden="true">Colour</span>
-              <button type="button" class="insp-chip" id="arrowColourBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Colour">
+            <div class="insp-section">
+              <div class="insp-label" id="arrowPatternCaption">Pattern</div>
+              <button type="button" class="insp-chip insp-row-chip" id="arrowPatternBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Pattern">
+                <span class="insp-chip-text" id="arrowPatternText">Solid</span>
+                <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
+              </button>
+            </div>
+            <div class="insp-section">
+              <div class="insp-label" id="arrowHeadsCaption">Direction</div>
+              <button type="button" class="insp-chip insp-row-chip" id="arrowHeadsBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Direction">
+                <span class="insp-chip-text" id="arrowHeadsText">One-way</span>
+                <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
+              </button>
+            </div>
+            <div class="insp-section">
+              <div class="insp-label" id="arrowWeightCaption">Weight</div>
+              <button type="button" class="insp-chip insp-row-chip" id="arrowWeightBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Weight">
+                <span class="insp-chip-text" id="arrowWeightText">Normal</span>
+                <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
+              </button>
+            </div>
+            <div class="insp-section" id="arrowColourRow">
+              <div class="insp-label" id="arrowColourCaption">Colour</div>
+              <button type="button" class="insp-chip insp-row-chip" id="arrowColourBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Colour">
                 <span class="insp-dot" id="arrowColourDot" aria-hidden="true"></span>
                 <span class="insp-chip-text" id="arrowColourText">Default</span>
                 <svg class="insp-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
@@ -743,7 +742,7 @@
             </div>
           </div>
           <details class="insp-disclosure" data-disclosure="arrow-advanced" id="arrowAdvanced">
-            <summary class="insp-summary">Advanced <span class="insp-summary-hint" id="arrowPortsHint">connection points</span></summary>
+            <summary class="insp-summary">Connection points <span class="insp-summary-hint" id="arrowPortsHint">Auto</span></summary>
             <div class="insp-disclosure-body" id="arrowPortSection">
               <p class="insp-help">The side each end attaches to. Auto lets the router choose.</p>
               <div class="port-pick-row">
@@ -905,7 +904,7 @@
           <div id="patchPanel" style="display:none">
             <label class="sr-only" for="patchInput">The reply to apply</label>
             <textarea class="insp-textarea" id="patchInput" rows="5"
-              placeholder="Paste the whole reply. The ```pathfinder-patch``` block inside is found automatically."></textarea>
+              placeholder="Paste the whole reply. Its pathfinder-patch block is found automatically."></textarea>
             <p class="attention-summary" id="patchChooseLine" hidden>Choose the changes to include. Expand each one to review its full before and after.</p>
             <div class="patch-preview" id="patchPreview"></div>
             <div class="patch-actions">

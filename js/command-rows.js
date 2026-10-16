@@ -12,6 +12,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { escHtml } from './utils.js'
+import { keyCapsHtml } from './keycaps.js'
 
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
 const CARET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
@@ -32,11 +33,10 @@ export function markedLabel(text, hits) {
   return html
 }
 
+// The one key cap (keycaps.js): a key per cap, a chord ("N G") said as
+// [N] then [G].
 function keysHtml(shortcut) {
-  if (!shortcut) return ''
-  // A chord ("N G") is two keys; anything else is one.
-  const parts = /^\S{1,3} \S{1,3}$/.test(shortcut) ? shortcut.split(' ') : [shortcut]
-  return `<span class="cmdk-keys">${parts.map(p => `<kbd class="cmdk-kbd">${escHtml(p)}</kbd>`).join('')}</span>`
+  return keyCapsHtml(shortcut, { cls: 'cmdk-kbd', wrap: 'cmdk-keys' })
 }
 
 function leadHtml(row) {

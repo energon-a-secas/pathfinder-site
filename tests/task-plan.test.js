@@ -64,7 +64,7 @@ describe('Task checklist: risks and loose tasks (design round)', () => {
   it('a mitigation prints the risk it mitigates, not "after:" it; a guessed one says so', () => {
     const blocks = { k: { id: 'k', type: 'risk', title: 'Outage' }, w: block('w', { type: 'implementation', title: 'Flag' }) }
     const out = taskChecklist(blocks, [{ from: 'k', to: 'w' }])
-    assert.includes(out, 'mitigates (implied by an unlabelled arrow): Outage (k)')
+    assert.includes(out, 'mitigates (implied by an unlabelled connection): Outage (k)')
     assert.notIncludes(out, 'after: Outage')
     const stated = taskChecklist(blocks, [{ from: 'k', to: 'w', label: 'mitigated by' }])
     assert.includes(stated, '      mitigates: Outage (k)')

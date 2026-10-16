@@ -54,7 +54,7 @@ export const TYPES = {
     tip: 'An outcome you want to achieve. Connect the Metric that measures it and the Requirements that must be met.',
     example: '"Customers check out without calling support", "Launch the MVP by Q3"',
     legend: 'Strategic objective to achieve',
-    section: 'Project Goals', plural: 'Goals',
+    section: 'Project goals', plural: 'Goals',
     criteria: 'Acceptance criteria', task: false, actions: [],
   },
   problem: {
@@ -64,7 +64,7 @@ export const TYPES = {
     tip: 'An issue happening now: a blocker or pain point. Mark "Resolve" once someone is acting on it. Something that only might happen is a Risk.',
     example: '"API latency exceeds SLA", "No CI/CD pipeline"',
     legend: 'Blocker or issue requiring resolution',
-    section: 'Problems / Blockers', plural: 'Problems',
+    section: 'Problems and blockers', plural: 'Problems',
     criteria: false, task: false, actions: ['resolve'],
   },
   stakeholder: {
@@ -84,7 +84,7 @@ export const TYPES = {
     tip: 'A measurable signal with a target: a key result, KPI or SLO. Put the target in Targets and connect it to the Goal it measures.',
     example: '"Sprint predictability at or above 80% by Q4", "p95 latency under 200ms"',
     legend: 'A measurable signal with a target; it defines success, do not redefine it',
-    section: 'Success Metrics (how we will know)', plural: 'Metrics',
+    section: 'Success metrics (how we will know)', plural: 'Metrics',
     criteria: 'Targets', task: false, actions: [],
   },
   requirement: {
@@ -104,7 +104,7 @@ export const TYPES = {
     tip: 'A deliverable someone can hold: a report, doc or release. Connect it from the work that produces it and to the Stakeholder who receives it.',
     example: '"API documentation", "Staging environment", "User research report"',
     legend: 'Expected deliverable someone can hold: a report, doc or release',
-    section: 'Expected Outputs', plural: 'Outputs',
+    section: 'Expected outputs', plural: 'Outputs',
     // Outputs were Build tasks before the registry existed; kept so the task
     // plan of an existing canvas does not change under it.
     criteria: 'Acceptance criteria', task: true, actions: [],
@@ -116,7 +116,7 @@ export const TYPES = {
     tip: 'Work you do once to build or change something: an epic, initiative, integration or task. Connect it to the Requirement it satisfies and the Output it produces.',
     example: '"Build the report scheduler", "Integrate SSO with the identity provider"',
     legend: 'Work to build or change something; check it against the requirement it satisfies',
-    section: 'Work Items (implementation)', plural: 'Work items',
+    section: 'Work items (implementation)', plural: 'Work items',
     // Optional: an implementation inherits "done" from the requirement it
     // satisfies, so an empty list is not a gap.
     criteria: 'Acceptance criteria', task: true, actions: [],
@@ -125,20 +125,20 @@ export const TYPES = {
     label: 'Process', color: '#6cb3fd', light: '#5181c7', shape: 'dot',
     legacyColors: ['#60a5fa', '#2563eb'], tier: 'more', step: 'how',
     short: 'A recurring step in a workflow',
-    tip: 'A step or action in a workflow: something that gets done each time the flow runs. Chain these with arrows to show an end-to-end flow.',
+    tip: 'A step or action in a workflow: something that gets done each time the flow runs. Chain these with connections to show a flow from start to end.',
     example: '"Update status to Ready for Review", "Generate the doc"',
     legend: 'A step or action in a workflow',
-    section: 'Workflow Steps', plural: 'Process steps',
+    section: 'Workflow steps', plural: 'Process steps',
     criteria: false, task: false, actions: [],
   },
   terminator: {
-    label: 'Trigger / End', color: '#cd7ab2', light: '#933a76', shape: 'dot',
+    label: 'Trigger / end', color: '#cd7ab2', light: '#933a76', shape: 'dot',
     legacyColors: ['#f0abfc', '#c026a8'], tier: 'more', step: 'how',
     short: 'What starts or ends a flow: an event, a cadence, a finish',
     tip: 'What starts or ends a flow: an event, a cadence or a finish. Bookend a process flow so the beginning and outcome are explicit.',
     example: '"Submission received", "Every end of sprint", "PRD approved"',
     legend: 'What starts or ends a flow: an event, a cadence, or a finish',
-    section: 'Workflow Triggers and Ends', plural: 'Triggers and ends',
+    section: 'Workflow triggers and ends', plural: 'Triggers and ends',
     criteria: false, task: false, actions: [],
   },
   decision: {
@@ -152,13 +152,13 @@ export const TYPES = {
     criteria: false, task: false, actions: [],
   },
   resource: {
-    label: 'Resource / System', color: '#1aa7a0', light: '#469177', shape: 'dot',
+    label: 'Resource / system', color: '#1aa7a0', light: '#469177', shape: 'dot',
     legacyColors: ['#2dd4bf', '#14a894'], tier: 'more', step: 'how',
     short: 'An existing team, tool, system or data source',
     tip: 'An available asset: a team, tool, system, data source or budget. Connect it to what it enables.',
     example: '"Design team (3 people)", "AWS credits ($10K)", "Data warehouse"',
     legend: 'An existing team, tool, system or data source',
-    section: 'Resources Available', plural: 'Resources and systems',
+    section: 'Resources available', plural: 'Resources and systems',
     criteria: false, task: false, actions: [],
   },
   assumption: {
@@ -182,13 +182,13 @@ export const TYPES = {
     criteria: false, task: false, actions: ['prepare'],
   },
   question: {
-    label: 'Open Question', color: '#2fa5d8', light: '#0a5e89', shape: 'diamond',
+    label: 'Open question', color: '#2fa5d8', light: '#0a5e89', shape: 'diamond',
     legacyColors: ['#38bdf8', '#1490c8'], tier: 'more', step: 'doubt',
     short: 'A genuine unknown',
     tip: 'A genuine unknown needing an answer. For a belief you are assuming true, use an Assumption instead.',
     example: '"Will users accept SSO-only?", "Is budget approved?"',
     legend: 'A genuine unknown needing an answer',
-    section: 'Open Questions (Review Before Assuming)', plural: 'Open questions',
+    section: 'Open questions (review before assuming)', plural: 'Open questions',
     criteria: false, task: false, actions: [],
   },
   context: {
@@ -198,7 +198,7 @@ export const TYPES = {
     tip: 'Background information that frames the project. Helps the AI understand constraints.',
     example: '"Migrating to cloud", "Competitor launched a similar feature"',
     legend: 'Background information for framing',
-    section: 'Context / Background', plural: 'Context',
+    section: 'Context and background', plural: 'Context',
     criteria: false, task: false, actions: [],
   },
   custom: {
@@ -208,7 +208,7 @@ export const TYPES = {
     tip: 'Anything that fits no other type. Gap checks skip it, so use it sparingly: typed blocks produce better AI prompts.',
     example: '"Parking lot", "Idea for later"',
     legend: 'Untyped: infer its role from its title and connections, and state what you assumed',
-    section: 'Custom / Other', plural: 'Other',
+    section: 'Other (untyped)', plural: 'Other',
     criteria: false, task: false, actions: [],
   },
 }
@@ -232,7 +232,7 @@ export const TYPE_STEPS = [
 /** Lines the type picker shows under the list, for the pairs people confuse. */
 export const TYPE_DISAMBIGUATION = [
   'Every time the flow runs is a Process; once, to build or change something, is an Implementation.',
-  'A moment in time is a Trigger / End; a thing someone can hold is an Output.',
+  'A moment in time is a Trigger / end; a thing someone can hold is an Output.',
   'A number with a target is a Metric.',
 ]
 
@@ -283,7 +283,8 @@ let typeLookup = null
 /**
  * The type id a written `type` value means, or '' when it names no type this
  * build knows. Accepts the id itself, the id or label in any case ("Goal",
- * "open-question", "Trigger / End"), and retired labels ("Start / End").
+ * "open-question", "Trigger / end", the Title Case "Open Question" an older
+ * build wrote), and retired labels ("Start / End").
  * Anything else stays unknown, so normalize can keep it as Other with the
  * original in `typeHint` rather than guess.
  */
@@ -431,6 +432,39 @@ export const ACTION_DEFS = {
 export const ACTION_LABELS = {
   resolve: 'Resolve', prepare: 'Prepare', validate: 'Validate',
   recollect: 'Look back', reinforce: 'Strengthen',
+}
+
+/**
+ * A date the way the interface writes it: "Oct 4", and "Oct 4, 2025" in
+ * another year. The interface is in English, so its dates are too: a browser
+ * set to Spanish showed "4 oct" between English words in the Maps menu. The
+ * clock follows the reader's own locale, so `time` gives "Oct 4, 13:05" in
+ * Spain and "Oct 4, 1:05 PM" in the US. `year` always says the year, for a
+ * document read later ("Oct 4, 2026"). '' for no date or a bad one.
+ */
+export function shortDate(when, { time = false, year = false, now = new Date() } = {}) {
+  if (when == null || when === '') return ''
+  const d = when instanceof Date ? when : new Date(when)
+  if (Number.isNaN(d.getTime())) return ''
+  const lang = (typeof document !== 'undefined' && document.documentElement?.lang) || 'en'
+  const opts = { month: 'short', day: 'numeric' }
+  if (year || d.getFullYear() !== now.getFullYear()) opts.year = 'numeric'
+  if (time) {
+    opts.hour = 'numeric'; opts.minute = '2-digit'
+    try { opts.hourCycle = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle } catch (_) {}
+  }
+  try { return new Intl.DateTimeFormat(lang, opts).format(d) } catch (_) { return d.toDateString() }
+}
+
+// What a chip asks the plan to do, for its tooltip and its accessible name
+// (on a card) and the toggle's tooltip (in the inspector): the word, then
+// the request in plain words.
+export const ACTION_ASKS = {
+  resolve: 'Resolve: the plan must fix this',
+  prepare: 'Prepare: the plan must be ready if this happens',
+  validate: 'Validate: confirm this before building on it',
+  recollect: 'Look back: review past decisions before acting on this',
+  reinforce: 'Strengthen: firm up the chosen approach',
 }
 
 export const STATUS_DEFS = {

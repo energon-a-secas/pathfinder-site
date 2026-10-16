@@ -21,6 +21,7 @@ import { $, TYPES, typesByStep, escHtml } from './utils.js'
 import { createBlockAt } from './create.js'
 import { openMenu, closeMenus, isMenuOpen } from './menu.js'
 import { typeRow, typeNoteItem } from './type-menu.js'
+import { keyCapsHtml } from './keycaps.js'
 import { TYPE_KEYS } from './ui-panels.js'
 import { listUserTemplates } from './templates.js'
 import { templateMenuItems, applyTemplateFromPalette } from './start-panel.js'
@@ -124,7 +125,9 @@ let tipItem = null   // the row the tip is showing for
 
 function hideTip() { if (tipEl) tipEl.hidden = true; tipItem = null }
 
-const capsHtml = keys => `<span class="palette-tip-keys">${keys.map(k => `<kbd class="typekeys-key">${escHtml(k)}</kbd>`).join('')}</span>`
+// The keys as the one key cap draws them (keycaps.js): N, then the letter,
+// two presses, so the word "then" sits between the caps.
+const capsHtml = keys => keyCapsHtml(keys.join(' '), { cls: 'typekeys-key', wrap: 'kbd-keys palette-tip-keys' })
 
 /** The tip's markup for a type row: its name and keys, what it is for, an example. */
 export function typeTipHtml(t) {
@@ -232,7 +235,7 @@ export function templateListItems() {
 
 /**
  * The row that keeps the open map as a template, in the rail's menu and in
- * Cmd+K: it clicks the whole palette's Save canvas as template, so the name
+ * Cmd+K: it clicks the whole palette's Save this map as a template, so the name
  * it is saved under and the toast are that button's. An empty map has
  * nothing to keep.
  */

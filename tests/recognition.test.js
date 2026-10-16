@@ -802,7 +802,7 @@ describe('recognition: the walkthrough has a step index', () => {
   it('it says what the app does now: Cmd+K, N then a letter, the minimap, Copy brief and Bring the reply back', async () => {
     const doc = parse(await fetchText('../tutorial.html'))
     const text = doc.querySelector('main').textContent.replace(/\s+/g, ' ').replace(/\s*\+\s*/g, ' + ')
-    for (const now of ['Cmd/Ctrl + K', 'N then a letter', 'minimap', 'Copy brief', 'Bring the reply back', 'Paste a reply', 'Brief tab', 'Framing']) {
+    for (const now of ['⌘/Ctrl + K', 'N then a letter', 'minimap', 'Copy brief', 'Bring the reply back', 'Paste a reply', 'Brief tab', 'Framing']) {
       assert.includes(text, now, `"${now}"`)
     }
     // No row label that is being renamed; no section that only repeats the lede.
@@ -838,7 +838,7 @@ describe('recognition: the walkthrough has a step index', () => {
     }
   })
 
-  it('the key table writes a chord with a plus, as the prose does; a sequence stays words', async () => {
+  it('the key table writes a chord as one press with a hidden plus, as the sheet does; a sequence stays words', async () => {
     const doc = parse(await fetchText('../tutorial.html'))
     const rows = [...doc.querySelectorAll('.doc-keys-caps')]
     assert.ok(rows.length >= 6)
@@ -850,10 +850,11 @@ describe('recognition: the walkthrough has a step index', () => {
         let between = '', n = kbds[i - 1].nextSibling
         while (n && n !== kbds[i]) { between += n.textContent; n = n.nextSibling }
         assert.eq(between.trim(), '+', `${caps.textContent}: a chord`)
+        assert.ok(kbds[i].closest('.kbd-press'), `${caps.textContent}: the caps of a chord sit together`)
       }
     }
     const text = rows.map(c => c.textContent.replace(/\s+/g, ' ').trim())
-    assert.includes(text, 'Cmd/Ctrl+K'); assert.includes(text, 'Shift+1'); assert.includes(text, 'N then a letter')
+    assert.includes(text, '⌘/Ctrl+K'); assert.includes(text, 'Shift+1'); assert.includes(text, 'N then a letter')
   })
 
   it('Step 1 quotes every line the Situation writes, each cut marked, none dropped', async () => {

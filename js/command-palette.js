@@ -20,7 +20,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { ui } from './state.js'
-import { $ } from './utils.js'
+import { $, escHtml } from './utils.js'
 import { closeMenus, isMenuOpen } from './menu.js'
 import { closeShortcuts } from './ui-panels.js'
 import { isTyping, canvasHasFocus, modalDialogOpen, withCameraHeld } from './navigation.js'
@@ -107,8 +107,8 @@ function build() {
     </div>
     <div class="cmdk-list" id="cmdkList" role="listbox" aria-label="Commands"></div>
     <div class="cmdk-foot" aria-hidden="true">
-      <span class="cmdk-foot-keys"><kbd class="cmdk-kbd">↑</kbd><kbd class="cmdk-kbd">↓</kbd> to move,
-        <kbd class="cmdk-kbd">Enter</kbd> to run, <kbd class="cmdk-kbd">Esc</kbd> to close</span>
+      <span class="cmdk-foot-keys"><kbd class="cmdk-kbd">↑</kbd><kbd class="cmdk-kbd">↓</kbd> move,
+        <kbd class="cmdk-kbd">Enter</kbd> run, <kbd class="cmdk-kbd">Esc</kbd> close</span>
       <span class="cmdk-foot-scopes"></span>
     </div>
     <div class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>`
@@ -190,7 +190,7 @@ export function closeCommandPalette({ restoreFocus = true } = {}) {
 function ranked(rows, q, cap) {
   const scored = []
   rows.forEach((row, i) => {
-    const m = rowMatch(q, row.label)
+    const m = rowMatch(q, row.label, row.keywords)
     if (m) scored.push({ row, hits: m.hits, score: m.score, i })
   })
   scored.sort((a, b) => b.score - a.score || a.i - b.i)
@@ -296,8 +296,12 @@ function render() {
   chipEl.hidden = !label
   chipEl.textContent = label
   input.setAttribute('aria-label', label ? `Search ${label.replace(/…$/, '')}` : 'Search commands')
-  footScopes.textContent = level ? 'Backspace to go back' : scope ? 'Backspace to search everything'
-    : ui.readOnly ? '# for blocks' : '/ to create, > actions, # blocks, @ maps'
+  // Every key the foot names is a cap, the prefixes included, and each
+  // says what it does in a word, as the keys on the left do: both halves
+  // stay on one line in the palette's 560px.
+  const k = key => `<kbd class="cmdk-kbd">${escHtml(key)}</kbd>`
+  footScopes.innerHTML = level ? `${k('Backspace')} go back` : scope ? `${k('Backspace')} search everything`
+    : ui.readOnly ? `${k('#')} blocks` : `${k('/')} create, ${k('>')} actions, ${k('#')} blocks, ${k('@')} maps`
   // A list that asks for a choice (Connect to) has nothing picked until
   // something is typed or a row is chosen with the arrows. A list of values
   // (Change type, Status) opens on the current one, like any picker.

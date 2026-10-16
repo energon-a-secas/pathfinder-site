@@ -14,13 +14,15 @@
 //  snapshotOnce.
 // ════════════════════════════════════════════════════════════
 
-import { relationHint, impliedVerb, RELATIONS } from './relations.js'
+import { relationHint, impliedVerb, relationOf, RELATIONS } from './relations.js'
 import { state, selection, ui, view, canvasMeta, debouncedSave,
          snapshotOnce, resetSnapshotToken } from './state.js'
 import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
-         STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ACTION_LABELS, ARROW_LABEL_PRESETS, CARD_STYLES, drawnCardStyle, pickableCardStyles,
+         STATUS_DEFS, PRIORITY_DEFS, ACTION_DEFS, ACTION_LABELS, ACTION_ASKS, ARROW_LABEL_PRESETS, CARD_STYLES, drawnCardStyle, pickableCardStyles,
          DEFAULT_CARD_STYLE, BORDER_WIDTHS, HIGHLIGHTS, escHtml, showToast, getBlockEl } from './utils.js'
-import { renderFrames, arrowRoute, arrowPattern } from './canvas.js'
+import { renderFrames, arrowRoute, arrowPattern, ARROW_ROUTES } from './canvas.js'
+import { ROUTE_NAMES, PATTERN_NAMES, WEIGHT_NAMES, WEIGHTS, DIRECTION_NAMES, DRAWN_WEIGHT_HINT, drawnWeight,
+         weightName, meaningName, portsValue, routeName, patternName, directionName, colourName as lineColourName } from './connection-words.js'
 import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
          deleteBlock, deleteArrow, duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup } from './render.js'
 import { applyGapFix } from './create.js'
@@ -120,11 +122,17 @@ export function placeholdersFor(type) {
   }
 }
 
-const WEIGHTS = [1, 1.5, 2.5, 3.5]
+// A connection's settings are named in connection-words.js, which the
+// right-click menu and the snapshot comparison read too.
+export { meaningName, portsValue, weightName } from './connection-words.js'
 
-// A weight from the previous scale (Normal 2, Bold 5) keeps its old name, so
-// a connection drawn before the rescale reads "Normal (2px)", not a bare size.
-const LEGACY_WEIGHT_NAMES = { 2: 'Normal', 5: 'Bold' }
+/** A picker shows its value, and in read-only stops being a control. */
+function showPicker(btnId, textId, name, value, ro) {
+  const btn = byId(btnId); if (!btn) return
+  setText(textId, value)
+  btn.disabled = !!ro
+  btn.setAttribute('aria-label', `${name}: ${value}`)
+}
 
 /** "2 processes", "1 goal", "2 other blocks" (typeNoun, type-menu.js). */
 export function typeCount(t, n) {
@@ -375,7 +383,7 @@ function renderBlockInspector(b) {
     } else actsBox.innerHTML = acts.map(a => {
       const on = (b.actions || []).includes(a)
       return `<button type="button" class="action-toggle" data-action="${escHtml(a)}" aria-pressed="${on}"
-        title="${escHtml(ACTION_DEFS[a] || a)}"${ro ? ' disabled' : ''}><span class="action-tick" aria-hidden="true"></span>${escHtml(ACTION_LABELS[a] || a)}</button>`
+        title="${escHtml(ACTION_ASKS[a] || ACTION_LABELS[a] || a)}"${ro ? ' disabled' : ''}><span class="action-tick" aria-hidden="true"></span>${escHtml(ACTION_LABELS[a] || a)}</button>`
     }).join('')
   }
   // A question stated as a belief should become an Assumption, so the AI is
@@ -825,8 +833,9 @@ function renderArrowInspector(a) {
       .filter(Boolean))]
     list.innerHTML = opts.map(o => `<option value="${escHtml(o)}"></option>`).join('')
   }
-  const relation = byId('arrowRelation')
-  if (relation) { relation.value = a.relation || ''; relation.disabled = ro }
+  // Each setting is a picker that names its value, like every other row
+  // of the panel; read-only, the picker is a value and opens nothing.
+  showPicker('arrowRelationBtn', 'arrowRelationText', 'Meaning', meaningName(a), ro)
   setText('arrowRelationHint', relationHint(a, state.blocks))
   const note = byId('arrowNoteInput')
   if (note) {
@@ -835,33 +844,17 @@ function renderArrowInspector(a) {
     autogrow(note)
   }
 
-  // Line: geometry and dashes are separate fields, so a dashed line can
+  // Line: geometry and dashes are separate settings, so a dashed line can
   // still be routed.
-  const route = byId('arrowRouteSelect')
-  if (route) { route.value = arrowRoute(a); route.disabled = ro }
-  const pattern = byId('arrowPatternSelect')
-  if (pattern) { pattern.value = arrowPattern(a); pattern.disabled = ro }
-  const heads = byId('arrowHeadsSelect')
-  if (heads) { heads.value = a.bidirectional ? 'both' : 'end'; heads.disabled = ro }
-  const weight = byId('arrowWeightSelect')
-  if (weight) {
-    // Older arrows carry weights from the previous scale (2, 5). Show the
-    // real value rather than silently snapping it to the nearest option.
-    const w = Number(a.weight) || 2
-    weight.querySelectorAll('option[data-current]').forEach(o => o.remove())
-    if (!WEIGHTS.includes(w)) {
-      const o = new Option(LEGACY_WEIGHT_NAMES[w] ? `${LEGACY_WEIGHT_NAMES[w]} (${w}px)` : `${w}px`, String(w))
-      o.dataset.current = '1'
-      weight.add(o)
-    }
-    weight.value = String(w)
-    weight.disabled = ro
-  }
+  showPicker('arrowRouteBtn', 'arrowRouteText', 'Route', routeName(a), ro)
+  showPicker('arrowPatternBtn', 'arrowPatternText', 'Pattern', patternName(a), ro)
+  showPicker('arrowHeadsBtn', 'arrowHeadsText', 'Direction', directionName(a), ro)
+  showPicker('arrowWeightBtn', 'arrowWeightText', 'Weight', weightName(drawnWeight(a)), ro)
   const colourDot = byId('arrowColourDot')
   if (colourDot) { colourDot.style.background = a.color || ''; colourDot.classList.toggle('is-empty', !a.color) }
-  const colourName = a.color ? (SWATCH_NAMES[a.color] || 'Custom') : 'Default'
-  setText('arrowColourText', colourName)
-  byId('arrowColourBtn')?.setAttribute('aria-label', `Colour: ${colourName}`)
+  const lineColour = lineColourName(a)
+  setText('arrowColourText', lineColour)
+  byId('arrowColourBtn')?.setAttribute('aria-label', `Colour: ${lineColour}`)
   setHidden(byId('arrowColourRow'), ro)
 
   // Connection points. An unpinned end reads as Auto; the canvas still picks
@@ -874,8 +867,7 @@ function renderArrowInspector(a) {
       btn.setAttribute('aria-pressed', on ? 'true' : 'false')
     })
   })
-  const pins = [a.fromPort && `from ${a.fromPort}`, a.toPort && `to ${a.toPort}`].filter(Boolean)
-  setText('arrowPortsHint', pins.length ? pins.join(', ') + (a.portsBy ? ` (${a.portsBy})` : '') : 'connection points: auto')
+  setText('arrowPortsHint', portsValue(a))
   setHidden(byId('arrowAdvanced'), ro)
   setHidden(byId('deleteArrowBtn'), ro)
 
@@ -1313,10 +1305,55 @@ export function setupInspectorEvents() {
     // render.js, which imports this module.
     import('./ui-panels.js').then(m => { m.focusBlock(id); land() }, () => { selectBlock(id); land() })
   })
-  on('arrowRelation', 'change', e => {
-    const a = selectedArrow(); if (!a || ui.readOnly) return
-    mutateArrow(a.id, { relation: e.target.value || null })
-  })
+  // The connection's pickers. Picking the value it already has changes
+  // nothing and takes no undo step, as in the right-click menu.
+  const changeArrow = (a, changes) => {
+    if (Object.entries(changes).every(([k, v]) => (a[k] ?? null) === (v ?? null))) return
+    mutateArrow(a.id, changes)
+  }
+  // The checked row is what the connection draws already (a missing pattern
+  // draws solid, a missing weight 2), so picking it does nothing at all.
+  const radio = (label, checked, action, extra = {}) => ({ label, radio: true, checked, action: checked ? () => {} : action, ...extra })
+  dropdown('arrowRelationBtn', () => {
+    const a = selectedArrow(); if (!a || ui.readOnly) return null
+    const reads = RELATIONS[relationOf({ ...a, relation: null }, state.blocks)] || ''
+    return [
+      radio('Automatic', !a.relation, () => changeArrow(a, { relation: null }),
+        { hint: `From the label, else the two block types. Reads as: ${reads.toLowerCase()}` }),
+      { type: 'divider' },
+      ...Object.entries(RELATIONS).map(([k, label]) => radio(label, a.relation === k, () => changeArrow(a, { relation: k }))),
+    ]
+  }, 'Meaning', { focusChecked: true })
+  dropdown('arrowRouteBtn', () => {
+    const a = selectedArrow(); if (!a || ui.readOnly) return null
+    const route = arrowRoute(a)
+    return ARROW_ROUTES.map(k => radio(ROUTE_NAMES[k] || k, route === k, () => {
+      // A legacy in-memory style of 'dashed' keeps its dash as the pattern.
+      changeArrow(a, { style: k, ...(a.style !== route && !a.pattern ? { pattern: arrowPattern(a) } : {}) })
+    }))
+  }, 'Route', { focusChecked: true })
+  dropdown('arrowPatternBtn', () => {
+    const a = selectedArrow(); if (!a || ui.readOnly) return null
+    const pattern = arrowPattern(a), route = arrowRoute(a)
+    return Object.entries(PATTERN_NAMES).map(([k, label]) => radio(label, pattern === k,
+      () => changeArrow(a, { pattern: k, ...(a.style !== route ? { style: route } : {}) })))
+  }, 'Pattern', { focusChecked: true })
+  dropdown('arrowHeadsBtn', () => {
+    const a = selectedArrow(); if (!a || ui.readOnly) return null
+    return [
+      radio(DIRECTION_NAMES.one, !a.bidirectional, () => changeArrow(a, { bidirectional: false }), { hint: 'A head at the end it points to' }),
+      radio(DIRECTION_NAMES.two, !!a.bidirectional, () => changeArrow(a, { bidirectional: true }), { hint: 'A head at both ends' }),
+    ]
+  }, 'Direction', { focusChecked: true })
+  dropdown('arrowWeightBtn', () => {
+    const a = selectedArrow(); if (!a || ui.readOnly) return null
+    const cur = drawnWeight(a)
+    // An older weight gets a row of its own, checked, rather than a check on
+    // a neighbour that picking would then change.
+    const rows = WEIGHTS.map(w => radio(WEIGHT_NAMES[w], cur === w, () => changeArrow(a, { weight: w })))
+    if (!WEIGHTS.includes(cur)) rows.push({ type: 'divider' }, radio(weightName(cur), true, () => {}, { hint: DRAWN_WEIGHT_HINT }))
+    return rows
+  }, 'Weight', { focusChecked: true })
   const arrowLabelInput = byId('arrowLabelInput')
   arrowLabelInput?.addEventListener('input', () => {
     const a = selectedArrow(); if (!a || ui.readOnly) return
@@ -1333,28 +1370,6 @@ export function setupInspectorEvents() {
   })
   arrowNoteInput?.addEventListener('change', resetSnapshotToken)
 
-  on('arrowRouteSelect', 'change', e => {
-    const a = selectedArrow(); if (!a || ui.readOnly) return
-    const changes = { style: e.target.value }
-    // A legacy in-memory style of 'dashed' keeps its dash as the pattern.
-    if (a.style !== arrowRoute(a) && !a.pattern) changes.pattern = arrowPattern(a)
-    mutateArrow(a.id, changes)
-  })
-  on('arrowPatternSelect', 'change', e => {
-    const a = selectedArrow(); if (!a || ui.readOnly) return
-    const changes = { pattern: e.target.value }
-    if (a.style !== arrowRoute(a)) changes.style = arrowRoute(a)
-    mutateArrow(a.id, changes)
-  })
-  on('arrowHeadsSelect', 'change', e => {
-    const a = selectedArrow(); if (!a || ui.readOnly) return
-    mutateArrow(a.id, { bidirectional: e.target.value === 'both' })
-  })
-  on('arrowWeightSelect', 'change', e => {
-    const a = selectedArrow(); if (!a || ui.readOnly) return
-    const w = parseFloat(e.target.value)
-    if (Number.isFinite(w)) mutateArrow(a.id, { weight: w })
-  })
   dropdown('arrowColourBtn', () => {
     const a = selectedArrow(); if (!a || ui.readOnly) return null
     return colourSwatchItems(a.color, 'var(--text-muted)', 'Default colour', color => mutateArrow(a.id, { color }))

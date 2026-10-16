@@ -30,7 +30,7 @@ import { setBriefCoverage } from './patch.js'
 
 const nOf = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
-// A type's noun in a tally, where its label is not one ("Trigger / End").
+// A type's noun in a tally, where its label is not one ("Trigger / end").
 const TYPE_NOUNS = {
   implementation: ['work item', 'work items'], process: ['process step', 'process steps'],
   terminator: ['trigger or end', 'triggers or ends'], resource: ['resource', 'resources'],

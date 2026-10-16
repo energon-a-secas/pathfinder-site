@@ -267,7 +267,7 @@ try {
   }
   // The first whole sentence of at least 20 characters ("Investigate." alone says little).
   const sentence = s => (String(s).match(/^.{20,}?[.?](?=\s|$)/) || [s])[0]
-  const doubt = prompt => section(prompt, 'Planning Gaps') || section(prompt, 'Open Questions') ||
+  const doubt = prompt => section(prompt, 'Planning gaps') || section(prompt, 'Open questions') ||
     section(prompt, 'Assumptions') || section(prompt, 'Risks')
   // A "### " part of a section (the Situation's boundaries), to the next heading.
   const part = (prompt, name) => {

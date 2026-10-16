@@ -288,7 +288,7 @@ function canvasFindingsFor(blocks, arrows, groups, { inc, out }) {
   // Question is already tracked, and an Assumption is the doubt itself.
   const hidden = open('hidden-question', list.filter(b => b.type !== 'question' && b.type !== 'assumption' && hidesQuestion(b.description)))
   if (hidden.length) {
-    add('hidden-question', `${plural(hidden.length, 'block')} ${hidden.length === 1 ? 'keeps' : 'keep'} a question in the description (${quoteList(hidden.map(b => b.title))}): make it an Open Question so it is tracked`,
+    add('hidden-question', `${plural(hidden.length, 'block')} ${hidden.length === 1 ? 'keeps' : 'keep'} a question in the description (${quoteList(hidden.map(b => b.title))}): make it an Open question so it is tracked`,
       hidden.map(b => b.id))
   }
 
@@ -467,13 +467,13 @@ export const GAP_META = {
   'gap-no-producer':   { short: 'Output nothing produces', prompt: 'no producer: output with no incoming connection' },
   'gap-no-consumer':   { short: 'Output nobody receives', prompt: 'no consumer: output with no outgoing connection and no linked stakeholder, so nobody on the map receives it' },
   'gap-no-criteria':   { short: 'Requirement without criteria', prompt: 'no acceptance criteria: "done" is undefined for this requirement' },
-  'gap-loose-step':    { short: 'Step outside any flow', prompt: 'loose step: workflow step connected to no other step or Trigger / End' },
+  'gap-loose-step':    { short: 'Step outside any flow', prompt: 'loose step: workflow step connected to no other step or Trigger / end' },
   'gap-no-purpose':    { short: 'Work with no reason', prompt: 'no purpose: implementation linked to no goal, requirement, problem, metric, output or stakeholder' },
   'gap-metric-no-goal': { short: 'Metric measuring no goal', prompt: 'measures no goal: metric not linked to the goal it is meant to measure' },
   'gap-no-target':     { short: 'Metric without a target', prompt: 'no target: a metric without a target cannot say whether the work is winning' },
   'gap-unserved':      { short: 'Stakeholder nothing serves', prompt: 'unserved: nothing on the map is delivered to or asked of this stakeholder' },
   'gap-finding-duplicate':       { short: 'Possible duplicate', prompt: 'possible duplicate: its title nearly repeats another block\'s' },
-  'gap-finding-hidden-question': { short: 'Question in the description', prompt: 'question in the description: not tracked as an Open Question' },
+  'gap-finding-hidden-question': { short: 'Question in the description', prompt: 'question in the description: not tracked as an Open question' },
   'gap-finding-goal-no-metric':  { short: 'Goal with no metric', prompt: 'no metric: nothing on the map measures this goal' },
   'gap-finding-metric-unmoved':  { short: 'Metric no work moves', prompt: 'unmoved: no implementation is linked to shift this metric' },
 }
@@ -604,7 +604,7 @@ export function getGapFixes(b) {
       fix('criteria', 'criteria', '"Done" is undefined here: add acceptance criteria, one per line.', 'Add criteria')
       break
     case 'gap-loose-step':
-      fix('connect', 'connect', 'This step is in no flow: connect it to another step or a Trigger / End.')
+      fix('connect', 'connect', 'This step is in no flow: connect it to another step or a Trigger / end.')
       break
     case 'gap-no-purpose':
       fix('create:requirement:out', 'add-goal', 'The Why is missing: this work has no reason on the map. Add the Requirement it satisfies.', 'Add Requirement',

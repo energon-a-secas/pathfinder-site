@@ -80,7 +80,7 @@ function sectionOf(text, heading) {
 // ids). A title found only after it would hide a dropped section.
 function promptBody(p) {
   const start = p.indexOf('\n# ')
-  const ends = ['\n## Connections\n', '\n## Groups\n', '\n## Action Labels\n', '\n## Planning Gaps Detected\n',
+  const ends = ['\n## Connections\n', '\n## Groups\n', '\n## Action labels\n', '\n## Planning gaps detected\n',
     '\n## Accepted gaps\n', '\n## When you reply\n'].map(h => p.indexOf(h, start)).filter(i => i >= 0)
   return p.slice(start, ends.length ? Math.min(...ends) : undefined)
 }
@@ -132,7 +132,7 @@ describe('registry coverage -- prompt modes', () => {
       // "after:" lines and the Connections list name other types' blocks.
       IDS.forEach(t => {
         const heading = mode === 'build' && TYPES[t].task ? '## Implementation checklist'
-          : t === 'process' || t === 'terminator' ? '## Workflow (end-to-end)'
+          : t === 'process' || t === 'terminator' ? '## Workflow (end to end)'
           : `## ${TYPES[t].section}`
         assert.includes(sectionOf(p, heading), `Block of ${t}`, `${mode} prints ${t} under ${heading}`)
       })
@@ -143,7 +143,7 @@ describe('registry coverage -- prompt modes', () => {
   it('prints the legend in registry order, one line per type used', () => {
     seedEveryType()
     const p = generatePrompt()
-    const legend = sectionOf(p, '## Block Type Legend')
+    const legend = sectionOf(p, '## Block type legend')
     const at = IDS.map(t => legend.indexOf(`**${TYPES[t].label}**: ${TYPES[t].legend}`))
     at.forEach((pos, i) => assert.ok(pos >= 0, `legend line for ${IDS[i]}`))
     assert.deepEq([...at].sort((a, b) => a - b), at, 'legend follows the registry order')
@@ -262,7 +262,7 @@ describe('registry coverage -- meeting summary', () => {
     IDS.forEach(t => assert.includes(md, `Block of ${t}`, `summary carries ${t}`))
     assert.includes(md, '**Canvas (view-only link):** https://example.test/?readonly#s=abc')
     assert.includes(md, '- Who owns the contract? (on "Vendor slips")', 'a question raised on another block is listed')
-    assert.includes(md, '# Meeting Summary: Registry coverage')
+    assert.includes(md, '# Meeting summary: Registry coverage')
     reset()
   })
 
@@ -457,7 +457,7 @@ describe('connections -- implied verbs', () => {
     add('o', 'output', 'Roll-up')
     link('t', 'p', { relation: 'precedes' })
     link('o', 'p', { relation: 'informs', label: 'feeds' })
-    assert.eq(connectionLine(state.arrows[0]), '• Trigger / End "Every end of sprint" [comes before] [implied: triggers] → Process "Assemble the report"')
+    assert.eq(connectionLine(state.arrows[0]), '• Trigger / end "Every end of sprint" [comes before] [implied: triggers] → Process "Assemble the report"')
     assert.eq(connectionLine(state.arrows[1]), '• Output "Roll-up" [informs: feeds] → Process "Assemble the report"', 'an author label is never guessed over')
     reset()
   })
@@ -683,14 +683,14 @@ describe('createBlocksFromText() -- type check', () => {
 // Block gaps each built-in template produced before this stream, captured
 // from the foundation commit. Adding types and cues must not change them.
 const TEMPLATE_GAPS = {
-  'Validate an Idea': ['Validate the core idea|gap-no-req'],
-  'Sprint Planning': ['Biggest delivery risk|gap-no-mitigation', 'Must have|gap-no-criteria', 'Should have|gap-no-criteria'],
-  'Problem Analysis': [],
-  'Feature Launch': ['Launch risk|gap-no-mitigation', 'Launch-blocking requirement|gap-no-criteria'],
-  'Risk Review': ['Resulting requirement|gap-no-criteria'],
-  'Investigate a Bug': ['A test that fails before the fix|gap-no-criteria'],
-  'Inherit a Codebase': ['A rollback you have actually tried|gap-no-criteria', 'Be able to make a safe change|gap-no-req'],
-  'Migrate a System': ['Cutover under load|gap-no-mitigation', 'No data loss|gap-no-criteria', 'Per-tenant, not big bang|gap-no-basis',
+  'Validate an idea': ['Validate the core idea|gap-no-req'],
+  'Sprint planning': ['Biggest delivery risk|gap-no-mitigation', 'Must have|gap-no-criteria', 'Should have|gap-no-criteria'],
+  'Problem analysis': [],
+  'Feature launch': ['Launch risk|gap-no-mitigation', 'Launch-blocking requirement|gap-no-criteria'],
+  'Risk review': ['Resulting requirement|gap-no-criteria'],
+  'Investigate a bug': ['A test that fails before the fix|gap-no-criteria'],
+  'Inherit a codebase': ['A rollback you have actually tried|gap-no-criteria', 'Be able to make a safe change|gap-no-req'],
+  'Migrate a system': ['Cutover under load|gap-no-mitigation', 'No data loss|gap-no-criteria', 'Per-tenant, not big bang|gap-no-basis',
     'Reversible at every step|gap-no-criteria', 'Silent divergence between the two|gap-no-mitigation'],
 }
 
@@ -714,10 +714,10 @@ describe('templates -- gap sets', () => {
     })
   })
 
-  it('"Investigate a Bug" no longer closes a false cycle', () => {
+  it('"Investigate a bug" no longer closes a false cycle', () => {
     // "requires" alone infers depends-on, which ordered the test before the
     // root cause; the arrow now names its relation.
-    const { findings } = templateGaps(TEMPLATES.find(t => t.name === 'Investigate a Bug'))
+    const { findings } = templateGaps(TEMPLATES.find(t => t.name === 'Investigate a bug'))
     assert.ok(!findings.some(f => /cycle/.test(f)), findings.join('; '))
   })
 
@@ -741,8 +741,8 @@ describe('templates -- gap sets', () => {
   })
 })
 
-describe('templates -- Recurring Reporting Flow', () => {
-  const tpl = () => TEMPLATES.find(t => t.name === 'Recurring Reporting Flow')
+describe('templates -- Plan a recurring report', () => {
+  const tpl = () => TEMPLATES.find(t => t.name === 'Plan a recurring report')
 
   it('ships as a large plan template with its own situation', () => {
     const t = tpl()
@@ -910,7 +910,7 @@ describe('prompt -- accepted gaps', () => {
     add('s', 'requirement', 'Audit log')
     link('g', 'r'); link('g', 's')
     const p = generatePrompt()
-    const open = sectionOf(p, '## Planning Gaps Detected')
+    const open = sectionOf(p, '## Planning gaps detected')
     assert.includes(open, '"Audit log"')
     assert.notIncludes(open, '"Fast checkout"')
     const accepted = sectionOf(p, '## Accepted gaps')

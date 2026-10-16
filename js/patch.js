@@ -72,7 +72,7 @@ export const PATCH_ERRORS = {
   }),
   noOps: {
     error: 'The patch has no changes in it.',
-    hint: 'A patch carries at least one of answers, verify, status, criteria, notes, blocks or arrows. Ask the assistant which changes it meant to send.',
+    hint: 'A patch carries at least one change: an answer, a verdict, a status, criteria, a note, a block or a connection. Ask the assistant which changes it meant to send.',
   },
   // A patch written without the label the brief asks for is refused as
   // before; the refusal names what is missing and where.
@@ -610,6 +610,11 @@ export function previewSummary(plan) {
   return `${okCount} of ${n} operation${n === 1 ? '' : 's'} will apply.${awayNote}`
 }
 
+// What each operation is, in the words the rest of the app uses: a
+// connection, never the `arrows` field it is written in.
+const KIND_WORDS = { answer: 'Answer', verify: 'Verdict', status: 'Status', criteria: 'Criteria', note: 'Note', block: 'Block', arrow: 'Connection' }
+export const patchKindWord = kind => KIND_WORDS[kind] || kind
+
 function renderPreview(host, plan, error) {
   if (error) { host.innerHTML = errorHtml(error); return }
   const rows = previewPlan(plan).map(o => {
@@ -622,7 +627,7 @@ function renderPreview(host, plan, error) {
     const toggle = o.ok ? `<input type="checkbox" data-patch-op="${o.id}" ${o.selected ? 'checked' : ''} aria-label="Include change: ${escHtml(o.label)}${away ? ', outside the brief' : ''}">` : ''
     const detail = o.ok ? `<details class="change-detail"><summary>Before and after</summary><strong>Before</strong><pre>${escHtml(o.before)}</pre><strong>After</strong><pre>${escHtml(o.after)}</pre></details>` : ''
     const dependency = o.requires.length ? '<div class="patch-op-detail">Including this connection also includes its new blocks.</div>' : ''
-    return `<div class="patch-op ${cls}${away ? ' outside' : ''}"><label>${toggle}<span><span class="patch-op-kind">${o.kind}</span> ${escHtml(o.label)}${conf}${outside}</span></label>${dependency}${detail}</div>`
+    return `<div class="patch-op ${cls}${away ? ' outside' : ''}"><label>${toggle}<span><span class="patch-op-kind">${escHtml(patchKindWord(o.kind))}</span> ${escHtml(o.label)}${conf}${outside}</span></label>${dependency}${detail}</div>`
   }).join('')
   const head = plan.note ? `<div class="patch-op-note">${escHtml(short(plan.note, 120))}</div>` : ''
   host.innerHTML = head + (rows || errorHtml(PATCH_ERRORS.noOps)) +

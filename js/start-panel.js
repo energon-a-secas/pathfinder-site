@@ -24,8 +24,11 @@ import { openAsNewMap } from './library.js'
 import { addTypeAtCenter } from './palette.js'
 import { openShortcuts } from './ui-panels.js'
 import { modalDialogOpen } from './navigation.js'
+import { keyCapsHtml } from './keycaps.js'
 
-export const SAMPLE_TITLE = 'Sample: Checkout 500s'
+// One name for the sample wherever it shows (the start panel, Cmd+K, the
+// Maps menu, the examples page and the walkthrough): the example's own title.
+export const SAMPLE_TITLE = EXAMPLE_CANVAS.meta.title
 
 // ── The sample map ───────────────────────────────────────────
 
@@ -343,7 +346,7 @@ export function setupStartPanel() {
   const sampleDesc = $in('startSampleDesc')
   if (sampleDesc) sampleDesc.textContent = sampleLine()
   const submit = $in('startSubmitHint')
-  if (submit && isApple()) submit.innerHTML = '<kbd>⌘</kbd> + <kbd>Enter</kbd>'
+  if (submit) submit.innerHTML = keyCapsHtml(isApple() ? '⌘Enter' : 'Ctrl+Enter')
 
   if (!wiredPanels.has(panel)) {
     wiredPanels.add(panel)

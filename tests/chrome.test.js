@@ -1079,7 +1079,7 @@ describe('chrome -- QA round', () => {
     reset()
     block('seed')
     if (!templatesWired) { setupTemplates(); templatesWired = true }
-    const i = TEMPLATES.findIndex(t => t.name === 'Recurring Reporting Flow')
+    const i = TEMPLATES.findIndex(t => t.name === 'Plan a recurring report')
     assert.ok(i >= 0 && TEMPLATES[i].large, 'the template exists and is arranged on apply')
     const hist = getUndoHistory().length
     $.templatesList().querySelector(`.template-item[data-tpl="${i}"]`).click()

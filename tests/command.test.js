@@ -316,6 +316,7 @@ describe('command: every menu action is reachable by name', () => {
       assert.eq(activeRow().querySelector('.cmdk-keys')?.textContent, 'Shift+1')
       type('new risk at centre')
       assert.deepEq([...activeRow().querySelectorAll('.cmdk-kbd')].map(k => k.textContent), ['N', 'K'], 'a chord shows as two keys')
+      assert.includes(activeRow().querySelector('.cmdk-keys').textContent, 'then', 'one after the other, said as such')
     })
   })
 
@@ -1052,7 +1053,7 @@ describe('command: review fixes', () => {
   it('one key cap everywhere: the palette, the N hint and the shortcut sheet, in mono', async () => {
     const { shadow, done } = await styledHost(
       '<kbd class="cmdk-kbd">K</kbd><kbd class="typekeys-key">G</kbd>' +
-      '<dl class="shortcut-list"><div class="shortcut-row"><dt class="shortcut-key">?</dt><dd class="shortcut-desc">x</dd></div></dl>')
+      '<dl class="shortcut-list"><div class="shortcut-row"><dt class="shortcut-keys"><kbd class="kbd shortcut-key">?</kbd></dt><dd class="shortcut-desc">x</dd></div></dl>')
     try {
       const caps = ['.cmdk-kbd', '.typekeys-key', '.shortcut-key'].map(sel => getComputedStyle(shadow.querySelector(sel)))
       for (const prop of ['fontFamily', 'fontSize', 'fontWeight', 'color', 'backgroundColor', 'borderTopColor', 'borderTopLeftRadius']) {
@@ -1070,11 +1071,11 @@ describe('command: review fixes', () => {
     try {
       const grid = shadow.querySelector('.shortcut-grid')
       grid.append(...[...$.shortcutGrid().childNodes].map(n => n.cloneNode(true)))
-      const keys = [...shadow.querySelectorAll('.shortcut-top .shortcut-key')]
+      const keys = [...shadow.querySelectorAll('.shortcut-top dt.shortcut-keys')]
       assert.eq(keys.length, 12)
       const heights = keys.map(k => Math.round(k.getBoundingClientRect().height))
       const one = Math.min(...heights)
-      keys.forEach((k, i) => assert.ok(heights[i] <= one + 1, `"${k.textContent}" wraps (${heights[i]}px against ${one}px)`))
+      keys.forEach((k, i) => assert.ok(heights[i] <= one + 1, `"${k.dataset.keys}" wraps (${heights[i]}px against ${one}px)`))
       assert.ok(topShortcuts().some(r => r.key === 'Shift + F10'), 'the short form of a long key')
     } finally { done() }
   })

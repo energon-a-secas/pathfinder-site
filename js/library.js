@@ -27,7 +27,7 @@
 import { state, ui, view, canvasMeta, promptState, saveState, saveHooks, storageReliefHooks, serializeCanvas, snapshot,
          saveView, loadView, getUndoHistory, getRedoFuture, mapIdHooks, lastLoad } from './state.js'
 import { applyTransform, renderArrows, renderFrames, updateHint } from './canvas.js'
-import { genId, showToast, STORAGE_KEY } from './utils.js'
+import { genId, showToast, shortDate, STORAGE_KEY } from './utils.js'
 import { applyImport } from './export.js'
 import { normalizeCanvas, normalizeArrow, schemaOf } from './normalize.js'
 import { searchBlocks } from './search.js'
@@ -678,11 +678,11 @@ export function diffPayloads(oldP, newP) {
   const addedArrows = count(comparison.arrows, 'added'), removedArrows = count(comparison.arrows, 'removed'), changedArrows = count(comparison.arrows, 'changed')
   const parts = []
   if (added) parts.push(`+${added} block${added === 1 ? '' : 's'}`)
-  if (removed) parts.push(`-${removed}`)
+  if (removed) parts.push(`-${removed} block${removed === 1 ? '' : 's'}`)
   if (changed) parts.push(`${changed} changed`)
-  if (addedArrows) parts.push(`+${addedArrows} arrow${addedArrows === 1 ? '' : 's'}`)
-  if (removedArrows) parts.push(`-${removedArrows} arrow${removedArrows === 1 ? '' : 's'}`)
-  if (changedArrows) parts.push(`${changedArrows} arrow${changedArrows === 1 ? '' : 's'} changed`)
+  if (addedArrows) parts.push(`+${addedArrows} connection${addedArrows === 1 ? '' : 's'}`)
+  if (removedArrows) parts.push(`-${removedArrows} connection${removedArrows === 1 ? '' : 's'}`)
+  if (changedArrows) parts.push(`${changedArrows} connection${changedArrows === 1 ? '' : 's'} changed`)
   if (comparison.groups.length) parts.push('groups changed')
   if (comparison.meta.length) parts.push('map settings changed')
   return parts.length ? parts.join(' · ') : 'no changes'
@@ -993,10 +993,9 @@ export function importMapsFile(file) {
 
 // ── Menu ─────────────────────────────────────────────────────
 
+// "Oct 4" in the interface's language (utils.js shortDate).
 function fmtWhen(ts) {
-  if (!ts) return ''
-  const d = new Date(ts)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return ts ? shortDate(ts) : ''
 }
 
 const plural = (n, word) => `${n ?? 0} ${word}${n === 1 ? '' : 's'}`
@@ -1012,7 +1011,7 @@ export function mapsMenuItems() {
   const cur = currentId()
   const index = loadIndex().slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))
   const name = e => e.name || 'Untitled map'
-  const meta = e => `${plural(e.blocks, 'block')} · ${plural(e.arrows, 'connection')} · ${fmtWhen(e.updated)}`
+  const meta = e => [plural(e.blocks, 'block'), plural(e.arrows, 'connection'), fmtWhen(e.updated)].filter(Boolean).join(' · ')
   const snaps = listSnapshots()
   const items = [{ type: 'heading', label: 'Your maps' }]
   // rowId: the command palette keys a map by it (every new map is named
@@ -1042,8 +1041,7 @@ export function mapsMenuItems() {
 }
 
 function snapshotNow() {
-  const when = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-  const snap = takeSnapshot('Snapshot · ' + when)
+  const snap = takeSnapshot('Snapshot · ' + shortDate(Date.now(), { time: true }))
   showToast(snap ? 'Snapshot kept. Restore it any time from Maps' : 'No room left for a snapshot', snap ? 'success' : 'warning', 2200)
 }
 
@@ -1053,8 +1051,13 @@ function snapshotItems() {
   const now = serializeCanvas()
   const snaps = listSnapshots().slice().reverse()
   return [
+    // A name that already says its date ("Snapshot · Oct 4, 13:05") is not
+    // dated again in the hint.
     ...snaps.map(sn => ({
-      label: 'Compare: ' + sn.name, hint: `${fmtWhen(sn.at)} · since then: ${diffPayloads(sn.payload, now)}`,
+      label: 'Compare: ' + sn.name,
+      hint: String(sn.name || '').includes(fmtWhen(sn.at))
+        ? `Since then: ${diffPayloads(sn.payload, now)}`
+        : `${fmtWhen(sn.at)} · since then: ${diffPayloads(sn.payload, now)}`,
       action: () => window.dispatchEvent(new CustomEvent('pf:compare-snapshot', { detail: sn })),
     })),
     { type: 'divider' },

@@ -25,6 +25,18 @@
 // ════════════════════════════════════════════════════════════
 
 import { escHtml } from './utils.js'
+import { keyCapsHtml } from './keycaps.js'
+
+// A row's right edge: its shortcut as key caps (keycaps.js), the one cap the
+// palette and the shortcut sheet draw; a count (a filter's, an outline's) is
+// a number, not a key, so it stays plain.
+function shortcutHtml(shortcut) {
+  if (shortcut == null || shortcut === '') return ''
+  const s = String(shortcut)
+  return /^\d+$/.test(s)
+    ? `<span class="pf-menu-shortcut pf-menu-count">${escHtml(s)}</span>`
+    : `<span class="pf-menu-shortcut pf-menu-keys">${keyCapsHtml(s, { cls: 'pf-menu-key', wrap: '' })}</span>`
+}
 
 const HOVER_DELAY = 120
 const PAD = 8
@@ -190,7 +202,7 @@ function buildItem(item, level) {
     lead +
     `<span class="pf-menu-text"><span class="pf-menu-label">${escHtml(item.label || '')}</span>` +
     (item.hint ? `<span class="pf-menu-hint">${escHtml(item.hint)}</span>` : '') + '</span>' +
-    (item.shortcut ? `<kbd class="pf-menu-shortcut">${escHtml(item.shortcut)}</kbd>` : '') +
+    shortcutHtml(item.shortcut) +
     (item.submenu ? `<span class="pf-menu-caret" aria-hidden="true">${CARET_SVG}</span>` : '')
   if (item.hint) b.title = item.hint
   b._pfItem = item

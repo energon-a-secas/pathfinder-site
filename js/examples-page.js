@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { EXAMPLE_CANVAS } from './example-canvas.js'
-import { TEMPLATES } from './templates.js'
+import { findTemplate } from './templates.js'
 import { DEFAULT_ARROW_WEIGHT } from './utils.js'
 
 /**
@@ -23,10 +23,10 @@ import { DEFAULT_ARROW_WEIGHT } from './utils.js'
  */
 export const EXAMPLES = [
   { key: 'checkout', slug: 'checkout', picture: true },
-  { key: 'Investigate a Bug', slug: 'investigate-a-bug', picture: false },
-  { key: 'Inherit a Codebase', slug: 'inherit-a-codebase', picture: true },
-  { key: 'Migrate a System', slug: 'migrate-a-system', picture: true },
-  { key: 'Recurring Reporting Flow', slug: 'recurring-reporting-flow', picture: true },
+  { key: 'Investigate a bug', slug: 'investigate-a-bug', picture: false },
+  { key: 'Inherit a codebase', slug: 'inherit-a-codebase', picture: true },
+  { key: 'Migrate a system', slug: 'migrate-a-system', picture: true },
+  { key: 'Plan a recurring report', slug: 'recurring-reporting-flow', picture: true },
 ]
 
 /**
@@ -70,10 +70,13 @@ function checkoutPayload() {
   }
 }
 
-/** The canvas payload an example opens, or null for an unknown key. */
+/**
+ * The canvas payload an example opens, or null for an unknown key. A key is
+ * a template's name in any case, so a link written with an old name still opens.
+ */
 export function payloadFor(key) {
   if (key === 'checkout') return checkoutPayload()
-  const tpl = TEMPLATES.find(t => t.name === key)
+  const tpl = findTemplate(key)
   return tpl ? templateToPayload(tpl) : null
 }
 

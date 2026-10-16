@@ -991,16 +991,16 @@ describe('canvas4: the canvas focus indicator is a compact chip, keyboard only',
         const chip = getComputedStyle(vp, '::after')
         // Only what stays true: Tab goes to Find blocks first, and on a
         // view-only link to the review field, never straight to the blocks.
-        assert.eq(chip.content, '"Canvas: arrows pan, ? lists the keys"')
+        assert.eq(chip.content, '"Canvas: arrow keys pan, ? lists the keys"')
         assert.ok(!chip.content.includes('Tab'))
         assert.eq(chip.outlineStyle, 'solid')
         assert.ok(parseFloat(chip.outlineWidth) >= 2, 'at least 2px, as the spec asks (WCAG 2.4.7; 2.4.13 is not claimed)')
         // With blocks selected the arrows move them, so the chip says so;
         // a view-only link pans either way.
         selectBlock('a')
-        assert.eq(getComputedStyle(vp, '::after').content, '"Canvas: arrows move the selection, ? lists the keys"')
+        assert.eq(getComputedStyle(vp, '::after').content, '"Canvas: arrow keys move the selection, ? lists the keys"')
         document.body.classList.add('readonly-mode')
-        try { assert.eq(getComputedStyle(vp, '::after').content, '"Canvas: arrows pan, ? lists the keys"') } finally { document.body.classList.remove('readonly-mode') }
+        try { assert.eq(getComputedStyle(vp, '::after').content, '"Canvas: arrow keys pan, ? lists the keys"') } finally { document.body.classList.remove('readonly-mode') }
         deselectAll()
         const accent = getComputedStyle(document.body).getPropertyValue('--accent').trim()
         const probe = document.createElement('span'); probe.style.color = accent; document.body.appendChild(probe)

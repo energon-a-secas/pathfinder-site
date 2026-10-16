@@ -44,6 +44,7 @@ import { createBlockAt, createConnected, createFromPort, insertOnArrow, suggeste
 import { startInlineEdit } from './inline-edit.js'
 import { startArrowLabelEdit } from './arrow-edit.js'
 import { RELATIONS, relationOf, impliedVerb, connectionLabel } from './relations.js'
+import { ROUTE_NAMES, PATTERN_NAMES, WEIGHT_NAMES, WEIGHTS, DRAWN_WEIGHT_HINT, drawnWeight, weightName } from './connection-words.js'
 import { arrangeSelection } from './align.js'
 import { createBlocksFromText } from './classify.js'
 import { focusBlock, runTidy } from './ui-panels.js'
@@ -719,28 +720,22 @@ export function openMultiMenu(ids, clientX, clientY, { anchorId = null } = {}) {
 }
 
 // ── Arrow menu ───────────────────────────────────────────────
-const ROUTE_LABELS = { routed: 'Routed', curved: 'Curved', straight: 'Straight', elbow: 'Elbow' }
-const PATTERN_LABELS = { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted' }
-const WEIGHTS = [[1, 'Thin'], [1.5, 'Normal'], [2.5, 'Thick'], [3.5, 'Bold']]
-
-// The weight the line is drawn at. Saved arrows with no weight drew at 2.
-function drawnWeight(a) {
-  const w = Number(a.weight)
-  return Number.isFinite(w) && w > 0 ? w : 2
-}
+// Route, pattern and weight are named in connection-words.js, which the
+// inspector's pickers read too, so an older weight is "Normal (2px)" in both.
+const ROUTE_LABELS = ROUTE_NAMES, PATTERN_LABELS = PATTERN_NAMES
 
 // A row is checked only when it is the line's real weight. Older weights
 // (2, 5) get a row of their own, as in the inspector, rather than a check on
 // a neighbour that picking would then change.
 function weightItems(aid, a) {
   const cur = drawnWeight(a)
-  const rows = WEIGHTS.map(([w, label]) => ({
-    label, radio: true, checked: cur === w, action: () => applyArrow(aid, { weight: w }),
+  const rows = WEIGHTS.map(w => ({
+    label: WEIGHT_NAMES[w], radio: true, checked: cur === w, action: () => applyArrow(aid, { weight: w }),
   }))
   // The legacy row stays inside the Weight section (no divider): it is one
   // more of the same choice, under Line's Weight heading.
-  if (!WEIGHTS.some(([w]) => w === cur)) {
-    rows.push({ ctx: 'weight-current', label: `${cur}px`, hint: 'Current weight', radio: true, checked: true, action: () => {} })
+  if (!WEIGHTS.includes(cur)) {
+    rows.push({ ctx: 'weight-current', label: weightName(cur), hint: DRAWN_WEIGHT_HINT, radio: true, checked: true, action: () => {} })
   }
   return rows
 }
@@ -763,7 +758,7 @@ export function arrowMenuItems(aid, pt) {
   return tidyItems([
     { ctx: 'edit-label', label: 'Edit label', icon: I.label, shortcut: 'Enter', action: () => startArrowLabelEdit(aid, pt) },
     { ctx: 'meaning', label: 'Meaning', icon: I.meaning, submenu: () => [
-      { label: 'Auto (label or types)', hint: `Reads as: ${RELATIONS[relationOf({ ...a, relation: null }, state.blocks)].toLowerCase()}`,
+      { label: 'Automatic', hint: `Reads as: ${RELATIONS[relationOf({ ...a, relation: null }, state.blocks)].toLowerCase()}`,
         radio: true, checked: !a.relation, action: () => applyArrow(aid, { relation: null }) },
       DIV,
       ...Object.entries(RELATIONS).map(([k, label]) => ({

@@ -5,7 +5,7 @@
 import { state, selection, ui, canvasMeta, saveState, serializeCanvas, applyPromptOpts,
          buildShareUrlAsync } from './state.js'
 import { mermaidShapeFor, toMermaid, ROWS, showRefusal } from './interop.js'
-import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, ACTION_LABELS, genId, getAllVotes, typeInfo, showToast, askedQuestions } from './utils.js'
+import { $, TYPES, DEFAULT_CARD_STYLE, SITUATION_DEFAULT, ACTION_LABELS, genId, getAllVotes, typeInfo, showToast, askedQuestions, shortDate } from './utils.js'
 import { normalizeCanvas } from './normalize.js'
 import { renderArrows, renderFrames, updateHint, fitView } from './canvas.js'
 import { renderBlock, renderInspector } from './render.js'
@@ -156,8 +156,10 @@ export function buildMarkdown() {
   const order = exportTypeOrder()
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
-  const title = (canvasMeta.title || '').trim() || 'Pathfinder Canvas'
-  let md = `# ${title}\n_${new Date().toLocaleDateString()}_\n\n`
+  const title = (canvasMeta.title || '').trim() || 'Untitled map'
+  // The date the way the interface writes one (shortDate), with its year:
+  // a document is read long after the day it was written.
+  let md = `# ${title}\n_${shortDate(new Date(), { year: true })}_\n\n`
   // The markdown export gets handed to sessions too, so it carries the same
   // framing the prompt does. A plan read without its situation is a plan that
   // gets acted on wrongly, whichever file format it arrived in.
@@ -254,7 +256,7 @@ export function buildSageYaml() {
   const q = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, ' ')
   const byType = {}
   Object.values(state.blocks).forEach(b => { (byType[b.type]??=[]).push(b) })
-  const deckTitle = canvasMeta.title || 'Pathfinder Plan'
+  const deckTitle = canvasMeta.title || 'Untitled map'
 
   let yaml = `presentation:\n  title: "${q(deckTitle)}"\n  subtitle: "Exported from Pathfinder"\n  author: "Neorgon"\n  slides:\n    - type: title\n      heading: "${q(deckTitle)}"\n      subtitle: "${Object.values(state.blocks).length} blocks, ${state.arrows.length} connections"\n`
 
@@ -281,7 +283,7 @@ export function exportToPresentationSage() {
 }
 
 
-// ── Export Meeting Summary ───────────────────────────────────
+// ── Export meeting summary ───────────────────────────────────
 
 // A link long enough to swamp the summary is left out: the canvas title and
 // the app's own Share button do that job better than 40KB of hash.
@@ -318,7 +320,7 @@ export function buildMeetingSummary({ now = new Date(), shareUrl = '', shareOmit
   const oneLine = s => String(s || '').trim().replace(/\s*\n\s*/g, ' ')
   const titleOf = b => b.title || '(untitled)'
 
-  let md = `# Meeting Summary${canvasTitle ? `: ${canvasTitle}` : ''}\n_${now.toLocaleDateString()} at ${now.toLocaleTimeString()}_\n\n`
+  let md = `# Meeting summary${canvasTitle ? `: ${canvasTitle}` : ''}\n_${shortDate(now, { year: true, time: true })}_\n\n`
 
   // Votes come from the URL hash, so a hand-edited one may hold anything.
   const participants = new Set(Object.values(votes).flat().map(v => v?.userId).filter(Boolean)).size
