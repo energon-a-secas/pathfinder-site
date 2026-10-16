@@ -298,14 +298,14 @@ function download(blob, filename) {
 
 export function exportSVG() {
   const built = buildSvg()
-  if (!built) { showToast('Add a block first', 'warning'); return }
+  if (!built) { showToast('Add a block first.', 'warning'); return }
   download(new Blob([built.svg], { type: 'image/svg+xml' }), 'pathfinder-diagram.svg')
-  showToast('Diagram exported as SVG', 'success')
+  showToast('Diagram exported as SVG.', 'success')
 }
 
 export function exportPNG(scale = 2) {
   const built = buildSvg()
-  if (!built) { showToast('Add a block first', 'warning'); return }
+  if (!built) { showToast('Add a block first.', 'warning'); return }
   const { svg, width, height } = built
   const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
   const img = new Image()
@@ -317,11 +317,11 @@ export function exportPNG(scale = 2) {
     ctx.setTransform(scale, 0, 0, scale, 0, 0)
     ctx.drawImage(img, 0, 0)
     canvas.toBlob(blob => {
-      if (!blob) { showToast('PNG export failed: try SVG instead', 'warning'); return }
+      if (!blob) { showToast('PNG export failed: try SVG instead.', 'warning'); return }
       download(blob, 'pathfinder-diagram.png')
-      showToast('Diagram exported as PNG (2×)', 'success')
+      showToast('Diagram exported as PNG (2×).', 'success')
     }, 'image/png')
   }
-  img.onerror = () => showToast('PNG export failed: try SVG instead', 'warning')
+  img.onerror = () => showToast('PNG export failed: try SVG instead.', 'warning')
   img.src = url
 }

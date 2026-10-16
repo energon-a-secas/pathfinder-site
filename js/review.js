@@ -164,23 +164,23 @@ export function setupReview() {
   if (!blockDecorators.includes(paintReviewDot)) blockDecorators.push(paintReviewDot)
   if (review.notes.length) {
     new Set(review.notes.map(n => n.block)).forEach(repaint)
-    showToast(`${review.notes.length} review note${review.notes.length === 1 ? '' : 's'} restored from this tab`, 'info', 2600)
+    showToast(`${review.notes.length} review note${review.notes.length === 1 ? '' : 's'} restored from this tab.`, 'info', 2600)
   }
 
   const add = () => {
     const text = input.value.trim()
-    if (!text) { showToast('Write the note first', 'warning', 1500); return }
+    if (!text) { showToast('Write the note first.', 'warning', 1500); return }
     const id = selection.blockId
-    if (!id || !state.blocks[id]) { showToast('Select the block the note is about first', 'warning', 2200); return }
+    if (!id || !state.blocks[id]) { showToast('Select the block the note is about first.', 'warning', 2200); return }
     addReviewNote(id, text)
     input.value = ''
-    showToast(`Noted on "${(state.blocks[id].title || '(untitled)').slice(0, 40)}"`, 'success', 1600)
+    showToast(`Noted on "${(state.blocks[id].title || '(untitled)').slice(0, 40)}".`, 'success', 1600)
   }
   addBtn.addEventListener('click', add)
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add() } })
   undoBtn.addEventListener('click', () => {
     const gone = removeLastReviewNote()
-    if (gone) showToast(`Removed the note on "${(gone.title || '(untitled)').slice(0, 40)}"`, 'info', 1800)
+    if (gone) showToast(`Removed the note on "${(gone.title || '(untitled)').slice(0, 40)}".`, 'info', 1800)
   })
 
   copyBtn.addEventListener('click', () => {
@@ -189,7 +189,7 @@ export function setupReview() {
     copyText(reply).then(ok => {
       if (!ok) { showCopyFallback(reply, 'the review patch'); return }
       review.sent = Math.max(review.sent, count); saveReviewNotes()
-      showToast('Review patch copied. Send it to the canvas owner; it applies with a preview', 'success', 3000)
+      showToast('Review patch copied. Send it to the canvas owner; it applies with a preview.', 'success', 3000)
     })
   })
 

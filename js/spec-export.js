@@ -293,7 +293,7 @@ export function buildSpecFiles(now = new Date()) {
 
 export async function exportSpecBundle() {
   if (!Object.keys(state.blocks).length) {
-    showToast('Add blocks first; an empty spec helps nobody', 'warning')
+    showToast('Add blocks first; an empty spec helps nobody.', 'warning')
     return
   }
   const { buildZip } = await import('./zip.js')
@@ -304,5 +304,5 @@ export async function exportSpecBundle() {
   a.download = 'pathfinder-spec.zip'
   a.click()
   URL.revokeObjectURL(a.href)
-  showToast('Spec bundle downloaded: spec, plan, tasks, EARS requirements', 'success', 2600)
+  showToast('Spec bundle downloaded: spec, plan, tasks, EARS requirements.', 'success', 2600)
 }

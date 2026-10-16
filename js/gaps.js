@@ -230,13 +230,13 @@ function canvasFindingsFor(blocks, arrows, groups, { inc, out }) {
   // map that is one Other block so far is not told it is 100% untyped.
   const untyped = ofType('custom')
   if (untyped.length >= 3 || (untyped.length >= 2 && untyped.length / n > 0.25)) {
-    add('untyped', `${untyped.length} of ${n} blocks are untyped (Other): gap checks skip them and the AI has to guess what they are. Give each a type`,
+    add('untyped', `${untyped.length} of ${n} blocks are untyped (Other), so gap checks skip them and the AI has to guess what they are: give each a type`,
       untyped.map(b => b.id))
   }
 
   // Why: nothing says what the work is for.
   if (n >= 5 && !list.some(b => TYPES[b.type]?.step === 'why')) {
-    add('no-why', `${n} blocks and no Goal or Problem: nothing says why this work exists. Start with the Why`)
+    add('no-why', `${n} blocks and no Goal or Problem, so nothing says why this work exists: start with the Why`)
   }
 
   // Proof: only once the map uses the new vocabulary, so a legacy canvas of
@@ -244,14 +244,15 @@ function canvasFindingsFor(blocks, arrows, groups, { inc, out }) {
   if (list.some(b => b.type === 'metric' || b.type === 'implementation')) {
     const unmeasured = open('goal-no-metric', ofType('goal').filter(g => !linkedTypes(g.id).includes('metric')))
     if (unmeasured.length) {
-      add('goal-no-metric', `${plural(unmeasured.length, 'goal')} with no Metric (${quoteList(unmeasured.map(b => b.title))}): how will you know it worked? Add the Metric that measures it`,
+      const one = unmeasured.length === 1
+      add('goal-no-metric', `${plural(unmeasured.length, 'goal')} with no Metric (${quoteList(unmeasured.map(b => b.title))}), so nothing will show whether ${one ? 'it' : 'they'} worked: add the Metric that measures ${one ? 'it' : 'each'}`,
         unmeasured.map(b => b.id))
     }
   }
   if (list.some(b => b.type === 'implementation')) {
     const unmoved = open('metric-unmoved', ofType('metric').filter(m => !linkedTypes(m.id).includes('implementation')))
     if (unmoved.length) {
-      add('metric-unmoved', `${plural(unmoved.length, 'metric')} that no work moves (${quoteList(unmoved.map(b => b.title))}): link the Implementation expected to shift it`,
+      add('metric-unmoved', `${plural(unmoved.length, 'metric')} that no work moves (${quoteList(unmoved.map(b => b.title))}): link the Implementation expected to shift ${unmoved.length === 1 ? 'it' : 'each'}`,
         unmoved.map(b => b.id))
     }
   }
@@ -280,7 +281,7 @@ function canvasFindingsFor(blocks, arrows, groups, { inc, out }) {
   const openPairs = pairs.filter(([a, b]) => !(isAcked(a, dupAck) && isAcked(b, dupAck)))
   if (openPairs.length) {
     const shown = openPairs.slice(0, 3).map(([a, b]) => `"${a.title.trim()}" and "${b.title.trim()}"`).join('; ')
-    add('duplicate', `possible duplicate${openPairs.length === 1 ? '' : 's'}: ${shown}${openPairs.length > 3 ? ` and ${openPairs.length - 3} more` : ''}. Merge them or make the difference explicit`,
+    add('duplicate', `possible duplicate${openPairs.length === 1 ? '' : 's'} (${shown}${openPairs.length > 3 ? `; and ${openPairs.length - 3} more` : ''}): ${openPairs.length === 1 ? 'merge them' : 'merge each pair'} or make the difference explicit`,
       [...new Set(openPairs.flat().map(b => b.id))])
   }
 
@@ -498,6 +499,16 @@ export const GAP_META = {
  * '• Goal "Ship it" has nothing under it: no requirement, metric or
  * implementation.' `label` is the block's type label.
  */
+/**
+ * A canvas finding (a findings entry's text) as one line of the brief: one
+ * sentence, like gapLine's, its first letter capitalised and a full stop at
+ * the end. Every finding's text holds one colon at most.
+ */
+export function findingLine(text) {
+  const t = String(text || '').trim()
+  return `\u2022 ${t ? t[0].toUpperCase() + t.slice(1) : t}${/[.?]$/.test(t) ? '' : '.'}`
+}
+
 export function gapLine(label, title, gap) {
   const what = GAP_META[gap]?.prompt || `has an open check: ${gap}`
   return `\u2022 ${label} "${title || '(untitled)'}" ${what}.`

@@ -536,7 +536,7 @@ export function setupCanvasPointerEvents() {
       if (duplicate && tid !== (ix.end === 'from' ? a.from : a.to)) {
         // Two identical connections draw on top of each other, and a share
         // link or an import keeps only one of them (label included).
-        showToast('That connection already exists', 'info', 2000)
+        showToast('That connection already exists.', 'info', 2000)
       } else if (a && tid && tid !== otherId) {
         const side = portEl && portEl.dataset.bid === tid ? portEl.dataset.port : null
         snapshot()
@@ -791,7 +791,7 @@ export function setupCanvasPointerEvents() {
       renderBlock(blockId)
       ui.promptDirty = true
       refreshVotingBanner()
-      showToast(`Added a dot to "${state.blocks[blockId].title || 'Block'}"`, 'info', 1500)
+      showToast(`Added a dot to "${state.blocks[blockId].title || 'Block'}".`, 'info', 1500)
     }
   })
 

@@ -1048,14 +1048,14 @@ describe('braindump: Tidy lays the unconnected blocks out in step columns', () =
 
   it('the toast names the columns and why, and the undo key of this platform', () => {
     assert.eq(tidySummary({ moved: 4, crossings: 0, mode: 'steps' }, 6, 'LR', 'Ctrl+Z'),
-      'Arranged 6 blocks in step columns, since none are connected. Undo with Ctrl+Z')
+      'Arranged 6 blocks in step columns, since none are connected yet. Undo with Ctrl+Z.')
     assert.includes(tidySummary({ moved: 4, crossings: 0, mode: 'steps' }, 6, 'TB'), 'step rows')
     assert.includes(tidySummary({ moved: 4, crossings: 0, underCards: 1, mode: 'steps' }, 6, 'LR'), '1 line under a card')
-    assert.eq(tidySummary({ moved: 0, crossings: 0, mode: 'steps' }, 6, 'LR'), 'Already arranged')
+    assert.eq(tidySummary({ moved: 0, crossings: 0, mode: 'steps' }, 6, 'LR'), 'Already arranged.')
     assert.eq(tidySummary({ moved: 9, crossings: 1, loose: 10 }, 14, 'LR', 'Cmd+Z'),
-      'Arranged 14 blocks left to right, 1 crossing, 10 unconnected in step columns below. Undo with Cmd+Z')
-    assert.includes(tidySummary({ moved: 9, crossings: 0, loose: 2 }, 6, 'TB', 'Cmd+Z'), '2 unconnected in step rows beside it')
+      'Arranged 14 blocks left to right, 1 crossing. The 10 blocks not connected yet are in step columns below. Undo with Cmd+Z.')
+    assert.includes(tidySummary({ moved: 9, crossings: 0, loose: 2 }, 6, 'TB', 'Cmd+Z'), 'The 2 blocks not connected yet are in step rows beside it.')
     const mac = /mac|iphone|ipad|ipod/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '')
-    assert.ok(tidySummary({ moved: 1, crossings: 0 }, 2, 'LR').endsWith(mac ? 'Cmd+Z' : 'Ctrl+Z'), 'the default follows the platform')
+    assert.ok(tidySummary({ moved: 1, crossings: 0 }, 2, 'LR').endsWith(mac ? 'Cmd+Z.' : 'Ctrl+Z.'), 'the default follows the platform')
   })
 })

@@ -903,7 +903,7 @@ export function focusQuestion(blockId, index = -1) {
   if (details && !details.open) details.open = true
   const inputs = [...($.questionsList()?.querySelectorAll('input[data-qi]') || [])]
   const target = inputs[index] || inputs[inputs.length - 1]
-  if (!target) { showToast('Question added. Type it in the inspector', 'info', 2000); return false }
+  if (!target) { showToast('Question added. Type it in the inspector.', 'info', 2000); return false }
   target.focus()
   return true
 }
@@ -1210,20 +1210,20 @@ export function setupInspectorEvents() {
       if (ui.readOnly) return
       const n = retypeBlocks([...selection.ids], t)
       renderInspector()
-      if (n) showToast(`${plural(n)} set to ${TYPES[t].label}`, 'success', 1500)
+      if (n) showToast(`${plural(n)} set to ${TYPES[t].label}.`, 'success', 1500)
     })
   }, 'Type for every selected block', { className: 'insp-type-menu', focusChecked: true })
   dropdown('multiStatusBtn', () => {
     if (ui.readOnly) return null
     const common = commonValue([...selection.ids], b => statusKey(b))
     return statusMenuItems(common === undefined ? null : common,
-      k => bulkEdit({ status: k || null }, n => `${plural(n)}: ${statusLabel(k)}`))
+      k => bulkEdit({ status: k || null }, n => `${plural(n)}: ${statusLabel(k)}.`))
   }, 'Status for every selected block')
   dropdown('multiPriorityBtn', () => {
     if (ui.readOnly) return null
     const common = commonValue([...selection.ids], b => (PRIORITY_DEFS[b.priority] ? b.priority : ''))
     return priorityMenuItems(common === undefined ? null : common,
-      k => bulkEdit({ priority: k || null }, n => `${plural(n)}: ${k ? PRIORITY_DEFS[k].label + ' priority' : 'no priority'}`))
+      k => bulkEdit({ priority: k || null }, n => `${plural(n)}: ${k ? PRIORITY_DEFS[k].label + ' priority' : 'no priority'}.`))
   }, 'Priority for every selected block')
 
   // The name beside the swatches follows the pointer and the keyboard.
@@ -1239,7 +1239,7 @@ export function setupInspectorEvents() {
   on('multiHighlightRow', 'click', e => {
     const sw = e.target.closest('[data-hl]'); if (!sw || ui.readOnly) return
     const key = sw.dataset.hl || null, hadFocus = document.activeElement === sw
-    bulkEdit({ highlight: key }, n => key ? `Highlighted ${plural(n)}` : `Cleared the highlight on ${plural(n)}`)
+    bulkEdit({ highlight: key }, n => key ? `Highlighted ${plural(n)}.` : `Cleared the highlight on ${plural(n)}.`)
     if (hadFocus) byId('multiHighlightRow')?.querySelector(`[data-hl="${key || ''}"]`)?.focus()
   })
 
@@ -1249,7 +1249,7 @@ export function setupInspectorEvents() {
     if (ui.readOnly) return
     const any = Object.values(state.blocks).some(b => b.highlight)
     if (!any && !canvasMeta.spotlight) {
-      showToast('Highlight something first, then Spotlight fades the rest', 'info', 2400)
+      showToast('Highlight something first, then Spotlight fades the rest.', 'info', 2400)
       return
     }
     setSpotlight(!canvasMeta.spotlight)
@@ -1387,7 +1387,7 @@ export function setupInspectorEvents() {
     // already runs the other way would become a second identical one, drawn
     // on top of it, and a share link or import would keep only one.
     if (state.arrows.some(x => x.id !== a.id && x.from === a.to && x.to === a.from)) {
-      showToast('A connection already runs the other way. Turn on Two-way instead', 'info', 2400)
+      showToast('A connection already runs the other way. Turn on Two-way instead.', 'info', 2400)
       return
     }
     const changes = { from: a.to, to: a.from, fromPort: a.toPort, toPort: a.fromPort }

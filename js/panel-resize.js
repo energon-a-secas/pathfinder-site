@@ -157,9 +157,18 @@ export function syncSeparator() {
   sep.setAttribute('aria-valuetext', `${w} pixels wide`)
 }
 
+// A loan the person ended by choosing a width of their own (a drag, the
+// keys, the list of widths): the Brief's Read is off, and is not brought
+// back next time (brief.js listens).
+function loanTaken() {
+  if (borrowed == null) return
+  borrowed = null
+  window.dispatchEvent(new CustomEvent('pf:read-loan-taken'))
+}
+
 /** Set the person's own width (stored), ending any loan. Returns the width drawn. */
 export function setPanelWidth(w) {
-  borrowed = null
+  loanTaken()
   const next = clampPanelWidth(w)
   storeWidth(next)
   apply(next)
@@ -168,7 +177,7 @@ export function setPanelWidth(w) {
 
 /** Back to the stylesheet's width: the double-click, and nothing stored. */
 export function resetPanelWidth() {
-  borrowed = null
+  loanTaken()
   storeWidth(null)
   apply(null)
 }
@@ -240,7 +249,7 @@ export function setupPanelResize() {
   sep.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id) return
     // A drag makes the width the person's own: a loan ends at the first move.
-    borrowed = null
+    loanTaken()
     pending = clampPanelWidth(drag.w + (drag.x - e.clientX))
     if (!raf) raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(draw) : (draw(), 0)
   })

@@ -362,6 +362,45 @@ export function renderArrows(opts = {}) {
   })
   placeHandles(hitLayer, oldHandles, handleAt)
   syncArrowStates()
+  queueCaptionCheck()
+}
+
+// ── The empty description's caption keeps off labels ─────────
+// The selected card's empty description is offered as a caption just under
+// the card (style.css, "Double-click to add a description"). Labels and
+// notes are placed clear of the cards, not of that caption, so between two
+// cards stacked close it sat on the connection's label, text on text. A hint
+// never covers what the map says: while it would meet a label or a note
+// (shown or shown on hover), the caption steps out (.desc-caption-off), and
+// the description is still a Shift+Enter, the menu or the inspector away.
+
+let captionQueued = false
+/** Check the caption once, after this frame's renders (render.js and renderArrows call it). */
+export function queueCaptionCheck() {
+  if (captionQueued) return
+  captionQueued = true
+  const run = () => { captionQueued = false; settleDescCaption() }
+  if (typeof requestAnimationFrame === 'function' && !document.hidden) requestAnimationFrame(run)
+  else queueMicrotask(run)
+}
+
+/** Hide the selected card's empty-description caption while it meets a connection label or note. Returns whether it is hidden. */
+export function settleDescCaption() {
+  const root = $.canvasRoot(); if (!root) return false
+  root.querySelectorAll('.block.desc-caption-off').forEach(el => el.classList.remove('desc-caption-off'))
+  if (selection.ids.size !== 1 || !selection.blockId) return false
+  const el = document.getElementById("b-" + selection.blockId)
+  const desc = el?.querySelector('.block-desc')
+  if (!desc || desc.textContent || getComputedStyle(desc).position !== 'absolute') return false
+  const c = desc.getBoundingClientRect()
+  if (!c.width || !c.height) return false
+  const boxes = $.arrowsGroup()?.querySelectorAll('.arrow-label-bg, .arrow-note-bg') || []
+  const hit = [...boxes].some(b => {
+    const r = b.getBoundingClientRect()
+    return r.width > 0 && r.height > 0 && r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top
+  })
+  el.classList.toggle('desc-caption-off', hit)
+  return hit
 }
 
 // The two endpoint handles of the selected line, reused across renders and

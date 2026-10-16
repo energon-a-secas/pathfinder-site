@@ -8,7 +8,7 @@ import { state, selection, ui, canvasMeta, debouncedSave, snapshot,
 import { $, TYPES, ACTION_LABELS, ACTION_ASKS, STATUS_DEFS, PRIORITY_DEFS,
          DEFAULT_WIDTH, DEFAULT_CARD_STYLE, DEFAULT_ARROW_WEIGHT,
          escHtml, escHtmlMultiline, genId, getBlockEl, getBlockVotes, getSmallIcon, drawnCardStyle, showToast } from './utils.js'
-import { renderArrows, renderFrames, updateHint } from './canvas.js'
+import { renderArrows, renderFrames, updateHint, queueCaptionCheck } from './canvas.js'
 import { runGapDetection } from './gaps.js'
 import { refreshPrompt } from './prompt.js'
 import { renderInspector } from './inspector.js'
@@ -176,6 +176,9 @@ export function renderBlock(id) {
   for (const paint of blockDecorators) {
     try { paint(b, el) } catch (err) { console.error('block decorator failed', err) }
   }
+  // A render rebuilt the card's classes: the selected card's caption is
+  // checked against the labels again (canvas.js settleDescCaption).
+  if (selection.blockId === id) queueCaptionCheck()
 }
 
 export function renderAllBlocks() {
@@ -197,6 +200,8 @@ function paintSelected(id, on) {
   const el = getBlockEl(id); if (!el) return
   el.classList.toggle('selected', on)
   if (cardLabels.has(el)) labelSelected(el, on)
+  // The empty description's caption keeps off connection labels (canvas.js).
+  queueCaptionCheck()
 }
 
 export function selectBlock(id) {
@@ -486,10 +491,10 @@ export function undo() {
   const raw = history.pop()
   getRedoFuture().push(undoEntry({ framing: JSON.parse(raw).framing }))
   restoreEntry(raw)
-  // The camera follows an undo that took away what it had arrived on
-  // (zoom-controls.js returnFromArrival): an event, as render.js does not
-  // import the camera.
-  window.dispatchEvent(new CustomEvent('pf:undone'))
+  // The camera follows an undo of the step an arrival remembered (a
+  // template merged into a map: zoom-controls.js returnFromArrival), told
+  // which step this was: an event, as render.js does not import the camera.
+  window.dispatchEvent(new CustomEvent('pf:undone', { detail: { entry: raw } }))
 }
 
 export function redo() {

@@ -340,10 +340,10 @@ export function insertOnArrow(aid, type, { edit = true } = {}) {
 
 // Legacy fix ids from gaps.js, expressed as the generic create shape.
 const LEGACY_CREATE = {
-  'add-goal':     { type: 'goal', dir: 'out', done: 'Goal created and linked' },
-  'add-req':      { type: 'requirement', dir: 'in', done: 'Requirement created and linked' },
-  'add-decision': { type: 'decision', dir: 'out', done: 'Decision created and linked' },
-  'mitigate':     { type: 'decision', dir: 'out', done: 'Decision created and linked' },
+  'add-goal':     { type: 'goal', dir: 'out', done: 'Goal created and linked.' },
+  'add-req':      { type: 'requirement', dir: 'in', done: 'Requirement created and linked.' },
+  'add-decision': { type: 'decision', dir: 'out', done: 'Decision created and linked.' },
+  'mitigate':     { type: 'decision', dir: 'out', done: 'Decision created and linked.' },
 }
 
 /**
@@ -358,7 +358,7 @@ export function applyGapFix(fix, blockId) {
   const create = f.create || (LEGACY_CREATE[f.id] && { type: LEGACY_CREATE[f.id].type, dir: LEGACY_CREATE[f.id].dir })
   if (create && create.type) {
     const id = createConnected(blockId, create.type, { incoming: create.dir === 'in' })
-    if (id) showToast(LEGACY_CREATE[f.id]?.done || `${TYPES[create.type]?.label || create.type} created and linked`)
+    if (id) showToast(LEGACY_CREATE[f.id]?.done || `${TYPES[create.type]?.label || create.type} created and linked.`)
     return id
   }
   if (f.id === 'resolve' || f.id === 'prepare' || f.id === 'validate') {

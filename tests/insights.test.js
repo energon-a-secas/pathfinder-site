@@ -5,7 +5,7 @@
 import { describe, it, assert, mockBlockEl, mockGapIconEl, cleanupMockEls, cssRgba } from './test-utils.js'
 import { state, ui, selection, getUndoHistory, getRedoFuture, devOpts, saveStatus } from '../js/state.js'
 import { runGapDetection, detectGaps, GAP_META, GAP_ORDER, gapIconFor, getGapFixes, gapExplain, nextEmptyStep,
-         acceptGap, acceptFinding, unacceptGap, blockGap, hidesQuestion, FINDING_ACKS, FINDING_META } from '../js/gaps.js'
+         acceptGap, acceptFinding, unacceptGap, blockGap, hidesQuestion, FINDING_ACKS, FINDING_META, findingLine } from '../js/gaps.js'
 import { attentionItems, acceptedItems, attentionModel, attentionRowsHtml, runAttentionAction, suggestTypes, setupAttention } from '../js/attention.js'
 import { computeHealthScore, generatePrompt } from '../js/prompt.js'
 import { relationOf, relationHint, dependencyEdges, impliedVerb } from '../js/relations.js'
@@ -675,7 +675,7 @@ describe('Insights: the prompt gap section and the Attention tab list the same g
       assert.ok(items.some(i => i.id === d.id && i.gap === d.gaps[0]), 'attention lists ' + d.title)
     })
     items.filter(i => i.kind === 'gap').forEach(i => assert.includes(section, `"${i.title}"`, 'and the other way: ' + i.title))
-    r.canvasFindings.forEach(f => assert.includes(section, f))
+    r.canvasFindings.forEach(f => assert.includes(section, findingLine(f)))
     assert.eq(items.filter(i => i.kind === 'canvas').length, r.canvasFindings.length)
   })
   it('an accepted gap leaves both lists together', () => {

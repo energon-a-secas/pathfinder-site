@@ -1122,9 +1122,9 @@ describe('lines: Tidy and pins', () => {
   })
 
   it('still reports lines under a card when there was nothing to move', () => {
-    assert.eq(tidySummary({ moved: 0, crossings: 0, underCards: 3 }, 5, 'LR'), 'Already arranged, 3 lines under a card')
-    assert.eq(tidySummary({ moved: 0, crossings: 0, underCards: 1 }, 5, 'LR'), 'Already arranged, 1 line under a card')
-    assert.eq(tidySummary({ moved: 0, crossings: 0, underCards: 0 }, 5, 'LR'), 'Already arranged')
+    assert.eq(tidySummary({ moved: 0, crossings: 0, underCards: 3 }, 5, 'LR'), 'Already arranged, 3 lines under a card.')
+    assert.eq(tidySummary({ moved: 0, crossings: 0, underCards: 1 }, 5, 'LR'), 'Already arranged, 1 line under a card.')
+    assert.eq(tidySummary({ moved: 0, crossings: 0, underCards: 0 }, 5, 'LR'), 'Already arranged.')
   })
 })
 

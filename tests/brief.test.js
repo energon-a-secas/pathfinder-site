@@ -400,7 +400,7 @@ describe('brief: the Brief tab', () => {
       assert.ok(await copyBrief({ scope: 'map' }))
       assert.eq(copied, generatePrompt())
       const toast = document.querySelector('.toast-notification')
-      assert.eq(toast?.textContent, `Copied: ${copiedSummary(copied)}`)
+      assert.eq(toast?.textContent, `Copied: ${copiedSummary(copied)}.`)
       assert.eq(getPromptDiff(), null, 'later changes are counted from this copy')
       selection.ids.add('g1')
       setBriefScope('selection')
@@ -589,12 +589,12 @@ describe('brief: a scoped brief\'s findings stay inside its scope', () => {
       assert.ok(whole.findings.some(f => f.kind === 'duplicate'), 'the map has the duplicate')
       // Scope r1: r1 and g, not r2.
       const text = scopedGapText(whole, new Set(['r1', 'g']), state.blocks)
-      assert.ok(!text.includes('Canvas: possible duplicate'), 'not the whole-map sentence, which quotes r2')
+      assert.ok(!text.includes('Possible duplicate'), 'not the whole-map sentence, which quotes r2')
       assert.includes(text, '• Requirement "Invoices export to CSV" may be a duplicate: its title nearly repeats another block\'s.')
       assert.eq(text.split('may be a duplicate').length - 1, 1, 'once, for r1 only')
       // A scope holding both keeps the map's own sentence.
       const both = scopedGapText(whole, new Set(['r1', 'r2', 'g']), state.blocks)
-      assert.includes(both, '• Canvas: possible duplicate: "Invoices export to CSV" and "Invoices export to CSV"')
+      assert.includes(both, '• Possible duplicate ("Invoices export to CSV" and "Invoices export to CSV"): merge them or make the difference explicit.')
       // Through the generator too.
       const brief = generateScopedPrompt(['r1'])
       const gaps = brief.slice(brief.indexOf('## Planning gaps detected'), brief.indexOf('## When you reply'))

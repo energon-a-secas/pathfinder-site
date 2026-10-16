@@ -191,7 +191,7 @@ async function loadFromUrl() {
       const text = await res.text()
       if (text.length > MAX_SRC) throw new Error('too large')
       return text
-    } catch (e) { showToast(`Could not load ?src=: ${e.message}`, 'error') }
+    } catch (e) { showToast(`Could not load the ?src= address (${e.message}).`, 'error') }
   }
   if (state.embed) return ''
   try { return localStorage.getItem(STORE) || '' } catch (_) { return '' }

@@ -55,7 +55,7 @@ export function toggleChrome() {
   apply(); persist()
   // Only on the way out: once the header is gone the key is the only way
   // back, so the message has to arrive at the moment it becomes the only way.
-  if (!chrome.frame) showToast('Header hidden. Press H to bring it back', 'info', 2600)
+  if (!chrome.frame) showToast('Header hidden. Press H to bring it back.', 'info', 2600)
 }
 
 /** Hide or show everything that is not the canvas. */
@@ -63,7 +63,7 @@ export function toggleZen() {
   const goingZen = chrome.frame || chrome.panels
   chrome.frame = chrome.panels = !goingZen
   apply(); persist()
-  if (goingZen) showToast('Zen mode. Press Z to bring the panels back', 'info', 2600)
+  if (goingZen) showToast('Zen mode. Press Z to bring the panels back.', 'info', 2600)
 }
 
 /** Bring the panels back (leaving Zen) without touching the header. */

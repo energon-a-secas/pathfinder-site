@@ -533,7 +533,7 @@ describe('qa4: the doc pages in every engine', () => {
 
   it('prose holds about 70 characters a line, not 90', async () => {
     const css = await fetchText('../css/style.css')
-    assert.match(css, /\.doc p, \.doc li \{ max-width: 29em; \}/)
+    assert.match(css, /\.doc p, \.doc li \{ max-width: 31em; \}/)
     assert.ok(!/\.doc p, \.doc li \{ max-width: 68ch/.test(css))
   })
 })

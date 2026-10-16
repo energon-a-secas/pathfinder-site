@@ -184,9 +184,9 @@ export function suggestTypes(ids = Object.keys(state.blocks)) {
     if (type === 'custom' && first) type = categorizeLine(`${b.title || ''} ${first}`).type
     if (type !== 'custom' && TYPES[type]) guesses.set(id, type)
   })
-  if (!guesses.size) { showToast('No confident guess for these blocks: pick each type by hand'); return 0 }
+  if (!guesses.size) { showToast('No confident guess for these blocks: pick each type by hand.'); return 0 }
   mutateBlocks([...guesses.keys()], b => ({ type: guesses.get(b.id), typeCheck: true }))
-  showToast(`${guesses.size} block${guesses.size === 1 ? '' : 's'} typed: check each one`)
+  showToast(`${guesses.size} block${guesses.size === 1 ? '' : 's'} typed: check each one.`)
   return guesses.size
 }
 
@@ -198,7 +198,7 @@ export function suggestTypes(ids = Object.keys(state.blocks)) {
 export function confirmTypes(ids) {
   if (ui.readOnly || ui.embed) return 0
   const n = retypeBlocks(ids.filter(id => state.blocks[id]?.typeCheck), null)
-  if (n) showToast(`Kept the type on ${n} block${n === 1 ? '' : 's'}`)
+  if (n) showToast(`Kept the type on ${n} block${n === 1 ? '' : 's'}.`)
   return n
 }
 
@@ -267,11 +267,11 @@ export function runAttentionAction(act, item) {
   if (act === 'accept') {
     if (item.kind === 'canvas') {
       const n = acceptFinding({ kind: item.finding, ids: item.ids })
-      if (n) showToast(`Accepted for ${n} block${n === 1 ? '' : 's'}: listed under Accepted gaps`)
+      if (n) showToast(`Accepted for ${n} block${n === 1 ? '' : 's'}: listed under Accepted gaps.`)
       return n > 0
     }
     const ok = acceptGap(item.id, item.gap)
-    if (ok) showToast('Gap accepted: listed under Accepted gaps and no longer raised')
+    if (ok) showToast('Gap accepted: listed under Accepted gaps and no longer raised.')
     return ok
   }
   if (act === 'reopen') return unacceptGap(item.id, item.gap)

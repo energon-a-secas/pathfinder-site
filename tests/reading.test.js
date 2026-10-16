@@ -107,6 +107,8 @@ function clear() {
   selection.ids.clear(); selection.blockId = null; selection.arrowId = null
   getUndoHistory().length = 0; getRedoFuture().length = 0
   resetSnapshotToken()
+  // A press on Read is remembered (brief.js readPref): no test leaves it on.
+  try { localStorage.removeItem('pathfinder-brief-read') } catch (_) {}
 }
 const toastText = () => document.querySelector('.toast-notification .toast-msg')?.textContent || ''
 const dropToasts = () => document.querySelectorAll('.toast-notification').forEach(t => t.remove())

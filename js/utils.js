@@ -534,6 +534,9 @@ export function escHtmlMultiline(s) {
 // copy still lands. Resolves to true/false so callers can surface the outcome.
 export function copyText(text) {
   const fallback = () => {
+    // The hidden field takes focus to be copied from; the control that asked
+    // for the copy gets it back, so a refusal's toast can return it there.
+    const was = document.activeElement
     try {
       const ta = document.createElement('textarea')
       ta.value = text
@@ -544,6 +547,9 @@ export function copyText(text) {
       ta.remove()
       return ok
     } catch (_) { return false }
+    finally {
+      if (was && was !== document.body && was.isConnected && document.activeElement !== was) was.focus?.({ preventScroll: true })
+    }
   }
   if (navigator.clipboard?.writeText) {
     return navigator.clipboard.writeText(text).then(() => true, () => fallback())
@@ -716,7 +722,7 @@ export function addVotesToBlock(blockId, dots = 1) {
 
   if (myTotalUsed + dots > MAX_DOTS_PER_USER) {
     const remaining = MAX_DOTS_PER_USER - myTotalUsed
-    showToast(`You only have ${remaining} dots remaining`, 'warning')
+    showToast(`You only have ${remaining} dots remaining.`, 'warning')
     return false
   }
 
@@ -891,9 +897,21 @@ export function showCopyFallback(text, what = 'the text') {
     { action: { label: 'Dismiss', run: () => {} }, field: String(text ?? '') })
 }
 
+// Where a toast that took focus (a copy's text field) hands it back when it
+// goes: the control that was focused when it opened.
+const toastReturn = new WeakMap()
+
+/** Remove a toast; when focus was inside it, back to the control it came from. */
+function closeToast(toast) {
+  const inside = toast.contains(document.activeElement)
+  const back = toastReturn.get(toast)
+  toast.remove()
+  if (inside && back && back.isConnected && back.getClientRects().length) back.focus({ preventScroll: true })
+}
+
 export function showToast(message, type = 'info', duration = 3000, { action = null, field = null } = {}) {
   const existing = document.querySelector('.toast-notification')
-  if (existing) existing.remove()
+  if (existing) closeToast(existing)
 
   const kind = Object.hasOwn(TOAST_ICONS, type) ? type : 'info'
   const toast = document.createElement('div')
@@ -906,15 +924,17 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
   toast.querySelector('.toast-msg').textContent = message
   // An action beside the message (Undo after a delete): a real button,
   // the one part of a toast that takes a click.
+  let btn = null
   if (action?.label && typeof action.run === 'function') {
-    const btn = document.createElement('button')
+    btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'toast-action'
     btn.textContent = action.label
-    btn.addEventListener('click', () => { toast.remove(); action.run() }, { once: true })
-    toast.appendChild(btn)
+    btn.addEventListener('click', () => { closeToast(toast); action.run() }, { once: true })
   }
-  // Text to copy by hand (showCopyFallback): selectable, on its own row.
+  // Text to copy by hand (showCopyFallback): selectable, on its own row
+  // (style.css orders it under the message), and before the action in the
+  // Tab order, so Tab from the field reaches Dismiss.
   let fieldEl = null
   if (typeof field === 'string') {
     fieldEl = document.createElement('textarea')
@@ -925,7 +945,18 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
     fieldEl.setAttribute('aria-label', 'Text to copy')
     toast.classList.add('toast-has-field')
     toast.appendChild(fieldEl)
+    const was = document.activeElement
+    if (was && was !== document.body) toastReturn.set(toast, was)
+    // Escape closes it like Dismiss, focus back where the copy was asked
+    // for, and goes no further (the canvas would read it as deselect).
+    toast.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return
+      e.preventDefault(); e.stopPropagation()
+      closeToast(toast)
+      if (action && typeof action.run === 'function') action.run()
+    })
   }
+  if (btn) toast.appendChild(btn)
   document.body.appendChild(toast)
   placeToast(toast)
   if (fieldEl) { fieldEl.focus({ preventScroll: true }); fieldEl.select() }
@@ -936,7 +967,7 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
   if (toastTimeout) clearTimeout(toastTimeout)
   toastTimeout = setTimeout(() => {
     toast.classList.add('toast-exiting')
-    setTimeout(() => toast.remove(), 300)
+    setTimeout(() => closeToast(toast), 300)
   }, toastDuration(message, duration))
 }
 

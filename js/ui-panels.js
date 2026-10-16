@@ -26,7 +26,7 @@ import { searchBlocks } from './search.js'
 import { searchSavedMaps, switchTo, currentId } from './library.js'
 import { decodeLegacyShare, decodeShareHash, isShareHash, canCompressLinks } from './state.js'
 // Where a template or a link lands, and Tidy's move.
-import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint, animateView,
+import { arriveAt, arriveAfterLoad, arrivalLead, arrivalHint, mapInView, animateView,
          positionsNow, animateTidy, fitTarget, TIDY_MS } from './zoom-controls.js'
 import { openIncoming, incomingMessage, LINK_ERRORS, linkError } from './sharing.js'
 import { setupFilter, filterValue, setFilterValue } from './filter-menu.js'
@@ -123,7 +123,7 @@ function refreshSearch() {
 function chooseSearchResult(id, mapId) {
   const switching = mapId && mapId !== currentId()
   if (switching && !switchTo(mapId)) {
-    showToast('Could not open that map. Your current work is still open', 'warning')
+    showToast('Could not open that map. Your current work is still open.', 'warning')
     return
   }
   closeSearch({ restoreFocus: false })
@@ -824,7 +824,7 @@ export function setupDevOptions() {
     const pz = PRESETS[btn.dataset.preset]
     if (!applyPreset(btn.dataset.preset)) return
     const runtime = SITUATION_FIELDS.runtime.options[pz.runtime]?.label || pz.runtime
-    showToast(`${pz.label}: ${pz.mode} mode, running in ${runtime}${pz.pre.length ? `, ${pz.pre.length} extras` : ''}`, 'success', 2000)
+    showToast(`${pz.label}: ${pz.mode} mode, running in ${runtime}${pz.pre.length ? `, ${pz.pre.length} extras` : ''}.`, 'success', 2000)
   })
 
   // A replace (share link, import, Maps switch) can change the options under
@@ -904,7 +904,7 @@ export function setupExportDropdown() {
   on('copyDiagramInstructions', () => {
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {
       if (!ok) { showCopyFallback(DIAGRAM_BUILDER_PROMPT, 'the prompt'); return }
-      showToast('Copied a prompt that builds a map: paste it into an assistant with your topic, then import the JSON it returns', 'success')
+      showToast('Copied a prompt that builds a map: paste it into an assistant with your topic, then import the JSON it returns.', 'success')
     })
   })
 
@@ -916,16 +916,16 @@ export function setupExportDropdown() {
   // pastes into a README, an issue or Obsidian and reads back into Pathfinder.
   on('exportMermaid', () => {
     const graph = toMermaid()
-    if (!graph) { showToast('Add a block first', 'warning'); return }
+    if (!graph) { showToast('Add a block first.', 'warning'); return }
     copyText(graph).then(ok => ok
-      ? showToast('Mermaid copied: it renders on GitHub and imports back into Pathfinder', 'success')
+      ? showToast('Mermaid copied: it renders on GitHub and imports back into Pathfinder.', 'success')
       : showCopyFallback(graph, 'the Mermaid graph'))
   })
 
   on('exportJsonCanvas', () => {
-    if (!Object.keys(state.blocks).length) { showToast('Add a block first', 'warning'); return }
+    if (!Object.keys(state.blocks).length) { showToast('Add a block first.', 'warning'); return }
     downloadJsonCanvas()
-    showToast('JSON Canvas downloaded: it opens in Obsidian and friends', 'success')
+    showToast('JSON Canvas downloaded: it opens in Obsidian and friends.', 'success')
   })
 
   on('exportPNG', () => exportPNG(2))
@@ -935,7 +935,7 @@ export function setupExportDropdown() {
   // which clobbered the label's markup. A toast says the same thing.
   on('exportMeetingSummary', () => {
     exportMeetingSummary()
-    showToast('Meeting summary exported', 'success', 1500)
+    showToast('Meeting summary exported.', 'success', 1500)
   })
 
   on('exportToPresentationSage', () => exportToPresentationSage())
@@ -1057,7 +1057,7 @@ export function setCanvasCardStyle(key) {
   renderAllBlocks(); renderArrows({ cheap: false }); renderFrames()
   renderInspector()
   saveState()
-  showToast(`Cards set to ${CARD_STYLES[key].label}`, 'success', 1500)
+  showToast(`Cards set to ${CARD_STYLES[key].label}.`, 'success', 1500)
   return true
 }
 
@@ -1122,7 +1122,7 @@ export function setLayoutDir(dir) {
 export function runTidy({ snapshot: takeSnapshot = true, arrive = null } = {}) {
   if (ui.readOnly) return
   const count = Object.keys(state.blocks).length
-  if (count < 2) { showToast('Add at least two blocks to arrange', 'info', 1600); return }
+  if (count < 2) { showToast('Add at least two blocks to arrange.', 'info', 1600); return }
 
   const before = positionsNow()
   const tidied = tidyCanvas({ direction: layoutDir, snapshot: takeSnapshot !== false })
@@ -1172,7 +1172,7 @@ export function clearCanvas({ ask = true } = {}) {
   // Nothing to clear: no question to answer, and no undo step that would
   // make the next Cmd+Z look like it did nothing.
   if (!Object.keys(state.blocks).length && !state.arrows.length && !Object.keys(state.groups || {}).length) {
-    showToast('This map is already empty', 'info', 1500)
+    showToast('This map is already empty.', 'info', 1500)
     return false
   }
   // No confirm (a native one stopped the page): clearing is one undo step,
@@ -1579,14 +1579,14 @@ export function setupTemplates() {
       renderTemplatesList()
       const left = list.querySelectorAll('.template-row .template-item')
       ;(left[Math.min(at, left.length - 1)] || document.getElementById('saveTemplateBtn'))?.focus()
-      showToast('Template deleted', 'info', 1500)
+      showToast('Template deleted.', 'info', 1500)
       return
     }
     if (e.target.closest('#saveTemplateBtn')) {
-      if (!Object.keys(state.blocks).length) { showToast('Add blocks first, then save them as a template', 'warning'); return }
+      if (!Object.keys(state.blocks).length) { showToast('Add blocks first, then save them as a template.', 'warning'); return }
       const tpl = saveCurrentAsTemplate(canvasMeta.title, { state, canvasMeta, mode: devOpts.mode })
       renderTemplatesList()
-      showToast(tpl ? `"${tpl.name}" saved: it now lives in Templates` : 'No room to save the template', tpl ? 'success' : 'warning', 2400)
+      showToast(tpl ? `"${tpl.name}" saved: it now lives in Templates.` : 'No room to save the template.', tpl ? 'success' : 'warning', 2400)
       return
     }
     const item = e.target.closest('.template-item'); if (!item) return
@@ -1626,12 +1626,15 @@ export function setupTemplates() {
 
     // The big templates exist to be read as a shape, so arrange them straight
     // away rather than dropping a knot of boxes and hoping the button is found.
+    // A small one's positions are Tidy's own arrangement already (templates.js),
+    // so it arrives arranged and its toast suggests nothing: on a map with
+    // cards, Tidy (L) would rearrange every one of the person's blocks too.
     // Either way it lands readable, on where its flow starts (zoom-controls.js
     // arriveAt), not at a whole-map fit too small to read.
     if (!wasEmpty) {
       // A merge says where it went and offers Undo, which also hands the
       // camera back (Cmd+Z does too: returnFromArrival).
-      const lead = tpl.large ? `"${tpl.name}" added and arranged beside your map.` : `"${tpl.name}" added beside your map. Press Tidy or L to arrange it.`
+      const lead = tpl.large ? `"${tpl.name}" added and arranged beside your map.` : `"${tpl.name}" added beside your map.`
       const action = { label: 'Undo', run: () => undo() }
       // No camera to move (a canvas not laid out): the toast still says it.
       if (!arriveAt(added, { lead, ms: 5000, remember: true, action })) showToast(lead, 'success', 5000, { action })
@@ -1640,7 +1643,7 @@ export function setupTemplates() {
       const lead = framed ? `"${tpl.name}" added and arranged, with its situation.` : `"${tpl.name}" added and arranged.`
       runTidy({ snapshot: false, arrive: { ids: added, lead } })
     } else {
-      arriveAt(added, { lead: `${arrivalLead(`"${tpl.name}"`)} Press Tidy or L to arrange it.`, ms: 2600 })
+      arriveAt(added, { lead: arrivalLead(`"${tpl.name}"`), ms: 2600 })
     }
   })
 }
@@ -1716,9 +1719,12 @@ function landIncoming(r, msg) {
   const ids = r.mode === 'merge' ? Object.values(r.idMap || {}) : null
   const skipped = r.dropped ? r.dropped.blocks + r.dropped.arrows + r.dropped.groups : 0
   arriveAfterLoad(ids).then(a => {
-    if (!msg && (!a || a.whole)) return
-    const lead = msg ? (/[.!?]$/.test(msg) ? msg : msg + '.') : arrivalLead(canvasMeta.title || 'Shared map', 'opened')
-    showToast(a && !a.whole ? `${lead} ${arrivalHint()}` : lead, skipped ? 'warning' : 'success', 3600)
+    // The hint is about the map, whatever arrived: said only when some of
+    // it is off screen once the camera has landed (mapInView).
+    const hint = !!a && !mapInView()
+    if (!msg && !hint) return
+    const lead = msg ? (/[.?]$/.test(msg) ? msg : msg + '.') : arrivalLead(canvasMeta.title || 'Shared map', 'opened')
+    showToast(hint ? `${lead} ${arrivalHint()}` : lead, skipped ? 'warning' : 'success', 3600)
   })
 }
 

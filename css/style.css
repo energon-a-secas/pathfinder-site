@@ -2300,11 +2300,13 @@
     /* Prose holds a 65 to 75 character measure (DESIGN.md Typography):
        the column is wide enough for figures, the text is not. In em, not ch:
        a ch is the width of a 0, and 68 of them held about 90 characters of
-       prose. Counted per rendered line, a character of this prose (spaces
-       included) is about 0.41em, so 29em holds about 70. */
-    .doc p, .doc li { max-width: 29em; }
+       prose. Counted per rendered line (every full line of every paragraph
+       on the tutorial and the examples page, at 1440 and 1280), 29em set a
+       median of 62 characters in Inter and 65 in the system face; 31em sets
+       68 to 69 and 71 to 73. */
+    .doc p, .doc li { max-width: 31em; }
     .doc-aside {
-      max-width: 29em;
+      max-width: 31em;
       margin: 0 0 18px;
       padding: 12px 15px;
       border-radius: var(--radius);
@@ -4042,7 +4044,7 @@ body.light-mode .ex-pic-light { display: block; }
 }
 .ex-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin: var(--space-4) 0 var(--space-3); }
 .ex-meta { font-size: var(--fs-13); color: var(--text-3); }
-.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); max-width: 26em; }
+.doc .ex-also { font-size: var(--fs-14); color: var(--text-3); max-width: 31em; }
 .ex-link {
   padding: 0;
   font: inherit; color: var(--accent);
@@ -4070,7 +4072,7 @@ body.light-mode .ex-pic-light { display: block; }
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
 }
-.doc-strip-caption { grid-column: 1 / -1; max-width: 29em; font-size: var(--fs-13); line-height: var(--lh-body); color: var(--text-3); }
+.doc-strip-caption { grid-column: 1 / -1; max-width: 31em; font-size: var(--fs-13); line-height: var(--lh-body); color: var(--text-3); }
 @media (min-width: 1000px) {
   .doc-strip {
     width: min(1120px, calc(100vw - 64px));
@@ -5987,3 +5989,24 @@ body.show-arrow-text .arrow-note-bg { opacity: 1; }
    swatch under the pointer or the keyboard (inspector.js). */
 .hl-row-name { margin-left: var(--space-1); font-size: var(--fs-12); line-height: var(--lh-ui); color: var(--text-2); white-space: nowrap; }
 
+
+
+/* ── [qa4b] ── the fourth QA round's second pass (2026-10-16) ───────────── */
+
+/* A copy's text field comes before Dismiss in the Tab order (utils.js
+   showToast), and still shows on its own row under the message. */
+.toast-has-field .toast-field { order: 1; }
+
+/* The selected card's empty-description caption steps out while it would
+   sit on a connection's label or note (canvas.js settleDescCaption): a hint
+   never covers what the map says. */
+body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block-desc:empty:not([contenteditable="true"]) { display: none; }
+
+/* One right edge with a scrollbar: the brief's scroller loses its
+   scrollbar's width (--brief-gutter, brief.js syncBriefGutter, 5px in Safari
+   and desktop Chrome, 0 where scrollbars overlay), so the rows outside it
+   keep to the text column's edge on a panel narrower than the column too. */
+.brief-head,
+.brief-framing-toggle,
+.brief-framing-body { max-width: min(var(--brief-col), calc(100% - var(--brief-gutter, 0px))); }
+.brief-reply > * { max-width: min(calc(var(--brief-col) - 2 * var(--space-4)), calc(100% - var(--brief-gutter, 0px))); }

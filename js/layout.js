@@ -20,20 +20,24 @@ import { state, snapshot } from './state.js'
 import { getBlockDims, TYPES, TYPE_STEPS, undoKeyLabel } from './utils.js'
 import { resolveRoutes, linesUnderCards } from './canvas.js'
 
-export const LAYOUT_DEFAULTS = {
-  direction: 'LR',   // 'LR' left to right, 'TB' top to bottom
-  layerGap:  120,    // clearance between one layer and the next
-  nodeGap:   38,     // clearance between siblings inside a layer
-  sweeps:    6,      // crossing-reduction passes
-}
-
 /**
  * The least clear space between two cards that nothing else put there. A
  * line between two cards closer than this has no room for its head, so a
  * connection between touching cards draws nothing visible. Every placement
- * (create.js, the brain dump, a patch, the step columns) keeps it.
+ * (create.js, the brain dump, a patch, the step columns, Tidy's layers)
+ * keeps it.
  */
 export const CARD_GAP = 40
+
+export const LAYOUT_DEFAULTS = {
+  direction: 'LR',   // 'LR' left to right, 'TB' top to bottom
+  layerGap:  120,    // clearance between one layer and the next
+  // Clearance between siblings inside a layer: CARD_GAP, like every other
+  // placement (it was 38, so a template laid out by Tidy put two cards
+  // closer than any other path would).
+  nodeGap:   CARD_GAP,
+  sweeps:    6,      // crossing-reduction passes
+}
 
 /**
  * Step columns: the brain dump's arrangement, and Tidy's for the blocks no
@@ -568,16 +572,20 @@ export function tidySummary({ moved, crossings, underCards = 0, mode = 'flow', l
   const under = underCards ? `${underCards} line${underCards === 1 ? '' : 's'} under a card` : ''
   // Nothing moved is exactly when a line left under a card most needs
   // saying: Tidy will not fix it by running again.
-  if (!moved) return under ? `Already arranged, ${under}` : 'Already arranged'
+  if (!moved) return under ? `Already arranged, ${under}.` : 'Already arranged.'
   const lanes = direction === 'TB' ? 'step rows' : 'step columns'
   if (mode === 'steps') {
-    return `Arranged ${count} blocks in ${lanes}, since none are connected${under ? `, ${under}` : ''}. Undo with ${undo}`
+    return `Arranged ${count} blocks in ${lanes}, since none are connected yet${under ? `, ${under}` : ''}. Undo with ${undo}.`
   }
   const dir = direction === 'TB' ? 'top to bottom' : 'left to right'
   const bits = [`${crossings} crossing${crossings === 1 ? '' : 's'}`]
   if (under) bits.push(under)
-  if (loose) bits.push(`${loose} unconnected in ${lanes} ${direction === 'TB' ? 'beside it' : 'below'}`)
-  return `Arranged ${count} blocks ${dir}, ${bits.join(', ')}. Undo with ${undo}`
+  // The blocks no line touches, by isolation's one name (gaps.js: "Not
+  // connected yet"), in a sentence of their own.
+  const where = `${lanes} ${direction === 'TB' ? 'beside it' : 'below'}`
+  const rest = loose === 1 ? ` The block not connected yet is in ${where}.`
+    : loose ? ` The ${loose} blocks not connected yet are in ${where}.` : ''
+  return `Arranged ${count} blocks ${dir}, ${bits.join(', ')}.${rest} Undo with ${undo}.`
 }
 
 /**

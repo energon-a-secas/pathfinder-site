@@ -693,16 +693,16 @@ export function restoreSnapshot(snapId) {
   if (ui.readOnly || ui.embed) return false
   const id = currentId()
   const snap = listSnapshots(id).find(sn => sn.id === snapId)
-  if (!snap) { showToast('That snapshot is gone', 'warning'); return false }
+  if (!snap) { showToast('That snapshot is gone.', 'warning'); return false }
   // The state being replaced is itself worth keeping.
   if (!saveState()) return false
   if (!takeSnapshot('Before restoring "' + snap.name + '"')) {
-    showToast('Could not keep a backup snapshot. Download a backup and free storage before restoring', 'warning', 4000)
+    showToast('Could not keep a backup snapshot. Download a backup and free storage before restoring.', 'warning', 4000)
     return false
   }
   loadPayload(snap.payload, { resetExport: false })
   saveState()
-  showToast(`Restored "${snap.name}"`, 'success', 2200)
+  showToast(`Restored "${snap.name}".`, 'success', 2200)
   return true
 }
 
@@ -752,10 +752,10 @@ export function switchTo(id) {
   if (!id) return false
   if (id === currentId()) return true
   const payload = readSlot(id)
-  if (!payload) { showToast('That map could not be loaded', 'warning'); return }
+  if (!payload) { showToast('That map could not be loaded.', 'warning'); return }
   if (!saveState()) return false // keep unsaved work in memory if either write failed
   saveView()               // don't lose a pan made within the debounce window
-  if (!setCurrentId(id)) { showToast('Could not switch maps. Your current map is still open', 'warning'); return false }
+  if (!setCurrentId(id)) { showToast('Could not switch maps. Your current map is still open.', 'warning'); return false }
   // Before the load saves over it: did an older build write this map last?
   if (pendingLoss && pendingLoss.mapId !== id) setPendingLoss(null)
   checkOlderVersionLoss(id, storedShape(payload), 'switch')
@@ -769,13 +769,13 @@ export function newMap() {
   const id = genId()
   const payload = { blocks: {}, arrows: [], groups: {}, meta: { title: '' } }
   try { localStorage.setItem(slotKey(id), JSON.stringify(payload)) } catch (_) {
-    showToast('No room left in this browser for another map', 'warning'); return
+    showToast('No room left in this browser for another map.', 'warning'); return
   }
-  if (!setCurrentId(id)) { showToast('Could not open the new map. Your current map is still open', 'warning'); return false }
+  if (!setCurrentId(id)) { showToast('Could not open the new map. Your current map is still open.', 'warning'); return false }
   if (pendingLoss) setPendingLoss(null)
   loadPayload(payload)
   writeThrough()
-  showToast('New map. The old one is under Maps', 'success', 2200)
+  showToast('New map. The old one is under Maps.', 'success', 2200)
 }
 
 export function duplicateCurrent() {
@@ -785,13 +785,13 @@ export function duplicateCurrent() {
   const payload = JSON.parse(JSON.stringify(payloadOfState()))
   payload.meta.title = (displayName(canvasMeta) + ' copy').trim()
   try { localStorage.setItem(slotKey(id), JSON.stringify(payload)) } catch (_) {
-    showToast('No room left in this browser for another map', 'warning'); return
+    showToast('No room left in this browser for another map.', 'warning'); return
   }
-  if (!setCurrentId(id)) { showToast('Could not open the copy. Your current map is still open', 'warning'); return false }
+  if (!setCurrentId(id)) { showToast('Could not open the copy. Your current map is still open.', 'warning'); return false }
   if (pendingLoss) setPendingLoss(null)
   loadPayload(payload)
   writeThrough()
-  showToast('Duplicated. You are now on the copy', 'success', 2200)
+  showToast('Duplicated. You are now on the copy.', 'success', 2200)
 }
 
 /**
@@ -809,7 +809,7 @@ export function openAsNewMap(data) {
   ensureLibrary()
   if (!saveState()) return false
   if (currentId() && !writeThrough()) {
-    showToast('Could not keep your current map, so nothing was opened. Free some storage and try again', 'warning', 4000)
+    showToast('Could not keep your current map, so nothing was opened. Free some storage and try again.', 'warning', 4000)
     return false
   }
   // A blank map (a first visit, or New map with nothing done yet) is not
@@ -827,12 +827,12 @@ export function openAsNewMap(data) {
   saveView()
   const id = genId()
   try { localStorage.setItem(slotKey(id), JSON.stringify(data)) } catch (_) {
-    showToast('No room left in this browser for another map. Your current map is unchanged', 'warning', 4000)
+    showToast('No room left in this browser for another map. Your current map is unchanged.', 'warning', 4000)
     return false
   }
   if (!setCurrentId(id)) {
     try { localStorage.removeItem(slotKey(id)) } catch (_) {}
-    showToast('Could not open a new map. Your current map is unchanged', 'warning', 4000)
+    showToast('Could not open a new map. Your current map is unchanged.', 'warning', 4000)
     return false
   }
   if (pendingLoss) setPendingLoss(null)
@@ -853,7 +853,7 @@ export function isBlankMap() {
 export function deleteMap(id) {
   if (id === currentId() && !saveState()) return false
   const index = loadIndex().filter(e => e.id !== id)
-  if (!saveIndex(index)) { showToast('Could not update the map library. No map was deleted', 'warning'); return false }
+  if (!saveIndex(index)) { showToast('Could not update the map library. No map was deleted.', 'warning'); return false }
   try { localStorage.removeItem(slotKey(id)) } catch (_) {}
   try { localStorage.removeItem(snapKey(id)) } catch (_) {}
   try { localStorage.removeItem('pathfinder-view:' + id) } catch (_) {}
@@ -905,13 +905,13 @@ function restoreDeletedMap(entry, at, kept, wasCurrent) {
   const index = loadIndex()
   if (index.some(e => e.id === entry.id)) return false
   try { for (const [k, v] of Object.entries(kept)) localStorage.setItem(k, v) } catch (_) {
-    showToast('No room left in this browser to bring that map back', 'warning', 4000)
+    showToast('No room left in this browser to bring that map back.', 'warning', 4000)
     return false
   }
   index.splice(Math.min(at, index.length), 0, entry)
   if (!saveIndex(index)) return false
   if (wasCurrent) switchTo(entry.id)
-  showToast(`"${entry.name || 'Untitled map'}" is back`, 'success', 2200)
+  showToast(`"${entry.name || 'Untitled map'}" is back.`, 'success', 2200)
   return true
 }
 
@@ -1014,7 +1014,7 @@ export function importMapsFile(file) {
       })
       saveIndex(index)
     } catch (_) {}
-    if (added) showToast(`Imported ${added} map${added === 1 ? '' : 's'} into the library`, 'success')
+    if (added) showToast(`Imported ${added} map${added === 1 ? '' : 's'} into the library.`, 'success')
     else showRefusal(IMPORT_ERRORS.noMaps())
   }
   reader.readAsText(file)
@@ -1071,7 +1071,7 @@ export function mapsMenuItems() {
 
 function snapshotNow() {
   const snap = takeSnapshot('Snapshot · ' + shortDate(Date.now(), { time: true }))
-  showToast(snap ? 'Snapshot kept. Restore it any time from Maps' : 'No room left for a snapshot', snap ? 'success' : 'warning', 2200)
+  showToast(snap ? 'Snapshot kept. Restore it any time from Maps.' : 'No room left for a snapshot.', snap ? 'success' : 'warning', 2200)
 }
 
 // Each snapshot opens the comparison against the map as it is now; the last

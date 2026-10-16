@@ -111,7 +111,7 @@ const sentenceCase = s => {
 export function applyTemplateFromPalette(tpl) {
   const i = TEMPLATES.indexOf(tpl)
   const row = i >= 0 ? $.templatesList()?.querySelector(`[data-tpl="${i}"]`) : null
-  if (!row) { showToast('Templates are in the palette on the left', 'info', 2600); return false }
+  if (!row) { showToast('Templates are in the palette on the left.', 'info', 2600); return false }
   row.click()
   return true
 }

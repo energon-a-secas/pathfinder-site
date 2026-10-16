@@ -72,14 +72,14 @@ export function setSnapToGrid(on) {
   ui.snapToGrid = !!on
   document.body.classList.toggle('snap-grid', ui.snapToGrid)
   persist('pathfinder-snap', ui.snapToGrid ? '1' : '0')
-  if (!ui.snapToGrid) { showToast('Grid snapping off', 'info', 1200); return }
+  if (!ui.snapToGrid) { showToast('Grid snapping off.', 'info', 1200); return }
   const off = Object.values(state.blocks).filter(b => b.x !== snapTo(b.x) || b.y !== snapTo(b.y))
   if (off.length) {
     snapshot()
     off.forEach(b => { b.x = snapTo(b.x); b.y = snapTo(b.y) })
     renderAllBlocks(); renderArrows(); renderFrames(); debouncedSave()
   }
-  showToast(off.length ? 'Snapped all blocks to the grid' : 'Grid snapping on', 'success', 1500)
+  showToast(off.length ? 'Snapped all blocks to the grid.' : 'Grid snapping on.', 'success', 1500)
 }
 
 export function setPinPorts(on) {

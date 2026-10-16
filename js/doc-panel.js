@@ -207,10 +207,10 @@ async function fetchDoc(url) {
 // explicit, user-configured key (intentionally not shipped: see module head).
 export function askQuestion(block, qIndex) {
   const q = block.questions?.[qIndex]
-  if (!q || !q.text.trim()) { showToast('Write the question first', 'warning'); return }
+  if (!q || !q.text.trim()) { showToast('Write the question first.', 'warning'); return }
   const prompt = buildQuestionPrompt(block, q)
   copyText(prompt).then(ok => {
     if (!ok) { showCopyFallback(prompt, 'the prompt'); return }
-    showToast('Grounded question prompt copied: paste it into your assistant, then drop the answer back in', 'success')
+    showToast('Grounded question prompt copied: paste it into your assistant, then drop the answer back in.', 'success')
   })
 }

@@ -190,14 +190,14 @@ function flashCopied() {
  * A whole-map copy is the one later changes are counted from.
  */
 export async function copyBrief({ scope: which } = {}) {
-  if (!Object.keys(state.blocks).length) { showToast('Add a block first: the brief is written from the map', 'warning'); return false }
+  if (!Object.keys(state.blocks).length) { showToast('Add a block first: the brief is written from the map.', 'warning'); return false }
   const partial = (which || briefScopeNow()) === 'selection' && selectedIds().length > 0
   const text = partial ? generateScopedPrompt(selectedIds()) : generatePrompt()
   const back = document.activeElement
   const ok = await copyText(text)
   // The clipboard fallback borrows focus for a moment: give it back.
   if (back && back.isConnected && document.activeElement !== back && typeof back.focus === 'function') back.focus({ preventScroll: true })
-  if (!ok) { showToast('Copy failed: select the text in the Brief tab and copy it from there', 'warning'); return false }
+  if (!ok) { showToast('Copy failed: select the text in the Brief tab and copy it from there.', 'warning'); return false }
   if (!partial) markExported()
   // What the reply to this brief can be expected to touch: patch.js keeps
   // the last few briefs per map and labels a change none of them covered.
@@ -205,7 +205,7 @@ export async function copyBrief({ scope: which } = {}) {
   ui.promptDirty = true
   if (ui.activeTab === 'prompt') refreshPrompt()
   flashCopied()
-  showToast(`Copied${partial ? ' the brief for the selection' : ''}: ${copiedSummary(text)}`, 'success', 2600)
+  showToast(`Copied${partial ? ' the brief for the selection' : ''}: ${copiedSummary(text)}.`, 'success', 2600)
   return true
 }
 
@@ -482,6 +482,30 @@ export function renderBrief() {
   const outlineBtn = byId('briefOutlineBtn')
   if (outlineBtn) outlineBtn.hidden = !lastSections.length
   syncSectionName()
+  syncBriefGutter()
+  // Read left on (remembered per browser) comes back once there is a brief
+  // to measure: a page load with the Brief tab open, or a first render.
+  resumeReading()
+}
+
+// ── One right edge with a scrollbar ─────────────────────────
+// The brief scrolls in its own box (.brief-doc), and where scrollbars take
+// room (the stylesheet's 5px one in Safari and in Chrome on a desktop) the
+// brief's text column ends that much short of the rows outside the
+// scroller: the reply row ended 5px past the text in Safari on a panel
+// narrower than the column (1424 against 1419). The scrollbar's width, as
+// --brief-gutter on the pane, holds those rows to the same edge (style.css
+// [qa4b]); 0 where scrollbars overlay the text.
+
+/** Measure the brief scroller's scrollbar and hand it to the pane. Returns it in pixels. */
+export function syncBriefGutter() {
+  const pane = byId('promptPane'), doc = byId('briefDoc')
+  if (!pane || !doc) return 0
+  const cs = getComputedStyle(doc)
+  const g = Math.max(0, Math.round(doc.offsetWidth - doc.clientWidth -
+    (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0)))
+  if (pane.style.getPropertyValue('--brief-gutter') !== g + 'px') pane.style.setProperty('--brief-gutter', g + 'px')
+  return g
 }
 
 // ── Keyboard: Cmd/Ctrl+Shift+C copies the brief ─────────────
@@ -532,7 +556,7 @@ export function setupBrief() {
   byId('briefScope')?.addEventListener('click', e => {
     const b = e.target.closest('[data-scope]'); if (!b) return
     if (b.dataset.scope === 'selection' && !selectedIds().length) {
-      showToast('Select blocks on the map first: the brief then covers them and the blocks connected to them', 'info', 2600)
+      showToast('Select blocks on the map first: the brief then covers them and the blocks connected to them.', 'info', 2600)
       return
     }
     setBriefScope(b.dataset.scope)
@@ -670,6 +694,58 @@ function syncReadBtn() {
   byId('promptPane')?.classList.toggle('is-reading', on)
 }
 
+// ── Read, remembered ─────────────────────────────────────────
+// A person who leaves Read on gets it again: the next time the Brief tab
+// opens (in this page or the next), the panel takes the reading width
+// again. Pressing Read off, or dragging the panel's edge while reading
+// (the width is then their own), forgets it. Someone who never pressed
+// Read never has the panel widened for them. Per browser, like the
+// panel's own width; storage that throws just means it is not kept.
+
+/** The key that keeps Read on between visits. */
+export const READ_PREF_KEY = 'pathfinder-brief-read'
+
+/** Whether this browser left Read on. */
+export function readPref() {
+  try { return localStorage.getItem(READ_PREF_KEY) === '1' } catch (_) { return false }
+}
+
+function storeReadPref(on) {
+  try {
+    if (on) localStorage.setItem(READ_PREF_KEY, '1')
+    else localStorage.removeItem(READ_PREF_KEY)
+  } catch (_) {}
+}
+
+/**
+ * The Read button: on or off, and the person's own press is what is
+ * remembered, only when it changed something (a press on a panel already
+ * wide enough does not). Returns whether the panel now reads.
+ */
+export function pressRead() {
+  const was = isWidthBorrowed()
+  const now = setReading(!was)
+  if (now !== was) storeReadPref(now)
+  return now
+}
+
+// A width the person chose while reading (a drag of the edge, its keys or
+// its list) makes Read off, and it stays off next time (panel-resize.js).
+if (typeof window !== 'undefined') window.addEventListener('pf:read-loan-taken', () => storeReadPref(false))
+
+/**
+ * Put Read back on when this browser left it on and the Brief tab is in
+ * view with a brief to measure. Returns whether the panel now reads.
+ */
+export function resumeReading() {
+  if (!readPref() || isWidthBorrowed()) return isWidthBorrowed()
+  const pane = byId('promptPane'), panel = byId('rightPanel'), md = byId('promptOutput')
+  if (!pane || !pane.classList.contains('active') || pane.classList.contains('is-empty')) return false
+  if (!panel || panel.classList.contains('collapsed') || panel.style.display === 'none' || !panel.getClientRects().length) return false
+  if (!md || !md.getClientRects().length) return false
+  return setReading(true)
+}
+
 /** Read on or off. Returns whether the panel now reads at the measure. */
 export function setReading(on) {
   if (on) {
@@ -686,7 +762,13 @@ function setupReadWidth() {
   const btn = byId('briefReadBtn'), pane = byId('promptPane'), panel = byId('rightPanel')
   if (readWired || !btn || !pane) return
   readWired = true
-  btn.addEventListener('click', () => setReading(!isWidthBorrowed()))
+  btn.addEventListener('click', pressRead)
+  // The scroller's scrollbar comes and goes with the brief's length and
+  // the panel's width: the rows outside it follow (syncBriefGutter).
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(() => syncBriefGutter())
+    ;[byId('briefDoc'), byId('promptOutput')].forEach(el => { if (el) ro.observe(el) })
+  }
   // The loan ends with the Brief tab, and when the panel folds away.
   new MutationObserver(() => {
     if (!isWidthBorrowed()) return
@@ -695,12 +777,17 @@ function setupReadWidth() {
   }).observe(pane, { attributes: true, attributeFilter: ['class'] })
   if (panel) new MutationObserver(() => {
     if (isWidthBorrowed() && (panel.classList.contains('collapsed') || panel.style.display === 'none')) setReading(false)
+    else if (!isWidthBorrowed()) resumeReading()
   }).observe(panel, { attributes: true, attributeFilter: ['class', 'style'] })
   // A drag of the edge ends the loan, and a new width can leave Read
   // nothing to give: the button follows either way. The Brief tab coming
   // into view is when there is first something to measure.
   window.addEventListener('pf:panel-width', syncReadBtn)
-  new MutationObserver(() => { if (pane.classList.contains('active')) syncReadBtn() })
-    .observe(pane, { attributes: true, attributeFilter: ['class'] })
+  new MutationObserver(() => {
+    if (!pane.classList.contains('active')) return
+    syncReadBtn()
+    // Read left on: the tab opens reading again.
+    resumeReading()
+  }).observe(pane, { attributes: true, attributeFilter: ['class'] })
   syncReadBtn()
 }

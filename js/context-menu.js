@@ -311,7 +311,7 @@ function reach(id, dir) {
 function selectAndSay(ids, where) {
   setSelection(ids)
   const n = ids.length - 1
-  showToast(`Selected this block and ${n} ${where}`, 'success', 1600)
+  showToast(`Selected this block and ${n} ${where}.`, 'success', 1600)
 }
 
 // Any connection between the two, whichever way it runs (two-way included).
@@ -528,7 +528,7 @@ export function reverseConnection(aid) {
   // Reversing onto a connection that already runs the other way would
   // leave two identical arrows.
   if (state.arrows.some(x => x.id !== aid && x.from === a.to && x.to === a.from)) {
-    showToast('A connection already runs the other way. Turn on Two-way instead', 'info', 2400)
+    showToast('A connection already runs the other way. Turn on Two-way instead.', 'info', 2400)
     return false
   }
   // Pins swap with their ends and keep their provenance: reversing is
@@ -641,7 +641,8 @@ export function blockMenuItems(id) {
     DIV,
     // Growing the map from it.
     { ctx: 'add-connected', label: 'Add connected', icon: I.add, submenu: () => addConnectedItems(id) },
-    connectTargets(id).length && { ctx: 'connect', label: 'Connect to…', icon: I.connect, submenu: () => connectToItems(id) },
+    // C on a selected card opens the same search (openConnectToMenu): its key, like its neighbours'.
+    connectTargets(id).length && { ctx: 'connect', label: 'Connect to…', icon: I.connect, shortcut: 'C', submenu: () => connectToItems(id) },
     { ctx: 'duplicate', label: 'Duplicate', icon: I.duplicate, shortcut: MOD + 'D',
       action: () => { const n = duplicateBlock(id); if (n) selectBlock(n) } },
     DIV,
@@ -711,7 +712,7 @@ function duplicateAll(ids) {
   mutateBlocks(fresh, {}, { undo: false })
   updateHint()
   setSelection(fresh)
-  showToast(`Duplicated ${fresh.length} blocks`, 'success', 1400)
+  showToast(`Duplicated ${fresh.length} blocks.`, 'success', 1400)
   return fresh
 }
 
@@ -744,7 +745,7 @@ export function multiMenuItems(ids) {
         action: () => arrangeSelection('distribute', ids, 'v') },
     ] },
     !oneGroup && { ctx: 'group', label: 'Group into frame', icon: I.group, group: 'arrange', action: () => {
-      if (createGroup(ids)) showToast(`Grouped ${n} blocks. Name the frame in the inspector`, 'success', 2000)
+      if (createGroup(ids)) showToast(`Grouped ${n} blocks. Name the frame in the inspector.`, 'success', 2000)
     } },
     { ctx: 'duplicate', label: 'Duplicate all', icon: I.duplicate, action: () => duplicateAll(ids) },
     zoom,
@@ -864,11 +865,11 @@ export function arrowMenu(aid, pt) { return grouped(() => arrowMenuItems(aid, pt
 // ── Canvas menus ─────────────────────────────────────────────
 /** The canvas menu's Paste as blocks (and the palette's): the clipboard's text as a dump at `w`. */
 export async function pasteAsBlocks(w) {
-  const hint = () => showToast(`Clipboard access is blocked here. Click the canvas and press ${MOD}V instead`, 'info', 3200)
+  const hint = () => showToast(`Clipboard access is blocked here. Click the canvas and press ${MOD}V instead.`, 'info', 3200)
   if (!navigator.clipboard?.readText) { hint(); return }
   let text
   try { text = await navigator.clipboard.readText() } catch (_) { hint(); return }
-  if (!text || !text.trim()) { showToast('The clipboard has no text to turn into blocks', 'info', 2200); return }
+  if (!text || !text.trim()) { showToast('The clipboard has no text to turn into blocks.', 'info', 2200); return }
   if (ui.readOnly) return
   // The dump starts at the pointer, or the nearest free space from it.
   createBlocksFromText(text, true, { at: w })

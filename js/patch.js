@@ -674,7 +674,7 @@ export function setupPatchUI() {
 
   preview.addEventListener('change', e => {
     if (!e.target.matches('[data-patch-op]') || !plan) return
-    if (!isPlanCurrent(plan)) { refresh(); showToast('The canvas changed. Review the refreshed preview', 'warning'); return }
+    if (!isPlanCurrent(plan)) { refresh(); showToast('The canvas changed. Review the refreshed preview.', 'warning'); return }
     setPlanSelected(plan, Number(e.target.dataset.patchOp), e.target.checked)
     renderPreview(preview, plan)
     applyBtn.disabled = !selectedOps(plan).length
@@ -691,7 +691,7 @@ export function setupPatchUI() {
     if (!plan) return
     if (!isPlanCurrent(plan)) {
       refresh()
-      showToast('The canvas changed. Review the updated preview, then apply again', 'warning', 3200)
+      showToast('The canvas changed. Review the updated preview, then apply again.', 'warning', 3200)
       return
     }
     const addedBlocks = selectedOps(plan).some(o => o.kind === 'block')
@@ -710,7 +710,7 @@ export function setupPatchUI() {
     const inside = panel.contains(document.activeElement)
     panel.style.display = 'none'
     if (inside) openBtn.focus({ preventScroll: true })
-    showToast(`Applied ${n} change${n === 1 ? '' : 's'}. One Cmd+Z undoes them all`, 'success', 2600)
+    showToast(`Applied ${n} change${n === 1 ? '' : 's'}. One Cmd+Z undoes them all.`, 'success', 2600)
   })
   // Close hides the panel it sits in: hand focus back to the button that
   // opened it rather than dropping it to the page.

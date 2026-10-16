@@ -5,7 +5,7 @@ import { dependencyEdges, connectionLabel, impliedVerb, relationOf } from './rel
 
 import { state, ui, devOpts, promptState, canvasMeta, serializeCanvas } from './state.js'
 import { $, TYPES, ACTION_DEFS, STATUS_DEFS, PRIORITY_DEFS, SITUATION_FIELDS, SITUATION_DEFAULT, typeInfo, askedQuestions } from './utils.js'
-import { runGapDetection, GAP_META, FINDING_ACKS, gapLine } from './gaps.js'
+import { runGapDetection, GAP_META, FINDING_ACKS, gapLine, findingLine } from './gaps.js'
 import { breakCycles, assignLayers } from './layout.js'
 import { taskChecklist, mitigationIndex, cardAnswer, IMPLIED_MITIGATION } from './task-plan.js'
 
@@ -426,7 +426,7 @@ export function generatePrompt() {
     openGaps.forEach(({ g, gapType }) => {
       prompt += gapLine(typeInfo(g.type).label, g.title, gapType) + '\n'
     })
-    ;(canvasFindings || []).forEach(f => { prompt += `\u2022 Canvas: ${f}\n` })
+    ;(canvasFindings || []).forEach(f => { prompt += findingLine(f) + '\n' })
   }
   const accepted = acceptedGapLines(state.blocks, firingGaps(gapResult))
   if (accepted.length) {
@@ -723,9 +723,9 @@ export function scopedGapText(whole, scope, blocks = state.blocks, acceptedIntro
   // name no other block.
   const findings = (whole.findings || []).flatMap(f => {
     const ids = f.ids || []
-    if (!ids.length || ids.every(id => scope.has(id))) return [`• Canvas: ${f.text}`]
+    if (!ids.length || ids.every(id => scope.has(id))) return [findingLine(f.text)]
     const ack = FINDING_ACKS[f.kind]
-    if (!ack || !GAP_META[ack]) return ids.some(id => scope.has(id)) ? [`• Canvas: ${f.text}`] : []
+    if (!ack || !GAP_META[ack]) return ids.some(id => scope.has(id)) ? [findingLine(f.text)] : []
     return ids.filter(id => scope.has(id) && blocks[id] && !acked(id, ack))
       .map(id => gapLine(typeInfo(blocks[id].type).label, blocks[id].title, ack))
   })

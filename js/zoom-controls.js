@@ -13,7 +13,7 @@
 //  in read-only and embed views.
 // ════════════════════════════════════════════════════════════
 
-import { state, selection, view, ui } from './state.js'
+import { state, selection, view, ui, getUndoHistory } from './state.js'
 import { $, clamp, getBlockEl, showToast, MIN_ZOOM, MAX_ZOOM } from './utils.js'
 import { applyTransform, fitView } from './canvas.js'
 import { openDropdown } from './menu.js'
@@ -356,8 +356,11 @@ function arrivalCentre(e1, e2, m1, m2, win) {
 /**
  * The camera for blocks `ids` arriving in a viewport `size` ({ w, h },
  * the canvas viewport by default): all of them when that reads (they fit
- * at ARRIVAL_ZOOM, 100%), otherwise ARRIVAL_ZOOM on the entry layer. `whole`
- * says whether everything is in view. Null when there is nothing to frame.
+ * at ARRIVAL_ZOOM, 100%), otherwise ARRIVAL_ZOOM on the entry layer, with
+ * each axis the whole arrival fits on centred on it. `whole` says whether
+ * every one of them is on screen in that camera (not whether they fit with
+ * the margin: a row that fits the view but not its margins is on screen).
+ * Null when there is nothing to frame.
  */
 export function arrivalView(ids, size = null, { avoid = size ? [] : arrivalObstacles() } = {}) {
   const { w: W, h: H } = size || viewportSize()
@@ -365,15 +368,41 @@ export function arrivalView(ids, size = null, { avoid = size ? [] : arrivalObsta
   if (!live.length || !(W > 0) || !(H > 0)) return null
   const all = boxOf(live)
   const fit = Math.min(W / (all.w + ARRIVAL_PAD * 2), H / (all.h + ARRIVAL_PAD * 2))
+  let v, keep
   if (fit >= ARRIVAL_ZOOM) {
     const z = clamp(Math.min(fit, 1), MIN_ZOOM, MAX_ZOOM)
-    return { zoom: z, panX: W / 2 - all.cx * z, panY: H / 2 - all.cy * z, whole: true }
+    v = { zoom: z, panX: W / 2 - all.cx * z, panY: H / 2 - all.cy * z }
+    keep = live
+  } else {
+    const z = ARRIVAL_ZOOM
+    const e = boxOf(entryBlocks(live))
+    // An axis the whole arrival fits on at this zoom (only its margins do
+    // not) is centred on it, so nothing that could show is cut at an edge.
+    const cx = all.w * z <= W ? all.cx : arrivalCentre(e.x1, e.x2, all.x1, all.x2, W / z)
+    const cy = all.h * z <= H ? all.cy : arrivalCentre(e.y1, e.y2, all.y1, all.y2, H / z)
+    v = { zoom: z, panX: W / 2 - cx * z, panY: H / 2 - cy * z }
+    keep = entryBlocks(live)
   }
-  const z = ARRIVAL_ZOOM
-  const e = boxOf(entryBlocks(live))
-  const cx = arrivalCentre(e.x1, e.x2, all.x1, all.x2, W / z)
-  const cy = arrivalCentre(e.y1, e.y2, all.y1, all.y2, H / z)
-  return clearOfObstacles({ zoom: z, panX: W / 2 - cx * z, panY: H / 2 - cy * z, whole: false }, live, H, avoid)
+  v = clearOfObstacles(v, live, keep, W, H, avoid)
+  return { ...v, whole: live.every(id => onScreen(id, v, W, H)) }
+}
+
+/** Whether block `id` is wholly inside a `W` by `H` viewport under camera `cam`. */
+function onScreen(id, cam, W, H) {
+  const r = screenRect(id, cam)
+  return r.x1 >= -0.5 && r.y1 >= -0.5 && r.x2 <= W + 0.5 && r.y2 <= H + 0.5
+}
+
+/**
+ * Whether every block on the map is wholly on screen under camera `cam`
+ * (the camera now by default). The arrival's "Shift+1 shows all of it." is
+ * said only when this is false: the map is "it", whatever just arrived.
+ */
+export function mapInView(cam = view, size = null) {
+  const { w: W, h: H } = size || viewportSize()
+  const ids = Object.keys(state.blocks)
+  if (!ids.length || !(W > 0) || !(H > 0)) return true
+  return ids.every(id => onScreen(id, cam, W, H))
 }
 
 /** The arrival toast's second sentence, said only when part of the map is off screen. */
@@ -446,35 +475,61 @@ function screenRect(id, cam) {
 }
 const meets = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1
 
-/** How far down `ids` must move under camera `cam` to clear every obstacle (0 when clear). */
-function underObstacle(ids, cam, avoid) {
+/**
+ * How far `ids` must move under camera `cam` to clear every obstacle (0
+ * when clear): down by default, or along the pan direction (dx, dy).
+ */
+function underObstacle(ids, cam, avoid, dx = 0, dy = 1) {
   let need = 0
   if (!avoid.length) return need
   ids.forEach(id => {
     const r = screenRect(id, cam)
-    avoid.forEach(o => { if (meets(r, o)) need = Math.max(need, o.y2 - r.y1) })
+    avoid.forEach(o => {
+      if (!meets(r, o)) return
+      const n = dy > 0 ? o.y2 - r.y1 : dy < 0 ? r.y2 - o.y1 : dx > 0 ? o.x2 - r.x1 : r.x2 - o.x1
+      need = Math.max(need, n)
+    })
   })
   return need
 }
 
 /**
- * Move an arrival's camera down until no card of `ids` is under a
- * floating control, as long as its entry layer still shows whole; a few
- * steps, since a card coming in from above can meet the control in turn.
- * The view unchanged when no such move exists.
+ * Move an arrival's camera until no card on screen is under a floating
+ * control: every card of the map, the person's own included, and failing
+ * that the arrived ones (`ids`), as long as each card of `keep` (the entry
+ * layer, or every arrived card when all of them show) that was on screen
+ * stays on screen. The least move wins, of down (the control sits at the
+ * top), up, right and left, each a few steps, since a card coming into
+ * view can meet the control in turn. The view unchanged when no move does.
  */
-function clearOfObstacles(v, ids, H, avoid) {
+function clearOfObstacles(v, ids, keep, W, H, avoid) {
   if (!avoid.length) return v
-  const entry = entryBlocks(ids)
-  let cam = { ...v }
-  for (let i = 0; i < 4; i++) {
-    const need = underObstacle(ids, cam, avoid)
-    if (!need) return cam
-    const next = { ...cam, panY: cam.panY + Math.ceil(need) }
-    if (entry.some(id => screenRect(id, next).y2 > H)) return v
-    cam = next
+  for (const set of [Object.keys(state.blocks), ids]) {
+    const cam = movedClear(v, set, keep, W, H, avoid)
+    if (cam) return cam
   }
-  return underObstacle(ids, cam, avoid) ? v : cam
+  return v
+}
+
+// The camera's pan directions an arrival may take to clear a control.
+const CLEAR_MOVES = [[0, 1], [0, -1], [1, 0], [-1, 0]]
+
+function movedClear(v, set, keep, W, H, avoid) {
+  const shown = keep.filter(id => onScreen(id, v, W, H))
+  let best = null
+  for (const [dx, dy] of CLEAR_MOVES) {
+    let cam = { ...v }, clear = false
+    for (let i = 0; i < 6; i++) {
+      const need = underObstacle(set, cam, avoid, dx, dy)
+      if (!need) { clear = true; break }
+      cam = { ...cam, panX: cam.panX + dx * Math.ceil(need), panY: cam.panY + dy * Math.ceil(need) }
+      if (shown.some(id => !onScreen(id, cam, W, H))) break
+    }
+    if (!clear) continue
+    const dist = Math.abs(cam.panX - v.panX) + Math.abs(cam.panY - v.panY)
+    if (!best || dist < best.dist) best = { cam, dist }
+  }
+  return best ? best.cam : null
 }
 
 /** "Checkout 500s added." for a template, the sample or an example. */
@@ -486,12 +541,16 @@ export function arrivalLead(name, verb = 'added') {
 /**
  * Land on `ids` (every block when null); see arrivalView. An embed is a
  * figure on someone else's page, so it keeps the whole-map fit. With
- * `lead` it says "<lead> Shift+1 shows all of it." (the lead alone when
- * all of it is in view; on a touch-only device or a phone the hint names
- * the Fit button instead, arrivalHint). `animate` eases there in 200ms (Tidy).
+ * `lead` it says "<lead> Shift+1 shows all of it." when part of the map
+ * is off screen once it lands (the lead alone when every card shows; on a
+ * touch-only device or a phone the hint names the Fit button instead,
+ * arrivalHint). `animate` eases there in 200ms (Tidy).
  * `stay` leaves the camera alone when every one of `ids` is already on
- * screen at a readable zoom (a dump pasted where you are looking). Returns
- * { whole, moved }, or null when there was nothing to land on.
+ * screen at a readable zoom (a dump pasted where you are looking).
+ * `remember`: the undo of the step on top of the undo stack now (a merge's)
+ * hands the camera back (returnFromArrival). Returns { whole, moved }:
+ * whether every one of `ids` shows, and whether the camera moved; null
+ * when there was nothing to land on.
  */
 export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, animate = false, stay = false, action = null, remember = false } = {}) {
   const list = ids ? [...ids] : Object.keys(state.blocks)
@@ -501,50 +560,47 @@ export function arriveAt(ids = null, { lead = '', type = 'success', ms = 3200, a
     return { whole: true, moved: true }
   }
   if (stay && readableInView(list)) {
-    if (lead) showToast(lead, type, ms, { action })
+    if (lead) showToast(mapInView() ? lead : `${lead} ${arrivalHint()}`, type, ms, { action })
     return { whole: true, moved: false }
   }
   const v = arrivalView(list)
   if (!v) return null
-  // `remember`: an undo that takes these blocks away again hands the
-  // camera back (see the pf:undone listener below).
-  lastArrival = remember ? { ids: new Set(list), camera: { panX: view.panX, panY: view.panY, zoom: view.zoom } } : null
+  const before = { panX: view.panX, panY: view.panY, zoom: view.zoom }
+  const moved = Math.abs(v.panX - before.panX) > 0.5 || Math.abs(v.panY - before.panY) > 0.5 || Math.abs(v.zoom - before.zoom) > 1e-4
+  const entry = getUndoHistory().at(-1)
+  lastArrival = remember && moved && entry ? { camera: before, entry } : null
   exactLodNext()
   if (animate) animateView(v.panX, v.panY, v.zoom, TIDY_MS)
   else { animToken++; Object.assign(view, { panX: v.panX, panY: v.panY, zoom: v.zoom }); applyTransform() }
-  if (lead) showToast(v.whole ? lead : `${lead} ${arrivalHint()}`, type, ms, { action })
+  if (lead) showToast(mapInView(v) ? lead : `${lead} ${arrivalHint()}`, type, ms, { action })
   return { whole: v.whole, moved: true }
 }
 
-// The last remembered arrival (a template merged into a map): its blocks
-// and the camera before it. Cmd+Z on the merge took the blocks away and
-// left the camera where they had been, with the person's own map half off
-// screen under the rail.
+// The last remembered arrival (a template merged into a map): the undo step
+// the merge took and the camera before it. Cmd+Z on the merge took the
+// blocks away and left the camera where they had been, with the person's
+// own map half off screen under the rail.
 let lastArrival = null
 
 /**
- * After an undo: when it took away every block the last remembered arrival
- * landed on, and nothing that is left is wholly in view, the camera goes
- * back to where it was before that arrival. Returns true when it moved.
+ * After an undo (render.js passes the step it undid as `detail.entry`):
+ * when that step is the remembered arrival's, the camera goes back to where
+ * it was before that arrival, wherever it is now. A step that is no longer
+ * on the stack at all (another map, a capped history) is forgotten.
+ * Returns true when it moved.
  */
-export function returnFromArrival() {
+export function returnFromArrival(e) {
   const a = lastArrival
   if (!a) return false
-  if ([...a.ids].some(id => state.blocks[id])) return false
+  if (e?.detail?.entry !== a.entry) {
+    if (!getUndoHistory().includes(a.entry)) lastArrival = null
+    return false
+  }
   lastArrival = null
-  const rest = Object.keys(state.blocks)
-  if (!rest.length || rest.some(id => wholeInView(id))) return false
   animToken++
   Object.assign(view, a.camera)
   applyTransform()
   return true
-}
-
-function wholeInView(id) {
-  const el = getBlockEl(id), vp = $.canvasViewport()
-  if (!el || !vp) return false
-  const r = el.getBoundingClientRect(), v = vp.getBoundingClientRect()
-  return r.width > 0 && r.left >= v.left && r.top >= v.top && r.right <= v.right && r.bottom <= v.bottom
 }
 if (typeof window !== 'undefined') window.addEventListener('pf:undone', returnFromArrival)
 

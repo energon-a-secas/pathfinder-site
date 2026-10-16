@@ -25,8 +25,8 @@ export const EXAMPLES = [
 
 export async function loadExample(id) {
   const ex = EXAMPLES.find(e => e.id === id)
-  if (!ex) throw new Error(`No example "${id}"`)
+  if (!ex) throw new Error(`No example "${id}".`)
   const res = await fetch(ex.file)
-  if (!res.ok) throw new Error(`Could not load ${ex.file} (${res.status})`)
+  if (!res.ok) throw new Error(`Could not load ${ex.file} (${res.status}).`)
   return res.text()
 }

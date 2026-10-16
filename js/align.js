@@ -168,8 +168,8 @@ export function distributeSelection(ids, axis) {
 }
 
 const ARRANGE = {
-  align: { plan: planAlign, few: 'Select two or more blocks to align', same: 'Already aligned', done: n => `Aligned ${n} blocks` },
-  distribute: { plan: planDistribute, few: 'Select three or more blocks to distribute', same: 'Already evenly spaced', done: n => `Spaced ${n} blocks evenly` },
+  align: { plan: planAlign, few: 'Select two or more blocks to align.', same: 'Already aligned.', done: n => `Aligned ${n} blocks.` },
+  distribute: { plan: planDistribute, few: 'Select three or more blocks to distribute.', same: 'Already evenly spaced.', done: n => `Spaced ${n} blocks evenly.` },
 }
 
 /**

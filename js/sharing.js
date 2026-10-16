@@ -212,7 +212,7 @@ export function applyIncoming(data, mode, { source = 'link', name = '' } = {}) {
     ensureLibrary()
     const label = source === 'file' ? `Before importing ${name || 'a file'}` : 'Before loading shared link'
     if (!takeSnapshot(label, whole)) {
-      showToast('No room to keep a snapshot of your map, so nothing was replaced. Open it as a new map, or free some storage', 'warning', 4500)
+      showToast('No room to keep a snapshot of your map, so nothing was replaced. Open it as a new map, or free some storage.', 'warning', 4500)
       return null
     }
   }
@@ -251,8 +251,8 @@ export function openIncoming(data, { source = 'link', name = '', onApplied } = {
   }
   return chooseIncoming({ source, name, data }).then(mode => {
     if (!mode) {
-      showToast(source === 'file' ? 'Import cancelled. Nothing changed'
-        : 'Shared map not opened. Nothing changed; reload the page to be asked again', 'info', 3200)
+      showToast(source === 'file' ? 'Import cancelled. Nothing changed.'
+        : 'Shared map not opened. Nothing changed; reload the page to be asked again.', 'info', 3200)
       return null
     }
     return settle(applyIncoming(data, mode, { source, name }))
@@ -423,8 +423,8 @@ export function showOlderVersionBanner(loss = pendingOlderVersionLoss()) {
       afterAnswer()
       if (!r) return
       showToast(r.blocks
-        ? `Restored ${plural(r.blocks, 'block')}${r.arrows ? ` and ${plural(r.arrows, 'connection')}` : ''}. Undo takes ${r.blocks === 1 ? 'it' : 'them'} out again`
-        : 'Saved this tab\'s copy, which still has them', 'success', 3200)
+        ? `Restored ${plural(r.blocks, 'block')}${r.arrows ? ` and ${plural(r.arrows, 'connection')}` : ''}. Undo takes ${r.blocks === 1 ? 'it' : 'them'} out again.`
+        : 'Saved this tab\'s copy, which still has them.', 'success', 3200)
     })
     el.querySelector('.older-version-dismiss').addEventListener('click', () => {
       dismissOlderVersionLoss(pendingOlderVersionLoss())
@@ -505,8 +505,8 @@ const NARROW = '(max-width: 700px)'
 export function backupNagText(days, narrow = !!globalThis.matchMedia?.(NARROW).matches) {
   const where = narrow ? 'Export all maps, in the Maps menu,' : 'Export all, in the status bar,'
   return days == null
-    ? `Your maps live only in this browser and were never exported. ${where} keeps a copy`
-    : `Your maps live only in this browser, last exported ${plural(days, 'day')} ago. ${where} keeps a copy`
+    ? `Your maps live only in this browser and were never exported. ${where} keeps a copy.`
+    : `Your maps live only in this browser, last exported ${plural(days, 'day')} ago. ${where} keeps a copy.`
 }
 
 /** Test hook: allow the once-per-session reminder again. */
