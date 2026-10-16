@@ -381,7 +381,11 @@ export function arrivalView(ids, size = null, { avoid = size ? [] : arrivalObsta
     const cx = all.w * z <= W ? all.cx : arrivalCentre(e.x1, e.x2, all.x1, all.x2, W / z)
     const cy = all.h * z <= H ? all.cy : arrivalCentre(e.y1, e.y2, all.y1, all.y2, H / z)
     v = { zoom: z, panX: W / 2 - cx * z, panY: H / 2 - cy * z }
-    keep = entryBlocks(live)
+    // When the arrival shows whole anyway (it fits the view, only not its
+    // margins), every card of it is kept: clearing a control off one of the
+    // person's own cards never pushes an arrived card out of view. Otherwise
+    // only the entry layer is.
+    keep = live.every(id => onScreen(id, v, W, H)) ? live : entryBlocks(live)
   }
   v = clearOfObstacles(v, live, keep, W, H, avoid)
   return { ...v, whole: live.every(id => onScreen(id, v, W, H)) }

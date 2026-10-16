@@ -457,6 +457,29 @@ describe('qa4b: an arrival keeps the person\'s own cards clear of the floating c
   })
 })
 
+// ── An arrival that shows whole stays whole while it clears a control ─
+describe('qa4b: clearing a control never trades an arrived card for one of yours', () => {
+  it('every arrived card stays on screen when moving the person\'s card clear would push one off', async () => {
+    reset()
+    await withApp(async () => {
+      block('t1', { x: 0, y: 0 }); block('t2', { x: 340, y: 0 }); block('t3', { x: 680, y: 0 }); block('t4', { x: 0, y: 420 })
+      block('own', { x: 0, y: 200 })                                  // the person's card, between the arrival's rows
+      const ids = ['t1', 't2', 't3', 't4']
+      // A view the arrival fits with almost no room to spare: any move big
+      // enough to clear the person's card pushes an arrived card off.
+      const W = 680 + getBlockDims('t3').w + 12, H = 420 + getBlockDims('t4').h + 100
+      const plain = arrivalView(ids, { w: W, h: H })
+      assert.ok(plain.whole, 'with nothing in the way, every arrived card shows')
+      const o = state.blocks.own, s = getBlockDims('own'), z = plain.zoom
+      const x1 = o.x * z + plain.panX, y1 = o.y * z + plain.panY
+      const avoid = [{ x1: x1 - 4, y1: y1 - 4, x2: x1 + s.w * z + 4, y2: y1 + s.h * z + 4 }]
+      const v = arrivalView(ids, { w: W, h: H }, { avoid })
+      assert.ok(v.whole, 'every arrived card still shows with the control over the person\'s card')
+    }, { w: 1000, h: 700 })
+    reset()
+  })
+})
+
 // ── R9: the empty description's caption never sits on a label ─
 describe('qa4b: the selected card\'s caption steps out of a connection label\'s way', () => {
   it('hidden while it meets a label, shown again when it does not', async () => {
