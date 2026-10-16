@@ -94,7 +94,10 @@ export function applyTransform() {
   const canvasViewport = $.canvasViewport()
   canvasRoot.style.transform = `translate(${view.panX}px,${view.panY}px) scale(${view.zoom})`
   // Move dot grid with canvas
-  const sz = 28 * view.zoom
+  // The pitch doubles while it would draw under 5px: zoomed far out a 28px
+  // grid became a moire plaid, so it stays an even field of dots instead.
+  let sz = 28 * view.zoom
+  while (sz < 5) sz *= 2
   // The dot colour is the --grid-dot token, so it follows the theme.
   canvasViewport.style.backgroundImage =
     'radial-gradient(circle, var(--grid-dot) 1px, transparent 1px)'

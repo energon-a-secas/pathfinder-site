@@ -6040,3 +6040,29 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
 @media (max-width: 700px) {
   .neo-footer[data-footer-mode="app"] { --footer-pad-block-app: 6px; }
 }
+
+/* The dot band (under 25%): a card is smaller on screen than a port's 24px
+   target, so the targets covered the whole card. A click opened the
+   quick-add picker, a drag drew a connection, and a frame's name under them
+   could not be grabbed. There only the selected card's ports take a press:
+   select a card, then drag from its edge to connect. */
+.canvas-root.lod-dot .block:not(.selected) .port { pointer-events: none; }
+/* Every card shows its shape in the dot band, the one whose face went
+   without its dot (data-nodot) too, and the shape stays inside its card
+   (70% of the card's height on screen, 10px at most). */
+.canvas-root.lod-dot .block .block-lod-face[data-nodot] > .block-lod-head { display: flex; }
+.canvas-root.lod-dot .block .block-lod .block-type-dot {
+  flex-basis: min(10px, 70cqh); width: min(10px, 70cqh); height: min(10px, 70cqh);
+}
+
+/* Framing's text fields keep the floor that shows Boundaries' three-line
+   example while empty (WebKit does not size an empty field to its
+   placeholder, and scrolled it instead), and grow from there. */
+.brief-framing-body .insp-autogrow { min-height: 68px; }
+/* On a short window there is no room for Framing and the brief both: open,
+   Framing takes the brief's place, as the reply does (the brief's floor
+   pushed it under Framing's text from about 640px of height). */
+@media (max-height: 700px) {
+  #promptPane.framing-open .brief-doc { display: none; }
+  #promptPane.framing-open .brief-framing { flex: 1 1 auto; }
+}

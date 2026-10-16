@@ -416,8 +416,9 @@ export const DEFAULT_WIDTH  = 220
 // (arrow-geometry.js arrowWeight), so an old map does not change.
 export const DEFAULT_ARROW_WEIGHT = 1.5
 // 10%: low enough that Fit shows a large map whole on a phone (the sample
-// needs about 12% at 390px). Below 25% a card draws as its type colour and
-// shape (lod-dot), so nothing tries to be read there.
+// lands at about 16% on a 375 to 390px phone; a bigger map needs less).
+// Below 25% a card draws as its type colour and shape (lod-dot), so nothing
+// tries to be read there.
 export const MIN_ZOOM       = 0.1
 export const MAX_ZOOM       = 2.6
 
@@ -975,8 +976,9 @@ export function showToast(message, type = 'info', duration = 3000, { action = nu
 }
 
 // Description, criteria, notes and the Brief's Framing fields grow with
-// their text (.insp-autogrow). Chromium does it natively with
-// field-sizing; elsewhere, measure on input and when the field is shown.
+// their text (.insp-autogrow). Current Chromium, Firefox and WebKit all do it
+// natively with field-sizing; an engine without it is measured on input and
+// when the field is shown.
 const NATIVE_AUTOGROW = typeof CSS !== 'undefined' && !!CSS.supports?.('field-sizing', 'content')
 export function autogrow(el) {
   if (NATIVE_AUTOGROW || !el || !el.offsetParent) return

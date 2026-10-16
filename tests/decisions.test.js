@@ -53,8 +53,8 @@ describe('decisions: Fit shows a large map whole on a phone', () => {
       reset()
     }
   })
-  it('the floor is low enough for the sample map on a 390px phone (about 12%)', () => {
-    assert.ok(MIN_ZOOM <= 0.12, `MIN_ZOOM is ${MIN_ZOOM}`)
+  it('the floor sits under the sample map\'s phone Fit (about 16%), with room for bigger maps', () => {
+    assert.ok(MIN_ZOOM <= 0.1, `MIN_ZOOM is ${MIN_ZOOM}`)
   })
 })
 
@@ -97,5 +97,97 @@ describe('decisions: the app page footer', () => {
       await new Promise(r => w.requestAnimationFrame(() => r()))
       assert.eq(w.getComputedStyle(app).paddingTop, '14px', 'a desktop keeps the kit\'s padding')
     } finally { frame.remove() }
+  })
+})
+
+// The app's stylesheet in a shadow root, for computed styles on markup.
+let sheetP = null
+const realSheet = () => sheetP || (sheetP = fetch('../css/style.css', { cache: 'no-store' }).then(r => r.text()).then(css => {
+  const s = new CSSStyleSheet(); s.replaceSync(css); return s
+}))
+async function shadow(markup) {
+  const host = document.createElement('div')
+  host.style.cssText = 'position:fixed;left:-3000px;top:0;width:600px;height:300px'
+  document.body.appendChild(host)
+  const root = host.attachShadow({ mode: 'open' })
+  root.adoptedStyleSheets = [await realSheet()]
+  root.innerHTML = markup
+  return { root, done: () => host.remove() }
+}
+
+describe('decisions: the dot band stays usable at the 10% floor', () => {
+  it('only the selected card\'s ports take a press, so a press on a card selects or drags it', async () => {
+    const { root, done } = await shadow(
+      '<div class="canvas-root lod-dot">' +
+      '<div class="block" id="a"><div class="port port-top"></div><div class="port port-right"></div></div>' +
+      '<div class="block selected" id="b"><div class="port port-top"></div></div></div>')
+    try {
+      root.querySelectorAll('#a .port').forEach(p => assert.eq(getComputedStyle(p).pointerEvents, 'none'))
+      assert.ok(getComputedStyle(root.querySelector('#b .port')).pointerEvents !== 'none', 'the selected card still connects')
+    } finally { done() }
+    const full = await shadow('<div class="canvas-root lod-full"><div class="block"><div class="port port-top"></div></div></div>')
+    try { assert.ok(getComputedStyle(full.root.querySelector('.port')).pointerEvents !== 'none', 'at full detail every port works') }
+    finally { full.done() }
+  })
+
+  it('every card keeps its shape, inside its own box', async () => {
+    // A 220 by 65 card at 10%: the face is laid out in screen pixels
+    // (22 by 6.5, --lodk 10) and scaled back up, as lod.js does.
+    const { root, done } = await shadow('<div class="canvas-root lod-dot" style="--lodk:10">' +
+      '<div class="block" style="position:absolute;width:220px;height:65px;min-height:0"><div class="block-lod">' +
+      '<div class="block-lod-face" data-nodot="1"><div class="block-lod-head"><span class="block-type-dot"></span></div></div></div></div></div>')
+    try {
+      const head = root.querySelector('.block-lod-head'), dot = root.querySelector('.block-type-dot')
+      assert.eq(getComputedStyle(head).display, 'flex', 'a face laid out without its dot still shows the shape')
+      const face = root.querySelector('.block-lod').clientHeight, h = dot.offsetHeight
+      assert.ok(face >= 6 && face <= 7, `the face is laid out at the card's screen height (${face}px)`)
+      assert.ok(h > 0 && h <= face * 0.7 + 0.5, `the shape is ${h}px on a ${face}px card`)
+    } finally { done() }
+  })
+
+  it('the dot grid keeps a pitch of 5px or more, so it never turns to a moire', () => {
+    const prev = { ...view }
+    try {
+      for (const z of [0.1, 0.14, 0.18, 0.25, 1]) {
+        view.zoom = z; applyTransform()
+        const pitch = parseFloat($.canvasViewport().style.backgroundSize)
+        assert.ok(pitch >= 5, `zoom ${z}: pitch ${pitch.toFixed(2)}px`)
+      }
+      view.zoom = 1; applyTransform()
+      assert.eq(parseFloat($.canvasViewport().style.backgroundSize), 28, '100% keeps the 28px grid')
+    } finally { Object.assign(view, prev); applyTransform() }
+  })
+})
+
+describe('decisions: Framing on every window', () => {
+  const paneFrame = async (height, pane) => {
+    const frame = document.createElement('iframe')
+    frame.style.cssText = `position:fixed;left:-5000px;top:0;width:400px;height:${height}px;border:0`
+    frame.srcdoc = `<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css"></head><body><aside class="right-panel" style="height:${height}px"><div class="panel-content">${pane}</div></aside></body></html>`
+    const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+    document.body.appendChild(frame)
+    await loaded
+    const d = frame.contentDocument
+    d.getElementById('promptPane').classList.add('active', 'framing-open')
+    d.getElementById('briefFraming').hidden = false
+    return frame
+  }
+  it('an empty Boundaries field keeps room for its three-line example', async () => {
+    const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
+    const frame = await paneFrame(900, pane)
+    try {
+      const w = frame.contentWindow, f = frame.contentDocument.getElementById('situationConstraints')
+      assert.eq(w.getComputedStyle(f).minHeight, '68px')
+    } finally { frame.remove() }
+  })
+  it('on a short window Framing takes the brief\'s place; on a tall one the brief stays below it', async () => {
+    const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
+    for (const [height, shown] of [[600, false], [900, true]]) {
+      const frame = await paneFrame(height, pane)
+      try {
+        const w = frame.contentWindow, doc = frame.contentDocument.getElementById('briefDoc')
+        assert.eq(w.getComputedStyle(doc).display !== 'none', shown, `${height}px window: the brief ${shown ? 'shows' : 'waits'}`)
+      } finally { frame.remove() }
+    }
   })
 })
