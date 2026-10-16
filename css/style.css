@@ -4675,26 +4675,30 @@ button.template-item:focus-visible { outline: var(--focus-outline); outline-offs
 /* Mode: a segmented control. The chosen segment is a raised neutral, not
    the accent: violet is the Copy button's alone on this tab. */
 .brief-modes {
-  display: flex; flex-wrap: nowrap; gap: 2px;
+  display: flex; flex-wrap: wrap; gap: 2px;
   padding: 2px;
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 .brief-modes .radio-opt {
-  flex: 1 1 auto; min-width: 0;
+  /* A segment never shrinks below its name: with five names in a 280px
+     panel the text fills its box to the pixel, and a shrinkable box cut it
+     to "Investiga..." on a fraction. Too narrow for one row, it wraps. */
+  flex: 1 0 auto;
   height: 26px; padding: 0 4px;
   border: 1px solid transparent; border-radius: var(--radius-sm);
   background: none;
   font-size: var(--fs-12); font-weight: var(--fw-medium); color: var(--text-2);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .brief-modes .radio-opt:hover { color: var(--text-1); background: var(--surface-2); border-color: transparent; }
 .brief-modes .radio-opt.active { color: var(--text-1); background: var(--surface-3); border-color: var(--border-strong); }
 .brief-modes .radio-opt:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
-/* Five modes in a 280px panel: one step down, to the 11px floor. */
+/* Five modes in a 280px panel: one step down, to the 11px floor, and 2px
+   sides so the five names still share one row. */
 @container (max-width: 270px) {
-  .brief-modes .radio-opt { padding: 0 3px; font-size: var(--fs-11); }
+  .brief-modes .radio-opt { padding: 0 2px; font-size: var(--fs-11); }
 }
 .brief-head .mode-desc {
   margin: 0;

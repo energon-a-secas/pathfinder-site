@@ -819,3 +819,33 @@ describe('brief: every Copy says the same thing', () => {
     } finally { window.removeEventListener('pf:copy-brief', listen); btn.remove() }
   })
 })
+
+describe('brief: the mode names are never cut', () => {
+  it('every mode shows its whole name in a 240px, a 280px and a 320px panel', async () => {
+    const doc0 = await indexDoc()
+    const pane = doc0.getElementById('promptPane').outerHTML
+    for (const width of [240, 280, 320]) {
+      const frame = document.createElement('iframe')
+      frame.style.cssText = `position:fixed;left:-5000px;top:0;width:${width}px;height:600px;border:0`
+      frame.srcdoc = `<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css"></head><body><aside class="right-panel" style="height:600px"><div class="panel-content">${pane}</div></aside></body></html>`
+      const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+      document.body.appendChild(frame)
+      await loaded
+      try {
+        const d = frame.contentDocument, w = frame.contentWindow
+        d.getElementById('promptPane').classList.add('active')
+        await (d.fonts ? d.fonts.ready : null)
+        const group = d.getElementById('modeGroup').getBoundingClientRect()
+        d.querySelectorAll('#modeGroup .radio-opt').forEach(b => {
+          const range = d.createRange(); range.selectNodeContents(b)
+          const text = range.getBoundingClientRect().width
+          const cs = w.getComputedStyle(b)
+          const room = b.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth)
+          assert.ok(text <= room + 0.01, `${width}px: "${b.textContent}" needs ${text.toFixed(2)}px, has ${room.toFixed(2)}px`)
+          const r = b.getBoundingClientRect()
+          assert.ok(r.left >= group.left - 0.5 && r.right <= group.right + 0.5, `${width}px: "${b.textContent}" stays inside the control`)
+        })
+      } finally { frame.remove() }
+    }
+  })
+})
