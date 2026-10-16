@@ -31,7 +31,19 @@ const chromePath = CANDIDATES.find(p => existsSync(p))
 if (!chromePath) { console.log('Chrome not found; set CHROME=/path/to/chrome'); process.exit(2) }
 
 const profile = mkdtempSync(join(tmpdir(), 'pf-chrome-'))
-const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { cwd: dir, stdio: 'ignore' })
+// `python3 -m http.server` listens with a backlog of 5. Chrome asks for the
+// suite's modules in bursts, and a burst past the backlog was reset
+// (ERR_CONNECTION_RESET: "Failed to fetch dynamically imported module"), so
+// a run sometimes ended unfinished on a busy machine. The same server and
+// handler, with room to queue.
+const SERVE = [
+  'import http.server, sys',
+  'class Server(http.server.ThreadingHTTPServer):',
+  '    request_queue_size = 256',
+  '    daemon_threads = True',
+  'Server(("127.0.0.1", int(sys.argv[1])), http.server.SimpleHTTPRequestHandler).serve_forever()',
+].join('\n')
+const server = spawn('python3', ['-c', SERVE, String(port)], { cwd: dir, stdio: 'ignore' })
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
   `--user-data-dir=${profile}`, `--remote-debugging-port=${debugPort}`, '--window-size=1440,900', 'about:blank',

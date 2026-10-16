@@ -13,8 +13,8 @@ import { renderBlock, undo, deselectAll, selectBlock, setSelection } from '../js
 import { isInlineEditing, commitInlineEdit } from '../js/inline-edit.js'
 import { setupKeyboardShortcuts } from '../js/events.js'
 import { openMenu, closeMenus, isMenuOpen } from '../js/menu.js'
-import { connectToItems, connectRank, selectionMenuItems } from '../js/context-menu.js'
-import { viewMenuItems, helpMenuItems, fileMenuItems } from '../js/view-menu.js'
+import { connectToItems, connectRank, selectionMenuItems, blockMenu, multiMenu, arrowMenu, moreMenuItems } from '../js/context-menu.js'
+import { viewMenuItems, helpMenuItems, fileMenuItems, fileMenu, viewMenu } from '../js/view-menu.js'
 import { SHORTCUTS, TYPE_KEYS, topShortcuts, buildShortcutGrid, setupTemplates, templateName } from '../js/ui-panels.js'
 import { TEMPLATES, listUserTemplates, saveCurrentAsTemplate, deleteUserTemplate } from '../js/templates.js'
 import { setupCommandPalette, openCommandPalette, closeCommandPalette, isCommandPaletteOpen,
@@ -302,6 +302,63 @@ describe('command: every menu action is reachable by name', () => {
         assert.eq(clicked, 1, 'a File row runs its menu twin')
       })
     } finally { src.remove() }
+  })
+
+  // Integration (wave 4): MENUS chunked the block, selection, connection,
+  // File and View menus into submenus and gave the inspector a More menu.
+  // Every row a person can reach in them, however deep, is a palette row
+  // (or a row inside one the palette drills into), under the same label.
+  it('every row of the chunked menus, at any depth, is a palette row', () => {
+    reset()
+    const leaves = (items, out = []) => {
+      for (const it of (typeof items === 'function' ? items() : items) || []) {
+        if (!it || ['divider', 'heading', 'custom', 'search'].includes(it.type) || it.filterOnly) continue
+        if (it.type === 'swatches') { (it.options || []).forEach(o => out.push(o.label || String(o.value))); continue }
+        if (it.submenu) leaves(it.submenu, out)
+        else if (it.label) out.push(it.label)
+      }
+      return out
+    }
+    const paletteLabels = () => {
+      const seen = new Set()
+      const walk = rows => rows.forEach(r => { seen.add(r.label); if (r.children) walk(r.children()) })
+      commandGroups().forEach(g => walk(g.items))
+      return seen
+    }
+    const missing = (shown, where) => {
+      const have = paletteLabels()
+      const lost = [...new Set(leaves(shown))].filter(l => !have.has(l))
+      assert.deepEq(lost, [], `${where}: rows the palette does not reach`)
+    }
+    const src = document.createElement('div')
+    src.id = 'fileActions'; src.hidden = true
+    src.innerHTML = '<button type="button" id="cxImport" data-file-group="import">Import a map</button>' +
+      '<button type="button" id="cxJson" data-file-group="data" data-file-menu="export">Download JSON</button>' +
+      '<button type="button" id="cxMd" data-file-group="data" data-file-menu="export" data-readonly="ok">Download Markdown</button>' +
+      '<button type="button" id="cxMermaid" data-file-group="data" data-file-menu="copy">Copy Mermaid</button>' +
+      '<button type="button" id="cxDeck" data-file-group="handoff" data-file-menu="handoff">Open as slides</button>' +
+      '<button type="button" id="cxClear" data-file-group="danger">Clear this map</button>'
+    document.body.appendChild(src)
+    try {
+      block('a', { type: 'goal', x: 0, y: 0 }); block('b', { type: 'metric', x: 400, y: 0 }); block('c', { type: 'risk', x: 800, y: 0 })
+      state.arrows = [{ id: 'x1', from: 'a', to: 'b' }, { id: 'x2', from: 'c', to: 'a', weight: 2 }]
+      selectBlock('a')
+      assert.gt(leaves(blockMenu('a')).length, 30, 'the block menu\'s rows, submenus opened')
+      missing(blockMenu('a'), 'the block menu')
+      missing(moreMenuItems().items, 'the inspector\'s More for a block')
+      setSelection(['a', 'b', 'c'])
+      missing(multiMenu(['a', 'b', 'c']), 'the selection menu')
+      missing(moreMenuItems().items, 'the inspector\'s More for a selection')
+      deselectAll(); selection.arrowId = 'x2'
+      missing(arrowMenu('x2', { clientX: 400, clientY: 300 }), 'the connection menu')
+      missing(moreMenuItems().items, 'the inspector\'s More for a connection')
+      deselectAll()
+      missing(fileMenu(src), 'File')
+      missing(viewMenu(), 'View')
+      // The canvas menu names its rows for where the pointer is ("Add
+      // here"); its one row with no other way in by name is Paste as blocks.
+      assert.ok(paletteLabels().has('Paste as blocks'), 'the canvas menu\'s Paste as blocks')
+    } finally { selection.arrowId = null; src.remove(); reset() }
   })
 
   it('rows show their shortcuts', async () => {

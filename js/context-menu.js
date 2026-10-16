@@ -825,7 +825,8 @@ export function openArrowMenu(aid, clientX, clientY) {
 export function arrowMenu(aid, pt) { return grouped(() => arrowMenuItems(aid, pt)) }
 
 // ── Canvas menus ─────────────────────────────────────────────
-async function pasteAsBlocks(w) {
+/** The canvas menu's Paste as blocks (and the palette's): the clipboard's text as a dump at `w`. */
+export async function pasteAsBlocks(w) {
   const hint = () => showToast(`Clipboard access is blocked here. Click the canvas and press ${MOD}V instead`, 'info', 3200)
   if (!navigator.clipboard?.readText) { hint(); return }
   let text

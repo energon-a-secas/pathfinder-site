@@ -58,7 +58,7 @@ The blocks most worth your attention are the ones people skim:
   finished thinking about.
 
 **2. You are asked to produce a canvas.** Emit the JSON below and the user
-imports it with File ▾ → Import JSON / Canvas / Mermaid. In the app, File ▾ → **Copy a prompt
+imports it with File ▾ → Import JSON / Canvas / Mermaid. In the app, File ▾ → Copy → **Copy a prompt
 that builds a map** gives the same instructions with the current schema
 inlined.
 
@@ -281,11 +281,11 @@ old `dashed` style, describe a lossless reading and do not fail the check.
 ## Other formats, in and out
 
 - **JSON Canvas** (jsoncanvas.org, the Obsidian canvas format): File ▾ →
-  Download JSON Canvas writes the map as a `.canvas` file, each text node in
+  Export → Download JSON Canvas writes the map as a `.canvas` file, each text node in
   its type's exact hex colour plus a `pathfinderType` field (and
   `pathfinderColor` when the author recoloured it). An answered Open question
   card carries its answer in the text (`**Answer:** ...`) and, exactly, in
-  `pathfinderAnswer`, which import puts back in `answer`. File ▾ → Import reads one
+  `pathfinderAnswer`, which import puts back in `answer`. File ▾ → Import JSON / Canvas / Mermaid reads one
   and types each node from, in order: `pathfinderType`, an exact type hex
   (dark or light palette, any case), then the classifier on its text, with a
   preset colour (`"1"` to `"6"`) only as a hint. An uncertain call is marked
@@ -295,8 +295,8 @@ old `dashed` style, describe a lossless reading and do not fail the check.
   ```mermaid block or a bare `flowchart`/`graph` file): a `class <nodes>
   <type id>` line types a node outright, otherwise shapes map to types
   (rhombus → decision, stadium/circle → Trigger / end), subgraphs become
-  groups, and positions come from the app's own layout. File ▾ → Copy
-  Mermaid and the Markdown export write the same graph: every block declared
+  groups, and positions come from the app's own layout. File ▾ → Copy →
+  Copy Mermaid and the Markdown export write the same graph: every block declared
   (connected or not), each type in its shape (decision `{}`, Trigger / end
   `([])`, Resource / system `[()]`, Output `[//]`, Implementation `[[]]`,
   Open question `{{}}`, Context `>]`, the rest `[]`), groups as subgraphs,
@@ -368,6 +368,18 @@ Each operation can be selected independently with full before/after details.
 Selecting a new connection also selects its new blocks; deselecting a new block
 deselects dependent connections. Only the selected operations apply.
 
+The patch must sit in a block labelled `pathfinder-patch`. One in a ```json
+block, or loose in the prose, is refused, and the refusal says where it sits
+and how to fix it; so are a whole canvas pasted where a patch belongs, a
+block missing `"format": "pathfinder-patch"`, and any version but 1. Every
+refusal names what is wrong and then what to try.
+
+When the user copied a brief for a selection (its `## Scope` section names
+the blocks it is about), a change to a block none of their recent briefs
+covered is labelled "outside the brief" in the preview and left unticked: the
+user decides whether it applies. Keep a patch to the blocks the brief listed
+unless the reply explains why it reaches further.
+
 ## Prompt modes
 
 `Investigate` establishes what is true and demands evidence per finding.
@@ -384,12 +396,14 @@ mode carries every block type; only the order changes.
 
 There is no CLI and no API. The exchange is a file or a link:
 
-1. File ▾ → **Download JSON** puts `pathfinder.json` in your downloads. Hand
+1. File ▾ → Export → **Download JSON** puts `pathfinder.json` in your downloads. Hand
    that to a session directly; it is the whole canvas, situation included.
-2. File ▾ → **Download Markdown** gives a readable version with one section
+2. File ▾ → Export → **Download Markdown** gives a readable version with one section
    per block type, labelled connections, and a Mermaid graph of the topology.
 3. **Copy brief** (in the bar under the canvas, at the top of the Brief tab,
-   or Cmd/Ctrl + Shift + C) copies the assembled brief, Situation first.
+   File ▾ → Copy, or Cmd/Ctrl + Shift + C) copies the assembled brief, the
+   situation first, in the scope chosen in the Brief tab: the whole map, or the
+   selected blocks and their neighbours (then every one of them says so).
 4. **Share** → Copy link encodes the entire canvas in the URL hash. Nothing is
    uploaded; the link is the data.
 

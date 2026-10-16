@@ -27,7 +27,7 @@ import { commandGroups } from '../js/command-items.js'
 import { mapsMenuItems } from '../js/library.js'
 import { LINK_ERRORS, linkError } from '../js/sharing.js'
 import { checkSrcUrl, checkShareUrl } from '../js/ui-panels.js'
-import { fileMenuItems } from '../js/view-menu.js'
+import { fileMenuItems, FILE_MENUS } from '../js/view-menu.js'
 import { setupInspectorEvents } from '../js/inspector.js'
 import { renderBlock, selectBlock, deselectAll } from '../js/render.js'
 import { closeMenus, isMenuOpen } from '../js/menu.js'
@@ -749,13 +749,13 @@ describe('reading: a file or a link that cannot open says what to try', () => {
     assert.eq(readIncoming('   ').error, 'That file is empty. Check it is the map you meant: a Pathfinder .json, a .canvas file or a Mermaid flowchart.')
     assert.eq(readIncoming('hello world').error, 'That file is not a map Pathfinder can open. Choose a Pathfinder .json, a .canvas file or a Mermaid flowchart.')
     assert.eq(readIncoming('{\n  "blocks": {\n    "a": \n  }\n}').error,
-      'That file is damaged near line 4. Export the map again with File, Download JSON.')
+      'That file is damaged near line 4. Export the map again with File, Export, Download JSON.')
     assert.eq(readIncoming('flowchart LR\n%% nothing yet').error,
       'That Mermaid text has no flowchart nodes. Start it with "flowchart LR" and a line such as A[Goal] --> B[Work].')
     assert.eq(readIncoming('{"nodes": [], "edges": []}').error, 'That JSON Canvas file has no cards. Export it again from the app that made it.')
     assert.eq(readIncoming('{"format": "pathfinder-maps", "maps": []}').error, 'That file holds several maps. Open it with Maps, Import maps (JSON).')
     assert.eq(readIncoming('{"format": "pathfinder-patch", "status": []}').error, 'That is a pathfinder-patch, not a map. Paste it in the Brief tab, under Bring the reply back.')
-    assert.eq(readIncoming('{"title": "Plan"}').error, 'That file has no blocks or connections. Check it is a map saved with File, Download JSON.')
+    assert.eq(readIncoming('{"title": "Plan"}').error, 'That file has no blocks or connections. Check it is a map saved with File, Export, Download JSON.')
     assert.eq(readIncoming('[1, 2, 3]').error, IMPORT_ERRORS.noMap())
     assert.eq(readIncoming('x'.repeat(MAX_IMPORT_CHARS + 1)).error,
       'That file is 8 MB, and a map can be 8 MB at most. Check it is the map you meant.')
@@ -798,10 +798,18 @@ describe('reading: a file or a link that cannot open says what to try', () => {
         assert.includes(path, doc.getElementById('replyHeading').textContent.trim())
         continue
       }
-      const [menu, row] = path.split(', ')
+      const parts = path.split(', ')
+      const menu = parts[0], row = parts[parts.length - 1], sub = parts.length > 2 ? parts[1] : null
       assert.eq(header[menu], menu, `${key}: a ${menu} menu in the header`)
       if (rows[key]) assert.eq(rowText(rows[key]), row, `${key}: File and Share rows`)
       else assert.ok(maps.includes(row), `${key}: "${row}" in Maps`)
+      // A row inside one of File's submenus (MENUS) names that submenu, and
+      // a row the File menu shows at its top level names none.
+      if (menu === 'File') {
+        const key2 = doc.getElementById(rows[key])?.dataset.fileMenu || null
+        const subName = key2 ? FILE_MENUS.find(([k]) => k === key2)?.[1] : null
+        assert.eq(sub, subName, `${key}: File's ${subName || 'top level'}`)
+      }
     }
     // And every refusal uses these spellings, never another.
     const args = { tooLarge: [9_400_000], damaged: [12, 'that file', 'pathfinder'], mapsDamaged: [3] }
@@ -857,7 +865,7 @@ describe('reading: a file or a link that cannot open says what to try', () => {
   })
 
   it('the meeting summary that fails says what to try', () => {
-    assert.eq(MEETING_SUMMARY_FAILED(), 'Could not export the meeting summary. Try again, or save the map as text with File, Download Markdown.')
+    assert.eq(MEETING_SUMMARY_FAILED(), 'Could not export the meeting summary. Try again, or save the map as text with File, Export, Download Markdown.')
   })
 
   // Review fix (major): a refusal with a next step was a 6 second toast,

@@ -15,7 +15,7 @@ import { escHtml, showToast, copyText, TYPES } from './utils.js'
 import { generatePrompt, generateScopedPrompt, briefScope, estimateTokens, roundTokens, formatTokens,
          briefSectionCount, markExported, getPromptDiff, setBriefRenderer, refreshPrompt,
          CHARS_PER_TOKEN, TOKEN_ERROR, TOKEN_ERROR_P75 } from './prompt.js'
-import { attentionModel } from './attention.js'
+import { attentionModel, isolationItemWords } from './attention.js'
 import { openDropdown } from './menu.js'
 import { briefHtml } from './brief-md.js'
 import { refreshFramingSummary } from './ui-panels.js'
@@ -85,7 +85,11 @@ export function readiness(model) {
     parts.push(type ? nOf(n, typeNoun(type, 1), typeNoun(type, 2)) : nOf(n, 'gap')))
   const isolated = gaps.filter(i => i.gap === 'gap-isolated').length
   if (isolated) parts.push(nOf(isolated, 'unconnected block'))
-  const canvas = of('canvas').length
+  // A mostly unconnected map is one finding for many cards: said as the
+  // Attention badge says it, never as a "canvas check".
+  const lone = isolationItemWords(items)
+  if (lone) parts.push(lone)
+  const canvas = of('canvas').filter(i => i.finding !== 'isolated').length
   if (canvas) parts.push(nOf(canvas, 'canvas check'))
 
   const open = items.length

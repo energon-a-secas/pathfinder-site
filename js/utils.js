@@ -782,13 +782,17 @@ export function placeToast(toast) {
   const r = ref.getBoundingClientRect()
   if (r.width < 240 || r.height <= 0) return false
   const floor = ref === bar ? r.top : r.bottom
-  // The minimap (zoom-controls.js, M) sits in the canvas's bottom-right
-  // corner on the toast's row: centre the toast in the room to its left.
+  // The minimap (minimap.js, M) sits in a bottom corner of the canvas on
+  // the toast's row: the right one, or the left one when it steps aside
+  // from the work (is-aside). Centre the toast in the room beside it; a
+  // faded minimap is out of the way already.
   let left = r.left, right = r.right
   const map = document.getElementById('minimap')
-  if (map && !map.hidden && map.getClientRects().length) {
+  if (map && !map.hidden && !map.classList.contains('is-faded') && map.getClientRects().length) {
     const m = map.getBoundingClientRect()
-    if (m.left > left + 240 && m.left < right) right = m.left - 12
+    if (map.classList.contains('is-aside')) {
+      if (m.right < right - 240 && m.right > left) left = m.right + 12
+    } else if (m.left > left + 240 && m.left < right) right = m.left - 12
   }
   const room = right - left
   toast.classList.add('toast-in-canvas')

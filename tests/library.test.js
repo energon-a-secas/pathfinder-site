@@ -218,3 +218,35 @@ describe('newMap() / switchTo() / duplicateCurrent() / deleteMap()', () => {
     applyPromptOpts({ mode: 'plan', tone: 'auto', detail: 'standard', pre: [] })
   })
 })
+
+// ── Integration (wave 4): Maps, Import maps (JSON) refusals ──
+// READING wrote the copy (interop.js IMPORT_ERRORS.mapsDamaged / noMaps);
+// library.js used to say "That file has no maps in it" for a damaged file
+// too, with no next step, in a toast that left after a few seconds.
+describe('library: Import maps refuses a damaged file and an empty one, each with its next step', () => {
+  const lastToast = () => [...document.querySelectorAll('.toast-notification')].pop()
+  const importText = async text => {
+    const { importMapsFile } = await import('../js/library.js')
+    document.querySelectorAll('.toast-notification').forEach(t => t.remove())
+    importMapsFile(new File([text], 'maps.json', { type: 'application/json' }))
+    for (let i = 0; i < 50 && !lastToast(); i++) await new Promise(r => setTimeout(r, 10))
+    return lastToast()
+  }
+
+  it('a damaged file says where, and to export the maps again; it stays until dismissed', async () => {
+    const t = await importText('{\n  "format": "pathfinder-maps",\n  "maps": [ , ]\n}')
+    try {
+      assert.ok(t, 'a toast')
+      assert.includes(t.textContent, 'That file is damaged near line 3.')
+      assert.includes(t.textContent, 'Maps, Export all maps (JSON)')
+      assert.ok(t.querySelector('.toast-action'), 'a Dismiss button: it waits to be read')
+    } finally { t?.remove() }
+  })
+
+  it('a file with no maps says which file to choose', async () => {
+    const t = await importText('{"format": "pathfinder-maps", "maps": []}')
+    try {
+      assert.includes(t.textContent, 'That file has no maps in it. Choose one saved with Maps, Export all maps (JSON).')
+    } finally { t?.remove() }
+  })
+})

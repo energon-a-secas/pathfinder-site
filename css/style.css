@@ -490,8 +490,11 @@
       font-family: var(--font); font-size: var(--text-xs);
       color: var(--text-muted);
       border-top: 1px dashed var(--border-subtle);
+      /* "Save this map as a template" (one name with the rail and Cmd+K)
+         can take two lines: they start at the icon, as a row's text does. */
+      text-align: start;
     }
-    .template-save svg { width: 14px; height: 14px; opacity: .7; }
+    .template-save svg { width: 14px; height: 14px; opacity: .7; flex: 0 0 auto; }
     .template-save:hover { color: var(--text-secondary); background: var(--surface-2); }
     .palette.collapsed .template-save span { display: none; }
     .palette.collapsed .template-save { justify-content: center; padding: 10px 4px; }
@@ -1575,7 +1578,6 @@
     .q-del:hover { color: var(--danger); }
 
 
-    .insp-delete-btn { margin-top: 18px; }
 
     /* Paste a reply or a review: patch preview */
     .patch-preview { margin-top: 8px; display: grid; gap: 4px; }
@@ -1748,9 +1750,6 @@
     .readonly-mode .insp-textarea,
     .readonly-mode .action-toggle,
     .readonly-mode #addQuestionBtn,
-    .readonly-mode .insp-delete-btn,
-    .readonly-mode #deleteMultiBtn,
-    .readonly-mode #deleteArrowBtn,
     .readonly-mode #arrowLabelInput,
     .readonly-mode #arrowNoteInput { pointer-events: none; opacity: 0.5; }
 
@@ -3612,14 +3611,8 @@ body.light-mode .canvas-hint svg { opacity: .2; }
 /* Tinted cards: muted description text fell under 4.5:1 on the tint. */
 .block[data-card="tint"] .block-desc { color: var(--text-secondary); }
 
-/* The palette rail (a narrow window, or the palette collapsed): a caption
-   under each section toggle, since a bare + or - read as zoom controls. */
-@media (max-width: 1024px) {
-  .palette .palette-section-toggle[data-rail] { flex-direction: column; gap: 2px; }
-  .palette .palette-section-toggle[data-rail]::after { content: attr(data-rail); font-size: var(--fs-11); line-height: 1.1; letter-spacing: .04em; }
-}
-.palette.collapsed .palette-section-toggle[data-rail] { flex-direction: column; gap: 2px; }
-.palette.collapsed .palette-section-toggle[data-rail]::after { content: attr(data-rail); font-size: var(--fs-11); line-height: 1.1; letter-spacing: .04em; }
+/* The palette rail's section heads are words or a labelled icon
+   ([recognition]); the old "Tpl" / "Types" captions are gone. */
 
 
 

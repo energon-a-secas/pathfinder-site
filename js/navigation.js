@@ -25,8 +25,6 @@ export const PAN_STEP = 60
 
 export const ARROW_DIRS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }
 const DIR_VEC = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }
-// A port's side, as the direction a new block grows in.
-export const PORT_DIR = { left: 'left', right: 'right', top: 'up', bottom: 'down' }
 
 // Space held: the next drag pans, wherever it starts (over cards too).
 export const nav = { spaceHeld: false }
@@ -320,7 +318,10 @@ export function quickCreateType(fromType) {
   return suggestedNextTypes(fromType)[0] || (Object.hasOwn(TYPES, fromType) ? fromType : 'goal')
 }
 
-/** Alt+Arrow, Cmd/Ctrl+Enter and a click on a port: one connected block, one undo step. */
+/**
+ * Alt+Arrow and Cmd/Ctrl+Enter: one connected block, one undo step. A click
+ * on a port asks for the type instead (openPortMenu in context-menu.js).
+ */
 export function createInDirection(fromId, dir) {
   const src = state.blocks[fromId]
   if (!src || ui.readOnly || !DIR_VEC[dir]) return null

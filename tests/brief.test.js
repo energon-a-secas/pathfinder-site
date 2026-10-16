@@ -12,7 +12,7 @@ import { SITUATION_DEFAULT } from '../js/utils.js'
 import { generatePrompt, generateScopedPrompt, briefScope, scopedGapText, estimateTokens, roundTokens,
          formatTokens, briefOutline, briefSectionCount, getPromptDiff, CHARS_PER_TOKEN, focusChecklist } from '../js/prompt.js'
 import { runGapDetection } from '../js/gaps.js'
-import { attentionModel } from '../js/attention.js'
+import { attentionModel, attentionBreakdown } from '../js/attention.js'
 import { briefHtml, briefInline } from '../js/brief-md.js'
 import { readiness, copiedSummary, renderBrief, setBriefScope, briefScopeNow,
          copyBrief, isCopyBriefKey, sizeNote, setFraming, followReplyPanel, wireSizeNote } from '../js/brief.js'
@@ -168,6 +168,17 @@ describe('brief: one readiness line, counted the way Attention counts', () => {
       { kind: 'criteria', type: 'metric', gap: 'gap-no-target' }, { kind: 'criteria', type: 'requirement', gap: 'gap-no-criteria' }, gap('implementation', 'gap-no-purpose')], accepted: [] })
     assert.eq(r2.text, '6 open items: 1 metric without a target, 2 requirements without criteria, 1 work item, 2 unconnected blocks.')
     assert.ok(!/\bgaps?\b/.test(r2.text), 'no bare "gaps" when the types are known')
+  })
+
+  // Integration (wave 4): CANVAS made a mostly unconnected map one finding;
+  // the readiness line says it the way the Attention badge does.
+  it('a mostly unconnected map is one item that says how many blocks, never a canvas check', () => {
+    const iso = { kind: 'canvas', finding: 'isolated', ids: Array.from({ length: 12 }, (_, i) => 'b' + i) }
+    const r = readiness({ items: [{ kind: 'question' }, iso, { kind: 'canvas', finding: 'cycle' }], accepted: [] })
+    assert.eq(r.text, '3 open items: 1 question, 1 item for the 12 blocks not connected yet, 1 canvas check.')
+    assert.eq(r.parts.reduce((n, p) => n + parseInt(p, 10), 0), r.open, 'the parts still add up to the count')
+    assert.eq(readiness({ items: [{ ...iso, ids: ['a'] }], accepted: [] }).text, '1 open item: 1 item for the block not connected yet.')
+    assert.includes(attentionBreakdown([iso]), '1 item for the 12 blocks not connected yet')
   })
 })
 
@@ -790,7 +801,9 @@ describe('brief: a view-only link shows the framing as values', () => {
 })
 
 describe('brief: every Copy says the same thing', () => {
-  it('File, Copy goes through the Brief tab\'s own Copy, for the whole map', () => {
+  // Integration (wave 4): READING made every Copy brief copy the Brief tab's
+  // scope; File's row names none, so it copies what the row says it does.
+  it('File, Copy goes through the Brief tab\'s own Copy, in the tab\'s scope', () => {
     const btn = document.createElement('button')
     btn.id = 'exportCopyPrompt'
     btn.style.display = 'none'
@@ -801,7 +814,7 @@ describe('brief: every Copy says the same thing', () => {
     try {
       setupExportDropdown()
       btn.click()
-      assert.deepEq(seen, [{ scope: 'map' }], 'one copy of the whole map, confirmed by the brief\'s toast')
+      assert.deepEq(seen, [{}], 'one copy, in the scope the row names, confirmed by the brief\'s toast')
     } finally { window.removeEventListener('pf:copy-brief', listen); btn.remove() }
   })
 })

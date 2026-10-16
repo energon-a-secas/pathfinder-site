@@ -96,7 +96,9 @@ The gap icons are not mandatory warnings. They are conversation starters: the ca
 
 Switch to the **Brief** tab in the right panel. The brief assembles all blocks in a structured hierarchy, appends the connection graph, flags any remaining gaps, and applies any prompt options you set (tone, detail level, acceptance criteria, security, TypeScript, etc.). It reads as a document, with a section outline and an estimate of its size.
 
-**Copy brief** (or `Cmd/Ctrl + Shift + C`) and paste it as the first message to any AI. You get focused output because the assistant doesn't have to guess at your constraints. With blocks selected, **Selection** hands over just them and the blocks connected to them, marked as partial.
+**Copy brief** (or `Cmd/Ctrl + Shift + C`) and paste it as the first message to any AI. You get focused output because the assistant doesn't have to guess at your constraints. With blocks selected, **Selection** hands over just them and the blocks connected to them, marked as partial; every Copy brief (the tab, the bar under the canvas, File, the shortcut) then copies the selection and says so.
+
+The right panel widens: drag its left edge, use the arrow keys on it, or click it for Default width, Wide or Widest. **Read**, in the bar above the brief, lends the panel the width that sets the brief at about 68 characters a line, and gives it back when you are done.
 
 ---
 
@@ -168,7 +170,7 @@ Badges are neutral chips: the icon and the word tell them apart, never a colour 
 
 | Action | How |
 |---|---|
-| Add block | Click any item in the palette, or right-click empty canvas |
+| Add block | Click any item in the palette, or right-click empty canvas. Folded to its rail, the palette shows each type's letter after `N` beside its dot and names it on hover or focus; on a phone, **Add** in the bar under the canvas lists the types and templates |
 | Add a connected block | Click a port or drop a port's line on empty canvas, then pick a type (Enter takes the first suggestion), or `Alt + Arrow` |
 | Move block | Drag the block body |
 | Select block | Click once |
@@ -208,11 +210,11 @@ Use the arrow keys and Enter to jump to a block, or Escape to close search.
 
 Selecting a block opens its properties in the right panel:
 
-- **Type**, **Status** and **⋯** (Duplicate, Delete) in one row at the top; the type is a dropdown grouped by the six steps
+- **Type**, **Status** and **⋯** in one row at the top: the type is a dropdown grouped by the six steps, and ⋯ (More) holds the block's menu without what the panel already shows (Duplicate, Change type, Delete and the rest); a selection and a connection have their own ⋯
 - **Title** and **Description**: also editable on the card itself
 - **Actions**: the toggles that fit the type: Resolve on a problem, Prepare on a risk, Validate on an assumption (Look back and Strengthen sit under Planning)
 - **Acceptance criteria**, or **Targets** on a metric: the block's definition of done
-- **Answer**, on an Open question card: writing one marks the question done, and the brief hands it over as an answer
+- **Answer**, on an Open question card, right under the title: writing one marks the question done, and the brief hands it over as an answer
 - **Suggestions**: the block's gap, a fix for it, and **Accept** for a gap you mean to keep
 - Closed until you open them: **Questions**, **Notes**, **Links and docs**, **Planning** (priority), and **Appearance** (colour, card style, border, highlight)
 
@@ -324,8 +326,11 @@ card takes its answer and is marked done, and a refuted assumption becomes a
 decision titled with what is true, never with the claim it disproved. Expand full before/after details and choose each
 operation independently. Accepting a connection includes its new endpoint blocks;
 excluding a new block excludes its connections. Apply the selection as one undo step.
-Duplicate new block IDs and ambiguous references are rejected; repeated arrows
-and criteria are deduplicated. If the canvas or active map changes after the
+Duplicate new block IDs and ambiguous references are rejected; repeated connections
+and criteria are deduplicated. A change to a block the last briefs you copied did
+not cover is labelled "outside the brief" and waits unticked. A reply, file or
+link that cannot be read says what is wrong and what to try, and stays until you
+dismiss it. If the canvas or active map changes after the
 preview, review the refreshed preview before applying. The prompt's change
 summary tracks answers, notes, criteria, status, connection text, and framing
 since the last copy.
@@ -358,6 +363,9 @@ are included. Shared views search only the shared map.
 
 **Attention** lists unanswered questions, unverified assumptions, blocked work,
 and missing acceptance criteria. Filter by issue and open a block to resolve it.
+A map that is mostly unconnected (a fresh paste of notes) is one item, "12 blocks
+are not connected yet", with a quiet marker on each card instead of an amber ring;
+the rings come back for the cards still alone once most of the map is connected.
 
 Select a connection and set its **Meaning**: comes before, depends on, blocks,
 informs, or related. Task checklists and cycle detection use this meaning.
@@ -406,8 +414,13 @@ pathfinder-site/
 │   ├── gaps.js             # Automatic gap detection
 │   ├── prompt.js           # The brief's sections
 │   ├── brief.js            # The Brief tab
+│   ├── panel-resize.js     # The right panel's width, and Read
+│   ├── palette.js          # The palette, its rail and the phone's Add
+│   ├── context-menu.js     # Right-click menus, More, a port's picker
+│   ├── keycaps.js          # The one key cap
 │   ├── command-palette.js  # Cmd/Ctrl + K
 │   ├── zoom-controls.js    # The camera, arrival, the minimap (minimap.js)
+│   ├── lod.js              # Card faces at small zoom (face-text.js)
 │   ├── ui-panels.js        # Export, search, prompt options
 │   └── utils.js            # Helpers
 ├── favicon.ico

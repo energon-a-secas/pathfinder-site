@@ -21,7 +21,7 @@ import { fitView } from './canvas.js'
 import { undo, redo, setSelection, selectBlock, renderInspector } from './render.js'
 import { createBlockAt, createConnected, suggestedNextTypes } from './create.js'
 import { typeDot, typeNoun, retypeBlocks } from './type-menu.js'
-import { selectionMenuItems } from './context-menu.js'
+import { selectionMenuItems, pasteAsBlocks } from './context-menu.js'
 import { fileMenuItems, shareMenuItems, tidyMenuItems, viewMenuItems, helpMenuItems, mapsMenuWithRename } from './view-menu.js'
 import { TEMPLATES, listUserTemplates } from './templates.js'
 import { openSearch, runTidy, TYPE_KEYS, PANEL_TABS, showPanelTab } from './ui-panels.js'
@@ -196,6 +196,7 @@ export const ICONS = {
   template: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/>'),
   palette:  svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10l3 2-3 2M12 14h5"/>'),
   copy:     svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>'),
+  paste:    svg('<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V3.5h6V5M9 11h6M9 15h4"/>'),
   panel:    svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>'),
 }
 
@@ -388,6 +389,10 @@ function actionRows(mapActions) {
   )
   rows.push({ id: 'cmd:select-all', label: 'Select all blocks', icon: ICONS.all, shortcut: MOD + 'A', meta: 'Canvas',
     disabled: !n, run: () => { const ids = Object.keys(state.blocks); setSelection(ids); announce(`${ids.length} ${ids.length === 1 ? 'block' : 'blocks'} selected`) } })
+  // The canvas menu's Paste as blocks (Cmd/Ctrl+V on the canvas): the
+  // dump lands at the centre of the view, as the Create rows do.
+  if (!ro) rows.push({ id: 'cmd:paste', label: 'Paste as blocks', icon: ICONS.paste, shortcut: MOD + 'V', meta: 'Canvas',
+    noRecent: true, run: () => pasteAsBlocks(centreWorld()) })
   if (!ro) {
     rows.push({ id: 'cmd:tidy', label: 'Tidy the map', icon: ICONS.tidy, shortcut: 'L', meta: 'Tidy',
       disabled: n < 2, hint: n < 2 ? 'Add at least two blocks first' : undefined, run: () => runTidy() })

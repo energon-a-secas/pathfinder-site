@@ -28,7 +28,7 @@ import { setVotingMode, refreshVotingBanner } from './voting.js'
 // imports above stay as other streams left them.
 import { blockDecorators } from './render.js'
 import { zoomIn, zoomOut, zoomTo, zoomAround, zoomToSelection, wheelZoomFactor } from './zoom-controls.js'
-import { ARROW_DIRS, PORT_DIR, readingOrder, nearestInDirection, currentBlockId, selectFromKeyboard,
+import { ARROW_DIRS, readingOrder, nearestInDirection, currentBlockId, selectFromKeyboard,
          focusableAfterCanvas, focusableBeforeCanvas, controlsBeforeCanvas, nudgeSelection, panBy, createInDirection,
          openQuickCreate, nav, isTyping, modalDialogOpen, canvasHasFocus, canvasZoomKeysApply, labelPorts,
          untabCardControls, isCameraHeld, revealShift, announce, announcer } from './navigation.js'

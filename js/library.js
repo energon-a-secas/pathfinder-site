@@ -29,6 +29,7 @@ import { state, ui, view, canvasMeta, promptState, saveState, saveHooks, storage
 import { applyTransform, renderArrows, renderFrames, updateHint } from './canvas.js'
 import { genId, showToast, shortDate, STORAGE_KEY } from './utils.js'
 import { applyImport } from './export.js'
+import { IMPORT_ERRORS, jsonErrorLine, showRefusal } from './interop.js'
 import { normalizeCanvas, normalizeArrow, schemaOf } from './normalize.js'
 import { searchBlocks } from './search.js'
 import { compareCanvases } from './comparison.js'
@@ -963,9 +964,15 @@ export function lastBackupAt(mapId = currentId()) {
 export function importMapsFile(file) {
   const reader = new FileReader()
   reader.onload = () => {
-    let added = 0
+    let added = 0, data
+    // A damaged file and a file with no maps in it are different refusals,
+    // each with its next step (interop.js IMPORT_ERRORS), and both stay on
+    // screen until dismissed, like every other import refusal.
+    try { data = JSON.parse(reader.result) } catch (err) {
+      showRefusal(IMPORT_ERRORS.mapsDamaged(jsonErrorLine(String(reader.result || ''), err)))
+      return
+    }
     try {
-      const data = JSON.parse(reader.result)
       // Accept the bundle format, or a single-canvas JSON as one new map.
       const maps = data && data.format === 'pathfinder-maps' && Array.isArray(data.maps)
         ? data.maps
@@ -986,7 +993,8 @@ export function importMapsFile(file) {
       })
       saveIndex(index)
     } catch (_) {}
-    showToast(added ? `Imported ${added} map${added === 1 ? '' : 's'} into the library` : 'That file has no maps in it', added ? 'success' : 'warning')
+    if (added) showToast(`Imported ${added} map${added === 1 ? '' : 's'} into the library`, 'success')
+    else showRefusal(IMPORT_ERRORS.noMaps())
   }
   reader.readAsText(file)
 }

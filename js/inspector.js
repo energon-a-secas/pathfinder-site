@@ -23,8 +23,7 @@ import { $, TYPES, SWATCH_COLORS, SWATCH_NAMES,
 import { renderFrames, arrowRoute, arrowPattern, ARROW_ROUTES } from './canvas.js'
 import { ROUTE_NAMES, PATTERN_NAMES, WEIGHT_NAMES, WEIGHTS, DIRECTION_NAMES, DRAWN_WEIGHT_HINT, drawnWeight,
          weightName, meaningName, portsValue, routeName, patternName, directionName, colourName as lineColourName } from './connection-words.js'
-import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow,
-         deleteBlock, deleteArrow, duplicateBlock, deleteBlocksBatch, createGroup, deleteGroup } from './render.js'
+import { renderBlock, selectBlock, mutateBlock, mutateBlocks, mutateArrow, createGroup, deleteGroup } from './render.js'
 import { applyGapFix } from './create.js'
 import { GAP_META, getGapFixes, acceptGap, unacceptGap } from './gaps.js'
 import { askQuestion, openDocPopup, detectSeeReference } from './doc-panel.js'
@@ -777,7 +776,6 @@ function renderMultiInspector(ids) {
     spotBtn.setAttribute('aria-pressed', canvasMeta.spotlight ? 'true' : 'false')
   }
   setHidden(byId('multiArrangeRow'), ro)
-  setHidden(byId('deleteMultiBtn'), ro)
   const distribute = byId('multiDistributeBtn')
   if (distribute) distribute.disabled = ids.length < 3
   if (distribute) distribute.title = ids.length < 3 ? 'Needs three or more blocks' : ''
@@ -869,7 +867,6 @@ function renderArrowInspector(a) {
   })
   setText('arrowPortsHint', portsValue(a))
   setHidden(byId('arrowAdvanced'), ro)
-  setHidden(byId('deleteArrowBtn'), ro)
 
   if (isNew) {
     const root = $.inspectorArrow()
@@ -1277,13 +1274,6 @@ export function setupInspectorEvents() {
     debouncedSave()
   })
   on('frameLabelInput', 'change', resetSnapshotToken)
-  on('deleteMultiBtn', 'click', () => {
-    if (ui.readOnly) return
-    const hadFocus = document.activeElement === byId('deleteMultiBtn')
-    deleteBlocksBatch([...selection.ids])
-    // The button went with the selection: the canvas keeps the keyboard.
-    if (hadFocus) $.canvasViewport()?.focus({ preventScroll: true })
-  })
 
   // ── One connection ──
   // Arrow edits go through mutateArrow, so each one is an undo step. Text
@@ -1401,12 +1391,6 @@ export function setupInspectorEvents() {
   on('arrowAutoRoute', 'click', () => {
     const a = selectedArrow(); if (!a || ui.readOnly) return
     mutateArrow(a.id, { fromPort: null, toPort: null })
-  })
-  on('deleteArrowBtn', 'click', () => {
-    if (!selection.arrowId || ui.readOnly) return
-    const hadFocus = document.activeElement === byId('deleteArrowBtn')
-    deleteArrow(selection.arrowId)
-    if (hadFocus) $.canvasViewport()?.focus({ preventScroll: true })
   })
 
   // The panel follows the canvas. The context menu, the type check on a

@@ -109,12 +109,13 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1)
 /**
  * The menu rows a refusal names, spelled as the menus spell them, in one
  * place: a renamed row is renamed here once, and tests/reading.test.js
- * fails while any of these is not in the page's menus.
+ * fails while any of these is not in the page's menus. A row inside one of
+ * File's submenus names the submenu too (File, Export, Download JSON).
  */
 export const ROWS = {
   importFile: 'File, Import JSON / Canvas / Mermaid',
-  downloadJson: 'File, Download JSON',
-  downloadMarkdown: 'File, Download Markdown',
+  downloadJson: 'File, Export, Download JSON',
+  downloadMarkdown: 'File, Export, Download Markdown',
   copyLink: 'Share, Copy link',
   importMaps: 'Maps, Import maps (JSON)',
   exportAllMaps: 'Maps, Export all maps (JSON)',

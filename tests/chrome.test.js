@@ -1182,6 +1182,39 @@ describe('chrome -- QA round', () => {
     }
   })
 
+  // Integration (wave 4): CANVAS steps the minimap aside to the bottom left
+  // when the work is under its corner; the toast then takes the room right
+  // of it, and a faded minimap is no obstacle.
+  it('a toast keeps clear of a minimap that stepped aside to the left', () => {
+    const bar = document.createElement('div')
+    bar.className = 'canvas-statusbar'
+    bar.style.cssText = 'position:fixed;left:300px;top:700px;width:800px;height:44px'
+    const theirs = document.getElementById('minimap')
+    const map = document.createElement('div')
+    map.id = 'minimap'
+    map.className = 'is-aside'
+    map.style.cssText = 'position:fixed;left:312px;top:588px;width:160px;height:100px'
+    if (theirs) theirs.id = 'minimap-parked'
+    document.body.append(bar, map)
+    try {
+      showToast('A long message about the map that was just arranged left to right', 'success', 50)
+      const t = document.querySelector('.toast-notification')
+      const tr = t.getBoundingClientRect(), mr = map.getBoundingClientRect()
+      assert.ok(tr.left >= mr.right + 8, `right of the minimap (${Math.round(tr.left)} vs ${Math.round(mr.right)})`)
+      assert.ok(tr.right <= 1100, 'still over the canvas')
+      assert.ok(Math.abs((tr.left + tr.right) / 2 - (mr.right + 12 + 1100) / 2) <= 1, 'centred in the room right of it')
+      t.remove()
+      map.classList.add('is-faded')
+      showToast('Faded minimap', 'info', 50)
+      const u = document.querySelector('.toast-notification').getBoundingClientRect()
+      assert.ok(Math.abs((u.left + u.right) / 2 - 700) <= 1, 'a faded minimap leaves the toast centred on the canvas')
+      document.querySelector('.toast-notification').remove()
+    } finally {
+      bar.remove(); map.remove()
+      if (theirs) theirs.id = 'minimap'
+    }
+  })
+
   it('a long map title ellipsizes instead of growing the header, and keeps its full text as a tooltip', async () => {
     const long = 'Quarterly reporting, delivery lifecycle and every status note across the portfolio'
     for (const width of [800, 1024]) {

@@ -93,16 +93,8 @@ export function attentionModel(blocks, arrows = null, { groups = {} } = {}) {
 }
 
 /**
- * What the open items are, in words: the gaps marked on the map first (the
- * cards with the amber ring), then what is open without a mark (questions,
- * assumptions, blocked work, canvas checks). The badge counts all of them,
- * and its name says so, so "Attention 4" beside one ringed card is explained.
- */
-/**
- * The isolation finding in words, for any line that counts the open items
- * ("12 blocks not connected yet"), or '' when the map has none. The Brief's
- * readiness line should say this rather than count the finding as a canvas
- * check.
+ * The isolation finding in words ("12 blocks not connected yet"), or '' when
+ * the map has none.
  */
 export function isolationWords(items = []) {
   const iso = items.find(i => i.kind === 'canvas' && i.finding === 'isolated')
@@ -111,6 +103,24 @@ export function isolationWords(items = []) {
   return `${n} ${n === 1 ? 'block' : 'blocks'} not connected yet`
 }
 
+/**
+ * The isolation finding as one of the open items ("1 item for the 12 blocks
+ * not connected yet"), or ''. The Attention badge's tooltip and the Brief's
+ * readiness line both say it this way, so the two never disagree and the
+ * finding is never counted as a canvas check.
+ */
+export function isolationItemWords(items = []) {
+  const iso = items.find(i => i.kind === 'canvas' && i.finding === 'isolated')
+  if (!iso) return ''
+  return `1 item for the ${iso.ids.length === 1 ? 'block not connected yet' : isolationWords(items)}`
+}
+
+/**
+ * What the open items are, in words: the gaps marked on the map first (the
+ * cards with the amber ring), then what is open without a mark (questions,
+ * assumptions, blocked work, canvas checks). The badge counts all of them,
+ * and its name says so, so "Attention 4" beside one ringed card is explained.
+ */
 export function attentionBreakdown(items) {
   const n = (...kinds) => items.filter(i => kinds.includes(i.kind)).length
   const say = (count, one, many = one + 's') => count ? `${count} ${count === 1 ? one : many}` : ''
@@ -119,7 +129,7 @@ export function attentionBreakdown(items) {
   const iso = items.find(i => i.kind === 'canvas' && i.finding === 'isolated')
   return [
     say(n('gap', 'criteria'), 'gap marked on the map', 'gaps marked on the map'),
-    iso ? `1 item for the ${iso.ids.length === 1 ? 'block not connected yet' : isolationWords(items)}` : '',
+    isolationItemWords(items),
     say(n('question'), 'unanswered question'),
     say(n('assumption'), 'unverified assumption'),
     n('blocked') ? `${n('blocked')} blocked` : '',

@@ -893,9 +893,11 @@ export function setupQuickCopy() {
 export function setupExportDropdown() {
   const on = (id, fn) => document.getElementById(id)?.addEventListener('click', fn)
 
-  // The whole map's brief, through the Brief tab's own Copy (js/brief.js),
-  // so File says what went the same way the tab and the status bar do.
-  on('exportCopyPrompt', () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: { scope: 'map' } })))
+  // The brief in the Brief tab's scope, through the tab's own Copy
+  // (js/brief.js, copyRequest): no scope named, so it copies what the row
+  // says it copies ("Copy brief", or "Copy brief for the selection"), and
+  // File says what went the same way the tab and the status bar do.
+  on('exportCopyPrompt', () => window.dispatchEvent(new CustomEvent('pf:copy-brief', { detail: {} })))
 
   on('copyDiagramInstructions', () => {
     copyText(DIAGRAM_BUILDER_PROMPT).then(ok => {

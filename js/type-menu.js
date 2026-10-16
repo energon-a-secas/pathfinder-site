@@ -113,7 +113,9 @@ export function retypeBlocks(ids, t = null) {
 
 // ── The foot of a type list ──────────────────────────────────
 
-const NOTE_PROMPT = 'Point at a type to see when to use it.'
+// Any way of reaching a row (a pointer, the arrow keys, a tap that marks
+// it) shows its line, so the prompt names none of them.
+const NOTE_PROMPT = 'Move to a type to see when to use it.'
 
 /**
  * Every line that tells confusable types apart, plus what a newer version
