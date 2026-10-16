@@ -2217,7 +2217,7 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation: none !important;
-        transition-duration: 0.01ms !important;
+        transition: none !important;
         scroll-behavior: auto !important;
       }
     }
