@@ -32,7 +32,8 @@ dev:
 	@python3 -c "import http.server; \
 	H = type('H', (http.server.SimpleHTTPRequestHandler,), \
 	  {'end_headers': lambda s: (s.send_header('Cache-Control','no-store, max-age=0'), http.server.SimpleHTTPRequestHandler.end_headers(s))}); \
-	http.server.ThreadingHTTPServer(('', $(PORT)), H).serve_forever()"
+	S = type('S', (http.server.ThreadingHTTPServer,), {'request_queue_size': 256, 'daemon_threads': True}); \
+	S(('', $(PORT)), H).serve_forever()"
 
 # ── Kill ──────────────────────────────────────────────────────────────────────
 .PHONY: kill
