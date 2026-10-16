@@ -504,6 +504,10 @@ export function renderBrief() {
 export function syncBriefGutter() {
   const pane = byId('promptPane'), doc = byId('briefDoc')
   if (!pane || !doc) return 0
+  // Hidden (open Framing takes its place on a short window), the brief has
+  // no scrollbar to measure: keep the last width, so the rows around it do
+  // not move 5px each time Framing opens.
+  if (!doc.offsetWidth) return parseFloat(pane.style.getPropertyValue('--brief-gutter')) || 0
   const cs = getComputedStyle(doc)
   const g = Math.max(0, Math.round(doc.offsetWidth - doc.clientWidth -
     (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0)))

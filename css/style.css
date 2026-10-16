@@ -6053,7 +6053,22 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
      the whole and arranging it; connect there with C or Connect to. */
 .canvas-root.lod-pill .block:not(.selected) .port,
 .canvas-root.lod-dot .block .port { pointer-events: none; }
-.canvas-root.lod-pill .block.selected .port { --port-in: 0px; --port-hit: calc(12 * var(--sp, 1px)); }
+.canvas-root.lod-pill .block.selected .port { --port-in: 0px; --port-hit: calc(8 * var(--sp, 1px)); }
+/* Only that outside strip takes the press: the dot itself straddles the
+   edge, and a press 1 to 3px inside the card opened the picker. The strip
+   reaches 8px, under the 10px Tidy leaves between cards at 25%. */
+.canvas-root.lod-pill .block.selected .port { pointer-events: none; }
+.canvas-root.lod-pill .block.selected .port::before { pointer-events: auto; }
+/* Below full detail a frame's name sits above the frame's top edge, where
+   a card in the row above could cover it (it could not be grabbed from 10
+   to 25%), and a selected card's port strip could reach it. It draws over
+   both, on a backdrop in the canvas colour, under a hovered card's tip. */
+.canvas-root:is(.lod-title, .lod-pill, .lod-dot) .frame-label:not([contenteditable="true"]) {
+  z-index: 25;
+  background: var(--canvas);
+  padding: 0 3px;
+  border-radius: var(--radius-sm);
+}
 /* Below the title band the gap badge is a mark, not a target: held at 14px
    on screen it lay over the card above, and a click on that card selected
    the one below. Its name still shows while its own card is hovered. */
@@ -6078,6 +6093,9 @@ body:not(.readonly-mode) .block.selected.desc-caption-off:not(.collapsed) .block
   #promptPane.framing-open .brief-framing { flex: 1 1 auto; }
   /* Closed, the brief's 240px floor plus the reply row overflowed the
      panel (36px at 640px of height, 166px at 560px); it scrolls inside
-     its own floor of 120px instead. */
+     its own floor of 120px instead, 64px under 600px of height. */
   .brief-doc { min-height: 120px; }
+}
+@media (max-height: 600px) {
+  .brief-doc { min-height: 64px; }
 }

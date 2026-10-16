@@ -723,6 +723,25 @@ function unmountPanel() {
 }
 const longBrief = () => Array.from({ length: 40 }, (_, i) => `<p>Paragraph ${i} of the brief, with enough words to wrap across the column and make it scroll in its own box.</p>`).join('')
 
+describe('qa4b: the Brief\'s gutter holds while the brief is hidden', () => {
+  it('syncBriefGutter keeps the last scrollbar width when open Framing hides the brief', async () => {
+    const pane = await mountPanel(400)
+    try {
+      pane.classList.add('active')
+      byId('promptOutput').innerHTML = longBrief()
+      await frame()
+      // A known width, as a scrollbar that takes room leaves it (an overlay
+      // scrollbar, Firefox's, takes none).
+      pane.style.setProperty('--brief-gutter', '7px')
+      const g = 7
+      byId('briefDoc').style.display = 'none'
+      assert.eq(syncBriefGutter(), g, 'hidden, it reports the last width')
+      assert.eq(pane.style.getPropertyValue('--brief-gutter'), g + 'px', 'and the rows keep their right edge')
+      byId('briefDoc').style.display = ''
+    } finally { unmountPanel() }
+  })
+})
+
 describe('qa4b: the Brief\'s rows end where its text does, scrollbar or not', () => {
   it('the reply row and the head keep to the text column on a panel narrower than it', async () => {
     const pane = await mountPanel(400)

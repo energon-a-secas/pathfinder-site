@@ -131,8 +131,10 @@ describe('decisions: the dot band stays usable at the 10% floor', () => {
     try {
       pill.root.querySelectorAll('#a .port').forEach(p => assert.eq(pe(p), 'none', 'pill band: an unselected card\'s ports take no press'))
       const sel = pill.root.querySelector('#b .port')
-      assert.ok(pe(sel) !== 'none', 'pill band: the selected card still connects')
-      assert.eq(parseFloat(getComputedStyle(sel).getPropertyValue('--port-in')), 0, 'its target starts at the card\'s edge')
+      assert.eq(pe(sel), 'none', 'pill band: the selected card\'s dot itself takes no press (it straddles the edge)')
+      assert.eq(getComputedStyle(sel, '::before').pointerEvents, 'auto', 'its outside strip does: the selected card still connects')
+      assert.eq(parseFloat(getComputedStyle(sel).getPropertyValue('--port-in')), 0, 'the strip starts at the card\'s edge')
+      assert.ok(/\b8\s*\*/.test(getComputedStyle(sel).getPropertyValue('--port-hit')), 'and reaches 8px, under the 10px Tidy leaves at 25%')
       assert.eq(pe(pill.root.querySelector('.block-gap-icons')), 'none', 'pill band: the gap badge is a mark')
     } finally { pill.done() }
     for (const band of ['lod-title', 'lod-full']) {
@@ -174,6 +176,19 @@ describe('decisions: the dot band stays usable at the 10% floor', () => {
   })
 })
 
+describe('decisions: a frame\'s name stays on top below full detail', () => {
+  it('draws above the cards and their ports, on the canvas colour, from the title band down', async () => {
+    for (const band of ['lod-title', 'lod-pill', 'lod-dot']) {
+      const { root, done } = await shadow(`<div class="canvas-root ${band}"><div class="frame" style="left:0;top:40px;width:200px;height:100px"><div class="frame-label">Risk frame</div></div></div>`)
+      try {
+        const cs = getComputedStyle(root.querySelector('.frame-label'))
+        assert.ok(parseInt(cs.zIndex, 10) > 20, `${band}: z-index ${cs.zIndex}, over a port's 20`)
+        assert.ok(cs.backgroundColor !== 'rgba(0, 0, 0, 0)', `${band}: a backdrop, so a card under it does not show through`)
+      } finally { done() }
+    }
+  })
+})
+
 describe('decisions: Framing on every window', () => {
   const paneFrame = async (height, pane) => {
     const frame = document.createElement('iframe')
@@ -195,18 +210,42 @@ describe('decisions: Framing on every window', () => {
       assert.eq(w.getComputedStyle(f).minHeight, '68px')
     } finally { frame.remove() }
   })
-  it('on a short window the closed brief keeps a 120px floor, so the panel does not overflow', async () => {
+  it('on a short window the closed brief\'s floor drops (120px under 700px of height, 64px under 600px)', async () => {
     const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
-    for (const [height, short] of [[600, true], [900, false]]) {
+    for (const [height, want] of [[650, '120px'], [580, '64px'], [900, null]]) {
       const frame = await paneFrame(height, pane)
       try {
         const d = frame.contentDocument
         d.getElementById('promptPane').classList.remove('framing-open')
         d.getElementById('briefFraming').hidden = true
         const floor = frame.contentWindow.getComputedStyle(d.getElementById('briefDoc')).minHeight
-        assert.eq(floor === '120px', short, `${height}px window: the brief's floor is ${floor}`)
+        if (want) assert.eq(floor, want, `${height}px window`)
+        else assert.ok(!['120px', '64px'].includes(floor), `${height}px window keeps the tall floor (${floor})`)
       } finally { frame.remove() }
     }
+  })
+  it('a 1024 by 560 window: with Framing closed the panel does not overflow', async () => {
+    const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
+    const frame = document.createElement('iframe')
+    frame.style.cssText = 'position:fixed;left:-5000px;top:0;width:1024px;height:560px;border:0'
+    // The right panel as a 1024 by 560 window lays it out: 274px wide, 411px for its content.
+    frame.srcdoc = `<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/style.css"></head><body>` +
+      `<aside class="right-panel" style="position:absolute;right:0;top:0;width:274px;height:411px;display:flex;flex-direction:column">` +
+      `<div class="panel-content" id="pc" style="flex:1;min-height:0;overflow-y:auto">${pane}</div></aside></body></html>`
+    const loaded = new Promise(res => frame.addEventListener('load', res, { once: true }))
+    document.body.appendChild(frame)
+    await loaded
+    try {
+      const d = frame.contentDocument
+      d.getElementById('promptPane').classList.add('active')
+      d.getElementById('modeDesc').textContent = 'Establish what is true first: evidence for each finding, unknowns left marked as unknown.'
+      d.getElementById('briefReady').hidden = false
+      d.getElementById('briefReadyText').innerHTML = '<strong>4 open items</strong>: 2 unanswered questions, 2 unverified assumptions.'
+      d.getElementById('briefFramingSummary').textContent = 'This repo, in Claude Code, read the code first; 3 boundaries, context'
+      await new Promise(r => frame.contentWindow.requestAnimationFrame(() => r()))
+      const pc = d.getElementById('pc')
+      assert.ok(pc.scrollHeight <= pc.clientHeight + 1, `content ${pc.scrollHeight}px in ${pc.clientHeight}px`)
+    } finally { frame.remove() }
   })
   it('on a short window Framing takes the brief\'s place; on a tall one the brief stays below it', async () => {
     const pane = (await docOf('index.html')).getElementById('promptPane').outerHTML
