@@ -80,6 +80,15 @@ export function payloadFor(key) {
   return tpl ? templateToPayload(tpl) : null
 }
 
+// Each map's size, counted from the payload its button opens, so a template
+// edited later cannot leave a stale number beside it. The page names the mode.
+document.querySelectorAll('.ex-actions').forEach(row => {
+  const meta = row.querySelector('.ex-meta')
+  const key = row.querySelector('[data-example]')?.dataset.example
+  const payload = meta && key ? payloadFor(key) : null
+  if (payload) meta.textContent = `${Object.keys(payload.blocks).length} blocks, ${meta.textContent.trim()}`
+})
+
 document.querySelectorAll('[data-example]').forEach(btn => {
   btn.addEventListener('click', () => {
     try {

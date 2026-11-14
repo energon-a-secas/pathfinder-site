@@ -667,13 +667,16 @@ describe('frontdoor: the examples gallery', () => {
     assert.deepEq(keys, EXAMPLES.map(e => e.key))
     keys.forEach(k => assert.ok(payloadFor(k), `${k} has a payload`))
     assert.eq(payloadFor('nothing'), null)
-    // The count is the sections shown: four maps, and the blank bug template as a link.
-    assert.eq(doc.querySelector('main h1').textContent.trim(), 'Four finished maps to start from')
+    // The heading types no count; the sections are what the page shows: four
+    // maps, and the blank bug template as a link.
+    assert.eq(doc.querySelector('main h1').textContent.trim(), 'Finished maps to start from')
     assert.eq(doc.querySelectorAll('section.ex').length, 4)
     assert.ok(!doc.querySelector('.doc-kicker'), 'no eyebrow')
     const buttons = [...doc.querySelectorAll('.ex-actions [data-example]')]
     assert.eq(buttons.length, 4)
     buttons.forEach(b => assert.eq(b.textContent.trim(), 'Open this map'))
+    // examples-page.js counts each map's blocks from the payload it opens.
+    doc.querySelectorAll('.ex-meta').forEach(m => assert.ok(!/\d/.test(m.textContent), `typed size: ${m.textContent}`))
   })
 
   it('each pictured map has both pictures, whole and as a detail, and an excerpt of its brief', async () => {
@@ -765,9 +768,11 @@ describe('frontdoor: the examples gallery', () => {
     })
   }
 
-  it('the meta says four maps, as the page shows, and describes the share card', async () => {
+  it('the meta names the maps without a typed count, and describes the share card', async () => {
     const doc = parse(await fetchText('../examples.html'))
-    assert.match(doc.querySelector('meta[name="description"]').content, /^Four finished/)
+    const description = doc.querySelector('meta[name="description"]').content
+    assert.match(description, /^Finished Pathfinder maps/)
+    assert.ok(!/\b(Four|Five|\d+) (finished )?maps\b/i.test(description), 'no typed count of the maps')
     assert.ok(!/Five|validating/.test(doc.querySelector('meta[property="og:description"]').content))
   })
 })

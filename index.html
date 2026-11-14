@@ -220,11 +220,10 @@
     <!-- Empty state hint -->
     <div class="canvas-hint" id="canvasHint">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h2.5a2 2 0 0 1 2 2v5"/></svg>
-      <!-- Shown when the canvas is empty and the start panel is not: today
-           that is a view-only link, so each view says only what it can do. -->
+      <!-- Shown only where the start panel cannot be (a view-only link or an
+           embed, canvas.js updateHint), so it says only what that view can do.
+           The start panel teaches editing. -->
       <p class="canvas-hint-view">This map is empty.</p>
-      <p class="canvas-hint-edit">Double-click empty canvas to add a block, or drag one in from the palette.<br>
-        Double-click a card to edit it; click a dot on its edge to add the next block.</p>
     </div>
 
     <!-- Start panel: the first-run empty state (js/start-panel.js). It goes
@@ -265,7 +264,7 @@
           </button>
           <button type="button" class="start-opt" id="startSampleBtn" aria-keyshortcuts="3">
             <svg class="start-opt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.3 7.2l7.4 3.6M8.3 16.8l7.4-3.6"/></svg>
-            <span class="start-opt-text"><span class="start-opt-title">Open the sample map</span><span class="start-opt-desc" id="startSampleDesc">A finished bug investigation: 12 blocks</span></span>
+            <span class="start-opt-text"><span class="start-opt-title">Open the sample map</span><span class="start-opt-desc" id="startSampleDesc">A finished bug investigation</span></span>
             <kbd class="start-key" aria-hidden="true">3</kbd>
           </button>
         </div>

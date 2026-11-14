@@ -884,12 +884,13 @@ describe('recognition: the walkthrough has a step index', () => {
 })
 
 describe('recognition: the examples show whole maps, and read', () => {
-  it('the count in the heading is the number of maps shown', async () => {
+  it('the heading and the meta type no count: every map is on the page below them', async () => {
     const doc = parse(await fetchText('../examples.html'))
-    const words = { two: 2, three: 3, four: 4, five: 5, six: 6 }
-    const said = words[doc.querySelector('main h1').textContent.trim().split(/\s+/)[0].toLowerCase()]
-    assert.eq(said, doc.querySelectorAll('section.ex').length)
-    assert.eq(words[doc.querySelector('meta[name="description"]').content.split(/\s+/)[0].toLowerCase()], said)
+    const count = /\b(two|three|four|five|six|seven|eight|nine|ten|\d+)\b/i
+    assert.ok(!count.test(doc.querySelector('main h1').textContent), 'the heading')
+    for (const sel of ['meta[name="description"]', 'meta[property="og:description"]']) {
+      assert.ok(!count.test(doc.querySelector(sel).content), sel)
+    }
   })
 
   for (const W of [1440, 390]) {

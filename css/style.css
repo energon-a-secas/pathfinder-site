@@ -3546,12 +3546,9 @@ body.light-mode .block[data-card="header"] .block-collapsed-mark { color: var(--
 /* The type-check menu is narrow, so its notes wrap at the menu's width. */
 .type-check-menu .type-menu-notes { max-width: 300px; }
 
-/* The canvas hint only shows when the Brain Dump cannot (a view-only link),
-   so each variant says only what that view can do. */
+/* The canvas hint only shows when the start panel cannot (a view-only link
+   or an embed), so it says only what that view can do. */
 .canvas-hint p { margin: 0; }
-.canvas-hint-view { display: none; }
-.readonly-mode .canvas-hint-view { display: block; }
-.readonly-mode .canvas-hint-edit { display: none; }
 body.light-mode .canvas-hint { color: var(--text-secondary); }
 body.light-mode .canvas-hint svg { opacity: .2; }
 

@@ -826,13 +826,15 @@ describe('cards -- palette grouped by step', () => {
 // ── Empty state copy ────────────────────────────────────────
 
 describe('cards -- empty state', () => {
-  it('the hint says only what each view can do', async () => {
+  it('the hint says only what a view-only map can do', async () => {
     const html = await (await fetch('../index.html')).text()
     const doc = new DOMParser().parseFromString(html, 'text/html')
     const hint = doc.getElementById('canvasHint')
-    assert.includes(hint.querySelector('.canvas-hint-edit').textContent, 'Double-click empty canvas to add a block')
-    assert.includes(hint.querySelector('.canvas-hint-edit').textContent, 'Double-click a card to edit it')
-    assert.ok(!/arrow keys|Fit view/i.test(hint.textContent), 'no promise the app does not keep')
+    // updateHint shows it only where the start panel cannot be (a view-only
+    // link or an embed), so it carries no editing instructions at all.
+    assert.eq(hint.querySelector('.canvas-hint-view').textContent.trim(), 'This map is empty.')
+    assert.ok(!hint.querySelector('.canvas-hint-edit'), 'no editing hint where nothing can be edited')
+    assert.ok(!/double-click|drag|arrow keys|Fit view/i.test(hint.textContent), 'no promise the app does not keep')
     assert.ok(doc.querySelector('#brainDump #startFirstBlocks .start-pill'), 'the first-block pills sit in the start panel')
     assert.eq(doc.querySelectorAll('#blocksList .palette-item').length, 0, 'the palette rows come from the registry')
 
@@ -840,9 +842,6 @@ describe('cards -- empty state', () => {
     try {
       s.page.innerHTML = hint.outerHTML
       assert.eq(getComputedStyle(s.page.querySelector('.canvas-hint-view')).display, 'block')
-      assert.eq(getComputedStyle(s.page.querySelector('.canvas-hint-edit')).display, 'none')
-      s.page.classList.remove('readonly-mode')
-      assert.eq(getComputedStyle(s.page.querySelector('.canvas-hint-view')).display, 'none')
     } finally { s.done() }
   })
 })
