@@ -53,6 +53,7 @@
   <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/header/season.css">
   <script defer src="js/neorgon-header.js"></script>
   <meta name="neo-repo" content="energon-a-secas/pathfinder-site">
+  <meta name="neo-category" content="planning">
   <link rel="stylesheet" href="css/neorgon-footer.css">
   <script defer src="js/neorgon-footer.js"></script>
 </head>
@@ -971,7 +972,21 @@
      layout, the footer takes its natural slot at the bottom of the flex. -->
 <!-- No copy of its own: where maps live is said once, by the start panel
      and the status bar's save state (QA3); the kit's bar carries the links. -->
-<footer class="neo-footer" data-footer-mode="app" data-stick="off" data-fin="off"></footer>
+<footer class="neo-footer" data-footer-mode="app" data-stick="off" data-fin="off">
+  <!-- neo-fleet:more -->
+  <nav class="neo-more" aria-label="More in Planning" data-category="planning" data-label-en="Planning" data-label-es="Planificar">
+    <span class="neo-more__label" aria-hidden="true"><svg class="neo-more__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M7.5 15.5h9"/><circle cx="7.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="16.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg><span class="neo-more__title">More in Planning</span></span>
+    <ul class="neo-more__list">
+      <li><a href="https://rama.neorgon.com/">Rama</a></li>
+      <li><a href="https://reparto.neorgon.com/">Reparto</a></li>
+      <li><a href="https://loadout.neorgon.com/">Loadout</a></li>
+      <li><a href="https://floorplan.neorgon.com/">Floorplan</a></li>
+      <li><a href="https://clientsays.neorgon.com/">Client Says</a></li>
+      <li><a class="neo-more__all" href="https://neorgon.com/planning/">All Planning tools</a></li>
+    </ul>
+  </nav>
+  <!-- /neo-fleet:more -->
+</footer>
 
 <script type="module" src="js/app.js"></script>
 </body>
